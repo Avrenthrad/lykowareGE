@@ -1,5 +1,8 @@
 # lykowareGE
 
+**[Build checklist — track module progress here](CHECKLIST.md)**  
+Current focus: Module 01 — Development foundation. Creative design will evolve alongside development.
+
 A Windows-first 3D game engine being developed incrementally as a reusable foundation for future games.
 
 ## Project direction
