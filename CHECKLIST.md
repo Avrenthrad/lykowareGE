@@ -15,12 +15,14 @@ This is the living project checklist. Mark an item complete only after its imple
 - [ ] Decide single-player versus eventual multiplayer before substantial gameplay/world-state architecture. If multiplayer is chosen, add networking tasks throughout the modules below.
 
 ## Module 01 — Development foundation
-- [ ] Set up C++ and CMake.
-- [ ] Separate engine and sample-game targets.
-- [ ] Select and pin initial dependency versions.
-- [ ] Add logging and useful startup/error reporting.
-- [ ] Document Windows prerequisites and build commands.
-- [ ] Add automated Windows builds.
+Local validation: GCC 14.2, CMake 3.31.6, Ninja 1.11.1; build, CTest smoke checks, and staged executable passed on Linux. Windows verification awaits [CI](https://github.com/Avrenthrad/lykowareGE/actions/workflows/build.yml).
+
+- [x] Set up C++ and CMake.
+- [x] Separate engine and sample-game targets.
+- [x] Select and pin initial dependency versions. Module 01 uses only the C++ standard library; CI actions are pinned. See [build notes](docs/BUILDING.md).
+- [x] Add logging and useful startup/error reporting.
+- [x] Document Windows prerequisites and build commands.
+- [x] Add automated Windows builds.
 - [ ] Verify a clean checkout builds and runs on Windows.
 
 ## Module 02 — Application and input

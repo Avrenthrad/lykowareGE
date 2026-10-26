@@ -18,7 +18,11 @@ Windows is the initial desktop target. Each milestone should produce something u
 
 ## Current status
 
-Planning stage. This repository records the project direction; no engine implementation or playable build exists yet.
+Module 01 foundation: C++20/CMake engine library, separate sandbox console executable, logging, startup checks, and Windows/Linux build automation. No window, renderer, or playable game exists yet.
+
+**[Build and run instructions](docs/BUILDING.md)**
+
+Windows verification is tracked in [the checklist](CHECKLIST.md) and [GitHub Actions](https://github.com/Avrenthrad/lykowareGE/actions).
 
 ## First playable milestone
 
@@ -76,4 +80,4 @@ Use established libraries for substantial low-level systems while owning the eng
 
 ## Next implementation step
 
-Set up the C++/CMake foundation and a minimal Windows application, then work toward the first playable milestone.
+Verify the foundation on Windows, then begin Module 02: window, application lifecycle, timing, and input.
