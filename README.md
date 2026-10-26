@@ -1,7 +1,7 @@
 # lykowareGE
 
 **[Build checklist — track module progress here](CHECKLIST.md)**  
-Current focus: Module 01 — Development foundation. Creative design will evolve alongside development.
+Module 01 complete. Next focus: Module 02 — Application and input. Creative design will evolve alongside development.
 
 A Windows-first 3D game engine being developed incrementally as a reusable foundation for future games.
 
@@ -22,7 +22,7 @@ Module 01 foundation: C++20/CMake engine library, separate sandbox console execu
 
 **[Build and run instructions](docs/BUILDING.md)**
 
-Windows verification is tracked in [the checklist](CHECKLIST.md) and [GitHub Actions](https://github.com/Avrenthrad/lykowareGE/actions).
+Windows Debug/Release builds, smoke tests, and staged execution passed alongside Linux validation: [successful foundation build](https://github.com/Avrenthrad/lykowareGE/actions/runs/40265394221).
 
 ## First playable milestone
 
@@ -80,4 +80,4 @@ Use established libraries for substantial low-level systems while owning the eng
 
 ## Next implementation step
 
-Verify the foundation on Windows, then begin Module 02: window, application lifecycle, timing, and input.
+Begin Module 02: window, application lifecycle, timing, and input.

@@ -2,7 +2,7 @@
 
 Windows-first 3D engine for future third-person RPG, action-adventure, sandbox building, and strategy games.
 
-**Current focus: Module 01 — Development foundation.**
+**Module 01 complete. Next focus: Module 02 — Application and input.**
 
 This is the living project checklist. Mark an item complete only after its implementation and relevant verification are finished. Record supporting commits/builds beside completed modules. Creative design can evolve alongside development; it does not block Module 01. Later scope and ordering may change as we learn.
 
@@ -15,7 +15,7 @@ This is the living project checklist. Mark an item complete only after its imple
 - [ ] Decide single-player versus eventual multiplayer before substantial gameplay/world-state architecture. If multiplayer is chosen, add networking tasks throughout the modules below.
 
 ## Module 01 — Development foundation
-Local validation: GCC 14.2, CMake 3.31.6, Ninja 1.11.1; build, CTest smoke checks, and staged executable passed on Linux. Windows verification awaits [CI](https://github.com/Avrenthrad/lykowareGE/actions/workflows/build.yml).
+Local validation: GCC 14.2, CMake 3.31.6, Ninja 1.11.1; build, CTest smoke checks, and staged executable passed on Linux. Windows Debug/Release clean builds, smoke checks, staged execution, and Linux CI all passed: [run 40265394221](https://github.com/Avrenthrad/lykowareGE/actions/runs/40265394221), implementation commit `af55b9b`.
 
 - [x] Set up C++ and CMake.
 - [x] Separate engine and sample-game targets.
@@ -23,7 +23,7 @@ Local validation: GCC 14.2, CMake 3.31.6, Ninja 1.11.1; build, CTest smoke check
 - [x] Add logging and useful startup/error reporting.
 - [x] Document Windows prerequisites and build commands.
 - [x] Add automated Windows builds.
-- [ ] Verify a clean checkout builds and runs on Windows.
+- [x] Verify a clean checkout builds and runs on Windows.
 
 ## Module 02 — Application and input
 - [ ] Create a window and clean application lifecycle.
