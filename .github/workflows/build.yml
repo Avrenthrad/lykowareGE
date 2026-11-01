@@ -34,20 +34,29 @@ jobs:
         run: cmake --install build/windows --config ${{ matrix.configuration }} --prefix out/windows-${{ matrix.configuration }}
       - name: Run staged executables
         run: |
+          # Expected nonzero lyko exits must not fail the pwsh step by themselves.
+          $PSNativeCommandUseErrorActionPreference = $false
+          function Assert-Exit([int]$Expected) {
+            if ($LASTEXITCODE -ne $Expected) {
+              Write-Error "expected exit $Expected, got $LASTEXITCODE"
+              exit 1
+            }
+          }
           ./out/windows-${{ matrix.configuration }}/bin/lykoware_sandbox.exe
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Assert-Exit 0
           ./out/windows-${{ matrix.configuration }}/bin/lyko.exe --version
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Assert-Exit 0
           ./out/windows-${{ matrix.configuration }}/bin/lyko.exe test --source . --preset windows-${{ matrix.configuration == 'Debug' && 'debug' || 'release' }}
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Assert-Exit 0
           ./out/windows-${{ matrix.configuration }}/bin/lyko.exe run
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Assert-Exit 0
           ./out/windows-${{ matrix.configuration }}/bin/lyko.exe screenshot
-          if ($LASTEXITCODE -ne 3) { exit 1 }
+          Assert-Exit 3
           ./out/windows-${{ matrix.configuration }}/bin/lyko.exe trace
-          if ($LASTEXITCODE -ne 3) { exit 1 }
+          Assert-Exit 3
           ./out/windows-${{ matrix.configuration }}/bin/lyko.exe run --scene
-          if ($LASTEXITCODE -ne 3) { exit 1 }
+          Assert-Exit 3
+          exit 0
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: github.event_name == 'workflow_dispatch' && inputs.upload_artifacts
         with:
