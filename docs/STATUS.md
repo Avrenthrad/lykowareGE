@@ -15,7 +15,7 @@ Local checks on this Linux machine (GCC 13.3.0):
 - Measured against the 20000 ms provisional limits: sandbox startup about 1.1 ms; one million `cpu_fixture_iteration` steps about 323 ms.
 - clang-tidy 18 analysis preset compiled the engine, sandbox, lyko, and the new tests with warnings as errors.
 
-CI: not recorded in this revision yet. Windows remains unverified locally. No storage was purchased. No checklist box was ticked.
+CI: [run 41328924195](https://github.com/Avrenthrad/lykowareGE/actions/runs/41328924195) passed all five jobs: Windows Debug, Windows Release, Linux Debug, ASan/UBSan, and clang-tidy 18. Each job built, tested, and staged `lyko trace --frames 2` plus the exit-3 renderer commands. Tested code commit: df728c0b0db7819ca2b2539dba619b1e8016f4dd. Artifact upload did not run; it is opt-in and was not a failure. No storage was purchased. No checklist box was ticked. No paid operation.
 
 ## Previous task, still in review
 
@@ -68,8 +68,8 @@ First CI run: [41325630051](https://github.com/Avrenthrad/lykowareGE/actions/run
 - Task: CPU trace and provisional hosted CPU budgets. Branch feat/phase0-cpu-trace-budget. Base cb5f38c on feat/phase0-lyko-cli (PR #5, not merged).
 - Completed behavior: `CpuTimer` / `CpuTrace` in the engine library; `lyko trace --frames N` writes a Chrome trace of the sandbox CPU loop; screenshot and `run --scene` still exit 3; CTest fails when the provisional startup or fixture budget is exceeded.
 - Files/interfaces: `engine/include/lykoware/trace.hpp`, `engine/src/trace.cpp`, sandbox `--frames`/`--trace`, lyko `trace`, root `CMakeLists.txt` thresholds, ADR 0006.
-- Checks: local GCC 13.3.0 Debug, ASan/UBSan, and clang-tidy 18 analysis compiled and the Debug/ASan suites passed. Windows CI is not recorded yet.
-- Unverified: Windows Debug/Release, the GitHub ubuntu-24.04 runners, GPU timing, and device profiles. Downloadable CI artifacts were not uploaded.
+- Checks: local GCC 13.3.0 Debug, ASan/UBSan, and clang-tidy 18 analysis passed. [Run 41328924195](https://github.com/Avrenthrad/lykowareGE/actions/runs/41328924195) passed Windows Debug/Release and all three Linux profiles, including staged `lyko trace --frames 2`. Tested code commit df728c0.
+- Unverified: GPU timing and device profiles. Downloadable CI artifacts were not uploaded. The provisional budgets are not a hardware profile.
 - Next: record the CI run, then merge only with owner approval. Do not treat the provisional budgets as a hardware profile.
 - Checklist: no box ticked. The hardware-profile and image/performance-gate items stay open.
 
