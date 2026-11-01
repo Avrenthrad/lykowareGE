@@ -15,7 +15,7 @@ Local checks on this Linux machine (GCC 13.3.0):
 - clang-tidy 18 analysis preset compiled the engine, sandbox, lyko, and the tests with warnings as errors, then passed the same CTest set.
 - `lyko screenshot`, including `--harness` and `--output`, still prints `unsupported: no renderer` and returns exit 3.
 
-CI evidence is added when the pull request checks finish. No storage was purchased. No checklist box was ticked. No paid operation.
+CI: [run 41330369114](https://github.com/Avrenthrad/lykowareGE/actions/runs/41330369114) passed all five jobs: Windows Debug, Windows Release, Linux Debug, ASan/UBSan, and clang-tidy 18. Each job built and tested the harness, including the golden pass and golden fail, and staged `lyko screenshot` at exit 3. Tested code commit: fc3860eab0ce934e6700575b1e8d989f3eb35c61. Delivery: [PR #7](https://github.com/Avrenthrad/lykowareGE/pull/7). Artifact upload did not run; it is opt-in and was not a failure. No storage was purchased. No checklist box was ticked. No paid operation.
 
 ## Previous task, still in review
 
@@ -81,9 +81,9 @@ First CI run: [41325630051](https://github.com/Avrenthrad/lykowareGE/actions/run
 - Task: GPU-free image harness. Branch feat/phase0-image-harness. Base 9a2e9b5 on feat/phase0-cpu-trace-budget (PR #6, not merged).
 - Completed behavior: `Image`, `ImageCapture`, and `TestPatternCapture` in the engine library; hand-written PPM P6 read/write; per-pixel tolerance comparison and diff image. CTest golden pass and golden fail. `lyko screenshot` still exits 3. Not a renderer screenshot.
 - Files/interfaces: `engine/include/lykoware/image.hpp`, `engine/src/image.cpp`, `tests/image_harness.cpp`, `tests/golden/`, ADR 0007. ADR 0002 records the later Vulkan offscreen plug-in and stays proposed.
-- Checks: local GCC 13.3.0 Debug, ASan/UBSan, and clang-tidy 18 analysis passed, including the golden pass/fail harness tests and exit 3 for `screenshot`. Windows evidence waits on CI.
-- Unverified: any GPU or window capture. The harness extent guard is not a display mode. Downloadable CI artifacts are not required.
-- Next: record the CI run, then merge only with owner approval. Do not describe the harness as a screenshot test.
+- Checks: local GCC 13.3.0 Debug, ASan/UBSan, and clang-tidy 18 analysis passed. [Run 41330369114](https://github.com/Avrenthrad/lykowareGE/actions/runs/41330369114) passed Windows Debug/Release and all three Linux profiles. Tested code commit fc3860e. `screenshot` stayed exit 3.
+- Unverified: any GPU or window capture. The harness extent guard is not a display mode. Downloadable CI artifacts were not uploaded.
+- Next: merge only with owner approval. Do not describe the harness as a screenshot test.
 - Checklist: no box ticked. The image/performance-gate item stays open.
 
 Earlier CPU-trace handoff, for the branch this work builds on:
