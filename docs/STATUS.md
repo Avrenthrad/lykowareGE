@@ -20,6 +20,8 @@ Implemented in this branch:
 
 Local validation: GCC 14.2 Debug build and two CTest suites passed; ASan/UBSan build/tests passed; clang-tidy 18.1.8 build/tests passed. The installed CLI successfully configured/built and tested this repository. Windows/CI results are recorded below when complete. These checks do not establish device performance or rendered output.
 
+First CI run: [41325630051](https://github.com/Avrenthrad/lykowareGE/actions/runs/41325630051) verified Windows Debug/Release compile/tests/staged execution and all three Linux profiles. Windows jobs then failed only at artifact upload because GitHub storage quota was exhausted. Uploads are now manual opt-in; validation stays mandatory. A follow-up run will verify that workflow change. No billing changes or artifact deletion.
+
 ## Next
 
 1. Complete Windows Debug/Release and quality-matrix CI for this task; review/merge through its PR.
@@ -36,6 +38,7 @@ Local validation: GCC 14.2 Debug build and two CTest suites passed; ASan/UBSan b
 - No dependencies are vendored. Vulkan/Jolt/data choices remain proposed.
 - Pax/publication gate remains policy; no Pax implementation or legal clearance.
 - No paid service/spend or personal-data export was performed.
+- GitHub artifact storage was exhausted; downloadable CI binaries remain unavailable until storage is available and upload is explicitly requested. Builds/tests do not depend on uploads.
 
 ## Handoff
 

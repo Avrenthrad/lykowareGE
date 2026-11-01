@@ -106,3 +106,7 @@ ctest --preset linux-analysis
 ASan/UBSan run on Linux GCC/Clang. Windows builds retain compiler warnings and integration tests; Windows sanitizer support is not configured. The .clang-tidy file enables analyzer/lifetime checks and treats findings as errors. ThreadSanitizer remains deferred until concurrent engine systems exist.
 
 Python and analysis tools are development dependencies, not shipped game/runtime dependencies. No screenshot or device-performance gate is claimed before the relevant runtime and test hardware exist.
+
+## CI artifacts
+
+Builds, tests and staged execution are mandatory. Artifact upload is opt-in through the manual workflow's upload_artifacts input, defaults off, and uses three-day retention. GitHub reported an exhausted artifact-storage quota during this task; no billing changes or artifact deletions were made. Ordinary PR/main checks do not require storage. Feature branches use PR checks rather than duplicate push/PR runs.

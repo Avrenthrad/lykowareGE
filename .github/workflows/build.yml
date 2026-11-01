@@ -2,8 +2,14 @@ name: Build and verify
 
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      upload_artifacts:
+        description: Upload Windows builds (requires available artifact storage)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -35,10 +41,12 @@ jobs:
           ./out/windows-${{ matrix.configuration }}/bin/lyko.exe test --source . --preset windows-${{ matrix.configuration == 'Debug' && 'debug' || 'release' }}
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: github.event_name == 'workflow_dispatch' && inputs.upload_artifacts
         with:
           name: lykowareGE-windows-x64-${{ matrix.configuration }}
           path: out/windows-${{ matrix.configuration }}/
           if-no-files-found: error
+          retention-days: 3
 
   linux:
     name: Linux (${{ matrix.preset }})
