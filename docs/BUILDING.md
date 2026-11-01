@@ -52,6 +52,7 @@ Windows remains the primary target; this check helps keep the foundation portabl
 - engine/: reusable static C++20 library, linked as lykoware::engine.
 - samples/sandbox/: separate executable containing sample-game code.
 - tests/: executable smoke checks covering startup, version, help, and invalid arguments.
+- assets/brand/: Lykoware logo vector set (SVG logo, icon, wordmark, mono variants), .ico, 512 px icon, preview sheet, BRAND.md guidelines and PROVENANCE.md.
 - .github/workflows/build.yml: clean Windows Debug/Release builds, tests, staged execution, and downloadable artifacts; also Linux validation.
 
 Build output is ignored by Git. CMakeUserPresets.json is available for local overrides.

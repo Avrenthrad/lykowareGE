@@ -12,6 +12,7 @@
 Phase 0: continue the verified C++20/CMake foundation. Joshua selected C++20; ADR 0001 is accepted. The earlier comparison task is no longer required.
 Repository remains Avrenthrad/lykowareGE; no rename requested or performed.
 Read [ROADMAP.md](ROADMAP.md), [ADRs](adr/README.md) and [WORK_BOARD.md](WORK_BOARD.md).
+Brand logo vector set is in review on `feat/brand-logo-vector-set` (base `850bd50`): files are under `assets/brand/` and do not change the runtime.
 
 ## Next
 

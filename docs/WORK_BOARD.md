@@ -10,6 +10,17 @@ Owner-supplied vision is captured in [ENGINE_VISION.md](ENGINE_VISION.md).
 
 Check latest main and active PRs before starting. Documents do not automatically synchronize assistants or reserve work.
 
+## Active task
+
+Brand logo vector set — owner: cloud agent; status: review; base commit `850bd50` (`main`); branch `feat/brand-logo-vector-set`.
+
+- Objective: add the supplied Lykoware logo vector set under `assets/brand/` unchanged and list that path in the build structure.
+- Scope and affected paths: `assets/brand/`, `docs/BUILDING.md`, `docs/WORK_BOARD.md`, `docs/STATUS.md`.
+- Shared interfaces/formats affected: none.
+- Related tasks/PRs and dependencies: none. Does not replace the Phase 0 tooling task.
+- Acceptance checks: brand files match the supplied set; `docs/BUILDING.md` names `assets/brand/`; foundation CI stays green.
+- Assumptions and decisions needed: generator scripts and the concept image stay outside the repo, as `assets/brand/BRAND.md` states.
+
 ## Task template
 
 Copy into an issue or PR before implementation:
