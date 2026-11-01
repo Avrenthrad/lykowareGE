@@ -1,0 +1,15 @@
+# Architecture decision records
+
+Canonical directory: docs/adr. Decisions remain Proposed until resolved; distinguish owner requirements from implementation choices.
+
+| ADR | Status | Subject |
+| --- | --- | --- |
+| [0000](0000-ownership-and-licensing.md) | Accepted policy | Full ownership, licensing, privacy and release gates |
+| [0001](0001-language.md) | Proposed; comparison requested | C++20 versus Rust |
+| [0002](0002-graphics.md) | Proposed | Graphics API and RHI |
+| [0003](0003-physics.md) | Proposed | Physics and Jolt integration |
+| [0004](0004-data-formats.md) | Proposed | Authored/runtime data and commands |
+
+Use [the template](TEMPLATE.md). Record context, options, decision/status, contracts, consequences and verification. Use a new ADR to supersede an accepted choice; do not silently rewrite its history.
+
+[Pre-brief records](../decisions/README.md) remain historical and are not part of this numbering sequence.
