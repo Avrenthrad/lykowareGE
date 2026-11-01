@@ -1,0 +1,6 @@
+---
+# Reviewed with clang-tidy major version 18, selected explicitly by CMake/CI.
+Checks: '-*,clang-analyzer-*,bugprone-use-after-move,bugprone-unused-raii,bugprone-dangling-handle'
+WarningsAsErrors: '*'
+HeaderFilterRegex: '.*/(engine|tools|tests)/.*'
+...

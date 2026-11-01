@@ -20,8 +20,8 @@ This replaces the old module ordering while preserving verified Module 01 histor
 - [x] Accept C++20/CMake as the runtime/native-tooling stack with Joshua (ADR 0001; owner decision, no comparative benchmark claimed).
 - [ ] Accept graphics, physics and data/command format ADRs.
 - [ ] Agree hardware profiles, frame-time/memory budgets and multiplayer direction.
-- [ ] Extend the C++20/CMake foundation with real lyko build/test commands.
-- [ ] Establish relevant lint/unit/integration CI gates.
+- [x] Extend the C++20/CMake foundation with real lyko build/test commands (branch implementation; see STATUS for platform evidence).
+- [ ] Verify the new warnings-as-errors, sanitizer/static-analysis and CLI integration CI matrix (local checks passed; Windows/CI pending).
 - [ ] Introduce actual image/performance gates as renderer and calibrated fixtures become available.
 - [ ] Pass the full Phase 0 exit criteria.
 

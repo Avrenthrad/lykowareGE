@@ -4,7 +4,10 @@
 
 Canonical implementation status: [STATUS.md](STATUS.md).
 Canonical plan: [ROADMAP.md](ROADMAP.md).
-Current focus: Phase 0 native C++ tooling and unresolved graphics/physics/data contracts. C++20/CMake is accepted in ADR 0001. No implementation task owner/branch assigned yet.
+Current task owner: Codex. Branch: feat/lyko-cli. Base: 850bd50451ecf108e353716fca24db5a685ddd00.
+Scope: reconcile notes and implement native build/test CLI plus quality gates. Public engine APIs/formats unchanged; CLI contract is ADR 0005.
+Acceptance: actual CMake/CTest invocation, argument/Unicode/cwd/error checks, Windows Debug/Release staged execution, Linux sanitizer/static analysis and clean docs.
+C++20/CMake is accepted in ADR 0001; graphics/physics/data choices remain open.
 Module 01 console foundation remains verified; previous Module 02 is now part of Phase 1.
 Owner-supplied vision is captured in [ENGINE_VISION.md](ENGINE_VISION.md).
 
@@ -39,4 +42,4 @@ Use in the task/PR when pausing, completing, or transferring work:
 
 ## Suggested next task
 
-Extend the accepted C++20/CMake foundation with minimal lyko build/test tooling and planned sanitizer/static-analysis checks. Resolve graphics/physics/data ADRs before their dependent implementations. Obtain multiplayer and hardware answers while preparing representative tests. No full editor or content suite work before the roadmap gates.
+Complete CLI PR verification/review, then develop Phase 1 window/input/timing. Resolve graphics/physics/data ADRs before their dependent implementations. Obtain multiplayer and hardware answers while preparing representative tests. No full editor or content suite work before the roadmap gates.
