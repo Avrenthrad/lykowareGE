@@ -1,0 +1,3 @@
+# Harness PPM fixtures contain raw pixel bytes, including CR and LF values.
+# Keep them binary so checkout never rewrites those bytes as text.
+*.ppm binary

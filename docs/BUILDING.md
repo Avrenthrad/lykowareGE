@@ -66,7 +66,7 @@ SDL3 is proposed for Phase 1 window/input (formerly Module 02). Select a specifi
 
 ## Verification
 
-CTest verifies the sandbox, the CPU trace API, and the CLI. `cli.commands` checks help text, `lyko run`, `lyko trace --frames`, and exit code 3 for `screenshot` and `run --scene`. `perf.sandbox_startup` and `perf.cpu_fixture` enforce the provisional CPU-only thresholds in the root `CMakeLists.txt`. CLI integration covers real configure/build/test execution, literal Unicode/quoted arguments, child cwd, a Unicode trace path, failed configure/build/test commands, absent tools and zero-test failures. GitHub Actions repeats these on Windows Debug/Release, Linux Debug, ASan/UBSan, and clang-tidy 18 builds, then stages/runs the CLI. Current results are in STATUS.
+CTest verifies the sandbox, the CPU trace API, the GPU-free image harness, and the CLI. `cli.commands` checks help text, `lyko run`, `lyko trace --frames`, and exit code 3 for `screenshot` and `run --scene`. `image.harness.api`, `image.harness.golden_pass`, and `image.harness.golden_fail` exercise the software pattern, committed PPM fixtures, and a comparison that is required to fail. Those tests are not renderer screenshots. Their outputs stay in the build directory. `perf.sandbox_startup` and `perf.cpu_fixture` enforce the provisional CPU-only thresholds in the root `CMakeLists.txt`. CLI integration covers real configure/build/test execution, literal Unicode/quoted arguments, child cwd, a Unicode trace path, failed configure/build/test commands, absent tools and zero-test failures. GitHub Actions repeats these on Windows Debug/Release, Linux Debug, ASan/UBSan, and clang-tidy 18 builds, then stages/runs the CLI. Current results are in STATUS.
 
 ## Native CLI
 
@@ -108,7 +108,7 @@ ctest --preset linux-analysis
 
 ASan/UBSan run on Linux GCC/Clang. Windows builds retain compiler warnings and integration tests; Windows sanitizer support is not configured. The .clang-tidy file enables analyzer/lifetime checks and treats findings as errors. ThreadSanitizer remains deferred until concurrent engine systems exist.
 
-Python and analysis tools are development dependencies, not shipped game/runtime dependencies. The provisional CPU budgets are hosted-runner checks only. No screenshot or device-performance gate is claimed.
+Python and analysis tools are development dependencies, not shipped game/runtime dependencies. The provisional CPU budgets are hosted-runner checks only. The image harness is not a screenshot gate, and no device-performance gate is claimed.
 
 ## CI artifacts
 

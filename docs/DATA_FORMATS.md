@@ -31,3 +31,5 @@ All authored scenes, prefabs, materials, quests, dialogue, configuration and ope
 ## Decision gate
 
 Before implementing a format, add an ADR and a small representative document covering format/version, identifiers, fields/defaults, load errors, compatibility, and a round-trip check. JSON/TOML/RON and glTF 2.0 are proposals; serialization technology and exact schema/file extensions remain open. No example here is a production schema.
+
+The image harness writes diagnostic PPM P6 fixtures. That file is not an authored scene, texture source, or save. ADR 0004 stays open. See [ADR 0007](adr/0007-image-harness.md).

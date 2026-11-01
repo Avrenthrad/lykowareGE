@@ -16,6 +16,29 @@ if(BUILD_TESTING)
     lykoware_configure_target(lykoware_trace_test)
     add_test(NAME trace.api COMMAND lykoware_trace_test)
 
+    # GPU-free image harness. These tests compare a software pattern with
+    # committed PPM fixtures. They are not renderer screenshot tests.
+    # Outputs are confined to the build directory. lyko screenshot stays
+    # exit 3; this executable is the test-only harness path.
+    add_executable(lykoware_image_harness_test tests/image_harness.cpp)
+    target_link_libraries(lykoware_image_harness_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_image_harness_test)
+    set(LYKOWARE_IMAGE_HARNESS_GOLDEN "${CMAKE_CURRENT_SOURCE_DIR}/tests/golden")
+    add_test(NAME image.harness.api
+        COMMAND lykoware_image_harness_test api
+            "${LYKOWARE_IMAGE_HARNESS_GOLDEN}"
+            "${CMAKE_CURRENT_BINARY_DIR}/image-harness/api")
+    add_test(NAME image.harness.golden_pass
+        COMMAND lykoware_image_harness_test pass
+            "${LYKOWARE_IMAGE_HARNESS_GOLDEN}"
+            "${CMAKE_CURRENT_BINARY_DIR}/image-harness/pass")
+    add_test(NAME image.harness.golden_fail
+        COMMAND lykoware_image_harness_test fail
+            "${LYKOWARE_IMAGE_HARNESS_GOLDEN}"
+            "${CMAKE_CURRENT_BINARY_DIR}/image-harness/fail")
+    set_tests_properties(image.harness.api image.harness.golden_pass image.harness.golden_fail
+        PROPERTIES TIMEOUT 20)
+
     add_executable(lykoware_cpu_budget tests/cpu_budget.cpp tools/cli/process.cpp)
     target_link_libraries(lykoware_cpu_budget PRIVATE lykoware::engine)
     lykoware_configure_target(lykoware_cpu_budget)

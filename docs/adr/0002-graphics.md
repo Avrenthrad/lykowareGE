@@ -17,3 +17,7 @@ Run identical capture/performance fixtures on the specified Intel Arc and RTX de
 ## Exit
 
 Choose an implementation with recorded feature/licence coverage and measured frame-time/memory results, using the chosen language. Headless GPU capture and UI rendering must share rendering paths. Do not choose the backend solely from an API preference.
+
+## Later capture plug-in
+
+A GPU-free image harness now lives in the engine library. It compares CPU images. It is not a renderer and not a screenshot test. When a Vulkan offscreen path is actually implemented, it plugs into `lykoware::ImageCapture` and the existing PPM comparison. That plug-in is not built here. This paragraph does not accept Vulkan or any other graphics API. ADR 0002 stays proposed. The harness contract is [ADR 0007](0007-image-harness.md).

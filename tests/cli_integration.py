@@ -30,6 +30,14 @@ assert "unsupported: no renderer" in invoke("--help")
 assert invoke("--version").startswith("lyko ")
 assert "Unknown command" in invoke("nonsense", expected=2)
 assert "unsupported: no renderer" in invoke("screenshot", expected=3)
+assert "unsupported: no renderer" in invoke("screenshot", "--harness", expected=3)
+assert "unsupported: no renderer" in invoke("screenshot", "--output", "not-a-screenshot.ppm", expected=3)
+screenshot_text = invoke("screenshot", expected=3).lower()
+assert "ppm" not in screenshot_text
+assert "wrote" not in screenshot_text
+help_text = invoke("--help").lower()
+assert "ppm" not in help_text
+assert "harness" not in help_text
 assert "trace requires --frames" in invoke("trace", expected=2)
 assert "integer from 1 to 1000000" in invoke("trace", "--frames", "0", expected=2)
 assert "unsupported: no renderer" in invoke("run", "--scene", expected=3)
