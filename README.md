@@ -1,5 +1,9 @@
 # Lykoware (lykowareGE)
 
+<img src="assets/branding/lykoware-logo.jpg" alt="Lykoware: faceted gold wolf inside a metallic hexagonal frame, with the LYKOWARE wordmark on black" width="320" />
+
+[Branding reference](docs/BRANDING.md)
+
 Lykoleon Studios' Windows-first, AI-native engine. Standard: **No limits. Just excellence.**
 Build the flagship first: open-world RPG, first-/third-person action, structural sandbox construction, and RTS-scale battles.
 
