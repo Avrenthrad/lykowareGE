@@ -34,7 +34,7 @@ int run(int argc, char* argv[])
     lykoware::log(lykoware::LogLevel::info,
                   "Engine library linked; sandbox bootstrap ready.");
     lykoware::log(lykoware::LogLevel::info,
-                  "Foundation check complete. Window and input arrive in Module 02.");
+                  "Foundation check complete. Window and input arrive in Phase 1.");
     return EXIT_SUCCESS;
 }
 }

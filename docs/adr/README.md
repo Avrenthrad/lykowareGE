@@ -9,6 +9,7 @@ Canonical directory: docs/adr. Decisions remain Proposed until resolved; disting
 | [0002](0002-graphics.md) | Proposed | Graphics API and RHI |
 | [0003](0003-physics.md) | Proposed | Physics and Jolt integration |
 | [0004](0004-data-formats.md) | Proposed | Authored/runtime data and commands |
+| [0005](0005-native-cli.md) | Accepted implementation | Minimal native build/test CLI |
 
 Use [the template](TEMPLATE.md). Record context, options, decision/status, contracts, consequences and verification. Use a new ADR to supersede an accepted choice; do not silently rewrite its history.
 

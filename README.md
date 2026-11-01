@@ -3,7 +3,7 @@
 Lykoleon Studios' Windows-first, AI-native engine. Standard: **No limits. Just excellence.**
 Build the flagship first: open-world RPG, first-/third-person action, structural sandbox construction, and RTS-scale battles.
 
-The project's [master brief](docs/LYKOWARE_BRIEF.md) is the source of direction for the engine.
+The [master brief](docs/LYKOWARE_BRIEF.md) records product direction. Later owner instructions and accepted [ADRs](docs/adr/README.md) govern technical choices; [STATUS](docs/STATUS.md) records what actually works.
 
 ## Core rule: full ownership
 
@@ -24,8 +24,9 @@ Every tool/content operation must be reachable through CLI and scripting, with d
 
 ## What actually runs
 
-A C++20/CMake engine library and console sample with logging and smoke tests. Windows Debug/Release and Linux checks passed in [baseline CI](https://github.com/Avrenthrad/lykowareGE/actions/runs/40265394221).
-There is no window, renderer, physics, CLI scene/capture command or editor yet.
+A C++20/CMake engine library, console sandbox, and native **lyko build/test CLI**. The CLI configures/builds a project or runs its CTest preset without a shell, preserving child failures. Compiler warnings are errors by default; Linux ASan/UBSan and clang-tidy 18 presets are available.
+
+See [build instructions](docs/BUILDING.md), [CLI contract](docs/CLI.md), and [STATUS](docs/STATUS.md) for current verification. There is no window, renderer, physics, scene/capture command or editor yet.
 
 Joshua selected **C++20 with CMake** in [ADR 0001](docs/adr/0001-language.md). Continue the verified foundation. Vulkan, Jolt and authored data formats remain proposals under separate ADR evaluation.
 
