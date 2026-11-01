@@ -16,6 +16,12 @@ if(BUILD_TESTING)
             "-DSAMPLE=$<TARGET_FILE:lykoware_sandbox>"
             "-DEXPECTED_VERSION=${PROJECT_VERSION}"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/foundation_smoke.cmake")
+    add_test(NAME cli.commands
+        COMMAND "${CMAKE_COMMAND}"
+            "-DLYKO=$<TARGET_FILE:lyko>"
+            "-DEXPECTED_VERSION=${PROJECT_VERSION}"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/cli_commands.cmake")
+    set_tests_properties(cli.commands PROPERTIES TIMEOUT 60)
     find_package(Python3 3.10 REQUIRED COMPONENTS Interpreter)
     add_executable(lyko_tool_fixture tests/tool_fixture.cpp tools/cli/process.cpp)
     target_compile_features(lyko_tool_fixture PRIVATE cxx_std_20)

@@ -15,10 +15,16 @@ Use direct platform process creation rather than shell command strings. Keep UTF
 
 Do not claim run/scene/screenshot/trace support before the runtime exists; reserved commands return a nonzero unsupported-capability code.
 
+## Implementation follow-up
+
+`lyko run` with no scene argument launches the existing console sandbox and returns that process's status. This is process startup, not scene loading and not a renderer. `lyko run --scene`, `screenshot`, and `trace` still return exit code 3 and print `unsupported: no renderer`. They must not be described as working capture commands.
+
+Subcommands share one dispatcher and the handlers in `tools/cli`. That table is not the Phase 1 serializable command bus. The original decision against a general command bus stands. Header comments on `commands.hpp` and `process.hpp` record ownership, lifetime, threading, and failure.
+
 ## Contracts and alternatives
 
 See [CLI.md](../CLI.md) for options, defaults, exit codes and limitations. A script-only wrapper would duplicate quoting/platform assumptions and would not establish the native tools target; std::system would introduce shell interpretation. A general engine command bus is unnecessary for this first build/test tool and remains a separate Phase 1 contract.
 
 ## Verification
 
-Integration checks launch real CMake/CTest presets and a controlled native tool fixture, exercising cwd, Unicode/spaces/quotes/backslashes/metacharacters, configure/build/test failures, missing tools, invalid options and zero tests. Stage and run the executable on Windows and Linux. Record actual run evidence in STATUS/PR rather than treating this test plan as a pass.
+Integration checks launch real CMake/CTest presets and a controlled native tool fixture, exercising cwd, Unicode/spaces/quotes/backslashes/metacharacters, configure/build/test failures, missing tools, invalid options and zero tests. `cli.commands` checks help text, `run`, and exit code 3 for `screenshot`, `trace`, and `run --scene`. Stage and run the executable on Windows and Linux. Record actual run evidence in STATUS/PR rather than treating this test plan as a pass.

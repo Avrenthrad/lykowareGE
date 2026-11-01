@@ -52,7 +52,7 @@ Windows remains the primary target; this check helps keep the foundation portabl
 
 - engine/: reusable static C++20 library, linked as lykoware::engine.
 - samples/sandbox/: separate executable containing sample-game code.
-- tools/cli/: native lyko executable and private platform process runner.
+- tools/cli/: native lyko executable, command dispatcher, and private platform process runner.
 - tests/: sandbox smoke tests and CLI integration tests with genuine CMake/CTest runs.
 - .github/workflows/build.yml: clean Windows Debug/Release builds, tests, staged execution, and downloadable artifacts; also Linux validation.
 
@@ -66,7 +66,7 @@ SDL3 is proposed for Phase 1 window/input (formerly Module 02). Select a specifi
 
 ## Verification
 
-CTest verifies the sandbox and CLI. CLI integration covers real configure/build/test execution, literal Unicode/quoted arguments, child cwd, failed configure/build/test commands, absent tools and zero-test failures. GitHub Actions repeats these on Windows Debug/Release, Linux Debug, ASan/UBSan, and clang-tidy 18 builds, then stages/runs the CLI. Current results are in STATUS.
+CTest verifies the sandbox and CLI. `cli.commands` checks help text, `lyko run`, and exit code 3 for renderer commands. CLI integration covers real configure/build/test execution, literal Unicode/quoted arguments, child cwd, failed configure/build/test commands, absent tools and zero-test failures. GitHub Actions repeats these on Windows Debug/Release, Linux Debug, ASan/UBSan, and clang-tidy 18 builds, then stages/runs the CLI. Current results are in STATUS.
 
 ## Native CLI
 
@@ -76,6 +76,7 @@ Bootstrap with CMake once, then use the executable:
 cmake --install build/windows --config Debug --prefix out/windows-debug
 .\out\windows-debug\bin\lyko.exe build --source . --configure-preset windows --preset windows-debug
 .\out\windows-debug\bin\lyko.exe test --source . --preset windows-debug
+.\out\windows-debug\bin\lyko.exe run
 ```
 
 On Linux:
@@ -83,9 +84,11 @@ On Linux:
 ```sh
 ./build/linux-debug/tools/cli/lyko build --source . --preset linux-debug
 ./build/linux-debug/tools/cli/lyko test --source . --preset linux-debug
+./build/linux-debug/tools/cli/lyko run
 ```
 
-See [CLI.md](CLI.md) for defaults, overrides, exit codes and limitations. Installing the project stages both sandbox and lyko under bin/.
+See [CLI.md](CLI.md) for defaults, overrides, exit codes and the header contract. Installing the project stages both sandbox and lyko under bin/, which is where `lyko run` finds the sandbox. `screenshot`, `trace`, and `run --scene` exit 3 with `unsupported: no renderer`.
+
 On Windows, use the installed copy when rebuilding the CLI itself: a running executable in the build directory cannot be relinked in place. Restage after the command exits to update the installed tool.
 
 ## Quality presets

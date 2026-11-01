@@ -8,7 +8,7 @@ Status: current foundation plus intended boundaries. Planned modules below do no
 | --- | --- |
 | lykoware_engine (alias lykoware::engine) | Static library: logging and generated version header |
 | lykoware_sandbox | Console sample linked against the engine |
-| lyko | Native build/test CLI; subprocess runner is private to tools/cli |
+| lyko | Native CLI. `build`/`test` call CMake/CTest presets. `run` launches lykoware_sandbox. `screenshot`, `trace`, and `run --scene` return an unsupported-renderer error. One dispatcher in tools/cli; not a command bus |
 | foundation.smoke | Sandbox executable startup/CLI checks |
 | cli.integration | Real CMake/CTest runs plus process/argument/failure integration checks |
 
@@ -50,7 +50,7 @@ Before another module relies on a new API, document:
 
 Use an [ADR](adr/README.md) for consequential decisions. Avoid inventing shared interfaces that no implemented caller needs.
 
-The build/test CLI is described in [ADR 0005](adr/0005-native-cli.md). It does not implement the future engine mutation/undo command bus.
+The build/test/run CLI is described in [ADR 0005](adr/0005-native-cli.md) and [CLI.md](CLI.md). Its dispatcher validates the small fixed command set. It does not implement the future engine mutation/undo command bus.
 
 ## Engine-first command boundary
 

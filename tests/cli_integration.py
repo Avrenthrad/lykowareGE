@@ -25,10 +25,16 @@ def invoke(*args, expected=0, cwd=None):
 
 
 assert "Usage:" in invoke("--help")
+assert "unsupported: no renderer" in invoke("--help")
 assert invoke("--version").startswith("lyko ")
 assert "Unknown command" in invoke("nonsense", expected=2)
-for command in ("run", "screenshot", "trace"):
-    assert "not implemented" in invoke(command, expected=3)
+for command in ("screenshot", "trace"):
+    assert "unsupported: no renderer" in invoke(command, expected=3)
+assert "unsupported: no renderer" in invoke("run", "--scene", expected=3)
+assert "unsupported: no renderer" in invoke("run", "--scene", "room", expected=3)
+assert "unsupported: no renderer" in invoke("run", "--scene=room", expected=3)
+assert "Foundation check complete" in invoke("run")
+assert "run accepts no options" in invoke("run", "--extra", expected=2)
 
 with tempfile.TemporaryDirectory(prefix="lyko tests ") as temporary:
     root = Path(temporary)

@@ -4,6 +4,12 @@
 
 Canonical implementation status: [STATUS.md](STATUS.md).
 Canonical plan: [ROADMAP.md](ROADMAP.md).
+
+Active task owner: Cursor cloud agent. Branch: feat/phase0-lyko-cli. Base: ca59854d519b5da02f44d34507aa62b8803a626b.
+Scope: tools/cli dispatcher only. `lyko build` and `lyko test` call the existing presets. `lyko run` launches lykoware_sandbox. `screenshot`, `trace`, and `run --scene` are capability errors (exit 3, `unsupported: no renderer`). Public engine APIs and formats are unchanged. Header contract is in tools/cli/commands.hpp and tools/cli/process.hpp.
+Checks so far: Linux GCC 13.3 Debug and ASan/UBSan ctest passed locally, including `cli.commands`. clang-tidy 18 on the tools/cli sources reported no findings. The analysis preset and Windows Debug/Release are the PR CI check and are not claimed yet. No checklist item ticked.
+Handoff: do not describe renderer commands as working. After CI, record the run URL in STATUS. If the only failure is the Windows artifact upload quota, report it and do not buy storage.
+
 Completed task owner: Codex. Delivery: [PR #3](https://github.com/Avrenthrad/lykowareGE/pull/3), branch feat/lyko-cli. Base: 850bd50451ecf108e353716fca24db5a685ddd00.
 Scope: reconcile notes and implement native build/test CLI plus quality gates. Public engine APIs/formats unchanged; CLI contract is ADR 0005.
 Acceptance passed: actual CMake/CTest invocation, argument/Unicode/cwd/error checks, Windows Debug/Release staged execution, Linux sanitizer/static analysis and clean docs. Evidence: [run 41325853657](https://github.com/Avrenthrad/lykowareGE/actions/runs/41325853657), code commit 04243e6. No next implementation owner/branch assigned.

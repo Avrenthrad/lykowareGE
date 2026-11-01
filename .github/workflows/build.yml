@@ -40,6 +40,14 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           ./out/windows-${{ matrix.configuration }}/bin/lyko.exe test --source . --preset windows-${{ matrix.configuration == 'Debug' && 'debug' || 'release' }}
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./out/windows-${{ matrix.configuration }}/bin/lyko.exe run
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./out/windows-${{ matrix.configuration }}/bin/lyko.exe screenshot
+          if ($LASTEXITCODE -ne 3) { exit 1 }
+          ./out/windows-${{ matrix.configuration }}/bin/lyko.exe trace
+          if ($LASTEXITCODE -ne 3) { exit 1 }
+          ./out/windows-${{ matrix.configuration }}/bin/lyko.exe run --scene
+          if ($LASTEXITCODE -ne 3) { exit 1 }
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: github.event_name == 'workflow_dispatch' && inputs.upload_artifacts
         with:
@@ -74,5 +82,18 @@ jobs:
       - name: Stage and run CLI
         run: |
           cmake --install build/${{ matrix.preset }} --prefix out/${{ matrix.preset }}
-          ./out/${{ matrix.preset }}/bin/lyko --version
-          ./out/${{ matrix.preset }}/bin/lyko test --source . --preset ${{ matrix.preset }}
+          bin=./out/${{ matrix.preset }}/bin/lyko
+          "$bin" --version
+          "$bin" test --source . --preset ${{ matrix.preset }}
+          "$bin" run
+          expect_unsupported() {
+            status=0
+            "$@" || status=$?
+            if [ "$status" -ne 3 ]; then
+              echo "expected exit 3, got $status for: $*"
+              exit 1
+            fi
+          }
+          expect_unsupported "$bin" screenshot
+          expect_unsupported "$bin" trace
+          expect_unsupported "$bin" run --scene
