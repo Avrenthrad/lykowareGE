@@ -3,6 +3,8 @@
 Lykoleon Studios' Windows-first, AI-native engine. Standard: **No limits. Just excellence.**
 Build the flagship first: open-world RPG, first-/third-person action, structural sandbox construction, and RTS-scale battles.
 
+The project's [master brief](docs/LYKOWARE_BRIEF.md) is the source of direction for the engine.
+
 ## Core rule: full ownership
 
 Lykoleon builds and controls the original engine, custom editor, content tools, asset pipeline and agent integration. No dependency on Unity/Unreal/Godot/Blender or their editor plugins. Pragmatic low-level MIT/BSD/Apache/zlib libraries must be vendored as source forks under third_party, retain upstream terms, and sit behind replaceable Lykoware interfaces. No copyleft in shipped code or proprietary middleware lock-in.
