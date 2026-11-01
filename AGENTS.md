@@ -22,7 +22,7 @@ Applies to this repository, including Codex, Claude, Grok, and other assistants.
 
 ## Code and boundaries
 
-- Current code: C++20/CMake 3.25+. Rust is under comparison, not selected. Windows x64 primary; Linux secondary. Do not replace the working foundation before ADR 0001 resolves.
+- Accepted stack: C++20/CMake 3.25+ (ADR 0001). Continue the verified foundation; no Rust/Cargo migration or comparison spikes. Windows x64 primary; Linux secondary. Follow ADR 0001's planned sanitizer/static-analysis coverage as those checks are implemented.
 - Full ownership and source vendoring: follow docs/adr/0000-ownership-and-licensing.md. No external editor/engine host dependency, copyleft shipped code or proprietary middleware lock-in.
 - No paid operations without Joshua's approval; no personal data to external AI services. GitHub-only repositories, private work; no public release without Pax review and owner authorization.
 - Every content/tool action needs CLI/script access; minimal debug/capture tooling precedes the editor. Keep authoritative operations shared rather than duplicating UI logic.

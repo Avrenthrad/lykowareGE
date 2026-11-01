@@ -4,7 +4,7 @@ Status: Proposed; Jolt is preferred in the brief, not yet integrated.
 
 ## Options and boundary
 
-Evaluate Jolt under its exact permissive source licence. For Rust compare a thin owned C ABI bridge with maintained binding sources (including all transitive licensing); for C++ use a wrapped native API. Do not expose third-party physics types through game/tool contracts.
+Evaluate Jolt under its exact permissive source licence. C++20 is accepted in ADR 0001, so evaluate a wrapped native API without Rust bindings. Do not expose third-party physics types through game/tool contracts.
 
 Lykoware owns stable IDs, lifecycle, collision filtering, queries, world stepping and event translation. Define safe destruction, callbacks, thread ownership and unit conventions. Deterministic tests have a declared platform/toolchain scope; do not assume cross-platform bit-identical physics.
 

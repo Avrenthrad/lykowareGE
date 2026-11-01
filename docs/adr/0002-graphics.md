@@ -6,7 +6,7 @@ Status: Proposed.
 
 Vulkan is the proposed primary API, with a Lykoware-owned rendering hardware interface (RHI) and room for D3D12 if Windows/Arc measurements justify it.
 
-If Rust is selected, compare wgpu (portability, validation, feature limits and backend control) against ash (direct Vulkan control and more explicit synchronization/resource work). For C++, evaluate direct Vulkan through a narrow native implementation. Do not assume wgpu itself selects Vulkan on Windows; backend selection must be explicit and tested. No dependency is selected yet.
+C++20 is accepted in ADR 0001. Evaluate Vulkan through a narrow native C++ implementation with explicit resource/synchronization handling. Rust-specific ash/wgpu evaluation is no longer a task in this plan. No graphics dependency or backend is selected yet.
 
 ## Contract and evidence needed
 

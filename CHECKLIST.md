@@ -17,10 +17,10 @@ This replaces the old module ordering while preserving verified Module 01 histor
 - [x] Record language/graphics/physics/data proposals in docs/adr.
 - [x] Add proprietary notice and dependency-vendoring requirements.
 - [ ] Confirm final repository name before any rename (keep existing name meanwhile).
-- [ ] Compare C++20/Rust and accept a language ADR with Joshua.
+- [x] Accept C++20/CMake as the runtime/native-tooling stack with Joshua (ADR 0001; owner decision, no comparative benchmark claimed).
 - [ ] Accept graphics, physics and data/command format ADRs.
 - [ ] Agree hardware profiles, frame-time/memory budgets and multiplayer direction.
-- [ ] Implement chosen workspace and real lyko build/test commands.
+- [ ] Extend the C++20/CMake foundation with real lyko build/test commands.
 - [ ] Establish relevant lint/unit/integration CI gates.
 - [ ] Introduce actual image/performance gates as renderer and calibrated fixtures become available.
 - [ ] Pass the full Phase 0 exit criteria.

@@ -4,7 +4,7 @@
 
 Canonical implementation status: [STATUS.md](STATUS.md).
 Canonical plan: [ROADMAP.md](ROADMAP.md).
-Current task: Phase 0 requirements and C++/Rust comparison. No implementation spike owner/branch assigned yet.
+Current focus: Phase 0 native C++ tooling and unresolved graphics/physics/data contracts. C++20/CMake is accepted in ADR 0001. No implementation task owner/branch assigned yet.
 Module 01 console foundation remains verified; previous Module 02 is now part of Phase 1.
 Owner-supplied vision is captured in [ENGINE_VISION.md](ENGINE_VISION.md).
 
@@ -39,4 +39,4 @@ Use in the task/PR when pausing, completing, or transferring work:
 
 ## Suggested next task
 
-Use the bounded [language comparison](adr/0001-language.md), then decide the implementation stack with Joshua. Obtain multiplayer and hardware answers while preparing representative tests. No full editor or content suite work before the roadmap gates.
+Extend the accepted C++20/CMake foundation with minimal lyko build/test tooling and planned sanitizer/static-analysis checks. Resolve graphics/physics/data ADRs before their dependent implementations. Obtain multiplayer and hardware answers while preparing representative tests. No full editor or content suite work before the roadmap gates.

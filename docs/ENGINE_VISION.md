@@ -52,10 +52,10 @@ Later Track C provides original modelling, sculpting, UV/texturing/material pain
 
 Existing: C++20/CMake console foundation, logging, Windows Debug/Release and Linux CI/smoke checks.
 Not implemented: runtime world, renderer, physics, editor, AI, CLI scene/capture commands.
-Language: compare Rust and C++20 before choosing; preserve the verified C++ work meanwhile.
-Graphics: evaluate Vulkan via wgpu versus ash if Rust is selected, with a possible D3D12 path.
-Physics: Jolt preferred, bindings and replacement boundary to evaluate.
-Data: RON/TOML/JSON and glTF 2.0 proposed; schemas and formats remain undecided.
+Language: C++20/CMake accepted by Joshua; continue the verified foundation. No Rust migration or benchmark comparison required.
+Graphics: evaluate Vulkan through a narrow C++ native RHI, with a possible D3D12 path. No backend is selected yet.
+Physics: Jolt preferred; native C++ integration and replacement boundary to evaluate.
+Data: TOML/JSON and glTF 2.0 remain candidates; RON was in the original proposal but is Rust-oriented. Formats and schemas remain undecided.
 See [ADRs](adr/README.md), [roadmap](ROADMAP.md), and [status](STATUS.md).
 
 ## Remaining product questions

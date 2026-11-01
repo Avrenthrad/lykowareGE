@@ -1,6 +1,6 @@
 # ADR 0001 — Runtime language
 
-Status: Proposed. Joshua requested comparison before choosing. No migration authorized by this ADR.
+Status: Accepted — Joshua selected the C++ route after the initial comparison discussion.
 
 ## Context and evidence
 
@@ -17,16 +17,26 @@ The repository already has a small C++20/CMake library and sample; Windows Debug
 | Complexity | One language across core and Jolt bridge | Rust plus a deliberately small C++ FFI layer |
 | Current evidence | Working small baseline, no full engine | No repository measurements yet |
 
-## Comparison task
+## Decision
 
-Build equally scoped, disposable C++ and Rust spikes on separate task branches: window/events/timing, serialized command invocation, and a minimal Jolt body lifecycle behind a narrow interface. Do not pull in Bevy or another complete engine. Vendor approved low-level sources rather than depending on moving remote branches.
+Use **C++20 with CMake** for Lykoware's runtime and native tooling. Continue from the verified engine/sample targets. Prefer direct native library integrations behind Lykoware-owned interfaces; Jolt remains a proposed dependency, not selected by this language decision.
 
-Measure clean/incremental build time, artifact/runtime memory, deterministic fixture throughput, error diagnostics, binding complexity, licence inventory and Windows portability. Record machines, versions and commands. Avoid judging a language from an unrepresentative empty loop.
+Joshua's later instruction, "Let's go C++ route I think", resolves the earlier comparison request. No C++/Rust implementation spikes or comparative performance measurements were completed; this is an owner decision informed by the qualitative tradeoffs above, not a benchmark result.
 
-## Decision and exit
+## Rationale and tradeoffs
 
-Open. Recommend a choice after the comparison report and resolve it with Joshua. If Rust wins, plan migration and retain the C++ baseline history; add only crates that have actual callers. If C++ wins, specify warning/sanitizer/static-analysis coverage. Do not create an empty multi-crate architecture or delete working targets before the decision.
+C++ keeps one native language across the runtime and likely physics integration, preserves working Windows builds, and avoids introducing Rust/C++ binding ownership for the initial engine. Rust's memory-safety benefits remain valid; choosing C++ requires explicit ownership and verification discipline. This decision does not claim C++ is universally faster or safer.
+
+## Planned quality coverage
+
+- Keep current MSVC /W4 /permissive- and GCC/Clang -Wall -Wextra -Wpedantic warning coverage.
+- Add AddressSanitizer coverage for applicable native tests on a supported CI configuration.
+- Add UndefinedBehaviorSanitizer coverage on GCC/Clang where supported, and targeted ThreadSanitizer coverage when concurrent systems are introduced.
+- Add a pinned clang-tidy configuration for changed C++ modules and document exceptions.
+- Use RAII, explicit lifetimes, reviewed public APIs, and executable/unit/integration tests.
+
+The warnings exist in the baseline; sanitizer and clang-tidy jobs are planned and must not be marked implemented until their checks pass.
 
 ## Consequences
 
-Phase 0 language-dependent CLI/workspace implementation follows the decision. Graphics/physics/data ADRs can be evaluated in parallel conceptually, but their implementation must match the chosen stack.
+No Rust migration, Cargo workspace, or language-comparison spike is required. Build the lyko CLI and future runtime modules as target-based CMake components with actual callers. Resolve graphics, physics, and authored formats separately through ADRs 0002–0004. Preserve vendoring/licensing, Windows-first testing and engine/tool boundaries.

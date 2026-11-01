@@ -25,7 +25,7 @@ Every tool/content operation must be reachable through CLI and scripting, with d
 A C++20/CMake engine library and console sample with logging and smoke tests. Windows Debug/Release and Linux checks passed in [baseline CI](https://github.com/Avrenthrad/lykowareGE/actions/runs/40265394221).
 There is no window, renderer, physics, CLI scene/capture command or editor yet.
 
-Joshua requested **C++20 versus Rust comparison before choosing**. Preserve the working baseline; Vulkan, wgpu/ash, Jolt and RON/TOML/JSON are proposals under ADR evaluation.
+Joshua selected **C++20 with CMake** in [ADR 0001](docs/adr/0001-language.md). Continue the verified foundation. Vulkan, Jolt and authored data formats remain proposals under separate ADR evaluation.
 
 ## Product boundaries and release policy
 

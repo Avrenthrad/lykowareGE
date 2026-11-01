@@ -56,4 +56,4 @@ Low-level dependencies are vendored under third_party and hidden behind owned in
 
 ## Next implementation boundary
 
-Phase 0 compares C++20 and Rust. Phase 1 then provides runtime lifecycle/window/input/ECS/rendering and minimum CLI/capture tooling. See [ROADMAP.md](ROADMAP.md) for sequencing. Track E begins only after Phase 6; Track C follows E2.
+Phase 0 continues the accepted C++20/CMake foundation with minimal native tooling and quality checks. Phase 1 then provides runtime lifecycle/window/input/ECS/rendering and minimum CLI/capture tooling. See [ROADMAP.md](ROADMAP.md) for sequencing. Track E begins only after Phase 6; Track C follows E2.

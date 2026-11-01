@@ -5,7 +5,7 @@ Canonical directory: docs/adr. Decisions remain Proposed until resolved; disting
 | ADR | Status | Subject |
 | --- | --- | --- |
 | [0000](0000-ownership-and-licensing.md) | Accepted policy | Full ownership, licensing, privacy and release gates |
-| [0001](0001-language.md) | Proposed; comparison requested | C++20 versus Rust |
+| [0001](0001-language.md) | Accepted | C++20/CMake for runtime and native tooling |
 | [0002](0002-graphics.md) | Proposed | Graphics API and RHI |
 | [0003](0003-physics.md) | Proposed | Physics and Jolt integration |
 | [0004](0004-data-formats.md) | Proposed | Authored/runtime data and commands |

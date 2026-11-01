@@ -13,7 +13,7 @@ The owner is whoever is actively implementing the task, whether human or assista
 
 Keep engine, tools, and game responsibilities separate. Before changing a shared public API or persisted format, document its proposed contract in an ADR and review it with affected contributors. The project owner resolves product scope decisions; contributors can choose routine implementation details within an agreed task.
 
-The current C++ commands apply until the language decision changes them. Follow [ownership/licensing policy](docs/adr/0000-ownership-and-licensing.md), keep [STATUS](docs/STATUS.md) current, and use docs/adr for new decisions.
+C++20/CMake is accepted in [ADR 0001](docs/adr/0001-language.md); use the documented CMake presets. Follow [ownership/licensing policy](docs/adr/0000-ownership-and-licensing.md), keep [STATUS](docs/STATUS.md) current, and use docs/adr for new decisions.
 
 For C++ changes, build and test affected behavior, then use the Windows CI checks to verify the primary target. Changes to builds, dependencies, packaging, or public headers should be exercised in Windows Debug and Release. Do not claim checks that have not finished.
 

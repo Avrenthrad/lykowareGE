@@ -10,4 +10,4 @@ No third-party runtime source is vendored yet. Before adding a dependency, recor
 
 Allowed source licences: MIT/BSD/Apache/zlib under [ADR 0000](../docs/adr/0000-ownership-and-licensing.md). Preserve upstream licence/NOTICE files inside each fork. Do not substitute the root proprietary notice for upstream terms. Existing CI action pins are workflow dependencies, not vendored runtime libraries; track their provenance separately.
 
-Cargo registry use alone does not meet the source-vendoring rule. If Rust is selected, define offline vendoring and checks for transitive crates and native sources.
+The accepted runtime/native-tooling stack is C++20/CMake. Vendor native sources and transitive runtime dependencies rather than fetching moving branches during builds.
