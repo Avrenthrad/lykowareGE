@@ -1,5 +1,7 @@
 # lykowareGE
 
+The project's [master brief](docs/LYKOWARE_BRIEF.md) is the source of direction for the engine.
+
 **[Build checklist — track module progress here](CHECKLIST.md)**  
 Module 01 complete. Next focus: Module 02 — Application and input. Creative design will evolve alongside development.
 
