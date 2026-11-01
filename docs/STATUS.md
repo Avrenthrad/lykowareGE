@@ -7,8 +7,20 @@ C++20/CMake is accepted by Joshua in ADR 0001.
 
 ## Current development task
 
+Task owner: Cursor cloud agent. Branch feat/phase0-cpu-trace-budget. Base: cb5f38c28be6d6d0a95d632b891406120219d459 on feat/phase0-lyko-cli ([PR #5](https://github.com/Avrenthrad/lykowareGE/pull/5), not merged). The pull request targets that branch until #5 merges, and it is not merged by this task.
+Scope: CPU timer and scoped trace inside `lykoware_engine` (no new library). `lyko trace --frames N` runs the sandbox CPU loop and writes hand-built Chrome trace JSON. `screenshot` and `run --scene` stay exit 3. Provisional CPU-only CTest thresholds live in the root `CMakeLists.txt` for windows-2022 and ubuntu-24.04. No TOML/JSON budget file, no new dependency, and no hardware-profile or image/performance-gate checklist box is ticked.
+
+Local checks on this Linux machine (GCC 13.3.0):
+- Debug and ASan/UBSan: `trace.api`, `perf.sandbox_startup`, `perf.cpu_fixture`, `perf.budget_rejects_overrun`, `perf.budget_accepts_within`, `foundation.smoke`, `cli.commands`, and `cli.integration` passed.
+- Measured against the 20000 ms provisional limits: sandbox startup about 1.1 ms; one million `cpu_fixture_iteration` steps about 323 ms.
+- clang-tidy 18 analysis preset compiled the engine, sandbox, lyko, and the new tests with warnings as errors.
+
+CI: not recorded in this revision yet. Windows remains unverified locally. No storage was purchased. No checklist box was ticked.
+
+## Previous task, still in review
+
 Task owner: Cursor cloud agent. Delivery: [PR #5](https://github.com/Avrenthrad/lykowareGE/pull/5), branch feat/phase0-lyko-cli. Base: ca59854d519b5da02f44d34507aa62b8803a626b. Status: in review, not merged.
-Scope: one small lyko dispatcher in tools/cli. `build` and `test` still call the CMake/CTest presets. `run` launches lykoware_sandbox. `screenshot`, `trace`, and `run --scene` print `unsupported: no renderer` and return exit 3. No engine API, scene format, renderer, or command bus.
+Scope: one small lyko dispatcher in tools/cli. `build` and `test` still call the CMake/CTest presets. `run` launches lykoware_sandbox. At that revision, `screenshot`, `trace`, and `run --scene` printed `unsupported: no renderer` and returned exit 3. The CPU trace in the current task replaces only the `trace` result.
 
 Local checks on this Linux machine (GCC 13.3.0):
 - Debug and ASan/UBSan presets: `foundation.smoke`, `cli.commands`, and `cli.integration` passed.
@@ -42,7 +54,8 @@ First CI run: [41325630051](https://github.com/Avrenthrad/lykowareGE/actions/run
 ## Known issues and limitations
 
 - No window, renderer, ECS, scene loader, physics, audio/animation runtime, world streaming or inference.
-- `lyko run` launches the console sandbox only. `run --scene`, screenshot, and trace print `unsupported: no renderer` and return exit 3. No screenshot or perf-budget gate exists.
+- `lyko run` launches the console sandbox only. `run --scene` and screenshot print `unsupported: no renderer` and return exit 3. `lyko trace --frames N` writes a CPU Chrome trace of the sandbox loop. It is not a GPU capture.
+- Provisional CPU budgets in CTest apply only to windows-2022 and ubuntu-24.04. They are not an RTX 4070 or MSI Claw gate, and no screenshot gate exists.
 - Sanitizers are Linux-only; ThreadSanitizer is deferred until concurrent engine systems.
 - The CLI is a developer process wrapper, not the future runtime/editor mutation command bus. See CLI.md for limitations.
 - No dependencies are vendored. Vulkan/Jolt/data choices remain proposed.
@@ -52,12 +65,18 @@ First CI run: [41325630051](https://github.com/Avrenthrad/lykowareGE/actions/run
 
 ## Handoff
 
+- Task: CPU trace and provisional hosted CPU budgets. Branch feat/phase0-cpu-trace-budget. Base cb5f38c on feat/phase0-lyko-cli (PR #5, not merged).
+- Completed behavior: `CpuTimer` / `CpuTrace` in the engine library; `lyko trace --frames N` writes a Chrome trace of the sandbox CPU loop; screenshot and `run --scene` still exit 3; CTest fails when the provisional startup or fixture budget is exceeded.
+- Files/interfaces: `engine/include/lykoware/trace.hpp`, `engine/src/trace.cpp`, sandbox `--frames`/`--trace`, lyko `trace`, root `CMakeLists.txt` thresholds, ADR 0006.
+- Checks: local GCC 13.3.0 Debug, ASan/UBSan, and clang-tidy 18 analysis compiled and the Debug/ASan suites passed. Windows CI is not recorded yet.
+- Unverified: Windows Debug/Release, the GitHub ubuntu-24.04 runners, GPU timing, and device profiles. Downloadable CI artifacts were not uploaded.
+- Next: record the CI run, then merge only with owner approval. Do not treat the provisional budgets as a hardware profile.
+- Checklist: no box ticked. The hardware-profile and image/performance-gate items stay open.
+
+Earlier dispatcher handoff, for the branch this work builds on:
+
 - Task: minimal lyko dispatcher. Branch feat/phase0-lyko-cli. PR #5. Base ca59854d519b5da02f44d34507aa62b8803a626b. Tested commit 7b61fe8.
-- Completed behavior: `build`/`test` unchanged; `run` launches lykoware_sandbox; renderer commands exit 3 with `unsupported: no renderer`.
-- Files: tools/cli dispatcher and process-header contract, `cli.commands` ctest, CI staged checks, CLI/ADR/STATUS/WORK_BOARD notes.
-- Checks: [run 41327365270](https://github.com/Avrenthrad/lykowareGE/actions/runs/41327365270) passed Windows Debug/Release and all three Linux profiles, including staged execution. Local Linux Debug and ASan/UBSan ctest also passed.
-- Unverified: no renderer, scene load, screenshot, or trace implementation. Downloadable CI artifacts were not uploaded.
-- Next: merge only with owner approval. Phase 1 window/input is still the following implementation task.
-- Checklist: no new box ticked.
+- Completed behavior at that revision: `build`/`test` unchanged; `run` launches lykoware_sandbox; renderer commands, including trace, exited 3. The current task changes the trace result only.
+- Checks: [run 41327365270](https://github.com/Avrenthrad/lykowareGE/actions/runs/41327365270) passed Windows Debug/Release and all three Linux profiles for that revision.
 
 Read [WORK_BOARD.md](WORK_BOARD.md), [CLI.md](CLI.md), [ROADMAP.md](ROADMAP.md) and [ADRs](adr/README.md). Check latest main and active PRs; do not implement from a stale chat. Update this file with exact commits/checks, failures and next actions.

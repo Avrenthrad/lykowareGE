@@ -53,7 +53,16 @@ jobs:
           ./out/windows-${{ matrix.configuration }}/bin/lyko.exe screenshot
           Assert-Exit 3
           ./out/windows-${{ matrix.configuration }}/bin/lyko.exe trace
-          Assert-Exit 3
+          Assert-Exit 2
+          $trace = Join-Path $env:RUNNER_TEMP "lykoware-cpu-trace.json"
+          if (Test-Path $trace) { Remove-Item $trace }
+          ./out/windows-${{ matrix.configuration }}/bin/lyko.exe trace --frames 2 --output $trace
+          Assert-Exit 0
+          if (-not (Select-String -Path $trace -Pattern '"name":"sandbox.frame"' -SimpleMatch -Quiet)) {
+            Write-Error "trace file is missing sandbox frames"
+            exit 1
+          }
+          Remove-Item $trace
           ./out/windows-${{ matrix.configuration }}/bin/lyko.exe run --scene
           Assert-Exit 3
           exit 0
@@ -95,14 +104,23 @@ jobs:
           "$bin" --version
           "$bin" test --source . --preset ${{ matrix.preset }}
           "$bin" run
-          expect_unsupported() {
+          expect_exit() {
+            expected=$1
+            shift
             status=0
             "$@" || status=$?
-            if [ "$status" -ne 3 ]; then
-              echo "expected exit 3, got $status for: $*"
+            if [ "$status" -ne "$expected" ]; then
+              echo "expected exit $expected, got $status for: $*"
               exit 1
             fi
           }
-          expect_unsupported "$bin" screenshot
-          expect_unsupported "$bin" trace
-          expect_unsupported "$bin" run --scene
+          expect_exit 3 "$bin" screenshot
+          expect_exit 2 "$bin" trace
+          expect_exit 3 "$bin" run --scene
+          trace="$(mktemp)"
+          expect_exit 0 "$bin" trace --frames 2 --output "$trace"
+          if ! grep -F -q '"name":"sandbox.frame"' "$trace"; then
+            echo "trace file is missing sandbox frames"
+            exit 1
+          fi
+          rm -f "$trace"

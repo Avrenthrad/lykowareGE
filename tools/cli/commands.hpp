@@ -34,12 +34,15 @@ inline constexpr int exit_not_launched = 127;
 // is not supported. No handler starts a background thread.
 //
 // Failure: expected rejects return an exit code and do not throw.
-// exit_usage (2) is an unknown command or a bad option. exit_unsupported (3)
-// is screenshot, trace, or run --scene: the message contains
-// "unsupported: no renderer" and no renderer is started. exit_not_launched
-// (127) means the child executable could not be started. Other codes are the
-// child's status. Unexpected std::exceptions are reported on stderr and
-// returned as exit_usage. run with no scene launches lykoware_sandbox and
-// returns that process's status.
+// exit_usage (2) is an unknown command or a bad option, including trace
+// without a valid --frames value. exit_unsupported (3) is screenshot or
+// run --scene: the message contains "unsupported: no renderer" and no
+// renderer is started. exit_not_launched (127) means the child executable
+// could not be started. trace --frames N launches lykoware_sandbox, records
+// that many CPU-loop iterations, and writes a Chrome trace; the sandbox
+// status is returned. run with no scene launches lykoware_sandbox and
+// returns that process's status. Other codes are the child's status.
+// Unexpected std::exceptions are reported on stderr and returned as
+// exit_usage.
 int dispatch(std::string_view program, const std::vector<std::string>& arguments);
 }

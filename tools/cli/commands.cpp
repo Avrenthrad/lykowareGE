@@ -3,8 +3,11 @@
 #include "lyko_sandbox_path.hpp"
 #include "process.hpp"
 
+#include <lykoware/trace.hpp>
 #include <lykoware/version.hpp>
 
+#include <charconv>
+#include <cstdint>
 #include <exception>
 #include <filesystem>
 #include <iostream>
@@ -13,6 +16,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <vector>
 
 #ifdef _WIN32
@@ -47,12 +51,33 @@ void usage()
                  "             [--cmake EXECUTABLE]\n"
                  "  lyko test  [--source DIR] [--preset NAME] [--ctest EXECUTABLE]\n"
                  "  lyko run\n"
+                 "  lyko trace --frames N [--output FILE]\n"
                  "  lyko --help | --version\n"
                  "Tools default to cmake/ctest on PATH; source defaults to the current directory.\n"
                  "Windows defaults: configure windows, build/test windows-debug.\n"
                  "Linux defaults: configure/build/test linux-debug.\n"
                  "run launches lykoware_sandbox.\n"
-                 "run --scene, screenshot and trace are unsupported: no renderer.\n";
+                 "trace --frames N records that many sandbox CPU-loop iterations.\n"
+                 "The default trace file is lykoware-cpu-trace.json in the current directory.\n"
+                 "run --scene and screenshot are unsupported: no renderer.\n";
+}
+
+std::uint64_t parse_frames(std::string_view text)
+{
+    if (text.empty() || text.front() == '+' || text.front() == '-') {
+        throw std::invalid_argument(
+            "trace --frames must be an integer from 1 to "
+            + std::to_string(lykoware::cpu_trace_frame_limit) + ".");
+    }
+    std::uint64_t value = 0;
+    const auto parsed = std::from_chars(text.data(), text.data() + text.size(), value);
+    if (parsed.ec != std::errc{} || parsed.ptr != text.data() + text.size()
+        || value < 1 || value > lykoware::cpu_trace_frame_limit) {
+        throw std::invalid_argument(
+            "trace --frames must be an integer from 1 to "
+            + std::to_string(lykoware::cpu_trace_frame_limit) + ".");
+    }
+    return value;
 }
 
 int unsupported(std::string_view command)
@@ -219,9 +244,53 @@ int screenshot_command(std::string_view, std::span<const std::string>)
     return unsupported("screenshot");
 }
 
-int trace_command(std::string_view, std::span<const std::string>)
+int trace_command(std::string_view program, std::span<const std::string> arguments)
 {
-    return unsupported("trace");
+    if (arguments.size() == 1 && arguments[0] == "--help") {
+        usage();
+        return lykoware::cli::exit_ok;
+    }
+    bool saw_frames = false;
+    bool saw_output = false;
+    std::uint64_t frames = 0;
+    std::string output;
+    for (std::size_t index = 0; index < arguments.size(); ++index) {
+        const std::string& option = arguments[index];
+        if (option != "--frames" && option != "--output") {
+            throw std::invalid_argument("Unknown option for trace: " + option);
+        }
+        if ((option == "--frames" && saw_frames) || (option == "--output" && saw_output)) {
+            throw std::invalid_argument("Duplicate option: " + option);
+        }
+        if (index + 1 >= arguments.size() || arguments[index + 1].empty()
+            || arguments[index + 1].starts_with("--")) {
+            throw std::invalid_argument("Missing value for " + option);
+        }
+        const std::string& value = arguments[++index];
+        if (option == "--frames") {
+            frames = parse_frames(value);
+            saw_frames = true;
+        } else {
+            output = value;
+            saw_output = true;
+        }
+    }
+    if (!saw_frames) {
+        throw std::invalid_argument("trace requires --frames N.");
+    }
+    std::filesystem::path destination = saw_output
+        ? utf8_path(output)
+        : std::filesystem::current_path() / "lykoware-cpu-trace.json";
+    destination = std::filesystem::absolute(destination);
+    const std::filesystem::path sandbox = find_sandbox(program);
+    if (sandbox.empty()) {
+        std::cerr << "lyko: cannot launch lykoware_sandbox (not found).\n";
+        return lykoware::cli::exit_not_launched;
+    }
+    return lykoware::cli::run_process(
+        path_to_utf8(sandbox),
+        {"--frames", std::to_string(frames), "--trace", path_to_utf8(destination)},
+        std::filesystem::current_path());
 }
 
 int route(std::string_view program, const std::vector<std::string>& arguments)

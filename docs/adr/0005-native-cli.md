@@ -17,7 +17,9 @@ Do not claim run/scene/screenshot/trace support before the runtime exists; reser
 
 ## Implementation follow-up
 
-`lyko run` with no scene argument launches the existing console sandbox and returns that process's status. This is process startup, not scene loading and not a renderer. `lyko run --scene`, `screenshot`, and `trace` still return exit code 3 and print `unsupported: no renderer`. They must not be described as working capture commands.
+`lyko run` with no scene argument launches the existing console sandbox and returns that process's status. This is process startup, not scene loading and not a renderer. `lyko run --scene` and `screenshot` still return exit code 3 and print `unsupported: no renderer`. They must not be described as working capture commands.
+
+`lyko trace --frames N` is a later CPU-only addition. It launches the sandbox loop and writes a Chrome trace. It is not a renderer and not a GPU capture. Its contract is [ADR 0006](0006-cpu-trace.md). The original rule stands for scene loading and screenshots: do not claim them before that runtime exists.
 
 Subcommands share one dispatcher and the handlers in `tools/cli`. That table is not the Phase 1 serializable command bus. The original decision against a general command bus stands. Header comments on `commands.hpp` and `process.hpp` record ownership, lifetime, threading, and failure.
 
@@ -27,4 +29,4 @@ See [CLI.md](../CLI.md) for options, defaults, exit codes and limitations. A scr
 
 ## Verification
 
-Integration checks launch real CMake/CTest presets and a controlled native tool fixture, exercising cwd, Unicode/spaces/quotes/backslashes/metacharacters, configure/build/test failures, missing tools, invalid options and zero tests. `cli.commands` checks help text, `run`, and exit code 3 for `screenshot`, `trace`, and `run --scene`. Stage and run the executable on Windows and Linux. Record actual run evidence in STATUS/PR rather than treating this test plan as a pass.
+Integration checks launch real CMake/CTest presets and a controlled native tool fixture, exercising cwd, Unicode/spaces/quotes/backslashes/metacharacters, configure/build/test failures, missing tools, invalid options and zero tests. `cli.commands` checks help text, `run`, `trace --frames`, and exit code 3 for `screenshot` and `run --scene`. Stage and run the executable on Windows and Linux. Record actual run evidence in STATUS/PR rather than treating this test plan as a pass.

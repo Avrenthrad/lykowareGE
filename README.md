@@ -24,7 +24,7 @@ Every tool/content operation must be reachable through CLI and scripting, with d
 
 ## What actually runs
 
-A C++20/CMake engine library, console sandbox, and native **lyko** CLI. `lyko build` and `lyko test` call the CMake/CTest presets without a shell. `lyko run` launches the console sandbox. `lyko run --scene`, `screenshot`, and `trace` return an explicit unsupported-renderer error. Compiler warnings are errors by default; Linux ASan/UBSan and clang-tidy 18 presets are available.
+A C++20/CMake engine library, console sandbox, and native **lyko** CLI. `lyko build` and `lyko test` call the CMake/CTest presets without a shell. `lyko run` launches the console sandbox. `lyko trace --frames N` writes a CPU Chrome trace of that sandbox loop. `lyko run --scene` and `screenshot` return an explicit unsupported-renderer error. Compiler warnings are errors by default; Linux ASan/UBSan and clang-tidy 18 presets are available. Provisional CPU-only budgets run in CTest for the pinned hosted runners.
 
 See [build instructions](docs/BUILDING.md), [CLI contract](docs/CLI.md), and [STATUS](docs/STATUS.md) for current verification. There is no window, renderer, physics, scene loader, or editor yet.
 

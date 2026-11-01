@@ -6,9 +6,9 @@ Status: current foundation plus intended boundaries. Planned modules below do no
 
 | Target | Contents |
 | --- | --- |
-| lykoware_engine (alias lykoware::engine) | Static library: logging and generated version header |
-| lykoware_sandbox | Console sample linked against the engine |
-| lyko | Native CLI. `build`/`test` call CMake/CTest presets. `run` launches lykoware_sandbox. `screenshot`, `trace`, and `run --scene` return an unsupported-renderer error. One dispatcher in tools/cli; not a command bus |
+| lykoware_engine (alias lykoware::engine) | Static library: logging, CPU timer/trace, and generated version header |
+| lykoware_sandbox | Console sample linked against the engine. No arguments runs the foundation check. `--frames N --trace FILE` runs N CPU-loop iterations and writes a Chrome trace |
+| lyko | Native CLI. `build`/`test` call CMake/CTest presets. `run` launches lykoware_sandbox. `trace --frames N` records that sandbox CPU loop. `screenshot` and `run --scene` return an unsupported-renderer error. One dispatcher in tools/cli; not a command bus |
 | foundation.smoke | Sandbox executable startup/CLI checks |
 | cli.integration | Real CMake/CTest runs plus process/argument/failure integration checks |
 
@@ -51,6 +51,8 @@ Before another module relies on a new API, document:
 Use an [ADR](adr/README.md) for consequential decisions. Avoid inventing shared interfaces that no implemented caller needs.
 
 The build/test/run CLI is described in [ADR 0005](adr/0005-native-cli.md) and [CLI.md](CLI.md). Its dispatcher validates the small fixed command set. It does not implement the future engine mutation/undo command bus.
+
+The CPU timer and trace live in the existing engine library, not a separate module. [ADR 0006](adr/0006-cpu-trace.md) and [engine/include/lykoware/trace.hpp](../engine/include/lykoware/trace.hpp) record ownership, lifetime, threading, and failure. Zones are single-threaded steady-clock measurements. The file is hand-written Chrome Trace Event JSON for diagnostics. It is not an authored project format, and ADR 0004 remains open. There are no GPU events. Provisional CPU-only CI thresholds for the pinned hosted runners are in the root `CMakeLists.txt`; see [PERFORMANCE.md](PERFORMANCE.md).
 
 ## Engine-first command boundary
 

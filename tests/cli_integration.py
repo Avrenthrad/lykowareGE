@@ -25,11 +25,13 @@ def invoke(*args, expected=0, cwd=None):
 
 
 assert "Usage:" in invoke("--help")
+assert "lyko trace --frames" in invoke("--help")
 assert "unsupported: no renderer" in invoke("--help")
 assert invoke("--version").startswith("lyko ")
 assert "Unknown command" in invoke("nonsense", expected=2)
-for command in ("screenshot", "trace"):
-    assert "unsupported: no renderer" in invoke(command, expected=3)
+assert "unsupported: no renderer" in invoke("screenshot", expected=3)
+assert "trace requires --frames" in invoke("trace", expected=2)
+assert "integer from 1 to 1000000" in invoke("trace", "--frames", "0", expected=2)
 assert "unsupported: no renderer" in invoke("run", "--scene", expected=3)
 assert "unsupported: no renderer" in invoke("run", "--scene", "room", expected=3)
 assert "unsupported: no renderer" in invoke("run", "--scene=room", expected=3)
@@ -38,6 +40,16 @@ assert "run accepts no options" in invoke("run", "--extra", expected=2)
 
 with tempfile.TemporaryDirectory(prefix="lyko tests ") as temporary:
     root = Path(temporary)
+    trace_dir = root / "trace Ω & ; literal"
+    trace_dir.mkdir()
+    trace_file = trace_dir / "cpu trace.json"
+    traced = invoke("trace", "--frames", "3", "--output", trace_file)
+    assert "Wrote CPU trace." in traced
+    trace_text = trace_file.read_text(encoding="utf-8")
+    assert trace_text.count('"name":"sandbox.frame"') == 3
+    assert '"ph":"X"' in trace_text
+    assert '"cat":"cpu"' in trace_text
+
     # This directory is passed to the fake tool so no generator limitations can
     # hide shell interpretation or Unicode/space argument bugs in lyko itself.
     source = root / "project Ω & ; literal"

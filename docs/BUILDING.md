@@ -66,7 +66,7 @@ SDL3 is proposed for Phase 1 window/input (formerly Module 02). Select a specifi
 
 ## Verification
 
-CTest verifies the sandbox and CLI. `cli.commands` checks help text, `lyko run`, and exit code 3 for renderer commands. CLI integration covers real configure/build/test execution, literal Unicode/quoted arguments, child cwd, failed configure/build/test commands, absent tools and zero-test failures. GitHub Actions repeats these on Windows Debug/Release, Linux Debug, ASan/UBSan, and clang-tidy 18 builds, then stages/runs the CLI. Current results are in STATUS.
+CTest verifies the sandbox, the CPU trace API, and the CLI. `cli.commands` checks help text, `lyko run`, `lyko trace --frames`, and exit code 3 for `screenshot` and `run --scene`. `perf.sandbox_startup` and `perf.cpu_fixture` enforce the provisional CPU-only thresholds in the root `CMakeLists.txt`. CLI integration covers real configure/build/test execution, literal Unicode/quoted arguments, child cwd, a Unicode trace path, failed configure/build/test commands, absent tools and zero-test failures. GitHub Actions repeats these on Windows Debug/Release, Linux Debug, ASan/UBSan, and clang-tidy 18 builds, then stages/runs the CLI. Current results are in STATUS.
 
 ## Native CLI
 
@@ -87,7 +87,7 @@ On Linux:
 ./build/linux-debug/tools/cli/lyko run
 ```
 
-See [CLI.md](CLI.md) for defaults, overrides, exit codes and the header contract. Installing the project stages both sandbox and lyko under bin/, which is where `lyko run` finds the sandbox. `screenshot`, `trace`, and `run --scene` exit 3 with `unsupported: no renderer`.
+See [CLI.md](CLI.md) for defaults, overrides, exit codes and the header contract. Installing the project stages both sandbox and lyko under bin/, which is where `lyko run` and `lyko trace` find the sandbox. `lyko trace --frames N` writes a CPU Chrome trace of the sandbox loop. `screenshot` and `run --scene` exit 3 with `unsupported: no renderer`.
 
 On Windows, use the installed copy when rebuilding the CLI itself: a running executable in the build directory cannot be relinked in place. Restage after the command exits to update the installed tool.
 
@@ -108,7 +108,7 @@ ctest --preset linux-analysis
 
 ASan/UBSan run on Linux GCC/Clang. Windows builds retain compiler warnings and integration tests; Windows sanitizer support is not configured. The .clang-tidy file enables analyzer/lifetime checks and treats findings as errors. ThreadSanitizer remains deferred until concurrent engine systems exist.
 
-Python and analysis tools are development dependencies, not shipped game/runtime dependencies. No screenshot or device-performance gate is claimed before the relevant runtime and test hardware exist.
+Python and analysis tools are development dependencies, not shipped game/runtime dependencies. The provisional CPU budgets are hosted-runner checks only. No screenshot or device-performance gate is claimed.
 
 ## CI artifacts
 
