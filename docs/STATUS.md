@@ -7,15 +7,14 @@ C++20/CMake is accepted by Joshua in ADR 0001.
 
 ## Current development task
 
-Task owner: Cursor cloud agent. Branch: feat/phase0-lyko-cli. Base: ca59854d519b5da02f44d34507aa62b8803a626b.
+Task owner: Cursor cloud agent. Delivery: [PR #5](https://github.com/Avrenthrad/lykowareGE/pull/5), branch feat/phase0-lyko-cli. Base: ca59854d519b5da02f44d34507aa62b8803a626b. Status: in review, not merged.
 Scope: one small lyko dispatcher in tools/cli. `build` and `test` still call the CMake/CTest presets. `run` launches lykoware_sandbox. `screenshot`, `trace`, and `run --scene` print `unsupported: no renderer` and return exit 3. No engine API, scene format, renderer, or command bus.
 
-Local checks on this Linux machine (GCC 13.3.0). These are not Windows results:
-- Debug preset: configure, build, and `ctest --preset linux-debug` passed `foundation.smoke`, `cli.commands`, and `cli.integration`.
-- ASan/UBSan preset: configure, build, and `ctest --preset linux-sanitizers` passed the same three tests.
-- Installed layout: staged `lyko run` launched the sibling sandbox even when the build-tree sandbox was removed, and preferred the sibling when both existed. `screenshot`, `trace`, and `run --scene` exited 3. With the sibling removed as well, `run` exited 127.
+Local checks on this Linux machine (GCC 13.3.0):
+- Debug and ASan/UBSan presets: `foundation.smoke`, `cli.commands`, and `cli.integration` passed.
+- Installed layout: staged `lyko run` launched the sibling sandbox, including when the build-tree copy was removed, and preferred the sibling when both existed. Renderer commands exited 3. With no sandbox present, `run` exited 127.
 
-clang-tidy 18.1.3 reported no findings on tools/cli/commands.cpp, main.cpp, and process.cpp when given this machine's GCC 13 headers. The linux-analysis preset itself did not finish here: local clang-tidy selects missing GCC 14 libstdc++ headers. Windows Debug/Release were not run here. The pull request CI is the check for the full matrix. No checklist item was ticked for this change. No paid operation.
+CI: [run 41327365270](https://github.com/Avrenthrad/lykowareGE/actions/runs/41327365270) passed all five jobs: Windows Debug, Windows Release, Linux Debug, ASan/UBSan, and clang-tidy 18. Each job built, tested, and staged `lyko run` plus the exit-3 renderer commands. Tested code commit: 7b61fe834528e924314e5fd6fac95e6ca03676bc. Artifact upload did not run; it is opt-in and was not a failure. No storage was purchased. No checklist box was ticked: the open Phase 0 boxes are still unmet, and the lyko build/test boxes were already checked. No paid operation.
 
 ## Completed CLI baseline
 
@@ -53,12 +52,12 @@ First CI run: [41325630051](https://github.com/Avrenthrad/lykowareGE/actions/run
 
 ## Handoff
 
-- Task: minimal lyko dispatcher. Branch feat/phase0-lyko-cli. Base ca59854d519b5da02f44d34507aa62b8803a626b. PR link belongs in this section after it is opened.
+- Task: minimal lyko dispatcher. Branch feat/phase0-lyko-cli. PR #5. Base ca59854d519b5da02f44d34507aa62b8803a626b. Tested commit 7b61fe8.
 - Completed behavior: `build`/`test` unchanged; `run` launches lykoware_sandbox; renderer commands exit 3 with `unsupported: no renderer`.
 - Files: tools/cli dispatcher and process-header contract, `cli.commands` ctest, CI staged checks, CLI/ADR/STATUS/WORK_BOARD notes.
-- Checks: Linux Debug and ASan/UBSan ctest passed locally, plus the installed sibling-sandbox check above. clang-tidy on the three tools/cli sources reported no findings with an explicit GCC 13 include path. The analysis preset and Windows Debug/Release are not yet recorded.
-- Unverified: Windows. No renderer, scene load, screenshot, or trace implementation.
-- Next: record the PR CI result here, including a Windows artifact-upload failure if that is the only failure. Do not buy storage. Tick a checklist box only after that evidence exists.
+- Checks: [run 41327365270](https://github.com/Avrenthrad/lykowareGE/actions/runs/41327365270) passed Windows Debug/Release and all three Linux profiles, including staged execution. Local Linux Debug and ASan/UBSan ctest also passed.
+- Unverified: no renderer, scene load, screenshot, or trace implementation. Downloadable CI artifacts were not uploaded.
+- Next: merge only with owner approval. Phase 1 window/input is still the following implementation task.
 - Checklist: no new box ticked.
 
 Read [WORK_BOARD.md](WORK_BOARD.md), [CLI.md](CLI.md), [ROADMAP.md](ROADMAP.md) and [ADRs](adr/README.md). Check latest main and active PRs; do not implement from a stale chat. Update this file with exact commits/checks, failures and next actions.
