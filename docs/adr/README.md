@@ -6,9 +6,9 @@ Canonical directory: docs/adr. Decisions remain Proposed until resolved; disting
 | --- | --- | --- |
 | [0000](0000-ownership-and-licensing.md) | Accepted policy | Full ownership, licensing, privacy and release gates |
 | [0001](0001-language.md) | Accepted | C++20/CMake for runtime and native tooling |
-| [0002](0002-graphics.md) | Proposed | Graphics API and RHI |
+| [0002](0002-graphics.md) | Accepted | Vulkan 1.3 from C++ behind an owned RHI |
 | [0003](0003-physics.md) | Proposed | Physics and Jolt integration |
-| [0004](0004-data-formats.md) | Proposed | Authored/runtime data and commands |
+| [0004](0004-data-formats.md) | Accepted | Canonical JSON, TOML config, glTF 2.0 meshes |
 
 Use [the template](TEMPLATE.md). Record context, options, decision/status, contracts, consequences and verification. Use a new ADR to supersede an accepted choice; do not silently rewrite its history.
 

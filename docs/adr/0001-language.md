@@ -17,6 +17,8 @@ The repository already has a small C++20/CMake library and sample; Windows Debug
 | Complexity | One language across core and Jolt bridge | Rust plus a deliberately small C++ FFI layer |
 | Current evidence | Working small baseline, no full engine | No repository measurements yet |
 
+The graphics row records the options considered while choosing a language. ADR 0002 later rejected wgpu and ash and accepted Vulkan 1.3 from C++.
+
 ## Decision
 
 Use **C++20 with CMake** for Lykoware's runtime and native tooling. Continue from the verified engine/sample targets. Prefer direct native library integrations behind Lykoware-owned interfaces; Jolt remains a proposed dependency, not selected by this language decision.
@@ -39,4 +41,4 @@ The warnings exist in the baseline; sanitizer and clang-tidy jobs are planned an
 
 ## Consequences
 
-No Rust migration, Cargo workspace, or language-comparison spike is required. Build the lyko CLI and future runtime modules as target-based CMake components with actual callers. Resolve graphics, physics, and authored formats separately through ADRs 0002–0004. Preserve vendoring/licensing, Windows-first testing and engine/tool boundaries.
+No Rust migration, Cargo workspace, or language-comparison spike is required. Build the lyko CLI and future runtime modules as target-based CMake components with actual callers. Graphics and authored formats are accepted in ADRs 0002 and 0004. Physics remains ADR 0003. Preserve vendoring/licensing, Windows-first testing and engine/tool boundaries.

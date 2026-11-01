@@ -1,6 +1,6 @@
 # Data ownership and format planning
 
-Status: ownership guidance accepted for planning; concrete schemas, encodings, identifier types, and migration code are not selected or implemented.
+Status: ownership guidance and encodings are accepted for planning. [ADR 0004](adr/0004-data-formats.md) selects canonical JSON, TOML for hand-edited config, and glTF 2.0 for meshes. Concrete schemas, identifier types beyond stable IDs, and migration code are not implemented.
 
 ## Separate data categories
 
@@ -30,4 +30,4 @@ All authored scenes, prefabs, materials, quests, dialogue, configuration and ope
 
 ## Decision gate
 
-Before implementing a format, add an ADR and a small representative document covering format/version, identifiers, fields/defaults, load errors, compatibility, and a round-trip check. JSON/TOML/RON and glTF 2.0 are proposals; serialization technology and exact schema/file extensions remain open. No example here is a production schema.
+Before implementing a format, add a small representative document covering format/version, identifiers, fields/defaults, load errors, compatibility, and a round-trip check. [ADR 0004](adr/0004-data-formats.md) accepts canonical JSON for machine-written data (sorted keys, a schema_version field, stable IDs), TOML for hand-edited config, and glTF 2.0 for meshes. RON is dropped. Parsers are hand-written or pinned MIT libraries chosen when first needed. Exact field schemas and file extensions are not implemented. No example here is a production schema.

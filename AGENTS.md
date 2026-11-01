@@ -22,7 +22,7 @@ Applies to this repository, including Codex, Claude, Grok, and other assistants.
 
 ## Code and boundaries
 
-- Accepted stack: C++20/CMake 3.25+ (ADR 0001). Continue the verified foundation; no Rust/Cargo migration or comparison spikes. Windows x64 primary; Linux secondary. Follow ADR 0001's planned sanitizer/static-analysis coverage as those checks are implemented.
+- Accepted stack: C++20/CMake 3.25+ (ADR 0001). Graphics: Vulkan 1.3 from C++ behind an owned RHI (ADR 0002). Authored data: canonical JSON, TOML for hand-edited config, glTF 2.0 meshes (ADR 0004). Jolt remains proposed (ADR 0003); if adopted, call it natively from C++. Continue the verified foundation; no Rust/Cargo migration, wgpu/ash evaluation, or RON. Windows x64 primary; Linux secondary. Follow ADR 0001's planned sanitizer/static-analysis coverage as those checks are implemented.
 - Full ownership and source vendoring: follow docs/adr/0000-ownership-and-licensing.md. No external editor/engine host dependency, copyleft shipped code or proprietary middleware lock-in.
 - No paid operations without Joshua's approval; no personal data to external AI services. GitHub-only repositories, private work; no public release without Pax review and owner authorization.
 - Every content/tool action needs CLI/script access; minimal debug/capture tooling precedes the editor. Keep authoritative operations shared rather than duplicating UI logic.

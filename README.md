@@ -27,7 +27,7 @@ Every tool/content operation must be reachable through CLI and scripting, with d
 A C++20/CMake engine library and console sample with logging and smoke tests. Windows Debug/Release and Linux checks passed in [baseline CI](https://github.com/Avrenthrad/lykowareGE/actions/runs/40265394221).
 There is no window, renderer, physics, CLI scene/capture command or editor yet.
 
-Joshua selected **C++20 with CMake** in [ADR 0001](docs/adr/0001-language.md). Continue the verified foundation. Vulkan, Jolt and authored data formats remain proposals under separate ADR evaluation.
+Joshua selected **C++20 with CMake** in [ADR 0001](docs/adr/0001-language.md). [ADR 0002](docs/adr/0002-graphics.md) accepts Vulkan 1.3 from C++ behind an owned RHI. [ADR 0004](docs/adr/0004-data-formats.md) accepts canonical JSON, TOML for hand-edited config, and glTF 2.0 for meshes. Jolt remains proposed in [ADR 0003](docs/adr/0003-physics.md); if adopted, it is called natively from C++, not through bindings. No graphics or parser dependency is vendored yet.
 
 ## Product boundaries and release policy
 

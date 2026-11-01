@@ -8,7 +8,7 @@ This roadmap supersedes the original module ordering. [CHECKLIST.md](../CHECKLIS
 
 Goal: settle architecture choices and reproducible agent workflows.
 Deliverables: ownership/licence policy; private licence; shared contributor rules; status/roadmap; ADRs 0000–0004; accepted C++20/CMake stack and planned native-code analysis coverage; initial lyko build/test commands and test fixtures.
-Exit: language decision recorded (C++20 accepted); clean Windows Debug/Release equivalent builds and Linux portability check; lint/unit/integration gates pass; dependency inventory complete; device profiles/budgets agreed. Capture/perf commands have explicit capability/errors; real screenshot tests wait for a renderer. Do not report placeholder subcommands as functional.
+Exit: language decision recorded (C++20 accepted); graphics (ADR 0002) and data formats (ADR 0004) accepted as decisions, with physics still open in ADR 0003; clean Windows Debug/Release equivalent builds and Linux portability check; lint/unit/integration gates pass; dependency inventory complete; device profiles/budgets agreed. Capture/perf commands have explicit capability/errors; real screenshot tests wait for a renderer. Do not report placeholder subcommands as functional.
 
 ## Phase 1 — Core runtime
 

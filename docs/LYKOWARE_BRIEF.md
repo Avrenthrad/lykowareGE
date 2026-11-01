@@ -52,7 +52,7 @@ Inspired by GTA/RAGE + Euphoria: physics-driven animation, foot IK on uneven ter
 - Constrained by authored lore and the main story spine; fed by Living Memory; guardrails and filters; no server dependency.
 
 ## 8. Performance
-- Zero stutter: precompiled shaders and pipeline caches.
+- Zero stutter: shaders compiled ahead of time to SPIR-V, plus device/driver-keyed pipeline caches (ADR 0002).
 - Strict frame pacing.
 - Scale from MSI Claw handheld (Intel Arc) to RTX 4070 desktop.
 - Seamless world streaming, no loading screens.
@@ -77,11 +77,13 @@ Built-in Highlighter-style replay capture.
 - Nothing public without Pax review.
 - Any spend needs Joshua's approval: flag paid tools/services before use.
 
-## 13. Recommended stack (judgement call; confirm in ADR-0001)
-- Language: C++20 with CMake (already established and verified on Windows and Linux in the lykowareGE repo; native fit for Jolt, Vulkan and AAA middleware). Enforce safety with sanitizers (ASan/UBSan), clang-tidy, warnings-as-errors and strong tests. Record as ADR-0001.
-- Graphics: Vulkan primary (cross-vendor incl. Intel Arc, Linux-friendly), via an abstraction leaving room for a D3D12 backend on Windows if Arc driver behaviour demands it. Evaluate wgpu vs raw ash for the RHI.
-- Physics: Jolt (via bindings).
-- Formats: RON/TOML/JSON for authored data; glTF 2.0 for meshes.
+## 13. Recommended stack (recorded in the ADRs)
+- Language: C++20 with CMake (already established and verified on Windows and Linux in the lykowareGE repo; native fit for Jolt, Vulkan and AAA middleware). Enforce safety with sanitizers (ASan/UBSan), clang-tidy, warnings-as-errors and strong tests. Accepted in ADR 0001.
+- Graphics: Vulkan 1.3 used directly from C++, behind a thin render hardware interface (RHI) owned by Lykoware. D3D12 is a possible later backend, only if Intel Arc measurements justify it. Accepted in ADR 0002.
+- Physics: Jolt, used natively in C++ (not via bindings). Integration is still proposed in ADR 0003.
+- Formats: canonical JSON for machine-written data (sorted keys, schema_version, stable IDs); TOML for hand-edited config; glTF 2.0 for meshes; binary only as cooked build output. RON is not used. Accepted in ADR 0004.
+
+Note: language, graphics and data formats are [ADR 0001](adr/0001-language.md), [ADR 0002](adr/0002-graphics.md) and [ADR 0004](adr/0004-data-formats.md). Jolt's native C++ use is the integration style; selecting and vendoring Jolt remains [ADR 0003](adr/0003-physics.md).
 
 ## 14. Roadmap (vertical slices; objective exit criteria per phase)
 0 Foundations; 1 Core runtime; 2 Slice 1 character feel on terrain; 3 Combat; 4 Building/crafting; 5 RTS faction battle; 6 World streaming at scale; 7 (moved: editor is Track E after engine core); 8 Living Memory + factions/relationships; 9 Living World AI; 10 Story/consequence tooling; 11 Content pipeline + flagship vertical slice.
