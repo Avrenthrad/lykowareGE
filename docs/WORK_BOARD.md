@@ -51,11 +51,11 @@ Use in the task/PR when pausing, completing, or transferring work:
 
 ### Handoff
 
-- Task, branch, commit, PR: accept ADR 0002 and ADR 0004; branch `docs/accept-adr-0002-0004`; commit and PR recorded when this change is published.
-- Completed behavior: ADR 0002 and ADR 0004 are Accepted. The brief no longer evaluates wgpu against ash, no longer puts Jolt behind bindings, and no longer lists RON as a format.
+- Task, branch, commit, PR: accept ADR 0002 and ADR 0004; branch `docs/accept-adr-0002-0004`; decision commit `0d9100ff73271a3828eaae55951a2f43a203d112`. PR link is added when the pull request exists.
+- Completed behavior: ADR 0002 and ADR 0004 are Accepted on this branch. The brief no longer evaluates wgpu against ash, no longer puts Jolt behind bindings, and no longer lists RON as a format.
 - Files/interfaces changed: documentation listed in the task. No public API or on-disk schema was implemented.
-- Checks run and actual results: link and consistency review of the edited docs. CI results belong in the PR once the run finishes; do not treat this note as a green build.
-- Unverified behavior/platforms: no renderer, capture path, parser round-trip or vendored library was exercised. Linux and Windows builds are unchanged in source and still need the PR's CI.
+- Checks run and actual results: relative links in the edited Markdown resolve. Local Linux `cmake --preset linux-debug`, `cmake --build --preset linux-debug`, and `ctest --preset linux-debug` passed (`foundation.smoke`). That reruns the existing console sample only. Windows CI is not claimed until the pull request run finishes.
+- Unverified behavior/platforms: no Windows toolchain in this environment. No renderer, capture path, parser round-trip or vendored library was exercised.
 - Open decisions and blockers: ADR 0003 physics; multiplayer and hardware profiles; shader-compiler licence; lavapipe (or another software Vulkan driver) as a CI follow-up; exact parser choice at first use.
 - Next concrete action: keep Phase 0 on the lyko build/test CLI and planned sanitizer/static-analysis coverage. Do not vendor graphics or parser dependencies until a caller needs them.
 - Checklist/documentation updates: graphics and data-format acceptance is checked. Physics acceptance stays open. STATUS next steps match this handoff.
