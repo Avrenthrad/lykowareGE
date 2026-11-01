@@ -7,7 +7,7 @@ C++20/CMake is accepted by Joshua in ADR 0001.
 
 ## Current development task
 
-Owner: Codex. Branch: feat/lyko-cli. Base: 850bd50451ecf108e353716fca24db5a685ddd00.
+Completed task owner: Codex. Delivery: [PR #3](https://github.com/Avrenthrad/lykowareGE/pull/3), source branch feat/lyko-cli. Base: 850bd50451ecf108e353716fca24db5a685ddd00.
 Scope: reconcile brief/notes; add lyko build/test and native quality gates. No game runtime/API/schema change.
 
 Implemented in this branch:
@@ -18,16 +18,15 @@ Implemented in this branch:
 - Master brief reconciled with C++/native Vulkan/Jolt proposals, text/media distinctions, realistic perf targets, command sequencing and repository-only roadmap.
 - CLI contract and ADR 0005.
 
-Local validation: GCC 14.2 Debug build and two CTest suites passed; ASan/UBSan build/tests passed; clang-tidy 18.1.8 build/tests passed. The installed CLI successfully configured/built and tested this repository. Windows/CI results are recorded below when complete. These checks do not establish device performance or rendered output.
+Local validation: GCC 14.2 Debug build and two CTest suites passed; ASan/UBSan build/tests passed; clang-tidy 18.1.8 build/tests passed. The installed CLI successfully configured/built and tested this repository. Windows/CI results are recorded below. These checks do not establish device performance or rendered output.
 
-First CI run: [41325630051](https://github.com/Avrenthrad/lykowareGE/actions/runs/41325630051) verified Windows Debug/Release compile/tests/staged execution and all three Linux profiles. Windows jobs then failed only at artifact upload because GitHub storage quota was exhausted. Uploads are now manual opt-in; validation stays mandatory. A follow-up run will verify that workflow change. No billing changes or artifact deletion.
+First CI run: [41325630051](https://github.com/Avrenthrad/lykowareGE/actions/runs/41325630051) verified Windows Debug/Release compile/tests/staged execution and all three Linux profiles. Windows jobs then failed only at artifact upload because GitHub storage quota was exhausted. Uploads are now manual opt-in; validation stays mandatory. [Follow-up run 41325853657](https://github.com/Avrenthrad/lykowareGE/actions/runs/41325853657) passed all five profiles: Windows Debug/Release, Linux Debug, ASan/UBSan and clang-tidy analysis, including staged CLI execution. Tested code commit: 04243e61d4ba108360c9928c1fe1fbcc188183bc. Subsequent changes only record this evidence in documentation. No billing changes or artifact deletion.
 
 ## Next
 
-1. Complete Windows Debug/Release and quality-matrix CI for this task; review/merge through its PR.
-2. Phase 1 window/input/timing, with a pinned vendored SDL3 evaluation and explicit lifecycle contract.
-3. Resolve graphics, native Jolt, and authored data ADRs before their dependent implementation.
-4. Agree multiplayer intent, exact hardware profiles, world/simulation scope and budgets.
+1. Phase 1 window/input/timing, with a pinned vendored SDL3 evaluation and explicit lifecycle contract.
+2. Resolve graphics, native Jolt, and authored data ADRs before their dependent implementation.
+3. Agree multiplayer intent, exact hardware profiles, world/simulation scope and budgets.
 
 ## Known issues and limitations
 

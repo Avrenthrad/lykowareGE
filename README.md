@@ -17,7 +17,7 @@ Every tool/content operation must be reachable through CLI and scripting, with d
 - [Owner vision and remaining questions](docs/ENGINE_VISION.md)
 - [Roadmap and exit criteria](docs/ROADMAP.md)
 - [Architecture](docs/ARCHITECTURE.md) and [data ownership](docs/DATA_FORMATS.md)
-- [ADRs 0000–0004](docs/adr/README.md)
+- [Architecture decisions](docs/adr/README.md)
 - [Performance targets and evidence requirements](docs/PERFORMANCE.md)
 - [Shared agent instructions](AGENTS.md), [contributing](CONTRIBUTING.md), [handoffs](docs/WORK_BOARD.md)
 - [Build instructions](docs/BUILDING.md) and [checklist](CHECKLIST.md)
