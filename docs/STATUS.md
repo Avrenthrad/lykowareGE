@@ -4,6 +4,9 @@
 
 Original Module 01: C++20/CMake engine library, separate console sandbox and logging. [Baseline implementation](https://github.com/Avrenthrad/lykowareGE/commit/af55b9baa3fd0fb41bab243a1009d7340efa429f); [Windows Debug/Release and Linux CI](https://github.com/Avrenthrad/lykowareGE/actions/runs/40265394221).
 C++20/CMake is accepted by Joshua in ADR 0001.
+Graphics accepted in ADR 0002: Vulkan 1.3 used directly from C++ behind a Lykoware-owned RHI. wgpu and ash are rejected. No graphics dependency is vendored.
+Data formats accepted in ADR 0004: canonical JSON for machine-written data, TOML for hand-edited config, glTF 2.0 for meshes, binary only as cooked output. RON is dropped. No parser is vendored.
+Jolt remains proposed in ADR 0003. If adopted, call it natively from C++ rather than through bindings.
 
 ## Current development task
 
@@ -33,10 +36,14 @@ Local validation: GCC 14.2 Debug build and two CTest suites passed; ASan/UBSan b
 
 First CI run: [41325630051](https://github.com/Avrenthrad/lykowareGE/actions/runs/41325630051) verified Windows Debug/Release compile/tests/staged execution and all three Linux profiles. Windows jobs then failed only at artifact upload because GitHub storage quota was exhausted. Uploads are now manual opt-in; validation stays mandatory. [Follow-up run 41325853657](https://github.com/Avrenthrad/lykowareGE/actions/runs/41325853657) passed all five profiles: Windows Debug/Release, Linux Debug, ASan/UBSan and clang-tidy analysis, including staged CLI execution. Tested code commit: 04243e61d4ba108360c9928c1fe1fbcc188183bc. Subsequent changes only record this evidence in documentation. No billing changes or artifact deletion.
 
+This branch accepts ADR 0002 (Vulkan 1.3 from C++ behind an owned RHI) and ADR 0004 (canonical JSON, TOML config, glTF 2.0 meshes). ADR 0003 physics stays proposed. No renderer, parser, or vendored dependency is added.
+
+The supplied Lykoware logo vector set is under `assets/brand/`. Those files do not change the runtime, API, or schema. Artifact upload stays opt-in and is continue-on-error so a storage-quota rejection does not fail the foundation check.
+
 ## Next
 
 1. Phase 1 window/input/timing, with a pinned vendored SDL3 evaluation and explicit lifecycle contract.
-2. Resolve graphics, native Jolt, and authored data ADRs before their dependent implementation.
+2. Resolve native Jolt through ADR 0003 before adding physics. Do not vendor Vulkan-Headers, volk, Vulkan Memory Allocator, nlohmann/json or toml++ until a caller needs them; record exact licences and versions then. Review the shader-compiler licence as a build-time tool, and evaluate a software Vulkan driver such as Mesa lavapipe in CI, before claiming graphics CI.
 3. Agree multiplayer intent, exact hardware profiles, world/simulation scope and budgets.
 
 ## Known issues and limitations
@@ -45,7 +52,7 @@ First CI run: [41325630051](https://github.com/Avrenthrad/lykowareGE/actions/run
 - `lyko run` launches the console sandbox only. `run --scene`, screenshot, and trace print `unsupported: no renderer` and return exit 3. No screenshot or perf-budget gate exists.
 - Sanitizers are Linux-only; ThreadSanitizer is deferred until concurrent engine systems.
 - The CLI is a developer process wrapper, not the future runtime/editor mutation command bus. See CLI.md for limitations.
-- No dependencies are vendored. Vulkan/Jolt/data choices remain proposed.
+- No dependencies are vendored. The Vulkan 1.3 RHI direction and data encodings are accepted decisions only; no renderer or parser is implemented. Jolt remains proposed in ADR 0003. wgpu, ash and RON are not open tasks.
 - Pax/publication gate remains policy; no Pax implementation or legal clearance.
 - No paid service/spend or personal-data export was performed.
 - GitHub artifact storage was exhausted; downloadable CI binaries remain unavailable until storage is available and upload is explicitly requested. Builds/tests do not depend on uploads.

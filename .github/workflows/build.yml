@@ -57,8 +57,13 @@ jobs:
           ./out/windows-${{ matrix.configuration }}/bin/lyko.exe run --scene
           Assert-Exit 3
           exit 0
+      # Upload is opt-in and best-effort. The account's Actions artifact quota
+      # can reject CreateArtifact even when the build, tests, and staged run
+      # succeeded. That quota failure must not hide a green foundation check.
+      # Uploads run only on a manual workflow_dispatch with upload_artifacts.
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: github.event_name == 'workflow_dispatch' && inputs.upload_artifacts
+        continue-on-error: true
         with:
           name: lykowareGE-windows-x64-${{ matrix.configuration }}
           path: out/windows-${{ matrix.configuration }}/
