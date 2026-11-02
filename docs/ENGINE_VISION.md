@@ -53,9 +53,9 @@ Later Track C provides original modelling, sculpting, UV/texturing/material pain
 Existing: C++20/CMake console foundation, logging, native lyko build/test CLI, warning gates, and Linux sanitizer/static-analysis presets. See STATUS for actual verification.
 Not implemented: runtime world, renderer, physics, editor, AI, CLI scene/capture commands.
 Language: C++20/CMake accepted by Joshua; continue the verified foundation. No Rust migration or benchmark comparison required.
-Graphics: evaluate Vulkan through a narrow C++ native RHI, with a possible D3D12 path. No backend is selected yet.
-Physics: Jolt preferred; native C++ integration and replacement boundary to evaluate.
-Data: TOML/JSON and glTF 2.0 remain candidates; RON is retired from the current C++ evaluation. Formats and schemas remain undecided.
+Graphics: Vulkan 1.3 from C++ behind a Lykoware-owned RHI, accepted in ADR 0002. D3D12 only if Intel Arc measurements justify it. Nothing is vendored yet.
+Physics: Jolt preferred and, if adopted, used natively in C++ rather than through bindings. ADR 0003 is still proposed.
+Data: canonical JSON, TOML config and glTF 2.0 meshes are accepted in ADR 0004. RON is dropped. Schemas are not implemented.
 See [ADRs](adr/README.md), [roadmap](ROADMAP.md), and [status](STATUS.md).
 
 ## Remaining product questions

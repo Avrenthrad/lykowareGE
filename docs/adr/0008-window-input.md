@@ -2,7 +2,7 @@
 
 Status: Proposed
 Related task/PR: branch feat/module02-window-input, stacked on feat/phase0-image-harness (PR #7).
-Supersedes / superseded by: none. This does not select a graphics API. ADR 0002 stays proposed. This does not add a timing or fixed-step clock.
+Supersedes / superseded by: none. This does not implement the graphics API. ADR 0002 accepts Vulkan 1.3 behind an owned RHI; this wrapper does not link Vulkan. This does not add a timing or fixed-step clock.
 
 ## Context
 
