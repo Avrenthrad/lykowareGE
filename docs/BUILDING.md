@@ -58,6 +58,14 @@ sudo apt-get install libvulkan1 mesa-vulkan-drivers vulkan-validationlayers
 
 `mesa-vulkan-drivers` includes lavapipe, a CPU Vulkan driver for machines without a GPU. Without a loader or a driver, the RHI tests are reported by CTest as Skipped, not Passed.
 
+To see the Vulkan path on a desktop, run the sandbox with a window and Vulkan; it shows a window slowly cycling through colours until it is closed:
+
+```powershell
+.\build\windows\samples\sandbox\Debug\lykoware_sandbox.exe --window --vulkan
+```
+
+It exits 3 if no usable Vulkan device exists. `--window --offscreen --vulkan --frames N` is the headless form used by CTest.
+
 ## Structure
 
 - engine/: reusable static C++20 library, linked as lykoware::engine.

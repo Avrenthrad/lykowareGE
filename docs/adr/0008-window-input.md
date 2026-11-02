@@ -21,7 +21,7 @@ Proposed, not accepted: vendor SDL 3.4.18 under `third_party/sdl3` and wrap it w
 
 Public engine headers do not include SDL and do not mention SDL types. The static library is linked privately. Vulkan is not a dependency. A window can report the instance extensions SDL would require and can create or destroy a surface when the caller passes a `VkInstance` as `void*`. Opening that path fails with a reason when no loader is present.
 
-Tests use `VideoDriver::Dummy`, so they do not need a display. `lykoware_sandbox --window` can open a platform window. `--window --dummy --frames N` is the headless form and is what the foundation smoke test runs. `lyko` is unchanged and still launches the sandbox with no arguments.
+Tests use `VideoDriver::Dummy`, so they do not need a display. [ADR 0012](0012-swapchain.md) proposes `VideoDriver::Offscreen`, a headless driver that can also host a Vulkan surface. `lykoware_sandbox --window` can open a platform window. `--window --dummy --frames N` is the headless form and is what the foundation smoke test runs. `lyko` is unchanged and still launches the sandbox with no arguments.
 
 The owner has not accepted this choice. Replacing SDL means reimplementing the same engine API.
 
