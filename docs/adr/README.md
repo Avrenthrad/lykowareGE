@@ -10,6 +10,7 @@ Canonical directory: docs/adr. Decisions remain Proposed until resolved; disting
 | [0003](0003-physics.md) | Proposed | Physics and Jolt integration |
 | [0004](0004-data-formats.md) | Accepted | Canonical JSON, TOML config, glTF 2.0 meshes |
 | [0005](0005-native-cli.md) | Accepted implementation | Minimal native build/test CLI |
+| [0006](0006-cpu-trace.md) | Accepted implementation | CPU timer, scoped trace, provisional hosted budgets |
 
 Use [the template](TEMPLATE.md). Record context, options, decision/status, contracts, consequences and verification. Use a new ADR to supersede an accepted choice; do not silently rewrite its history.
 
