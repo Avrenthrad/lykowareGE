@@ -35,7 +35,7 @@ The check fails when elapsed microseconds are greater than the millisecond limit
 - Unit checks for algorithms and validation.
 - Integration checks for lifecycle, commands, loading and errors.
 - Fixed-seed simulation/replay checks within a declared determinism scope.
-- Screenshot/golden-image checks once a renderer exists, with documented tolerances per supported backend/device tier.
+- Screenshot/golden-image checks once a renderer exists, with documented tolerances per supported backend/device tier. The Phase 0 image harness compares a software test pattern with committed PPM fixtures. It is not this gate.
 - Stress, memory, streaming and sustained performance fixtures as those systems arrive.
 - Local inference tests with async deadlines, cancellation, bounded output validation and fallback behavior.
 

@@ -37,7 +37,8 @@ inline constexpr int exit_not_launched = 127;
 // exit_usage (2) is an unknown command or a bad option, including trace
 // without a valid --frames value. exit_unsupported (3) is screenshot or
 // run --scene: the message contains "unsupported: no renderer" and no
-// renderer is started. exit_not_launched (127) means the child executable
+// renderer is started. The engine image harness is not this command and
+// is not a screenshot. exit_not_launched (127) means the child executable
 // could not be started. trace --frames N launches lykoware_sandbox, records
 // that many CPU-loop iterations, and writes a Chrome trace; the sandbox
 // status is returned. run with no scene launches lykoware_sandbox and

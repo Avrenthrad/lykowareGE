@@ -26,6 +26,10 @@ D3D12 is a possible later backend, only if Intel Arc measurements justify it.
 
 wgpu and ash are rejected because they are Rust-only (ADR 0001).
 
+## Later capture plug-in
+
+A GPU-free image harness now lives in the engine library. It compares CPU images. It is not a renderer and not a screenshot test. When a Vulkan offscreen path is actually implemented, it plugs into `lykoware::ImageCapture` and the existing PPM comparison. That plug-in is not built here. The harness contract is [ADR 0007](0007-image-harness.md).
+
 ## Contracts still required before implementation
 
 Define device/resource lifetime, render-thread ownership, uploads, synchronization, surface resize and device loss, shader build/caching and error capture. Version cook outputs and invalidate pipeline caches by device/driver compatibility.

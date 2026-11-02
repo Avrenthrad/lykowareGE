@@ -21,6 +21,8 @@ Do not claim run/scene/screenshot/trace support before the runtime exists; reser
 
 `lyko trace --frames N` is a later CPU-only addition. It launches the sandbox loop and writes a Chrome trace. It is not a renderer and not a GPU capture. Its contract is [ADR 0006](0006-cpu-trace.md). The original rule stands for scene loading and screenshots: do not claim them before that runtime exists.
 
+The engine image harness ([ADR 0007](0007-image-harness.md)) is also not `lyko screenshot`. Screenshot, with or without extra arguments, still returns exit code 3 and prints `unsupported: no renderer`. The harness is a CTest-only path.
+
 Subcommands share one dispatcher and the handlers in `tools/cli`. That table is not the Phase 1 serializable command bus. The original decision against a general command bus stands. Header comments on `commands.hpp` and `process.hpp` record ownership, lifetime, threading, and failure.
 
 ## Contracts and alternatives
