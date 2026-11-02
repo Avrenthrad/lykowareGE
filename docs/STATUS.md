@@ -27,6 +27,8 @@ First CI run: [41325630051](https://github.com/Avrenthrad/lykowareGE/actions/run
 
 This branch accepts ADR 0002 (Vulkan 1.3 from C++ behind an owned RHI) and ADR 0004 (canonical JSON, TOML config, glTF 2.0 meshes). ADR 0003 physics stays proposed. No renderer, parser, or vendored dependency is added.
 
+The supplied Lykoware logo vector set is under `assets/brand/`. Those files do not change the runtime, API, or schema. Artifact upload stays opt-in and is continue-on-error so a storage-quota rejection does not fail the foundation check.
+
 ## Next
 
 1. Phase 1 window/input/timing, with a pinned vendored SDL3 evaluation and explicit lifecycle contract.
