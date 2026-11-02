@@ -121,7 +121,7 @@ struct Swapchain::Impl {
 
     // Size the swapchain should have now: the surface's fixed extent when it
     // reports one, otherwise the window's pixel size clamped to the limits.
-    bool desired_extent(VkExtent2D& extent, RhiError& error) const
+    bool desired_extent(VkExtent2D& wanted, RhiError& error) const
     {
         VkSurfaceCapabilitiesKHR caps{};
         const VkResult result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical, surface, &caps);
@@ -130,15 +130,15 @@ struct Swapchain::Impl {
                         driver_failure("vkGetPhysicalDeviceSurfaceCapabilitiesKHR", result));
         }
         if (caps.currentExtent.width != UINT32_MAX) {
-            extent = caps.currentExtent;
+            wanted = caps.currentExtent;
             return true;
         }
         const float density = window->pixel_density() > 0.F ? window->pixel_density() : 1.F;
         const auto pixels = [density](int logical) {
             return logical <= 0 ? 0U : static_cast<std::uint32_t>(std::lround(static_cast<float>(logical) * density));
         };
-        extent.width = std::clamp(pixels(window->width()), caps.minImageExtent.width, caps.maxImageExtent.width);
-        extent.height = std::clamp(pixels(window->height()), caps.minImageExtent.height, caps.maxImageExtent.height);
+        wanted.width = std::clamp(pixels(window->width()), caps.minImageExtent.width, caps.maxImageExtent.width);
+        wanted.height = std::clamp(pixels(window->height()), caps.minImageExtent.height, caps.maxImageExtent.height);
         return true;
     }
 
