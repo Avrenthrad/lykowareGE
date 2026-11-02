@@ -1,7 +1,7 @@
 # Lykoware engine vision
 
 Owner: Joshua Kingsworth, Lykoleon Studios.
-Source: owner-supplied Grok brief, labelled 2 November 2026. This document is a normalized requirements summary, not a verbatim transcript.
+Source: [owner-supplied Grok brief](LYKOWARE_BRIEF.md), labelled 2 November 2026, maintained with subsequent owner decisions. This document summarizes requirements; accepted ADRs resolve technical choices.
 
 ## Standard and priorities
 
@@ -50,7 +50,7 @@ Later Track C provides original modelling, sculpting, UV/texturing/material pain
 
 ## Confirmed implementation versus proposals
 
-Existing: C++20/CMake console foundation, logging, Windows Debug/Release and Linux CI/smoke checks.
+Existing: C++20/CMake console foundation, logging, native lyko build/test CLI, warning gates, and Linux sanitizer/static-analysis presets. See STATUS for actual verification.
 Not implemented: runtime world, renderer, physics, editor, AI, CLI scene/capture commands.
 Language: C++20/CMake accepted by Joshua; continue the verified foundation. No Rust migration or benchmark comparison required.
 Graphics: Vulkan 1.3 from C++ behind a Lykoware-owned RHI, accepted in ADR 0002. D3D12 only if Intel Arc measurements justify it. Nothing is vendored yet.

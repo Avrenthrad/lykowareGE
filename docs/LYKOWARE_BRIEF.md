@@ -2,13 +2,15 @@
 Owner: Joshua Kingsworth, Lykoleon Studios. Prepared 2 Nov 2026.
 Standard: "No limits. Just excellence." A spirit of excellence in every layer. Goal: higher quality than AAA.
 
+Maintained brief: updated after Joshua selected C++20. This is product direction, not proof of implementation. Accepted [ADRs](adr/README.md) and later owner instructions resolve technical choices; [STATUS](STATUS.md) reports delivered behavior.
+
 ## PRIORITY: Engine first
 The engine runtime core comes first and foremost (Phases 0-6). The editor (Track E) and Content Suite (Track C) are later phases built on the finished engine core. Early on, build only minimal debug and CLI tooling (lyko CLI, debug overlay, profiler, screenshot/trace capture).
 
 ## CORE RULE: Full ownership
 - Lykoleon builds and controls the entire stack: engine, a custom-built editor (NOT Unity/Unreal/Godot/Blender or plugins for them), tools, asset pipeline, AI agent integration. No building inside other people's programs.
 - Every part must be promptable and drivable by AI A-Z: CLI + scripting API + text/data formats for every editor action.
-- Third-party code only where pragmatic, as low-level permissive-licence libraries (MIT/BSD/Apache/zlib, e.g. Jolt, SDL, Vulkan headers), vendored into our repo as owned forks and wrapped behind our own interfaces so they are replaceable.
+- Third-party code only where pragmatic, as low-level permissive-licence libraries (MIT/BSD/Apache/zlib, e.g. Jolt, SDL, Vulkan headers), vendored as source-controlled forks and wrapped behind our own interfaces so they are replaceable. Preserve upstream copyright, licence and attribution; vendoring does not transfer upstream ownership.
 - No GPL/copyleft in shipped code. No proprietary SDK lock-in.
 - The editor is built from scratch on the engine itself and runs as its own roadmap track (Track E), started after the engine core is finished.
 - The editor includes a full built-in 3D content suite (our own 'Blender'): modelling, sculpting, UV/texturing and material painting, rigging, skinning, animation (keyframe + mocap retarget), VFX, terrain/world building, audio editing. No Blender/Maya/Substance dependency. All AI-drivable via CLI/scripting and text/data formats so AI generation tools can import and refine directly. Own roadmap track: Track C (Content Suite).
@@ -20,7 +22,7 @@ The engine runtime core comes first and foremost (Phases 0-6). The editor (Track
 
 ## 2. Who builds this
 Joshua is a one-person studio with the creative vision but limited hands-on skills. AI agents (Codex, Claude, Grok Bot) do essentially all the work: engine, editor, tools, assets, models, textures, animation, VFX, audio, music, voice, writing. Therefore the engine must be AI-native:
-- Text/data-based formats for scenes, prefabs, materials, quests, dialogue and config (diffable, human and agent readable; binary only as cooked build output).
+- Text/data-based formats for scenes, prefabs, materials, quests, dialogue and config (diffable, human and agent readable; binary allowed for cooked output and source media such as images/audio).
 - Everything scriptable; editor actions also exposed as commands.
 - Headless CLI: build, test, run a scene, capture screenshots, record perf traces, so agents verify their own work.
 - Strong automated tests (unit, integration, golden-image screenshot tests, deterministic simulation tests).
@@ -42,17 +44,17 @@ Joshua is a one-person studio with the creative vision but limited hands-on skil
 ## 5. Character feel
 Inspired by GTA/RAGE + Euphoria: physics-driven animation, foot IK on uneven terrain, active ragdoll stumble-and-recover, smooth animation/physics blending.
 
-## 6. Living Memory (legally distinct from WB's Nemesis System, US 10,926,179)
+## 6. Living Memory (design separation; legal clearance not established)
 - Do NOT replicate a promoted captain hierarchy whose members return after defeat.
 - Instead: faction-wide NPC memory and reputation; rumour propagation; relationship arcs driven by NPC life goals (revenge, alliances, defection, rise to power); world/territory-driven change.
-- Patent review by Pax and a patent lawyer before any public release.
+- Owner-required Pax and patent-lawyer review before public release, including relevant patent claims such as US 10,926,179. Design intent is not a legal clearance.
 
 ## 7. Living World AI
 - On-device local LLMs, runnable on RTX 4070-class GPUs, for NPC dialogue, planning and emergent quests/world developments unique per playthrough.
 - Constrained by authored lore and the main story spine; fed by Living Memory; guardrails and filters; no server dependency.
 
 ## 8. Performance
-- Zero stutter: shaders compiled ahead of time to SPIR-V, plus device/driver-keyed pipeline caches (ADR 0002).
+- Aim for zero stutter: shaders compiled ahead of time to SPIR-V, plus device/driver-keyed pipeline caches (ADR 0002), asynchronous loading and bounded workloads. Use measured hardware-specific frame/hitch budgets in [PERFORMANCE.md](PERFORMANCE.md), not a universal guarantee.
 - Strict frame pacing.
 - Scale from MSI Claw handheld (Intel Arc) to RTX 4070 desktop.
 - Seamless world streaming, no loading screens.
@@ -68,7 +70,7 @@ Built-in Highlighter-style replay capture.
 ## 11. AI content pipeline
 - Art style guide for consistency.
 - AI 3D, texture and animation generation plus cleanup passes.
-- ElevenLabs (connected) for voice and SFX.
+- ElevenLabs is a requested future option for voice/SFX. Verify connectivity and obtain spend approval before use; no integration is established here.
 - AI music.
 
 ## 12. Rules
@@ -77,21 +79,21 @@ Built-in Highlighter-style replay capture.
 - Nothing public without Pax review.
 - Any spend needs Joshua's approval: flag paid tools/services before use.
 
-## 13. Recommended stack (recorded in the ADRs)
-- Language: C++20 with CMake (already established and verified on Windows and Linux in the lykowareGE repo; native fit for Jolt, Vulkan and AAA middleware). Enforce safety with sanitizers (ASan/UBSan), clang-tidy, warnings-as-errors and strong tests. Accepted in ADR 0001.
-- Graphics: Vulkan 1.3 used directly from C++, behind a thin render hardware interface (RHI) owned by Lykoware. D3D12 is a possible later backend, only if Intel Arc measurements justify it. Accepted in ADR 0002.
-- Physics: Jolt, used natively in C++ (not via bindings). Integration is still proposed in ADR 0003.
-- Formats: canonical JSON for machine-written data (sorted keys, schema_version, stable IDs); TOML for hand-edited config; glTF 2.0 for meshes; binary only as cooked build output. RON is not used. Accepted in ADR 0004.
+## 13. Technical direction (language, graphics, and data formats accepted; physics proposed)
+- Language: C++20/CMake accepted in [ADR 0001](adr/0001-language.md). Continue the verified foundation. Use warnings-as-errors, ASan/UBSan, clang-tidy and strong tests; distinguish configured checks from successful runs in STATUS.
+- Graphics: Vulkan 1.3 used directly from C++, behind a thin render hardware interface (RHI) owned by Lykoware. D3D12 is a possible later backend, only if Intel Arc measurements justify it. No Rust ash/wgpu evaluation. Accepted in [ADR 0002](adr/0002-graphics.md).
+- Physics: Jolt, used natively in C++ (not via bindings). Integration is still proposed in [ADR 0003](adr/0003-physics.md).
+- Formats: canonical JSON for machine-written data (sorted keys, schema_version, stable IDs); TOML for hand-edited config; glTF 2.0 for meshes; binary only as cooked build output. RON is not used. Accepted in [ADR 0004](adr/0004-data-formats.md). No production schema is implemented by this decision.
 
 Note: language, graphics and data formats are [ADR 0001](adr/0001-language.md), [ADR 0002](adr/0002-graphics.md) and [ADR 0004](adr/0004-data-formats.md). Jolt's native C++ use is the integration style; selecting and vendoring Jolt remains [ADR 0003](adr/0003-physics.md).
 
 ## 14. Roadmap (vertical slices; objective exit criteria per phase)
 0 Foundations; 1 Core runtime; 2 Slice 1 character feel on terrain; 3 Combat; 4 Building/crafting; 5 RTS faction battle; 6 World streaming at scale; 7 (moved: editor is Track E after engine core); 8 Living Memory + factions/relationships; 9 Living World AI; 10 Story/consequence tooling; 11 Content pipeline + flagship vertical slice.
-Full goals, deliverables, exit criteria and estimates are in /docs/ROADMAP.md (copy from the Lykoware roadmap Page).
+[ROADMAP.md](ROADMAP.md) contains goals, deliverables and exit criteria. It is maintained in this repository and does not depend on a Page. Estimates below are unvalidated original planning ranges, not delivery commitments.
 
 ## 14b. Track E: Lykoware Editor (from scratch, built on the engine; starts after engine core, Phases 0-6)
 Before Track E: only minimal tooling (lyko CLI, debug overlay, profiler, capture). Design the command bus early so it is ready.
-- E1: command bus; every editor action is a serialisable text command; CLI and scripting API call the same commands.
+- E1: extend the early runtime command bus with editor operations and undo/replay; every editor action is serializable and uses the same handlers as CLI/scripts.
 - E2: editor shell on engine UI: viewport, scene tree, inspector, undo/redo, hot reload.
 - E3: terrain, building, world and streaming tools; animation and physics debug views.
 - E4: faction, Living Memory, quest/dialogue graph and story tools (alongside Phases 8-10).
@@ -112,7 +114,7 @@ Honest note: Blender-class depth is decades of work; aim for "what the flagship 
 0. Add the CORE RULE to README and ADR-0000 (Full ownership; licence policy: MIT/BSD/Apache/zlib only, vendored in /third_party, wrapped).
 1. Confirm repo name; add README, LICENSE (private), /docs, /docs/adr, STATUS.md.
 2. ADR-0001 language, ADR-0002 graphics API, ADR-0003 physics, ADR-0004 data formats.
-3. Extend the existing CMake project into modules under engine/: core, ecs, render, physics, input, assets, audio, anim, world, ai, plus tools/cli. Keep the existing foundation and CI; build on it, don't restart.
-4. GitHub Actions CI: build, lint, test, headless screenshot test, perf budget check.
-5. lyko CLI: build, test, run --scene, screenshot, trace.
+3. Extend CMake incrementally: tools/cli now, then engine core/ECS/render/physics/input/assets/audio/anim/world/AI as actual callers require them. Keep the working foundation and CI; do not create empty modules or restart.
+4. GitHub Actions CI: build, warnings-as-errors, native analysis/sanitizers and tests now; add genuine screenshot tests when rendering exists and device performance gates when calibrated hardware/fixtures are defined.
+5. lyko CLI: build/test first. Add run --scene, screenshot and trace with the runtime/renderer; unavailable commands must return a clear nonzero capability error.
 6. Commit and push after each step.

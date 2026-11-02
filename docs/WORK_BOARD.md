@@ -4,7 +4,10 @@
 
 Canonical implementation status: [STATUS.md](STATUS.md).
 Canonical plan: [ROADMAP.md](ROADMAP.md).
-Current focus: Phase 0 native C++ tooling. C++20/CMake (ADR 0001), Vulkan 1.3 behind an owned RHI (ADR 0002) and canonical JSON / TOML / glTF 2.0 (ADR 0004) are accepted. Physics remains proposed in ADR 0003. No implementation task owner/branch is assigned yet. The graphics and data-format acceptance is recorded below.
+Completed task owner: Codex. Delivery: [PR #3](https://github.com/Avrenthrad/lykowareGE/pull/3), branch feat/lyko-cli. Base: 850bd50451ecf108e353716fca24db5a685ddd00.
+Scope: reconcile notes and implement native build/test CLI plus quality gates. Public engine APIs/formats unchanged; CLI contract is ADR 0005.
+Acceptance passed: actual CMake/CTest invocation, argument/Unicode/cwd/error checks, Windows Debug/Release staged execution, Linux sanitizer/static analysis and clean docs. Evidence: [run 41325853657](https://github.com/Avrenthrad/lykowareGE/actions/runs/41325853657), code commit 04243e6. No next implementation owner/branch assigned.
+C++20/CMake (ADR 0001), Vulkan 1.3 behind an owned RHI (ADR 0002) and canonical JSON / TOML / glTF 2.0 (ADR 0004) are accepted. Physics remains proposed in ADR 0003. The graphics and data-format acceptance is recorded below.
 Module 01 console foundation remains verified; previous Module 02 is now part of Phase 1.
 Owner-supplied vision is captured in [ENGINE_VISION.md](ENGINE_VISION.md).
 
@@ -57,9 +60,9 @@ Use in the task/PR when pausing, completing, or transferring work:
 - Checks run and actual results: relative links in the edited Markdown resolve. Local Linux `cmake --preset linux-debug`, `cmake --build --preset linux-debug`, and `ctest --preset linux-debug` passed (`foundation.smoke`). Pull-request CI [run 41325777090](https://github.com/Avrenthrad/lykowareGE/actions/runs/41325777090) on `d3c4e4535f698b31b7acdd212cabbe9b69d98ca3`: Linux portability check passed. Windows Debug and Release configure, build, test, stage, and staged executable passed. Both Windows jobs then failed on `actions/upload-artifact` because the account artifact storage quota is exhausted. No storage was purchased. That quota is not freed immediately by deleting artifacts.
 - Unverified behavior/platforms: no renderer, capture path, parser round-trip or vendored library was exercised. The Windows failure is the artifact upload, not the build or test.
 - Open decisions and blockers: ADR 0003 physics; multiplayer and hardware profiles; shader-compiler licence; lavapipe (or another software Vulkan driver) as a CI follow-up; exact parser choice at first use.
-- Next concrete action: keep Phase 0 on the lyko build/test CLI and planned sanitizer/static-analysis coverage. Do not vendor graphics or parser dependencies until a caller needs them.
+- Next concrete action: Phase 1 window/input/timing. Do not vendor graphics or parser dependencies until a caller needs them. ADR 0003 stays open.
 - Checklist/documentation updates: graphics and data-format acceptance is checked. Physics acceptance stays open. STATUS next steps match this handoff.
 
 ## Suggested next task
 
-Extend the accepted C++20/CMake foundation with minimal lyko build/test tooling and planned sanitizer/static-analysis checks. Resolve ADR 0003 before adding physics. Obtain multiplayer and hardware answers while preparing representative tests. When rendering work starts, vendor pinned Vulkan-Headers, volk and Vulkan Memory Allocator under third_party and review the shader-compiler licence first. No full editor or content suite work before the roadmap gates.
+Develop Phase 1 window/input/timing. Resolve ADR 0003 before adding physics. Obtain multiplayer and hardware answers while preparing representative tests. When rendering work starts, vendor pinned Vulkan-Headers, volk and Vulkan Memory Allocator under third_party and review the shader-compiler licence first. No full editor or content suite work before the roadmap gates.

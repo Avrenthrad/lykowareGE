@@ -1,9 +1,13 @@
 # Lykoware (lykowareGE)
 
+<img src="assets/branding/lykoware-logo.jpg" alt="Lykoware: faceted gold wolf inside a metallic hexagonal frame, with the LYKOWARE wordmark on black" width="320" />
+
+[Branding reference](docs/BRANDING.md)
+
 Lykoleon Studios' Windows-first, AI-native engine. Standard: **No limits. Just excellence.**
 Build the flagship first: open-world RPG, first-/third-person action, structural sandbox construction, and RTS-scale battles.
 
-The project's [master brief](docs/LYKOWARE_BRIEF.md) is the source of direction for the engine.
+The [master brief](docs/LYKOWARE_BRIEF.md) records product direction. Later owner instructions and accepted [ADRs](docs/adr/README.md) govern technical choices; [STATUS](docs/STATUS.md) records what actually works.
 
 ## Core rule: full ownership
 
@@ -17,15 +21,16 @@ Every tool/content operation must be reachable through CLI and scripting, with d
 - [Owner vision and remaining questions](docs/ENGINE_VISION.md)
 - [Roadmap and exit criteria](docs/ROADMAP.md)
 - [Architecture](docs/ARCHITECTURE.md) and [data ownership](docs/DATA_FORMATS.md)
-- [ADRs 0000–0004](docs/adr/README.md)
+- [Architecture decisions](docs/adr/README.md)
 - [Performance targets and evidence requirements](docs/PERFORMANCE.md)
 - [Shared agent instructions](AGENTS.md), [contributing](CONTRIBUTING.md), [handoffs](docs/WORK_BOARD.md)
 - [Build instructions](docs/BUILDING.md) and [checklist](CHECKLIST.md)
 
 ## What actually runs
 
-A C++20/CMake engine library and console sample with logging and smoke tests. Windows Debug/Release and Linux checks passed in [baseline CI](https://github.com/Avrenthrad/lykowareGE/actions/runs/40265394221).
-There is no window, renderer, physics, CLI scene/capture command or editor yet.
+A C++20/CMake engine library, console sandbox, and native **lyko build/test CLI**. The CLI configures/builds a project or runs its CTest preset without a shell, preserving child failures. Compiler warnings are errors by default; Linux ASan/UBSan and clang-tidy 18 presets are available.
+
+See [build instructions](docs/BUILDING.md), [CLI contract](docs/CLI.md), and [STATUS](docs/STATUS.md) for current verification. There is no window, renderer, physics, scene/capture command or editor yet.
 
 Joshua selected **C++20 with CMake** in [ADR 0001](docs/adr/0001-language.md). [ADR 0002](docs/adr/0002-graphics.md) accepts Vulkan 1.3 from C++ behind an owned RHI. [ADR 0004](docs/adr/0004-data-formats.md) accepts canonical JSON, TOML for hand-edited config, and glTF 2.0 for meshes. Jolt remains proposed in [ADR 0003](docs/adr/0003-physics.md); if adopted, it is called natively from C++, not through bindings. No graphics or parser dependency is vendored yet.
 

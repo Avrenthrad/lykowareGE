@@ -37,8 +37,12 @@ C++ keeps one native language across the runtime and likely physics integration,
 - Add a pinned clang-tidy configuration for changed C++ modules and document exceptions.
 - Use RAII, explicit lifetimes, reviewed public APIs, and executable/unit/integration tests.
 
-The warnings exist in the baseline; sanitizer and clang-tidy jobs are planned and must not be marked implemented until their checks pass.
+The warnings exist in the baseline. Sanitizer and clang-tidy coverage is recorded in the implementation follow-up; do not describe a check as passed without the evidence in STATUS.
 
 ## Consequences
 
 No Rust migration, Cargo workspace, or language-comparison spike is required. Build the lyko CLI and future runtime modules as target-based CMake components with actual callers. Graphics and authored formats are accepted in ADRs 0002 and 0004. Physics remains ADR 0003. Preserve vendoring/licensing, Windows-first testing and engine/tool boundaries.
+
+## Implementation follow-up
+
+The native CLI change centralizes /W4 or -Wall/-Wextra/-Wpedantic, adds /WX/-Werror by default, Linux ASan/UBSan presets and clang-tidy 18 configuration/jobs. These implement the earlier planned coverage; see STATUS and the task PR for actual results. ThreadSanitizer remains deferred until concurrent engine systems exist. This follow-up does not change the accepted language decision.

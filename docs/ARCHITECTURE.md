@@ -8,9 +8,11 @@ Status: current foundation plus intended boundaries. Planned modules below do no
 | --- | --- |
 | lykoware_engine (alias lykoware::engine) | Static library: logging and generated version header |
 | lykoware_sandbox | Console sample linked against the engine |
-| foundation.smoke | CTest executable-level startup/CLI checks |
+| lyko | Native build/test CLI; subprocess runner is private to tools/cli |
+| foundation.smoke | Sandbox executable startup/CLI checks |
+| cli.integration | Real CMake/CTest runs plus process/argument/failure integration checks |
 
-The root CMake project builds these targets and stages the sample executable. There are no third-party runtime dependencies.
+The root CMake project builds these targets and stages the sample executable. There are no third-party runtime dependencies. Python 3.10+ is a test-only dependency; clang-tidy 18 is an optional analysis tool.
 
 ## Intended dependency direction
 
@@ -47,6 +49,8 @@ Before another module relies on a new API, document:
 - A representative verification scenario.
 
 Use an [ADR](adr/README.md) for consequential decisions. Avoid inventing shared interfaces that no implemented caller needs.
+
+The build/test CLI is described in [ADR 0005](adr/0005-native-cli.md). It does not implement the future engine mutation/undo command bus.
 
 ## Engine-first command boundary
 

@@ -21,8 +21,8 @@ This replaces the old module ordering while preserving verified Module 01 histor
 - [x] Accept graphics (ADR 0002: Vulkan 1.3 C++ behind an owned RHI) and data/command formats (ADR 0004: canonical JSON, TOML config, glTF 2.0 meshes). Decision only; nothing vendored.
 - [ ] Accept physics integration (ADR 0003). Jolt is preferred and, if adopted, is native C++ rather than bindings.
 - [ ] Agree hardware profiles, frame-time/memory budgets and multiplayer direction.
-- [ ] Extend the C++20/CMake foundation with real lyko build/test commands.
-- [ ] Establish relevant lint/unit/integration CI gates.
+- [x] Extend the C++20/CMake foundation with real lyko build/test commands (branch implementation; see STATUS for platform evidence).
+- [x] Verify warnings-as-errors, sanitizer/static-analysis and CLI integration CI matrix ([all five profiles passed](https://github.com/Avrenthrad/lykowareGE/actions/runs/41325853657)).
 - [ ] Introduce actual image/performance gates as renderer and calibrated fixtures become available.
 - [ ] Pass the full Phase 0 exit criteria.
 

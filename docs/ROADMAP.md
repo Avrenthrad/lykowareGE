@@ -2,12 +2,12 @@
 
 Engine first. Phases 0–6 define the engine core milestone; "finished" means their agreed exit tests pass, not that the engine will never change. Track E begins after Phase 6. Track C begins after E2. Phases 8–10 and relevant editor tools may then develop together.
 
-This roadmap supersedes the original module ordering. [CHECKLIST.md](../CHECKLIST.md) retains verified history. All new phases are planned, not implemented. Numeric budgets below reference [PERFORMANCE.md](PERFORMANCE.md) and remain proposals until hardware/profiles are agreed.
+This roadmap supersedes the original module ordering. [CHECKLIST.md](../CHECKLIST.md) retains verified history. Phase 0 is in progress; later phases are planned. See STATUS for implemented components. Numeric budgets below reference [PERFORMANCE.md](PERFORMANCE.md) and remain proposals until hardware/profiles are agreed.
 
 ## Phase 0 — Foundation and evidence
 
 Goal: settle architecture choices and reproducible agent workflows.
-Deliverables: ownership/licence policy; private licence; shared contributor rules; status/roadmap; ADRs 0000–0004; accepted C++20/CMake stack and planned native-code analysis coverage; initial lyko build/test commands and test fixtures.
+Deliverables: ownership/licence policy; private licence; shared contributor rules; status/roadmap; ADRs 0000–0004; accepted C++20/CMake stack and native-code analysis coverage; initial lyko build/test commands and test fixtures.
 Exit: language decision recorded (C++20 accepted); graphics (ADR 0002) and data formats (ADR 0004) accepted as decisions, with physics still open in ADR 0003; clean Windows Debug/Release equivalent builds and Linux portability check; lint/unit/integration gates pass; dependency inventory complete; device profiles/budgets agreed. Capture/perf commands have explicit capability/errors; real screenshot tests wait for a renderer. Do not report placeholder subcommands as functional.
 
 ## Phase 1 — Core runtime

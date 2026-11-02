@@ -9,6 +9,7 @@ Canonical directory: docs/adr. Decisions remain Proposed until resolved; disting
 | [0002](0002-graphics.md) | Accepted | Vulkan 1.3 from C++ behind an owned RHI |
 | [0003](0003-physics.md) | Proposed | Physics and Jolt integration |
 | [0004](0004-data-formats.md) | Accepted | Canonical JSON, TOML config, glTF 2.0 meshes |
+| [0005](0005-native-cli.md) | Accepted implementation | Minimal native build/test CLI |
 
 Use [the template](TEMPLATE.md). Record context, options, decision/status, contracts, consequences and verification. Use a new ADR to supersede an accepted choice; do not silently rewrite its history.
 
