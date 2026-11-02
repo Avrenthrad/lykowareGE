@@ -1,0 +1,388 @@
+#include <lykoware/rhi/device.hpp>
+
+#include "common.hpp"
+
+#include <volk.h>
+
+#include <algorithm>
+#include <atomic>
+#include <cstdint>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
+namespace lykoware::rhi {
+namespace detail {
+
+namespace {
+// volk keeps one process-wide device function table, so only one Device may own it.
+std::atomic<bool> g_device_alive{false};
+}
+
+bool device_alive() noexcept
+{
+    return g_device_alive.load();
+}
+
+}
+
+namespace {
+
+using detail::driver_failure;
+using detail::fail;
+
+constexpr std::uint32_t no_queue_family = UINT32_MAX;
+
+struct Candidate {
+    VkPhysicalDevice handle = VK_NULL_HANDLE;
+    DeviceInfo info;
+    std::uint32_t queue_family = no_queue_family;
+};
+
+DeviceType device_type(VkPhysicalDeviceType type) noexcept
+{
+    switch (type) {
+    case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU: return DeviceType::Integrated;
+    case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU: return DeviceType::Discrete;
+    case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU: return DeviceType::Virtual;
+    case VK_PHYSICAL_DEVICE_TYPE_CPU: return DeviceType::Cpu;
+    default: return DeviceType::Other;
+    }
+}
+
+int performance_rank(DeviceType type) noexcept
+{
+    switch (type) {
+    case DeviceType::Discrete: return 4;
+    case DeviceType::Integrated: return 3;
+    case DeviceType::Virtual: return 2;
+    case DeviceType::Other: return 1;
+    case DeviceType::Cpu: return 0;
+    }
+    return 0;
+}
+
+int rank(DeviceType type, DevicePreference preference) noexcept
+{
+    if (preference == DevicePreference::Software && type == DeviceType::Cpu) {
+        return 10;
+    }
+    return performance_rank(type);
+}
+
+std::uint32_t find_queue_family(VkPhysicalDevice device)
+{
+    std::uint32_t count = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &count, nullptr);
+    std::vector<VkQueueFamilyProperties> families(count);
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &count, families.data());
+    constexpr VkQueueFlags wanted = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
+    for (std::uint32_t index = 0; index < count; ++index) {
+        if (families[index].queueCount > 0 && (families[index].queueFlags & wanted) == wanted) {
+            return index;
+        }
+    }
+    return no_queue_family;
+}
+
+std::vector<std::string> device_extensions(VkPhysicalDevice device)
+{
+    std::uint32_t count = 0;
+    if (vkEnumerateDeviceExtensionProperties(device, nullptr, &count, nullptr) != VK_SUCCESS) {
+        return {};
+    }
+    std::vector<VkExtensionProperties> properties(count);
+    if (vkEnumerateDeviceExtensionProperties(device, nullptr, &count, properties.data()) != VK_SUCCESS) {
+        return {};
+    }
+    std::vector<std::string> names;
+    names.reserve(count);
+    for (std::uint32_t index = 0; index < count; ++index) {
+        names.emplace_back(properties[index].extensionName);
+    }
+    return names;
+}
+
+// Fills info.suitable / info.unsuitable_reason. The first failed requirement wins.
+void judge(Candidate& candidate, const DeviceConfig& config)
+{
+    DeviceInfo& info = candidate.info;
+    auto reject = [&info](std::string reason) {
+        info.suitable = false;
+        info.unsuitable_reason = std::move(reason);
+    };
+
+    if (!config.name_contains.empty() && info.name.find(config.name_contains) == std::string::npos) {
+        reject("name does not contain \"" + config.name_contains + "\"");
+        return;
+    }
+    if (info.api_version.major < required_api_major
+        || (info.api_version.major == required_api_major && info.api_version.minor < required_api_minor)) {
+        reject("supports Vulkan " + std::to_string(info.api_version.major) + "."
+               + std::to_string(info.api_version.minor) + "; " + std::to_string(required_api_major) + "."
+               + std::to_string(required_api_minor) + " is required");
+        return;
+    }
+    if (candidate.queue_family == no_queue_family) {
+        reject("no queue family supports both graphics and compute");
+        return;
+    }
+
+    VkPhysicalDeviceVulkan13Features features13{};
+    features13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+    VkPhysicalDeviceFeatures2 features{};
+    features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    features.pNext = &features13;
+    vkGetPhysicalDeviceFeatures2(candidate.handle, &features);
+    if (features13.dynamicRendering != VK_TRUE) {
+        reject("dynamicRendering is not supported");
+        return;
+    }
+    if (features13.synchronization2 != VK_TRUE) {
+        reject("synchronization2 is not supported");
+        return;
+    }
+
+    const std::vector<std::string> available = device_extensions(candidate.handle);
+    for (const std::string& name : config.extensions) {
+        if (std::find(available.begin(), available.end(), name) == available.end()) {
+            reject("extension " + name + " is not available");
+            return;
+        }
+    }
+    info.suitable = true;
+    info.unsuitable_reason.clear();
+}
+
+bool inspect(VkInstance instance, const DeviceConfig& config, std::vector<Candidate>& out, RhiError& error)
+{
+    out.clear();
+    std::uint32_t count = 0;
+    VkResult result = vkEnumeratePhysicalDevices(instance, &count, nullptr);
+    if (result != VK_SUCCESS) {
+        return fail(error, RhiFailure::DriverError, driver_failure("vkEnumeratePhysicalDevices", result));
+    }
+    std::vector<VkPhysicalDevice> handles(count);
+    result = vkEnumeratePhysicalDevices(instance, &count, handles.data());
+    if (result != VK_SUCCESS && result != VK_INCOMPLETE) {
+        return fail(error, RhiFailure::DriverError, driver_failure("vkEnumeratePhysicalDevices", result));
+    }
+    handles.resize(count);
+
+    for (VkPhysicalDevice handle : handles) {
+        VkPhysicalDeviceProperties properties{};
+        vkGetPhysicalDeviceProperties(handle, &properties);
+        Candidate candidate;
+        candidate.handle = handle;
+        candidate.info.name = properties.deviceName;
+        candidate.info.type = device_type(properties.deviceType);
+        candidate.info.api_version = {VK_API_VERSION_MAJOR(properties.apiVersion),
+                                      VK_API_VERSION_MINOR(properties.apiVersion),
+                                      VK_API_VERSION_PATCH(properties.apiVersion)};
+        candidate.info.vendor_id = properties.vendorID;
+        candidate.info.device_id = properties.deviceID;
+        candidate.info.driver_version = properties.driverVersion;
+        candidate.queue_family = find_queue_family(handle);
+        judge(candidate, config);
+        out.push_back(std::move(candidate));
+    }
+    return true;
+}
+
+std::string rejection_list(const std::vector<Candidate>& candidates)
+{
+    if (candidates.empty()) {
+        return "no suitable Vulkan device: the driver reports no physical devices";
+    }
+    std::string message = "no suitable Vulkan device:";
+    for (const Candidate& candidate : candidates) {
+        message += " [";
+        message += candidate.info.name;
+        message += ": ";
+        message += candidate.info.unsuitable_reason;
+        message += ']';
+    }
+    return message;
+}
+
+}
+
+std::vector<DeviceInfo> enumerate_devices(const Instance& instance, const DeviceConfig& config, RhiError& error)
+{
+    error = {};
+    std::vector<Candidate> candidates;
+    if (!inspect(static_cast<VkInstance>(instance.native_handle()), config, candidates, error)) {
+        return {};
+    }
+    std::vector<DeviceInfo> infos;
+    infos.reserve(candidates.size());
+    for (Candidate& candidate : candidates) {
+        infos.push_back(std::move(candidate.info));
+    }
+    return infos;
+}
+
+struct Device::Impl {
+    ~Impl()
+    {
+        if (device != VK_NULL_HANDLE) {
+            vkDeviceWaitIdle(device);
+            vkDestroyDevice(device, nullptr);
+            device = VK_NULL_HANDLE;
+        }
+        if (owns_slot) {
+            detail::g_device_alive.store(false);
+            owns_slot = false;
+        }
+    }
+
+    VkPhysicalDevice physical = VK_NULL_HANDLE;
+    VkDevice device = VK_NULL_HANDLE;
+    VkQueue queue = VK_NULL_HANDLE;
+    std::uint32_t queue_family = no_queue_family;
+    bool owns_slot = false;
+    DeviceInfo info;
+    std::vector<std::string> extensions;
+};
+
+Device::Device(std::unique_ptr<Impl> impl)
+    : impl_{std::move(impl)}
+{
+}
+
+Device::~Device() = default;
+
+std::unique_ptr<Device> Device::create(const Instance& instance, const DeviceConfig& config, RhiError& error)
+{
+    error = {};
+    auto impl = std::make_unique<Impl>();
+
+    bool expected = false;
+    if (!detail::g_device_alive.compare_exchange_strong(expected, true)) {
+        fail(error, RhiFailure::AlreadyExists, "an rhi::Device already exists in this process");
+        return nullptr;
+    }
+    impl->owns_slot = true;
+
+    std::vector<Candidate> candidates;
+    if (!inspect(static_cast<VkInstance>(instance.native_handle()), config, candidates, error)) {
+        return nullptr;
+    }
+    const Candidate* best = nullptr;
+    for (const Candidate& candidate : candidates) {
+        if (!candidate.info.suitable) {
+            continue;
+        }
+        // Strictly greater keeps the driver's order among equal ranks.
+        if (best == nullptr || rank(candidate.info.type, config.preference) > rank(best->info.type, config.preference)) {
+            best = &candidate;
+        }
+    }
+    if (best == nullptr) {
+        fail(error, RhiFailure::NoSuitableDevice, rejection_list(candidates));
+        return nullptr;
+    }
+
+    impl->physical = best->handle;
+    impl->queue_family = best->queue_family;
+    impl->info = best->info;
+    for (const std::string& name : config.extensions) {
+        if (std::find(impl->extensions.begin(), impl->extensions.end(), name) == impl->extensions.end()) {
+            impl->extensions.push_back(name);
+        }
+    }
+    std::vector<const char*> extension_names;
+    extension_names.reserve(impl->extensions.size());
+    for (const std::string& name : impl->extensions) {
+        extension_names.push_back(name.c_str());
+    }
+
+    const float priority = 1.0F;
+    VkDeviceQueueCreateInfo queue_info{};
+    queue_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    queue_info.queueFamilyIndex = impl->queue_family;
+    queue_info.queueCount = 1;
+    queue_info.pQueuePriorities = &priority;
+
+    VkPhysicalDeviceVulkan13Features features13{};
+    features13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+    features13.dynamicRendering = VK_TRUE;
+    features13.synchronization2 = VK_TRUE;
+    VkPhysicalDeviceFeatures2 features{};
+    features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    features.pNext = &features13;
+
+    VkDeviceCreateInfo create_info{};
+    create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    create_info.pNext = &features;
+    create_info.queueCreateInfoCount = 1;
+    create_info.pQueueCreateInfos = &queue_info;
+    create_info.enabledExtensionCount = static_cast<std::uint32_t>(extension_names.size());
+    create_info.ppEnabledExtensionNames = extension_names.data();
+
+    const VkResult created = vkCreateDevice(impl->physical, &create_info, nullptr, &impl->device);
+    if (created != VK_SUCCESS) {
+        impl->device = VK_NULL_HANDLE;
+        fail(error, RhiFailure::DriverError, driver_failure("vkCreateDevice", created));
+        return nullptr;
+    }
+    volkLoadDevice(impl->device);
+    vkGetDeviceQueue(impl->device, impl->queue_family, 0, &impl->queue);
+
+    return std::unique_ptr<Device>(new Device(std::move(impl)));
+}
+
+const DeviceInfo& Device::info() const
+{
+    return impl_->info;
+}
+
+std::uint32_t Device::graphics_queue_family() const
+{
+    return impl_->queue_family;
+}
+
+std::span<const std::string> Device::enabled_extensions() const
+{
+    return impl_->extensions;
+}
+
+bool Device::wait_idle(RhiError& error) const
+{
+    error = {};
+    const VkResult result = vkDeviceWaitIdle(impl_->device);
+    if (result != VK_SUCCESS) {
+        return fail(error, RhiFailure::DriverError, driver_failure("vkDeviceWaitIdle", result));
+    }
+    return true;
+}
+
+void* Device::native_device() const
+{
+    return static_cast<void*>(impl_->device);
+}
+
+void* Device::native_physical_device() const
+{
+    return static_cast<void*>(impl_->physical);
+}
+
+void* Device::native_graphics_queue() const
+{
+    return static_cast<void*>(impl_->queue);
+}
+
+const char* to_string(DeviceType type) noexcept
+{
+    switch (type) {
+    case DeviceType::Integrated: return "integrated";
+    case DeviceType::Discrete: return "discrete";
+    case DeviceType::Virtual: return "virtual";
+    case DeviceType::Cpu: return "cpu";
+    case DeviceType::Other: return "other";
+    }
+    return "other";
+}
+
+}

@@ -73,7 +73,11 @@ if(BUILD_TESTING)
     add_test(NAME rhi.instance.no_driver COMMAND lykoware_rhi_instance_test --expect-no-driver)
     set_tests_properties(rhi.instance.no_driver PROPERTIES
         ENVIRONMENT "VK_DRIVER_FILES=lykoware-no-such-driver.json;VK_ICD_FILENAMES=lykoware-no-such-driver.json")
-    set_tests_properties(rhi.instance rhi.instance.no_driver PROPERTIES TIMEOUT 60 SKIP_RETURN_CODE 77)
+    add_executable(lykoware_rhi_device_test tests/rhi_device.cpp)
+    target_link_libraries(lykoware_rhi_device_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_rhi_device_test)
+    add_test(NAME rhi.device COMMAND lykoware_rhi_device_test)
+    set_tests_properties(rhi.instance rhi.instance.no_driver rhi.device PROPERTIES TIMEOUT 60 SKIP_RETURN_CODE 77)
 
     add_executable(lykoware_cpu_budget tests/cpu_budget.cpp tools/cli/process.cpp)
     target_link_libraries(lykoware_cpu_budget PRIVATE lykoware::engine)

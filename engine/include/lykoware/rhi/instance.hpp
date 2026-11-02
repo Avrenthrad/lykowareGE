@@ -42,8 +42,12 @@ enum class RhiFailure {
     // Validation::Required was requested and the Khronos validation layer is
     // not installed.
     MissingLayer,
-    // Another rhi::Instance is alive in this process.
+    // Another object of this kind is alive in this process (one Instance and
+    // one Device at a time).
     AlreadyExists,
+    // No physical device meets the RHI requirements and the request. The
+    // message lists every device and why it was rejected.
+    NoSuitableDevice,
     // The driver refused a call. message holds the Vulkan result name.
     DriverError,
 };
