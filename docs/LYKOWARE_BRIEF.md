@@ -54,7 +54,7 @@ Inspired by GTA/RAGE + Euphoria: physics-driven animation, foot IK on uneven ter
 - Constrained by authored lore and the main story spine; fed by Living Memory; guardrails and filters; no server dependency.
 
 ## 8. Performance
-- Aim for zero stutter using precompiled shaders, validated pipeline caches, asynchronous loading and bounded workloads. Use measured hardware-specific frame/hitch budgets in [PERFORMANCE.md](PERFORMANCE.md), not a universal guarantee.
+- Aim for zero stutter: shaders compiled ahead of time to SPIR-V, plus device/driver-keyed pipeline caches (ADR 0002), asynchronous loading and bounded workloads. Use measured hardware-specific frame/hitch budgets in [PERFORMANCE.md](PERFORMANCE.md), not a universal guarantee.
 - Strict frame pacing.
 - Scale from MSI Claw handheld (Intel Arc) to RTX 4070 desktop.
 - Seamless world streaming, no loading screens.
@@ -79,11 +79,13 @@ Built-in Highlighter-style replay capture.
 - Nothing public without Pax review.
 - Any spend needs Joshua's approval: flag paid tools/services before use.
 
-## 13. Technical direction (accepted language; remaining ADRs proposed)
+## 13. Technical direction (language, graphics, and data formats accepted; physics proposed)
 - Language: C++20/CMake accepted in [ADR 0001](adr/0001-language.md). Continue the verified foundation. Use warnings-as-errors, ASan/UBSan, clang-tidy and strong tests; distinguish configured checks from successful runs in STATUS.
-- Graphics: Vulkan is the proposed primary API behind a native C++ RHI, with a possible D3D12 backend if measurements justify it. Backend/dependency acceptance remains open in [ADR 0002](adr/0002-graphics.md); no Rust ash/wgpu evaluation.
-- Physics: Jolt preferred through an owned native C++ wrapper; integration/licensing decision remains open in [ADR 0003](adr/0003-physics.md).
-- Formats: evaluate JSON/TOML for authored data and glTF 2.0 for mesh interchange in [ADR 0004](adr/0004-data-formats.md). No production schema or encoding is selected.
+- Graphics: Vulkan 1.3 used directly from C++, behind a thin render hardware interface (RHI) owned by Lykoware. D3D12 is a possible later backend, only if Intel Arc measurements justify it. No Rust ash/wgpu evaluation. Accepted in [ADR 0002](adr/0002-graphics.md).
+- Physics: Jolt, used natively in C++ (not via bindings). Integration is still proposed in [ADR 0003](adr/0003-physics.md).
+- Formats: canonical JSON for machine-written data (sorted keys, schema_version, stable IDs); TOML for hand-edited config; glTF 2.0 for meshes; binary only as cooked build output. RON is not used. Accepted in [ADR 0004](adr/0004-data-formats.md). No production schema is implemented by this decision.
+
+Note: language, graphics and data formats are [ADR 0001](adr/0001-language.md), [ADR 0002](adr/0002-graphics.md) and [ADR 0004](adr/0004-data-formats.md). Jolt's native C++ use is the integration style; selecting and vendoring Jolt remains [ADR 0003](adr/0003-physics.md).
 
 ## 14. Roadmap (vertical slices; objective exit criteria per phase)
 0 Foundations; 1 Core runtime; 2 Slice 1 character feel on terrain; 3 Combat; 4 Building/crafting; 5 RTS faction battle; 6 World streaming at scale; 7 (moved: editor is Track E after engine core); 8 Living Memory + factions/relationships; 9 Living World AI; 10 Story/consequence tooling; 11 Content pipeline + flagship vertical slice.

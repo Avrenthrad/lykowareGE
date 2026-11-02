@@ -1,6 +1,6 @@
 # ADR 0003 — Physics integration
 
-Status: Proposed; Jolt is preferred in the brief, not yet integrated.
+Status: Proposed. Jolt is preferred in the brief and, if adopted, is used natively in C++ rather than through bindings. Not yet integrated or vendored.
 
 ## Options and boundary
 

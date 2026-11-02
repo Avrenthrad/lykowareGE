@@ -1,5 +1,9 @@
 # Lykoware (lykowareGE)
 
+<img src="assets/branding/lykoware-logo.jpg" alt="Lykoware: faceted gold wolf inside a metallic hexagonal frame, with the LYKOWARE wordmark on black" width="320" />
+
+[Branding reference](docs/BRANDING.md)
+
 Lykoleon Studios' Windows-first, AI-native engine. Standard: **No limits. Just excellence.**
 Build the flagship first: open-world RPG, first-/third-person action, structural sandbox construction, and RTS-scale battles.
 
@@ -28,7 +32,7 @@ A C++20/CMake engine library, console sandbox, and native **lyko** CLI. `lyko bu
 
 See [build instructions](docs/BUILDING.md), [CLI contract](docs/CLI.md), and [STATUS](docs/STATUS.md) for current verification. The engine can open a window and read keyboard, mouse, and gamepad state through its own API. SDL3 is vendored for that and is not part of the public headers. There is no renderer, physics, scene loader, or editor yet. `lyko` does not open a window.
 
-Joshua selected **C++20 with CMake** in [ADR 0001](docs/adr/0001-language.md). Continue the verified foundation. Vulkan, Jolt and authored data formats remain proposals under separate ADR evaluation.
+Joshua selected **C++20 with CMake** in [ADR 0001](docs/adr/0001-language.md). [ADR 0002](docs/adr/0002-graphics.md) accepts Vulkan 1.3 from C++ behind an owned RHI. [ADR 0004](docs/adr/0004-data-formats.md) accepts canonical JSON, TOML for hand-edited config, and glTF 2.0 for meshes. Jolt remains proposed in [ADR 0003](docs/adr/0003-physics.md); if adopted, it is called natively from C++, not through bindings. No graphics or parser dependency is vendored yet.
 
 ## Product boundaries and release policy
 

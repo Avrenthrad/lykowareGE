@@ -2,7 +2,7 @@
 
 Status: Accepted for this implementation within the owner's instruction to add a GPU-free image capture and comparison harness.
 Related task/PR: branch feat/phase0-image-harness, based on PR #6.
-Supersedes / superseded by: none. This does not select a graphics API. ADR 0002 stays proposed. This does not select an authored data format. ADR 0004 stays open.
+Supersedes / superseded by: none. This does not implement the graphics API. ADR 0002 accepts Vulkan 1.3 behind an owned RHI; this harness does not vendor or call it. This does not select an authored data format. ADR 0004 accepts canonical JSON, TOML config, and glTF 2.0 meshes; the PPM fixture is a test image, not that authored format.
 
 ## Context
 
@@ -20,7 +20,7 @@ Keep the harness in `lykoware_engine`. `Image` is an owned 8-bit RGB buffer. `Im
 
 `lyko screenshot` is unchanged. It returns exit code 3 and prints `unsupported: no renderer`. The harness runs from CTest through `lykoware_image_harness_test`. That executable is the test-only path. It is not a screenshot command.
 
-Real Vulkan offscreen capture plugs into `ImageCapture` later. ADR 0002 records that plug-in and stays proposed. No graphics backend is linked here.
+Real Vulkan offscreen capture plugs into `ImageCapture` later, on the path accepted in ADR 0002. No graphics backend is linked here.
 
 ## Contracts and compatibility
 
