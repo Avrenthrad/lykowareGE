@@ -2,7 +2,7 @@
 
 Status: Accepted for this implementation within the owner's instruction to add a CPU timer, trace, and provisional CI budget.
 Related task/PR: branch feat/phase0-cpu-trace-budget, based on PR #5.
-Supersedes / superseded by: none. This does not select an authored data format. ADR 0004 stays proposed.
+Supersedes / superseded by: none. This does not select an authored data format. ADR 0004 accepts canonical JSON, TOML config, and glTF 2.0 meshes; this trace file is a diagnostic Chrome trace, not that authored format.
 
 ## Context
 

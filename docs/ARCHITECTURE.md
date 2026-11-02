@@ -52,7 +52,7 @@ Use an [ADR](adr/README.md) for consequential decisions. Avoid inventing shared 
 
 The build/test/run CLI is described in [ADR 0005](adr/0005-native-cli.md) and [CLI.md](CLI.md). Its dispatcher validates the small fixed command set. It does not implement the future engine mutation/undo command bus.
 
-The CPU timer and trace live in the existing engine library, not a separate module. [ADR 0006](adr/0006-cpu-trace.md) and [engine/include/lykoware/trace.hpp](../engine/include/lykoware/trace.hpp) record ownership, lifetime, threading, and failure. Zones are single-threaded steady-clock measurements. The file is hand-written Chrome Trace Event JSON for diagnostics. It is not an authored project format, and ADR 0004 remains open. There are no GPU events. Provisional CPU-only CI thresholds for the pinned hosted runners are in the root `CMakeLists.txt`; see [PERFORMANCE.md](PERFORMANCE.md).
+The CPU timer and trace live in the existing engine library, not a separate module. [ADR 0006](adr/0006-cpu-trace.md) and [engine/include/lykoware/trace.hpp](../engine/include/lykoware/trace.hpp) record ownership, lifetime, threading, and failure. Zones are single-threaded steady-clock measurements. The file is hand-written Chrome Trace Event JSON for diagnostics. It is not an authored project format. ADR 0004 accepts canonical JSON, TOML config, and glTF 2.0 meshes; this trace is not that format. There are no GPU events. Provisional CPU-only CI thresholds for the pinned hosted runners are in the root `CMakeLists.txt`; see [PERFORMANCE.md](PERFORMANCE.md).
 
 ## Engine-first command boundary
 

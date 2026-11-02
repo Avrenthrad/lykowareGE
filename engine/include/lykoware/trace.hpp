@@ -40,8 +40,9 @@ private:
 [[nodiscard]] std::uint64_t cpu_fixture_iteration(std::uint64_t state) noexcept;
 
 // Records scoped CPU zones and writes one Chrome Trace Event JSON document.
-// The document is diagnostic output, not an authored project format: ADR 0004
-// has not selected JSON for scenes, commands, or saves. No JSON library is used.
+// The document is diagnostic output, not an authored project format. ADR 0004
+// accepts canonical JSON for machine-written data; this writer is hand-built
+// and is not that schema. No JSON library is used.
 //
 // Each zone becomes one complete event ("ph":"X") with a CPU category.
 // Timestamps and durations are steady-clock microseconds from session
