@@ -83,8 +83,19 @@ if(BUILD_TESTING)
     # Mismatch artefacts (actual and diff PPM) go under the build directory only.
     add_test(NAME rhi.render_target
         COMMAND lykoware_rhi_render_target_test "${CMAKE_CURRENT_BINARY_DIR}/rhi-render-target")
-    set_tests_properties(rhi.instance rhi.instance.no_driver rhi.device rhi.render_target
+    add_executable(lykoware_rhi_swapchain_test tests/rhi_swapchain.cpp)
+    target_link_libraries(lykoware_rhi_swapchain_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_rhi_swapchain_test)
+    add_test(NAME rhi.swapchain COMMAND lykoware_rhi_swapchain_test)
+    set_tests_properties(rhi.instance rhi.instance.no_driver rhi.device rhi.render_target rhi.swapchain
         PROPERTIES TIMEOUT 60 SKIP_RETURN_CODE 77)
+
+    # The sandbox's Vulkan window on the headless offscreen driver. The
+    # sandbox exits 3 ("unsupported") without a usable Vulkan device, which
+    # CTest reports as Skipped; it exits 1 on any validation error.
+    add_test(NAME sandbox.vulkan_window
+        COMMAND lykoware_sandbox --window --offscreen --vulkan --frames 3)
+    set_tests_properties(sandbox.vulkan_window PROPERTIES TIMEOUT 60 SKIP_RETURN_CODE 3)
 
     add_executable(lykoware_cpu_budget tests/cpu_budget.cpp tools/cli/process.cpp)
     target_link_libraries(lykoware_cpu_budget PRIVATE lykoware::engine)

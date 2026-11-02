@@ -1,10 +1,14 @@
 #include <lykoware/log.hpp>
+#include <lykoware/rhi/device.hpp>
+#include <lykoware/rhi/instance.hpp>
+#include <lykoware/rhi/swapchain.hpp>
 #include <lykoware/trace.hpp>
 #include <lykoware/version.hpp>
 #include <lykoware/window.hpp>
 
 #include <charconv>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <exception>
@@ -114,47 +118,125 @@ bool has_option(const std::vector<std::string>& args, std::string_view name)
     return false;
 }
 
+// Exit code when --vulkan finds no usable Vulkan device: 3, the code lyko
+// uses for "unsupported".
+constexpr int exit_unsupported = 3;
+
+struct WindowOptions {
+    bool dummy = false;
+    bool offscreen = false;
+    bool vulkan = false;
+    bool has_frames = false;
+    std::uint64_t frames = 0;
+};
+
+bool unavailable(lykoware::rhi::RhiFailure failure)
+{
+    using lykoware::rhi::RhiFailure;
+    return failure == RhiFailure::NoLoader || failure == RhiFailure::NoDriver
+        || failure == RhiFailure::VersionTooOld || failure == RhiFailure::MissingExtension
+        || failure == RhiFailure::NoSuitableDevice;
+}
+
+// Presents a slowly cycling clear colour through the RHI swapchain.
+int present_loop(lykoware::Window& window, const WindowOptions& options)
+{
+    lykoware::rhi::InstanceConfig instance_config;
+    instance_config.application_name = "lykoware sandbox";
+    instance_config.validation = lykoware::rhi::Validation::IfAvailable;
+    for (const char* name : window.vulkan_instance_extensions()) {
+        instance_config.extensions.emplace_back(name);
+    }
+    lykoware::rhi::RhiError error;
+    auto instance = lykoware::rhi::Instance::create(instance_config, error);
+    if (!instance) {
+        lykoware::log(lykoware::LogLevel::error, "Vulkan instance: " + error.message);
+        return unavailable(error.failure) ? exit_unsupported : EXIT_FAILURE;
+    }
+    lykoware::rhi::DeviceConfig device_config;
+    device_config.extensions = {lykoware::rhi::swapchain_device_extension};
+    auto device = lykoware::rhi::Device::create(*instance, device_config, error);
+    if (!device) {
+        lykoware::log(lykoware::LogLevel::error, "Vulkan device: " + error.message);
+        return unavailable(error.failure) ? exit_unsupported : EXIT_FAILURE;
+    }
+    auto swapchain = lykoware::rhi::Swapchain::create(*instance, *device, window, {}, error);
+    if (!swapchain) {
+        lykoware::log(lykoware::LogLevel::error, "Vulkan swapchain: " + error.message);
+        return unavailable(error.failure) ? exit_unsupported : EXIT_FAILURE;
+    }
+    lykoware::log(lykoware::LogLevel::info, "Presenting with Vulkan on " + device->info().name + ".");
+
+    std::uint64_t frame = 0;
+    while (window.pump()) {
+        const float phase = static_cast<float>(frame) * 0.02F;
+        const lykoware::rhi::ClearColor color{0.5F + 0.5F * std::sin(phase), 0.5F + 0.5F * std::sin(phase + 2.1F),
+                                              0.5F + 0.5F * std::sin(phase + 4.2F), 1.F};
+        if (!swapchain->render_clear(color, error)) {
+            lykoware::log(lykoware::LogLevel::error, "Vulkan frame: " + error.message);
+            return EXIT_FAILURE;
+        }
+        ++frame;
+        if (options.has_frames && frame >= options.frames) {
+            break;
+        }
+    }
+    const std::uint64_t presented = swapchain->frames_presented();
+    swapchain.reset();
+    device.reset();
+    lykoware::log(lykoware::LogLevel::info, "Presented " + std::to_string(presented) + " frames.");
+    if (instance->validation_error_count() != 0) {
+        lykoware::log(lykoware::LogLevel::error,
+                      std::to_string(instance->validation_error_count()) + " Vulkan validation errors.");
+        return EXIT_FAILURE;
+    }
+    return EXIT_SUCCESS;
+}
+
 int run_window(const std::vector<std::string>& args)
 {
     bool saw_window = false;
-    bool saw_dummy = false;
-    bool saw_frames = false;
-    std::uint64_t frames = 0;
+    WindowOptions options;
+    auto flag = [](bool& seen, const std::string& name) {
+        if (seen) {
+            throw std::invalid_argument("Duplicate option: " + name);
+        }
+        seen = true;
+    };
     for (std::size_t index = 0; index < args.size(); ++index) {
         const std::string& option = args[index];
         if (option == "--window") {
-            if (saw_window) {
-                throw std::invalid_argument("Duplicate option: --window");
+            flag(saw_window, option);
+        } else if (option == "--dummy") {
+            flag(options.dummy, option);
+        } else if (option == "--offscreen") {
+            flag(options.offscreen, option);
+        } else if (option == "--vulkan") {
+            flag(options.vulkan, option);
+        } else if (option == "--frames") {
+            if (options.has_frames) {
+                throw std::invalid_argument("Duplicate option: --frames");
             }
-            saw_window = true;
-            continue;
-        }
-        if (option == "--dummy") {
-            if (saw_dummy) {
-                throw std::invalid_argument("Duplicate option: --dummy");
+            if (index + 1 >= args.size() || args[index + 1].empty() || args[index + 1].starts_with("--")) {
+                throw std::invalid_argument("Missing value for --frames");
             }
-            saw_dummy = true;
-            continue;
-        }
-        if (option != "--frames") {
+            options.frames = parse_frames(args[++index]);
+            options.has_frames = true;
+        } else {
             throw std::invalid_argument("Unknown option: " + option + ". Use --help.");
         }
-        if (saw_frames) {
-            throw std::invalid_argument("Duplicate option: --frames");
-        }
-        if (index + 1 >= args.size() || args[index + 1].empty()
-            || args[index + 1].starts_with("--")) {
-            throw std::invalid_argument("Missing value for --frames");
-        }
-        frames = parse_frames(args[++index]);
-        saw_frames = true;
     }
     if (!saw_window) {
         throw std::invalid_argument("Expected --window.");
     }
-    if (saw_dummy && !saw_frames) {
-        throw std::invalid_argument(
-            "--window --dummy requires --frames N so it can exit without a display.");
+    if (options.dummy && options.offscreen) {
+        throw std::invalid_argument("--dummy and --offscreen are different video drivers; choose one.");
+    }
+    if (options.dummy && options.vulkan) {
+        throw std::invalid_argument("--dummy cannot host Vulkan; use --offscreen for a headless Vulkan window.");
+    }
+    if ((options.dummy || options.offscreen) && !options.has_frames) {
+        throw std::invalid_argument("--window --dummy or --offscreen requires --frames N so it can exit without a display.");
     }
 
     lykoware::WindowConfig config;
@@ -162,18 +244,26 @@ int run_window(const std::vector<std::string>& args)
     config.width = 960;
     config.height = 540;
     config.resizable = true;
-    config.visible = !saw_dummy;
-    config.vulkan = false;
-    config.driver = saw_dummy ? lykoware::VideoDriver::Dummy : lykoware::VideoDriver::Platform;
+    config.visible = !options.dummy && !options.offscreen;
+    config.vulkan = options.vulkan;
+    config.driver = options.dummy ? lykoware::VideoDriver::Dummy
+        : options.offscreen       ? lykoware::VideoDriver::Offscreen
+                                  : lykoware::VideoDriver::Platform;
     std::string error;
     const std::unique_ptr<lykoware::Window> window = lykoware::Window::open(config, error);
     if (!window) {
         lykoware::log(lykoware::LogLevel::error, error);
-        return EXIT_FAILURE;
+        // A Vulkan window fails to open when no Vulkan loader exists.
+        return options.vulkan ? exit_unsupported : EXIT_FAILURE;
     }
     lykoware::log(lykoware::LogLevel::info, "Opened sandbox window.");
-    if (saw_frames) {
-        for (std::uint64_t index = 0; index < frames; ++index) {
+    if (options.vulkan) {
+        const int status = present_loop(*window, options);
+        lykoware::log(lykoware::LogLevel::info, "Closed sandbox window.");
+        return status;
+    }
+    if (options.has_frames) {
+        for (std::uint64_t index = 0; index < options.frames; ++index) {
             if (!window->pump()) {
                 break;
             }
@@ -207,11 +297,14 @@ int run(const std::vector<std::string>& args)
         if (option == "--help") {
             std::cout << "Usage: lykoware_sandbox [--version|--help]\n"
                          "       lykoware_sandbox --frames N --trace FILE\n"
-                         "       lykoware_sandbox --window [--dummy] [--frames N]\n"
+                         "       lykoware_sandbox --window [--dummy | --offscreen] [--vulkan] [--frames N]\n"
                          "Without options, runs the console foundation check.\n"
                          "--frames with --trace runs N CPU iterations and writes a Chrome trace.\n"
                          "--window opens a window and pumps input until it closes.\n"
-                         "--dummy selects the headless video driver and requires --frames.\n";
+                         "--dummy selects the headless video driver and requires --frames.\n"
+                         "--offscreen is headless too, can host Vulkan, and requires --frames.\n"
+                         "--vulkan presents a cycling clear colour through the Vulkan RHI;\n"
+                         "  exit 3 when no usable Vulkan device exists.\n";
             return EXIT_SUCCESS;
         }
         throw std::invalid_argument("Unknown option: " + std::string{option}

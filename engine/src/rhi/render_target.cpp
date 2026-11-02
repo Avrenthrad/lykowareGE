@@ -17,46 +17,14 @@
 namespace lykoware::rhi {
 namespace {
 
+using detail::colour_range;
 using detail::DeviceAccess;
 using detail::driver_failure;
 using detail::fail;
+using detail::image_barrier;
 
 constexpr VkFormat target_format = VK_FORMAT_R8G8B8A8_UNORM;
 constexpr std::uint32_t bytes_per_texel = 4;
-
-VkImageSubresourceRange colour_range() noexcept
-{
-    VkImageSubresourceRange range{};
-    range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    range.baseMipLevel = 0;
-    range.levelCount = 1;
-    range.baseArrayLayer = 0;
-    range.layerCount = 1;
-    return range;
-}
-
-void image_barrier(VkCommandBuffer commands, VkImage image, VkImageLayout from, VkImageLayout to,
-                   VkPipelineStageFlags2 src_stage, VkAccessFlags2 src_access,
-                   VkPipelineStageFlags2 dst_stage, VkAccessFlags2 dst_access)
-{
-    VkImageMemoryBarrier2 barrier{};
-    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
-    barrier.srcStageMask = src_stage;
-    barrier.srcAccessMask = src_access;
-    barrier.dstStageMask = dst_stage;
-    barrier.dstAccessMask = dst_access;
-    barrier.oldLayout = from;
-    barrier.newLayout = to;
-    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.image = image;
-    barrier.subresourceRange = colour_range();
-    VkDependencyInfo dependency{};
-    dependency.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
-    dependency.imageMemoryBarrierCount = 1;
-    dependency.pImageMemoryBarriers = &barrier;
-    vkCmdPipelineBarrier2(commands, &dependency);
-}
 
 }
 
@@ -200,25 +168,8 @@ bool RenderTarget::clear(const ClearColor& color, RhiError& error)
                       VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_ACCESS_2_NONE,
                       VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT);
 
-        VkRenderingAttachmentInfo attachment{};
-        attachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-        attachment.imageView = impl.view;
-        attachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-        attachment.clearValue.color.float32[0] = color.r;
-        attachment.clearValue.color.float32[1] = color.g;
-        attachment.clearValue.color.float32[2] = color.b;
-        attachment.clearValue.color.float32[3] = color.a;
-
-        VkRenderingInfo rendering{};
-        rendering.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-        rendering.renderArea.extent = {impl.width, impl.height};
-        rendering.layerCount = 1;
-        rendering.colorAttachmentCount = 1;
-        rendering.pColorAttachments = &attachment;
-        vkCmdBeginRendering(commands, &rendering);
-        vkCmdEndRendering(commands);
+        const float rgba[4] = {color.r, color.g, color.b, color.a};
+        detail::record_clear_pass(commands, impl.view, {impl.width, impl.height}, rgba);
     }, error);
     if (!ok) {
         impl.rendered = false;
