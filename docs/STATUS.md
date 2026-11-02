@@ -15,7 +15,7 @@ Local checks on this Linux machine (GCC 13.3.0):
 - `window.lifecycle` ran with no display. It resized, closed, reopened, pumped a key, mouse, and virtual gamepad, and rejected a Vulkan surface call with a null instance.
 - clang-tidy 18 could not run as the analysis preset on this VM: `/usr/bin/c++` is clang and that clang-tidy invocation did not see the GCC 13 libstdc++ headers. The same preset is the CI job. A manual clang-tidy 18 pass over the new translation units, given the GCC include path, reported no findings in those files.
 
-CI: not recorded yet in this file. Artifact upload stays opt-in. No storage was purchased. No checklist box was ticked. No paid operation.
+CI: [run 41454076091](https://github.com/Avrenthrad/lykowareGE/actions/runs/41454076091) passed all five jobs: Windows Debug, Windows Release, Linux Debug, ASan/UBSan, and clang-tidy 18. Each job built and tested `input.mapping` and `window.lifecycle`. Tested code commit: 439917c. Delivery: [PR #8](https://github.com/Avrenthrad/lykowareGE/pull/8). Artifact upload did not run; it is opt-in and was not a failure. No storage was purchased. No checklist box was ticked. No paid operation.
 
 ## Previous image-harness task, still in review
 
@@ -94,7 +94,7 @@ First CI run: [41325630051](https://github.com/Avrenthrad/lykowareGE/actions/run
 - Task: window and input. Branch feat/module02-window-input. Base da71b1e on feat/phase0-image-harness (PR #7, not merged).
 - Completed behavior: `Window` and `InputState` in the engine library. SDL 3.4.18 is vendored, static, and hidden. Dummy-driver create, resize, DPI, pump, close, and reopen. Keyboard, mouse, and one gamepad. Vulkan instance-extension query and surface create/destroy without linking Vulkan. `lykoware_sandbox --window` and `--window --dummy --frames N`. `lyko` unchanged.
 - Files/interfaces: `engine/include/lykoware/window.hpp`, `engine/include/lykoware/input.hpp`, `engine/src/window.cpp`, `engine/src/input.cpp`, `engine/src/platform_map.cpp`, `third_party/sdl3/`, ADR 0008.
-- Checks: local GCC 13.3.0 Debug and ASan/UBSan passed the full CTest set, including `input.mapping`, `window.lifecycle`, and `foundation.smoke`. Windows and the clang-tidy CI job are not recorded yet. The local analysis preset did not run because this VM's default `c++` is clang.
+- Checks: local GCC 13.3.0 Debug and ASan/UBSan passed the full CTest set, including `input.mapping`, `window.lifecycle`, and `foundation.smoke`. [Run 41454076091](https://github.com/Avrenthrad/lykowareGE/actions/runs/41454076091) passed Windows Debug/Release and all three Linux profiles. Tested code commit 439917c. The local analysis preset did not run because this VM's default `c++` is clang; the CI clang-tidy job passed.
 - Unverified: a real Win32 or X11 window on a desktop, focus changes, and a successful Vulkan surface. Downloadable CI artifacts were not uploaded.
 - Next: record CI, then merge only with owner approval. Do not treat ADR 0008 as accepted. Do not tick Phase 1.
 - Checklist: no box ticked.
