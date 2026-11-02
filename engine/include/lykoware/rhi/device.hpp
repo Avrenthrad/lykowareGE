@@ -10,6 +10,10 @@
 
 namespace lykoware::rhi {
 
+namespace detail {
+struct DeviceAccess;
+}
+
 enum class DeviceType {
     Other,
     Integrated,
@@ -62,9 +66,12 @@ struct DeviceConfig {
 
 // One logical device with one graphics-and-compute queue.
 //
-// Ownership: create() returns the sole owner. The destructor waits for the
-// device to go idle, then destroys it. Copy and move are not provided.
-// Objects created from this device must be destroyed before it.
+// Ownership: create() returns the sole owner. The device also owns its GPU
+// memory allocator (Vulkan Memory Allocator) and a one-shot command buffer
+// used by other RHI objects. The destructor waits for the device to go idle,
+// then destroys them and the device. Copy and move are not provided.
+// Objects created from this device (render targets, ...) must be destroyed
+// before it.
 //
 // Lifetime: the Device must be destroyed before the Instance it was created
 // from. At most one Device exists per process at a time (volk keeps one
@@ -102,6 +109,7 @@ public:
     [[nodiscard]] void* native_graphics_queue() const;
 
 private:
+    friend struct detail::DeviceAccess;
     struct Impl;
     explicit Device(std::unique_ptr<Impl> impl);
 

@@ -77,7 +77,14 @@ if(BUILD_TESTING)
     target_link_libraries(lykoware_rhi_device_test PRIVATE lykoware::engine)
     lykoware_configure_target(lykoware_rhi_device_test)
     add_test(NAME rhi.device COMMAND lykoware_rhi_device_test)
-    set_tests_properties(rhi.instance rhi.instance.no_driver rhi.device PROPERTIES TIMEOUT 60 SKIP_RETURN_CODE 77)
+    add_executable(lykoware_rhi_render_target_test tests/rhi_render_target.cpp)
+    target_link_libraries(lykoware_rhi_render_target_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_rhi_render_target_test)
+    # Mismatch artefacts (actual and diff PPM) go under the build directory only.
+    add_test(NAME rhi.render_target
+        COMMAND lykoware_rhi_render_target_test "${CMAKE_CURRENT_BINARY_DIR}/rhi-render-target")
+    set_tests_properties(rhi.instance rhi.instance.no_driver rhi.device rhi.render_target
+        PROPERTIES TIMEOUT 60 SKIP_RETURN_CODE 77)
 
     add_executable(lykoware_cpu_budget tests/cpu_budget.cpp tools/cli/process.cpp)
     target_link_libraries(lykoware_cpu_budget PRIVATE lykoware::engine)

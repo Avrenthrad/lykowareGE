@@ -1,6 +1,7 @@
 #include <lykoware/rhi/device.hpp>
 
 #include "common.hpp"
+#include "device_access.hpp"
 
 #include <volk.h>
 
@@ -228,6 +229,15 @@ struct Device::Impl {
     {
         if (device != VK_NULL_HANDLE) {
             vkDeviceWaitIdle(device);
+            if (fence != VK_NULL_HANDLE) {
+                vkDestroyFence(device, fence, nullptr);
+            }
+            if (command_pool != VK_NULL_HANDLE) {
+                vkDestroyCommandPool(device, command_pool, nullptr);
+            }
+            if (allocator != VK_NULL_HANDLE) {
+                vmaDestroyAllocator(allocator);
+            }
             vkDestroyDevice(device, nullptr);
             device = VK_NULL_HANDLE;
         }
@@ -240,6 +250,10 @@ struct Device::Impl {
     VkPhysicalDevice physical = VK_NULL_HANDLE;
     VkDevice device = VK_NULL_HANDLE;
     VkQueue queue = VK_NULL_HANDLE;
+    VmaAllocator allocator = VK_NULL_HANDLE;
+    VkCommandPool command_pool = VK_NULL_HANDLE;
+    VkCommandBuffer command_buffer = VK_NULL_HANDLE;
+    VkFence fence = VK_NULL_HANDLE;
     std::uint32_t queue_family = no_queue_family;
     bool owns_slot = false;
     DeviceInfo info;
@@ -330,6 +344,53 @@ std::unique_ptr<Device> Device::create(const Instance& instance, const DeviceCon
     volkLoadDevice(impl->device);
     vkGetDeviceQueue(impl->device, impl->queue_family, 0, &impl->queue);
 
+    // GPU memory allocator. Vulkan functions come from volk (no static linking).
+    VmaVulkanFunctions vma_functions{};
+    vma_functions.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
+    vma_functions.vkGetDeviceProcAddr = vkGetDeviceProcAddr;
+    VmaAllocatorCreateInfo allocator_info{};
+    allocator_info.vulkanApiVersion = VK_MAKE_API_VERSION(0, required_api_major, required_api_minor, 0);
+    allocator_info.physicalDevice = impl->physical;
+    allocator_info.device = impl->device;
+    allocator_info.instance = static_cast<VkInstance>(instance.native_handle());
+    allocator_info.pVulkanFunctions = &vma_functions;
+    VkResult result = vmaCreateAllocator(&allocator_info, &impl->allocator);
+    if (result != VK_SUCCESS) {
+        impl->allocator = VK_NULL_HANDLE;
+        fail(error, RhiFailure::DriverError, driver_failure("vmaCreateAllocator", result));
+        return nullptr;
+    }
+
+    // One-shot command buffer and fence for submit_and_wait.
+    VkCommandPoolCreateInfo pool_info{};
+    pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    pool_info.queueFamilyIndex = impl->queue_family;
+    result = vkCreateCommandPool(impl->device, &pool_info, nullptr, &impl->command_pool);
+    if (result != VK_SUCCESS) {
+        impl->command_pool = VK_NULL_HANDLE;
+        fail(error, RhiFailure::DriverError, driver_failure("vkCreateCommandPool", result));
+        return nullptr;
+    }
+    VkCommandBufferAllocateInfo buffer_info{};
+    buffer_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    buffer_info.commandPool = impl->command_pool;
+    buffer_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    buffer_info.commandBufferCount = 1;
+    result = vkAllocateCommandBuffers(impl->device, &buffer_info, &impl->command_buffer);
+    if (result != VK_SUCCESS) {
+        fail(error, RhiFailure::DriverError, driver_failure("vkAllocateCommandBuffers", result));
+        return nullptr;
+    }
+    VkFenceCreateInfo fence_info{};
+    fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    result = vkCreateFence(impl->device, &fence_info, nullptr, &impl->fence);
+    if (result != VK_SUCCESS) {
+        impl->fence = VK_NULL_HANDLE;
+        fail(error, RhiFailure::DriverError, driver_failure("vkCreateFence", result));
+        return nullptr;
+    }
+
     return std::unique_ptr<Device>(new Device(std::move(impl)));
 }
 
@@ -371,6 +432,65 @@ void* Device::native_physical_device() const
 void* Device::native_graphics_queue() const
 {
     return static_cast<void*>(impl_->queue);
+}
+
+namespace detail {
+
+VkDevice DeviceAccess::device(const Device& device)
+{
+    return device.impl_->device;
+}
+
+VmaAllocator DeviceAccess::allocator(const Device& device)
+{
+    return device.impl_->allocator;
+}
+
+bool DeviceAccess::submit_and_wait(
+    const Device& device, const std::function<void(VkCommandBuffer)>& record, RhiError& error)
+{
+    error = {};
+    const Device::Impl& impl = *device.impl_;
+    VkResult result = vkResetCommandBuffer(impl.command_buffer, 0);
+    if (result != VK_SUCCESS) {
+        return fail(error, RhiFailure::DriverError, driver_failure("vkResetCommandBuffer", result));
+    }
+    VkCommandBufferBeginInfo begin{};
+    begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    result = vkBeginCommandBuffer(impl.command_buffer, &begin);
+    if (result != VK_SUCCESS) {
+        return fail(error, RhiFailure::DriverError, driver_failure("vkBeginCommandBuffer", result));
+    }
+    record(impl.command_buffer);
+    result = vkEndCommandBuffer(impl.command_buffer);
+    if (result != VK_SUCCESS) {
+        return fail(error, RhiFailure::DriverError, driver_failure("vkEndCommandBuffer", result));
+    }
+    result = vkResetFences(impl.device, 1, &impl.fence);
+    if (result != VK_SUCCESS) {
+        return fail(error, RhiFailure::DriverError, driver_failure("vkResetFences", result));
+    }
+    VkCommandBufferSubmitInfo command_info{};
+    command_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
+    command_info.commandBuffer = impl.command_buffer;
+    VkSubmitInfo2 submit{};
+    submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
+    submit.commandBufferInfoCount = 1;
+    submit.pCommandBufferInfos = &command_info;
+    result = vkQueueSubmit2(impl.queue, 1, &submit, impl.fence);
+    if (result != VK_SUCCESS) {
+        return fail(error, RhiFailure::DriverError, driver_failure("vkQueueSubmit2", result));
+    }
+    // Ten seconds is far beyond any one-shot transfer; a timeout means a hang.
+    constexpr std::uint64_t timeout_ns = 10'000'000'000ULL;
+    result = vkWaitForFences(impl.device, 1, &impl.fence, VK_TRUE, timeout_ns);
+    if (result != VK_SUCCESS) {
+        return fail(error, RhiFailure::DriverError, driver_failure("vkWaitForFences", result));
+    }
+    return true;
+}
+
 }
 
 const char* to_string(DeviceType type) noexcept
