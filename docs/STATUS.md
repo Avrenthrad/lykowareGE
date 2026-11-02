@@ -64,7 +64,7 @@ Owner: Claude. Branch `claude/vulkan-rhi-3`, stacked on `claude/vulkan-rhi-2`. N
 - `lykoware::rhi::RenderTarget` (`engine/include/lykoware/rhi/render_target.hpp`): RGBA8 UNORM offscreen image, dynamic-rendering load-op clear, synchronization2 read-back into the harness `Image`. `RenderTargetCapture` implements `ImageCapture`. ADR 0011, Proposed. First rendered pixels.
 - New test `rhi.render_target`: exact solid-colour compares (expected images built in code, no committed goldens), actual and diff PPMs written under the build directory on mismatch. A deliberate red/blue swap made all four compares fail.
 - Local checks (Linux, GCC 13, lavapipe, validation on): Debug, ASan/UBSan and clang-tidy presets passed all 17 tests with zero validation errors. With drivers hidden, `rhi.render_target` reported Skipped.
-- CI: pending on the PR.
+- CI: [run 41476543108](https://github.com/Avrenthrad/lykowareGE/actions/runs/41476543108) on code commit 87a8435 passed all five jobs. On Linux, `rhi.render_target` rendered on lavapipe and passed in Debug, ASan/UBSan and clang-tidy; Windows hosted runners reported the RHI tests as Skipped.
 
 ## Next
 

@@ -39,4 +39,4 @@ The engine renders headless and the result can be compared pixel-for-pixel in CI
 - `rhi.render_target` clears a 16×16 and a 17×9 target twice each, the second time read through `RenderTargetCapture`, and requires exact solid images. It also checks that a read-back before any render is refused and leaves the image empty, that bad extents are refused, and that there are zero validation errors when the layer is installed. It exits 77 (CTest Skipped) without Vulkan.
 - Mutation check: swapping the red and blue channels in `read_back` made all four comparisons fail, with actual and diff images written. Restored afterwards.
 - Local results (Linux, GCC 13, Mesa 25.2 lavapipe, validation layer on): 17/17 in the Debug, ASan/UBSan and clang-tidy presets. With drivers hidden it exited 77.
-- CI results are recorded in STATUS when the PR runs.
+- [run 41476543108](https://github.com/Avrenthrad/lykowareGE/actions/runs/41476543108) on code commit 87a8435 passed all five jobs: `rhi.render_target` rendered on lavapipe and passed in Linux Debug, ASan/UBSan and clang-tidy; Windows reported Skipped (no Vulkan on hosted runners).
