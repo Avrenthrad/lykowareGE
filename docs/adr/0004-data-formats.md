@@ -4,7 +4,7 @@ Status: Proposed; text-first and agent-accessible policy is established, encodin
 
 ## Options
 
-Evaluate TOML/JSON/RON for scene, prefab, material, quest, dialogue, configuration and serialized commands. RON is Rust-oriented; assess independent tooling and migration costs. glTF 2.0 is proposed for mesh/animation interchange. Binary GPU-ready/cooked outputs are allowed. Source audio/textures/native asset data remain separate from text operation histories.
+Evaluate TOML/JSON for scene, prefab, material, quest, dialogue, configuration and serialized commands. The original RON candidate is retired from the current C++ evaluation; no production encoding is selected. glTF 2.0 is proposed for mesh/animation interchange. Binary GPU-ready/cooked outputs are allowed. Source audio/textures/native asset data remain separate from text operation histories.
 
 ## Shared contract
 

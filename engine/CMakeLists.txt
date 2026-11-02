@@ -10,8 +10,4 @@ target_include_directories(lykoware_engine PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
     "${CMAKE_CURRENT_BINARY_DIR}/generated")
 
-if(MSVC)
-    target_compile_options(lykoware_engine PRIVATE /W4 /permissive- /utf-8)
-else()
-    target_compile_options(lykoware_engine PRIVATE -Wall -Wextra -Wpedantic)
-endif()
+lykoware_configure_target(lykoware_engine)

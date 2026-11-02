@@ -5,8 +5,9 @@ Applies to this repository, including Codex, Claude, Grok, and other assistants.
 ## Source of truth
 
 - User instructions govern scope. Record durable project decisions in the repository; do not rely on another assistant seeing your chat.
+- Later owner instructions and accepted ADRs resolve technical details in the master brief. STATUS records implementation, not the brief's aspirations.
 - Use the latest repository state and linked task/PR, not remembered status. Distinguish implemented behavior, accepted design direction, and proposals.
-- Module 01 is verified. The revised plan is Phase 0 stack evaluation, followed by Phases 1–6 runtime; Track E follows Phase 6 and Track C follows E2. Read docs/STATUS.md and docs/ROADMAP.md.
+- Module 01 is verified. The revised plan is Phase 0 native C++ tooling and remaining stack evaluation, followed by Phases 1–6 runtime; Track E follows Phase 6 and Track C follows E2. Read docs/STATUS.md and docs/ROADMAP.md.
 - Do not silently turn unanswered requirements into commitments. List temporary assumptions and when they must be resolved.
 - Do not reset existing work when revisiting design.
 
@@ -22,7 +23,7 @@ Applies to this repository, including Codex, Claude, Grok, and other assistants.
 
 ## Code and boundaries
 
-- Accepted stack: C++20/CMake 3.25+ (ADR 0001). Continue the verified foundation; no Rust/Cargo migration or comparison spikes. Windows x64 primary; Linux secondary. Follow ADR 0001's planned sanitizer/static-analysis coverage as those checks are implemented.
+- Accepted stack: C++20/CMake 3.25+ (ADR 0001). Continue the verified foundation; no Rust/Cargo migration or comparison spikes. Windows x64 primary; Linux secondary. Warnings-as-errors are the default. Linux sanitizer and clang-tidy 18 presets cover current native targets; read STATUS for verification.
 - Full ownership and source vendoring: follow docs/adr/0000-ownership-and-licensing.md. No external editor/engine host dependency, copyleft shipped code or proprietary middleware lock-in.
 - No paid operations without Joshua's approval; no personal data to external AI services. GitHub-only repositories, private work; no public release without Pax review and owner authorization.
 - Every content/tool action needs CLI/script access; minimal debug/capture tooling precedes the editor. Keep authoritative operations shared rather than duplicating UI logic.
