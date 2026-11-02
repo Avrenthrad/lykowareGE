@@ -12,10 +12,10 @@ namespace lykoware {
 // not a screenshot test. Real screenshot tests wait for a renderer.
 // `lyko screenshot` stays an unsupported-renderer error.
 //
-// A later Vulkan offscreen capture (ADR 0002, still proposed) can implement
-// ImageCapture and feed the same comparison. No graphics backend is selected
-// or linked here. PPM output is a diagnostic fixture, not an authored project
-// format. ADR 0004 stays open.
+// A later Vulkan offscreen capture can implement ImageCapture and feed the
+// same comparison. ADR 0002 accepts that RHI; no graphics backend is linked
+// here. PPM output is a diagnostic fixture, not an authored project format.
+// ADR 0004 accepts canonical JSON, TOML config, and glTF 2.0 meshes.
 
 // Allocation guard for one harness image. This is not a display mode, a
 // device limit, or a renderer capability.

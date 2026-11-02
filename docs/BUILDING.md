@@ -54,6 +54,7 @@ Windows remains the primary target; this check helps keep the foundation portabl
 - samples/sandbox/: separate executable containing sample-game code.
 - tools/cli/: native lyko executable, command dispatcher, and private platform process runner.
 - tests/: sandbox smoke tests and CLI integration tests with genuine CMake/CTest runs.
+- assets/brand/: Lykoware logo vector set (SVG logo, icon, wordmark, mono variants), .ico, 512 px icon, preview sheet, BRAND.md guidelines and PROVENANCE.md.
 - .github/workflows/build.yml: clean Windows Debug/Release builds, tests, staged execution, and downloadable artifacts; also Linux validation.
 
 Build output is ignored by Git. CMakeUserPresets.json is available for local overrides.
@@ -112,4 +113,4 @@ Python and analysis tools are development dependencies, not shipped game/runtime
 
 ## CI artifacts
 
-Builds, tests and staged execution are mandatory. Artifact upload is opt-in through the manual workflow's upload_artifacts input, defaults off, and uses three-day retention. GitHub reported an exhausted artifact-storage quota during this task; no billing changes or artifact deletions were made. Ordinary PR/main checks do not require storage. Feature branches use PR checks rather than duplicate push/PR runs.
+Builds, tests and staged execution are mandatory. Artifact upload is opt-in through the manual workflow's upload_artifacts input, defaults off, uses three-day retention, and is continue-on-error so a storage-quota rejection does not fail the foundation check. GitHub reported an exhausted artifact-storage quota during this task; no billing changes or artifact deletions were made. Ordinary PR/main checks do not require storage. Feature branches use PR checks rather than duplicate push/PR runs.

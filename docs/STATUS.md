@@ -4,11 +4,14 @@
 
 Original Module 01: C++20/CMake engine library, separate console sandbox and logging. [Baseline implementation](https://github.com/Avrenthrad/lykowareGE/commit/af55b9baa3fd0fb41bab243a1009d7340efa429f); [Windows Debug/Release and Linux CI](https://github.com/Avrenthrad/lykowareGE/actions/runs/40265394221).
 C++20/CMake is accepted by Joshua in ADR 0001.
+Graphics accepted in ADR 0002: Vulkan 1.3 used directly from C++ behind a Lykoware-owned RHI. wgpu and ash are rejected. No graphics dependency is vendored.
+Data formats accepted in ADR 0004: canonical JSON for machine-written data, TOML for hand-edited config, glTF 2.0 for meshes, binary only as cooked output. RON is dropped. No parser is vendored.
+Jolt remains proposed in ADR 0003. If adopted, call it natively from C++ rather than through bindings.
 
 ## Current development task
 
 Task owner: Cursor cloud agent. Branch feat/phase0-image-harness. Base: 9a2e9b5254011f2b4b6001fa4762dab364596918 on feat/phase0-cpu-trace-budget ([PR #6](https://github.com/Avrenthrad/lykowareGE/pull/6), not merged). The pull request targets that branch until #6 merges, and it is not merged by this task.
-Scope: a GPU-free image harness inside `lykoware_engine` (no new library and no dependency). `Image`, `ImageCapture`, and `TestPatternCapture` produce a deterministic software pattern. Hand-written PPM P6 read/write, a per-pixel tolerance comparison, and a diff image live beside it. CTest uses small fixtures in `tests/golden/` and writes only under the build directory. `lyko screenshot` stays exit 3, including when given extra arguments. This is not a renderer screenshot test. Real Vulkan offscreen capture plugs into `ImageCapture` later; ADR 0002 stays proposed. No image/performance-gate checklist box is ticked.
+Scope: a GPU-free image harness inside `lykoware_engine` (no new library and no dependency). `Image`, `ImageCapture`, and `TestPatternCapture` produce a deterministic software pattern. Hand-written PPM P6 read/write, a per-pixel tolerance comparison, and a diff image live beside it. CTest uses small fixtures in `tests/golden/` and writes only under the build directory. `lyko screenshot` stays exit 3, including when given extra arguments. This is not a renderer screenshot test. Real Vulkan offscreen capture plugs into `ImageCapture` later. ADR 0002 is accepted; this harness does not implement it. No image/performance-gate checklist box is ticked.
 
 Local checks on this Linux machine (GCC 13.3.0):
 - Debug and ASan/UBSan: `image.harness.api`, `image.harness.golden_pass`, `image.harness.golden_fail`, `trace.api`, `perf.sandbox_startup`, `perf.cpu_fixture`, `perf.budget_rejects_overrun`, `perf.budget_accepts_within`, `foundation.smoke`, `cli.commands`, and `cli.integration` passed.
@@ -57,10 +60,14 @@ Local validation: GCC 14.2 Debug build and two CTest suites passed; ASan/UBSan b
 
 First CI run: [41325630051](https://github.com/Avrenthrad/lykowareGE/actions/runs/41325630051) verified Windows Debug/Release compile/tests/staged execution and all three Linux profiles. Windows jobs then failed only at artifact upload because GitHub storage quota was exhausted. Uploads are now manual opt-in; validation stays mandatory. [Follow-up run 41325853657](https://github.com/Avrenthrad/lykowareGE/actions/runs/41325853657) passed all five profiles: Windows Debug/Release, Linux Debug, ASan/UBSan and clang-tidy analysis, including staged CLI execution. Tested code commit: 04243e61d4ba108360c9928c1fe1fbcc188183bc. Subsequent changes only record this evidence in documentation. No billing changes or artifact deletion.
 
+This branch accepts ADR 0002 (Vulkan 1.3 from C++ behind an owned RHI) and ADR 0004 (canonical JSON, TOML config, glTF 2.0 meshes). ADR 0003 physics stays proposed. No renderer, parser, or vendored dependency is added.
+
+The supplied Lykoware logo vector set is under `assets/brand/`. Those files do not change the runtime, API, or schema. Artifact upload stays opt-in and is continue-on-error so a storage-quota rejection does not fail the foundation check.
+
 ## Next
 
 1. Phase 1 window/input/timing, with a pinned vendored SDL3 evaluation and explicit lifecycle contract.
-2. Resolve graphics, native Jolt, and authored data ADRs before their dependent implementation.
+2. Resolve native Jolt through ADR 0003 before adding physics. Do not vendor Vulkan-Headers, volk, Vulkan Memory Allocator, nlohmann/json or toml++ until a caller needs them; record exact licences and versions then. Review the shader-compiler licence as a build-time tool, and evaluate a software Vulkan driver such as Mesa lavapipe in CI, before claiming graphics CI.
 3. Agree multiplayer intent, exact hardware profiles, world/simulation scope and budgets.
 
 ## Known issues and limitations
@@ -71,7 +78,7 @@ First CI run: [41325630051](https://github.com/Avrenthrad/lykowareGE/actions/run
 - Provisional CPU budgets in CTest apply only to windows-2022 and ubuntu-24.04. They are not an RTX 4070 or MSI Claw gate, and no screenshot gate exists.
 - Sanitizers are Linux-only; ThreadSanitizer is deferred until concurrent engine systems.
 - The CLI is a developer process wrapper, not the future runtime/editor mutation command bus. See CLI.md for limitations.
-- No dependencies are vendored. Vulkan/Jolt/data choices remain proposed.
+- No dependencies are vendored. The Vulkan 1.3 RHI direction and data encodings are accepted decisions only; no renderer or parser is implemented. Jolt remains proposed in ADR 0003. wgpu, ash and RON are not open tasks.
 - Pax/publication gate remains policy; no Pax implementation or legal clearance.
 - No paid service/spend or personal-data export was performed.
 - GitHub artifact storage was exhausted; downloadable CI binaries remain unavailable until storage is available and upload is explicitly requested. Builds/tests do not depend on uploads.
@@ -80,7 +87,7 @@ First CI run: [41325630051](https://github.com/Avrenthrad/lykowareGE/actions/run
 
 - Task: GPU-free image harness. Branch feat/phase0-image-harness. Base 9a2e9b5 on feat/phase0-cpu-trace-budget (PR #6, not merged).
 - Completed behavior: `Image`, `ImageCapture`, and `TestPatternCapture` in the engine library; hand-written PPM P6 read/write; per-pixel tolerance comparison and diff image. CTest golden pass and golden fail. `lyko screenshot` still exits 3. Not a renderer screenshot.
-- Files/interfaces: `engine/include/lykoware/image.hpp`, `engine/src/image.cpp`, `tests/image_harness.cpp`, `tests/golden/`, ADR 0007. ADR 0002 records the later Vulkan offscreen plug-in and stays proposed.
+- Files/interfaces: `engine/include/lykoware/image.hpp`, `engine/src/image.cpp`, `tests/image_harness.cpp`, `tests/golden/`, ADR 0007. ADR 0002 records the later Vulkan offscreen plug-in and is accepted; this harness does not implement it.
 - Checks: local GCC 13.3.0 Debug, ASan/UBSan, and clang-tidy 18 analysis passed. [Run 41330369114](https://github.com/Avrenthrad/lykowareGE/actions/runs/41330369114) passed Windows Debug/Release and all three Linux profiles. Tested code commit fc3860e. `screenshot` stayed exit 3.
 - Unverified: any GPU or window capture. The harness extent guard is not a display mode. Downloadable CI artifacts were not uploaded.
 - Next: merge only with owner approval. Do not describe the harness as a screenshot test.
