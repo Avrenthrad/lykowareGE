@@ -46,4 +46,4 @@ CI now runs the real present path, with the validation layer checking synchronis
 - `window.lifecycle` opens, resizes and pumps an offscreen window.
 - Local results (Linux, GCC 13, Mesa 25.2 lavapipe, validation layer on): 19/19 tests in the Debug, ASan/UBSan and clang-tidy presets. With drivers hidden, the sandbox exited 3.
 - Not verified: a visible desktop window on Windows or Linux with a real GPU. That needs the owner to run `lykoware_sandbox --window --vulkan`.
-- CI results are recorded in STATUS when the PR runs.
+- [run 41478183872](https://github.com/Avrenthrad/lykowareGE/actions/runs/41478183872) failed both Windows builds on MSVC C4458 (parameter shadowing a member); fixed in f2ca3e9. [run 41478643774](https://github.com/Avrenthrad/lykowareGE/actions/runs/41478643774) on f2ca3e9 passed all five jobs: `rhi.swapchain` and `sandbox.vulkan_window` ran on lavapipe and passed in Linux Debug, ASan/UBSan and clang-tidy; Windows reported Skipped (no Vulkan on hosted runners).

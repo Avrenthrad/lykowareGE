@@ -77,7 +77,7 @@ Owner: Claude. Branch `claude/vulkan-rhi-4`, stacked on `claude/vulkan-rhi-3`. N
 - New tests `rhi.swapchain` and `sandbox.vulkan_window`; `window.lifecycle` covers the offscreen driver; `foundation.smoke` covers the new option errors.
 - Local checks (Linux, GCC 13, lavapipe, validation on): Debug, ASan/UBSan and clang-tidy presets passed all 19 tests with zero validation errors.
 - Not verified: a visible desktop window with a real GPU. Owner check: `lykoware_sandbox --window --vulkan`.
-- CI: pending on the PR.
+- CI: the first run ([run 41478183872](https://github.com/Avrenthrad/lykowareGE/actions/runs/41478183872)) failed both Windows builds with MSVC C4458 (a parameter named `extent` hid the member `extent`; GCC reports it only with `-Wshadow`). Fixed in f2ca3e9 after reproducing with `-Wshadow`; [run 41478643774](https://github.com/Avrenthrad/lykowareGE/actions/runs/41478643774) on f2ca3e9 then passed all five jobs. On Linux, `rhi.swapchain` and `sandbox.vulkan_window` ran on lavapipe and passed in Debug, ASan/UBSan and clang-tidy; Windows reported the Vulkan tests as Skipped.
 
 ## Next
 
