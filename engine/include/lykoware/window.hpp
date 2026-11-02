@@ -2,6 +2,7 @@
 
 #include <lykoware/input.hpp>
 
+#include <cstdint>
 #include <memory>
 #include <span>
 #include <string>
@@ -77,7 +78,12 @@ struct WindowConfig {
 // Threading: create, pump, resize, and destroy a window on one thread.
 // There is no internal lock and no background thread. The first window
 // initialises the process-wide platform session. Every window in the
-// process shares that session and its video driver.
+// process shares that session and its video driver. Platform events arrive
+// on one process-wide queue: any window's pump() files them per window, and
+// each window applies only its own events (plus quit, gamepad, and input not
+// tied to a window, which every window receives). A window that is never
+// pumped holds at most a bounded backlog; later events for it are dropped.
+// A new window adopts the first gamepad that is already connected.
 //
 // Failure: open() and resize() and create_vulkan_surface() return failure
 // and write a reason to error. On success they clear error. They do not

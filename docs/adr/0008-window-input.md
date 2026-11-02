@@ -29,7 +29,7 @@ The owner has not accepted this choice. Replacing SDL means reimplementing the s
 
 Ownership, lifetime, threading, and failure are specified on the declarations in [engine/include/lykoware/window.hpp](../../engine/include/lykoware/window.hpp) and [engine/include/lykoware/input.hpp](../../engine/include/lykoware/input.hpp).
 
-One process shares one platform session and one video driver. The first successful `Window::open` starts it. The last window destructor stops it. `pump()` does not block. It starts an input frame, then applies the events that are waiting. Keyboard edges, mouse buttons, the wheel, and the first gamepad are part of that snapshot. Further gamepads are ignored until that pad disconnects.
+One process shares one platform session and one video driver. The first successful `Window::open` starts it. The last window destructor stops it. `pump()` does not block. It starts an input frame, then applies the events that are waiting. Keyboard edges, mouse buttons, the wheel, and the first gamepad are part of that snapshot. Further gamepads are ignored until that pad disconnects; then the next connected pad takes over. The platform queue is process-wide, so a pump files each event into a per-window mailbox and each window applies only its own events, plus quit, gamepad, and window-less input, which every window receives. A new window adopts an already-connected pad.
 
 Client size is a request. `resize` asks the platform and then reads the size back. Display scale is one value for both axes. `dpi_x` and `dpi_y` are that scale times 96. The dummy driver reports a positive scale; it is not a monitor measurement.
 

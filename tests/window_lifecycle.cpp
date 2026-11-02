@@ -2,11 +2,13 @@
 
 #include <SDL3/SDL.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace {
 
@@ -171,6 +173,117 @@ void test_lifecycle()
     }
 }
 
+SDL_JoystickID attach_virtual_gamepad(const char* name)
+{
+    SDL_VirtualJoystickDesc desc;
+    SDL_INIT_INTERFACE(&desc);
+    desc.type = SDL_JOYSTICK_TYPE_GAMEPAD;
+    desc.naxes = SDL_GAMEPAD_AXIS_COUNT;
+    desc.nbuttons = SDL_GAMEPAD_BUTTON_COUNT;
+    desc.button_mask = 0xffffffffu;
+    desc.axis_mask = 0xffffffffu;
+    // Same Shield mapping as test_lifecycle, so SDL treats it as a gamepad.
+    desc.vendor_id = 0x0955;
+    desc.product_id = 0x7210;
+    desc.name = name;
+    return SDL_AttachVirtualJoystick(&desc);
+}
+
+void pump_times(lykoware::Window& window, int count)
+{
+    for (int index = 0; index < count; ++index) {
+        window.pump();
+    }
+}
+
+// Every SDL window ID currently open, for picking out the newest window.
+std::vector<SDL_WindowID> open_window_ids()
+{
+    std::vector<SDL_WindowID> ids;
+    int count = 0;
+    SDL_Window** windows = SDL_GetWindows(&count);
+    if (windows != nullptr) {
+        for (int index = 0; index < count; ++index) {
+            ids.push_back(SDL_GetWindowID(windows[index]));
+        }
+        SDL_free(windows);
+    }
+    return ids;
+}
+
+void test_second_gamepad_takes_over()
+{
+    std::string error;
+    auto window = lykoware::Window::open(dummy_config(), error);
+    expect(window != nullptr, "window opens for the gamepad handover test");
+    if (!window) {
+        return;
+    }
+    const SDL_JoystickID first = attach_virtual_gamepad("Lykoware pad A");
+    pump_times(*window, 5);
+    const SDL_JoystickID second = attach_virtual_gamepad("Lykoware pad B");
+    pump_times(*window, 5);
+    expect(first != 0 && second != 0, "both virtual gamepads attach");
+    expect(window->input().gamepad.connected, "first pad is connected");
+
+    SDL_DetachVirtualJoystick(first);
+    pump_times(*window, 5);
+    expect(window->input().gamepad.connected,
+           "a remaining pad takes over when the active pad disconnects");
+
+    // A window opened after both pads attached never saw their added events.
+    auto later = lykoware::Window::open(dummy_config(), error);
+    expect(later != nullptr, "second window opens");
+    if (later) {
+        expect(later->input().gamepad.connected, "a new window adopts an already-connected pad");
+    }
+
+    SDL_DetachVirtualJoystick(second);
+    pump_times(*window, 5);
+    expect(!window->input().gamepad.connected, "no pad is connected after the last one detaches");
+}
+
+void test_events_reach_their_window()
+{
+    std::string error;
+    auto first = lykoware::Window::open(dummy_config(), error);
+    const std::vector<SDL_WindowID> before = open_window_ids();
+    auto second = lykoware::Window::open(dummy_config(), error);
+    expect(first != nullptr && second != nullptr, "two windows open together");
+    if (!first || !second) {
+        return;
+    }
+    SDL_WindowID second_id = 0;
+    for (const SDL_WindowID id : open_window_ids()) {
+        if (std::find(before.begin(), before.end(), id) == before.end()) {
+            second_id = id;
+        }
+    }
+    expect(second_id != 0, "second window has its own platform ID");
+
+    SDL_Event event{};
+    event.type = SDL_EVENT_KEY_DOWN;
+    event.key.windowID = second_id;
+    event.key.scancode = SDL_SCANCODE_B;
+    event.key.down = true;
+    expect(SDL_PushEvent(&event), "push key for the second window");
+
+    // The first window drains the shared queue before the second pumps.
+    first->pump();
+    second->pump();
+    const auto key = static_cast<std::size_t>(lykoware::Key::B);
+    expect(!first->input().keys[key].down, "a key for another window is not applied here");
+    expect(second->input().keys[key].down && second->input().keys[key].pressed,
+           "a key for this window survives another window's pump with its edge");
+
+    push_key(SDL_SCANCODE_C, true);
+    first->pump();
+    second->pump();
+    const auto shared = static_cast<std::size_t>(lykoware::Key::C);
+    expect(first->input().keys[shared].down && second->input().keys[shared].down,
+           "an event with no window reaches every window");
+}
+
 void test_vulkan_without_loader()
 {
     lykoware::WindowConfig config = dummy_config();
@@ -192,6 +305,8 @@ void test_vulkan_without_loader()
 int main()
 {
     test_lifecycle();
+    test_second_gamepad_takes_over();
+    test_events_reach_their_window();
     test_vulkan_without_loader();
     if (g_failures != 0) {
         std::cerr << g_failures << " window assertion(s) failed\n";

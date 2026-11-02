@@ -112,7 +112,9 @@ struct MouseState {
     float wheel_y = 0.f;
 };
 
-// One pad. Additional pads are ignored until this one disconnects.
+// One pad. Additional pads are ignored until this one disconnects; then the
+// next connected pad, if any, takes over with released buttons and centred
+// axes until it reports a change.
 struct GamepadState {
     bool connected = false;
     std::array<ButtonState, static_cast<std::size_t>(GamepadButton::Count)> buttons{};

@@ -5,6 +5,8 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
 
+#include <algorithm>
+#include <cstddef>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -21,10 +23,24 @@ std::string sdl_failure(const char* action)
     return std::string{action} + " failed: " + message;
 }
 
+// Events waiting for one window. The platform event queue is process-wide,
+// so whichever window pumps first drains it and files each event here.
+// A window applies only its own mailbox, after it starts its input frame,
+// so edges for another window survive until that window pumps.
+struct Mailbox {
+    SDL_WindowID window_id = 0;
+    std::vector<SDL_Event> pending;
+};
+
+// Bounds memory for a window that is open but never pumped. Events beyond
+// this are dropped for that window only.
+constexpr std::size_t mailbox_limit = 4096;
+
 struct Session {
     int holders = 0;
     VideoDriver driver = VideoDriver::Platform;
     bool started = false;
+    std::vector<Mailbox*> mailboxes;
 };
 
 Session& session()
@@ -89,6 +105,77 @@ bool size_allowed(int width, int height) noexcept
     return width >= 1 && height >= 1 && width <= window_max_extent && height <= window_max_extent;
 }
 
+void mailbox_register(Mailbox& mailbox)
+{
+    session().mailboxes.push_back(&mailbox);
+}
+
+void mailbox_unregister(Mailbox& mailbox) noexcept
+{
+    auto& boxes = session().mailboxes;
+    boxes.erase(std::remove(boxes.begin(), boxes.end(), &mailbox), boxes.end());
+}
+
+// The window an event belongs to. Zero means every open window: quit,
+// gamepad, and input events the platform did not tie to a window.
+// Returns false for events no window uses.
+bool event_target(const SDL_Event& event, SDL_WindowID& target) noexcept
+{
+    switch (event.type) {
+    case SDL_EVENT_QUIT:
+    case SDL_EVENT_GAMEPAD_ADDED:
+    case SDL_EVENT_GAMEPAD_REMOVED:
+    case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
+    case SDL_EVENT_GAMEPAD_BUTTON_UP:
+    case SDL_EVENT_GAMEPAD_AXIS_MOTION:
+        target = 0;
+        return true;
+    case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
+        target = event.window.windowID;
+        return true;
+    case SDL_EVENT_KEY_DOWN:
+    case SDL_EVENT_KEY_UP:
+        target = event.key.windowID;
+        return true;
+    case SDL_EVENT_MOUSE_MOTION:
+        target = event.motion.windowID;
+        return true;
+    case SDL_EVENT_MOUSE_BUTTON_DOWN:
+    case SDL_EVENT_MOUSE_BUTTON_UP:
+        target = event.button.windowID;
+        return true;
+    case SDL_EVENT_MOUSE_WHEEL:
+        target = event.wheel.windowID;
+        return true;
+    default:
+        return false;
+    }
+}
+
+void deliver(Mailbox& mailbox, const SDL_Event& event)
+{
+    if (mailbox.pending.size() < mailbox_limit) {
+        mailbox.pending.push_back(event);
+    }
+}
+
+// Drains the process-wide queue into every open window's mailbox.
+void dispatch_events()
+{
+    SDL_Event event{};
+    while (SDL_PollEvent(&event)) {
+        SDL_WindowID target = 0;
+        if (!event_target(event, target)) {
+            continue;
+        }
+        for (Mailbox* mailbox : session().mailboxes) {
+            if (target == 0 || mailbox->window_id == target) {
+                deliver(*mailbox, event);
+            }
+        }
+    }
+}
+
 }
 
 struct Window::Impl {
@@ -101,6 +188,10 @@ struct Window::Impl {
         if (window != nullptr) {
             SDL_DestroyWindow(window);
             window = nullptr;
+        }
+        if (registered) {
+            mailbox_unregister(mailbox);
+            registered = false;
         }
         if (session_held) {
             session_release();
@@ -141,90 +232,122 @@ struct Window::Impl {
         extensions.assign(names, names + count);
     }
 
-    void poll()
+    bool open_gamepad(SDL_JoystickID id)
     {
-        SDL_Event event{};
-        while (SDL_PollEvent(&event)) {
-            switch (event.type) {
-            case SDL_EVENT_QUIT:
-                close = true;
-                break;
-            case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
-                if (event.window.windowID == window_id) {
-                    close = true;
-                }
-                break;
-            case SDL_EVENT_KEY_DOWN:
-            case SDL_EVENT_KEY_UP:
-                if (!event.key.repeat && (event.key.windowID == 0 || event.key.windowID == window_id)) {
-                    note_key(input, platform::key_from_scancode(event.key.scancode), event.key.down);
-                }
-                break;
-            case SDL_EVENT_MOUSE_MOTION:
-                if (event.motion.windowID == 0 || event.motion.windowID == window_id) {
-                    note_mouse_position(input, event.motion.x, event.motion.y);
-                }
-                break;
-            case SDL_EVENT_MOUSE_BUTTON_DOWN:
-            case SDL_EVENT_MOUSE_BUTTON_UP:
-                if (event.button.windowID == 0 || event.button.windowID == window_id) {
-                    note_mouse_position(input, event.button.x, event.button.y);
-                    MouseButton button = MouseButton::Left;
-                    if (platform::mouse_button_from_index(event.button.button, button)) {
-                        note_mouse_button(input, button, event.button.down);
-                    }
-                }
-                break;
-            case SDL_EVENT_MOUSE_WHEEL:
-                if (event.wheel.windowID == 0 || event.wheel.windowID == window_id) {
-                    float delta_x = event.wheel.x;
-                    float delta_y = event.wheel.y;
-                    if (event.wheel.direction == SDL_MOUSEWHEEL_FLIPPED) {
-                        delta_x = -delta_x;
-                        delta_y = -delta_y;
-                    }
-                    note_mouse_position(input, event.wheel.mouse_x, event.wheel.mouse_y);
-                    note_mouse_wheel(input, delta_x, delta_y);
-                }
-                break;
-            case SDL_EVENT_GAMEPAD_ADDED:
-                if (!gamepad_open) {
-                    gamepad = SDL_OpenGamepad(event.gdevice.which);
-                    if (gamepad != nullptr) {
-                        gamepad_id = event.gdevice.which;
-                        gamepad_open = true;
-                        note_gamepad_connection(input, true);
-                    }
-                }
-                break;
-            case SDL_EVENT_GAMEPAD_REMOVED:
-                if (gamepad_open && event.gdevice.which == gamepad_id) {
-                    SDL_CloseGamepad(gamepad);
-                    gamepad = nullptr;
-                    gamepad_open = false;
-                    note_gamepad_connection(input, false);
-                }
-                break;
-            case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
-            case SDL_EVENT_GAMEPAD_BUTTON_UP:
-                if (gamepad_open && event.gbutton.which == gamepad_id) {
-                    GamepadButton button = GamepadButton::South;
-                    if (platform::gamepad_button_from_index(event.gbutton.button, button)) {
-                        note_gamepad_button(input, button, event.gbutton.down);
-                    }
-                }
-                break;
-            case SDL_EVENT_GAMEPAD_AXIS_MOTION:
-                if (gamepad_open && event.gaxis.which == gamepad_id) {
-                    GamepadAxis axis = GamepadAxis::LeftX;
-                    if (platform::gamepad_axis_from_index(event.gaxis.axis, axis)) {
-                        note_gamepad_axis(input, axis, gamepad_axis_from_raw(axis, event.gaxis.value));
-                    }
-                }
-                break;
-            default:
+        gamepad = SDL_OpenGamepad(id);
+        if (gamepad == nullptr) {
+            return false;
+        }
+        gamepad_id = id;
+        gamepad_open = true;
+        note_gamepad_connection(input, true);
+        return true;
+    }
+
+    // Adopts the first connected pad other than `excluded`. Used when the
+    // window opens (pads attached earlier sent their added event before this
+    // window existed) and when the active pad disconnects while another
+    // remains. Button and axis levels start released and centred; they
+    // update on the pad's next change.
+    void adopt_connected_gamepad(SDL_JoystickID excluded)
+    {
+        if (gamepad_open) {
+            return;
+        }
+        int count = 0;
+        SDL_JoystickID* ids = SDL_GetGamepads(&count);
+        if (ids == nullptr) {
+            return;
+        }
+        for (int index = 0; index < count; ++index) {
+            if (ids[index] != excluded && open_gamepad(ids[index])) {
                 break;
             }
+        }
+        SDL_free(ids);
+    }
+
+    void apply(const SDL_Event& event)
+    {
+        switch (event.type) {
+        case SDL_EVENT_QUIT:
+        case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
+            close = true;
+            break;
+        case SDL_EVENT_KEY_DOWN:
+        case SDL_EVENT_KEY_UP:
+            if (!event.key.repeat) {
+                note_key(input, platform::key_from_scancode(event.key.scancode), event.key.down);
+            }
+            break;
+        case SDL_EVENT_MOUSE_MOTION:
+            note_mouse_position(input, event.motion.x, event.motion.y);
+            break;
+        case SDL_EVENT_MOUSE_BUTTON_DOWN:
+        case SDL_EVENT_MOUSE_BUTTON_UP: {
+            note_mouse_position(input, event.button.x, event.button.y);
+            MouseButton button = MouseButton::Left;
+            if (platform::mouse_button_from_index(event.button.button, button)) {
+                note_mouse_button(input, button, event.button.down);
+            }
+            break;
+        }
+        case SDL_EVENT_MOUSE_WHEEL: {
+            float delta_x = event.wheel.x;
+            float delta_y = event.wheel.y;
+            if (event.wheel.direction == SDL_MOUSEWHEEL_FLIPPED) {
+                delta_x = -delta_x;
+                delta_y = -delta_y;
+            }
+            note_mouse_position(input, event.wheel.mouse_x, event.wheel.mouse_y);
+            note_mouse_wheel(input, delta_x, delta_y);
+            break;
+        }
+        case SDL_EVENT_GAMEPAD_ADDED:
+            if (!gamepad_open) {
+                open_gamepad(event.gdevice.which);
+            }
+            break;
+        case SDL_EVENT_GAMEPAD_REMOVED:
+            if (gamepad_open && event.gdevice.which == gamepad_id) {
+                SDL_CloseGamepad(gamepad);
+                gamepad = nullptr;
+                gamepad_open = false;
+                note_gamepad_connection(input, false);
+                adopt_connected_gamepad(event.gdevice.which);
+            }
+            break;
+        case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
+        case SDL_EVENT_GAMEPAD_BUTTON_UP:
+            if (gamepad_open && event.gbutton.which == gamepad_id) {
+                GamepadButton button = GamepadButton::South;
+                if (platform::gamepad_button_from_index(event.gbutton.button, button)) {
+                    note_gamepad_button(input, button, event.gbutton.down);
+                }
+            }
+            break;
+        case SDL_EVENT_GAMEPAD_AXIS_MOTION:
+            if (gamepad_open && event.gaxis.which == gamepad_id) {
+                GamepadAxis axis = GamepadAxis::LeftX;
+                if (platform::gamepad_axis_from_index(event.gaxis.axis, axis)) {
+                    note_gamepad_axis(input, axis, gamepad_axis_from_raw(axis, event.gaxis.value));
+                }
+            }
+            break;
+        default:
+            break;
+        }
+    }
+
+    void poll()
+    {
+        dispatch_events();
+        // Move out first: applying an event never re-enters dispatch, but a
+        // local copy keeps the loop independent of the mailbox's storage.
+        std::vector<SDL_Event> events;
+        events.swap(mailbox.pending);
+        for (const SDL_Event& event : events) {
+            apply(event);
         }
     }
 
@@ -234,6 +357,8 @@ struct Window::Impl {
     SDL_WindowID window_id = 0;
     bool gamepad_open = false;
     bool session_held = false;
+    bool registered = false;
+    Mailbox mailbox;
     bool close = false;
     bool vulkan = false;
     int width = 0;
@@ -287,6 +412,10 @@ std::unique_ptr<Window> Window::open(const WindowConfig& config, std::string& er
         return nullptr;
     }
     impl->window_id = SDL_GetWindowID(impl->window);
+    impl->mailbox.window_id = impl->window_id;
+    mailbox_register(impl->mailbox);
+    impl->registered = true;
+    impl->adopt_connected_gamepad(0);
     impl->refresh_metrics();
     if (config.vulkan) {
         impl->capture_extensions();
