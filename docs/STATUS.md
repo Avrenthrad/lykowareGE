@@ -41,7 +41,7 @@ Vulkan RHI bring-up, PR 1 of 5. Owner: Claude. Branch `claude/vulkan-rhi-1`, sta
 - New tests `rhi.instance` and `rhi.instance.no_driver`. Exit 77 without a loader or driver, which CTest reports as Skipped.
 - Linux CI installs `libvulkan1`, `mesa-vulkan-drivers` (lavapipe CPU driver) and `vulkan-validationlayers` (free Ubuntu packages) so the tests run there.
 - Local checks (Linux, GCC 13, loader 1.3.275, lavapipe, validation layer): Debug, ASan/UBSan and clang-tidy presets passed all 15 tests. With the loader removed, `rhi.instance` reported Skipped; with drivers hidden, it reported Skipped with `NoDriver`.
-- CI: the first run failed `rhi.instance` on Linux (loader but no driver gave `VK_ERROR_INCOMPATIBLE_DRIVER`). Fixed by the `NoDriver` classification and installing lavapipe. Re-run pending.
+- CI: the first run failed `rhi.instance` on Linux (loader but no driver gave `VK_ERROR_INCOMPATIBLE_DRIVER`). Fixed by the `NoDriver` classification and installing lavapipe. [run 41473805033](https://github.com/Avrenthrad/lykowareGE/actions/runs/41473805033) on code commit 9c8c7c3 passed all five jobs: on Linux, `rhi.instance` ran on lavapipe and passed in Debug, ASan/UBSan and clang-tidy, and `rhi.instance.no_driver` passed; on Windows (no Vulkan on hosted runners) both reported Skipped.
 
 ## Next
 
