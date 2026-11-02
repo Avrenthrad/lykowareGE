@@ -36,4 +36,4 @@ Device choice is predictable and explainable. A machine whose only GPU lacks Vul
 
 - `rhi.device` lists devices, creates the default device and checks its info, handles and `wait_idle`, refuses a second live device, refuses an unmatched name filter and a missing extension with reasons, checks that `Software` picks a CPU device when one exists, re-creates a device, and requires zero validation errors when the validation layer is installed. It exits 77 (CTest Skipped) without a loader, driver or suitable device.
 - Local results (Linux, GCC 13, Mesa 25.2 lavapipe "llvmpipe", Vulkan 1.4.318, validation layer on): passed in the Debug, ASan/UBSan and clang-tidy presets. With drivers hidden it exited 77.
-- CI results are recorded in STATUS when the PR runs.
+- [run 41475053247](https://github.com/Avrenthrad/lykowareGE/actions/runs/41475053247) on code commit 1047e92 passed all five jobs: `rhi.device` ran on lavapipe and passed in Linux Debug, ASan/UBSan and clang-tidy; Windows reported Skipped (no Vulkan on hosted runners).

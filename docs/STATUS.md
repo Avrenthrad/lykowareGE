@@ -52,7 +52,7 @@ Owner: Claude. Branch `claude/vulkan-rhi-2`, stacked on `claude/vulkan-rhi-1`. N
 - Internal helpers shared by the RHI sources moved to `engine/src/rhi/common.*`. Destroying an Instance while a Device lives is logged as an error.
 - New test `rhi.device` (Skipped without Vulkan).
 - Local checks (Linux, GCC 13, lavapipe "llvmpipe", Vulkan 1.4.318, validation on): Debug, ASan/UBSan and clang-tidy presets passed all 16 tests with zero validation errors. With drivers hidden, `rhi.device` reported Skipped.
-- CI: pending on the PR.
+- CI: [run 41475053247](https://github.com/Avrenthrad/lykowareGE/actions/runs/41475053247) on code commit 1047e92 passed all five jobs. On Linux, `rhi.device` ran on lavapipe and passed in Debug, ASan/UBSan and clang-tidy; Windows hosted runners reported the RHI tests as Skipped.
 
 ## Next
 
