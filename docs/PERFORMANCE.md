@@ -28,4 +28,4 @@ Generic hosted CI can enforce unit/CPU tests and agreed CPU budgets on a pinned 
 - Stress, memory, streaming and sustained performance fixtures as those systems arrive.
 - Local inference tests with async deadlines, cancellation, bounded output validation and fallback behavior.
 
-"Zero stutter" guides engineering. Precompiled shaders, cache invalidation, background streaming and bounded workloads reduce causes; they do not prove universal hitch-free operation. Record failed hardware runs and known limits rather than declaring the goal achieved.
+"Zero stutter" guides engineering. [ADR 0002](adr/0002-graphics.md) accepts ahead-of-time SPIR-V and device/driver-keyed pipeline caches as the approach. Precompiled shaders, cache invalidation, background streaming and bounded workloads reduce causes; they do not prove universal hitch-free operation. Record failed hardware runs and known limits rather than declaring the goal achieved.

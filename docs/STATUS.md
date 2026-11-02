@@ -4,8 +4,22 @@
 
 Original Module 01: C++20/CMake engine library, separate console sandbox and logging. [Baseline implementation](https://github.com/Avrenthrad/lykowareGE/commit/af55b9baa3fd0fb41bab243a1009d7340efa429f); [Windows Debug/Release and Linux CI](https://github.com/Avrenthrad/lykowareGE/actions/runs/40265394221).
 C++20/CMake is accepted by Joshua in ADR 0001.
+Graphics accepted in ADR 0002: Vulkan 1.3 used directly from C++ behind a Lykoware-owned RHI. wgpu and ash are rejected. No graphics dependency is vendored.
+Data formats accepted in ADR 0004: canonical JSON for machine-written data, TOML for hand-edited config, glTF 2.0 for meshes, binary only as cooked output. RON is dropped. No parser is vendored.
+Jolt remains proposed in ADR 0003. If adopted, call it natively from C++ rather than through bindings.
 
 ## Current development task
+
+Task owner: Cursor cloud agent. Delivery: [PR #5](https://github.com/Avrenthrad/lykowareGE/pull/5), branch feat/phase0-lyko-cli. Base: ca59854d519b5da02f44d34507aa62b8803a626b. Status: in review, not merged.
+Scope: one small lyko dispatcher in tools/cli. `build` and `test` still call the CMake/CTest presets. `run` launches lykoware_sandbox. `screenshot`, `trace`, and `run --scene` print `unsupported: no renderer` and return exit 3. No engine API, scene format, renderer, or command bus.
+
+Local checks on this Linux machine (GCC 13.3.0):
+- Debug and ASan/UBSan presets: `foundation.smoke`, `cli.commands`, and `cli.integration` passed.
+- Installed layout: staged `lyko run` launched the sibling sandbox, including when the build-tree copy was removed, and preferred the sibling when both existed. Renderer commands exited 3. With no sandbox present, `run` exited 127.
+
+CI: [run 41327365270](https://github.com/Avrenthrad/lykowareGE/actions/runs/41327365270) passed all five jobs: Windows Debug, Windows Release, Linux Debug, ASan/UBSan, and clang-tidy 18. Each job built, tested, and staged `lyko run` plus the exit-3 renderer commands. Tested code commit: 7b61fe834528e924314e5fd6fac95e6ca03676bc. Artifact upload did not run; it is opt-in and was not a failure. No storage was purchased. No checklist box was ticked: the open Phase 0 boxes are still unmet, and the lyko build/test boxes were already checked. No paid operation.
+
+## Completed CLI baseline
 
 Completed task owner: Codex. Delivery: [PR #3](https://github.com/Avrenthrad/lykowareGE/pull/3), source branch feat/lyko-cli. Base: 850bd50451ecf108e353716fca24db5a685ddd00.
 Scope: reconcile brief/notes; add lyko build/test and native quality gates. No game runtime/API/schema change.
@@ -22,25 +36,35 @@ Local validation: GCC 14.2 Debug build and two CTest suites passed; ASan/UBSan b
 
 First CI run: [41325630051](https://github.com/Avrenthrad/lykowareGE/actions/runs/41325630051) verified Windows Debug/Release compile/tests/staged execution and all three Linux profiles. Windows jobs then failed only at artifact upload because GitHub storage quota was exhausted. Uploads are now manual opt-in; validation stays mandatory. [Follow-up run 41325853657](https://github.com/Avrenthrad/lykowareGE/actions/runs/41325853657) passed all five profiles: Windows Debug/Release, Linux Debug, ASan/UBSan and clang-tidy analysis, including staged CLI execution. Tested code commit: 04243e61d4ba108360c9928c1fe1fbcc188183bc. Subsequent changes only record this evidence in documentation. No billing changes or artifact deletion.
 
-This branch also adds the supplied Lykoware logo vector set under `assets/brand/`. Those files do not change the runtime, API, or schema. Artifact upload stays opt-in and is continue-on-error so a storage-quota rejection does not fail the foundation check.
+This branch accepts ADR 0002 (Vulkan 1.3 from C++ behind an owned RHI) and ADR 0004 (canonical JSON, TOML config, glTF 2.0 meshes). ADR 0003 physics stays proposed. No renderer, parser, or vendored dependency is added.
+
+The supplied Lykoware logo vector set is under `assets/brand/`. Those files do not change the runtime, API, or schema. Artifact upload stays opt-in and is continue-on-error so a storage-quota rejection does not fail the foundation check.
 
 ## Next
 
 1. Phase 1 window/input/timing, with a pinned vendored SDL3 evaluation and explicit lifecycle contract.
-2. Resolve graphics, native Jolt, and authored data ADRs before their dependent implementation.
+2. Resolve native Jolt through ADR 0003 before adding physics. Do not vendor Vulkan-Headers, volk, Vulkan Memory Allocator, nlohmann/json or toml++ until a caller needs them; record exact licences and versions then. Review the shader-compiler licence as a build-time tool, and evaluate a software Vulkan driver such as Mesa lavapipe in CI, before claiming graphics CI.
 3. Agree multiplayer intent, exact hardware profiles, world/simulation scope and budgets.
 
 ## Known issues and limitations
 
 - No window, renderer, ECS, scene loader, physics, audio/animation runtime, world streaming or inference.
-- run, screenshot and trace return a clear unsupported error. No screenshot/perf-budget gate exists.
+- `lyko run` launches the console sandbox only. `run --scene`, screenshot, and trace print `unsupported: no renderer` and return exit 3. No screenshot or perf-budget gate exists.
 - Sanitizers are Linux-only; ThreadSanitizer is deferred until concurrent engine systems.
 - The CLI is a developer process wrapper, not the future runtime/editor mutation command bus. See CLI.md for limitations.
-- No dependencies are vendored. Vulkan/Jolt/data choices remain proposed.
+- No dependencies are vendored. The Vulkan 1.3 RHI direction and data encodings are accepted decisions only; no renderer or parser is implemented. Jolt remains proposed in ADR 0003. wgpu, ash and RON are not open tasks.
 - Pax/publication gate remains policy; no Pax implementation or legal clearance.
 - No paid service/spend or personal-data export was performed.
 - GitHub artifact storage was exhausted; downloadable CI binaries remain unavailable until storage is available and upload is explicitly requested. Builds/tests do not depend on uploads.
 
 ## Handoff
+
+- Task: minimal lyko dispatcher. Branch feat/phase0-lyko-cli. PR #5. Base ca59854d519b5da02f44d34507aa62b8803a626b. Tested commit 7b61fe8.
+- Completed behavior: `build`/`test` unchanged; `run` launches lykoware_sandbox; renderer commands exit 3 with `unsupported: no renderer`.
+- Files: tools/cli dispatcher and process-header contract, `cli.commands` ctest, CI staged checks, CLI/ADR/STATUS/WORK_BOARD notes.
+- Checks: [run 41327365270](https://github.com/Avrenthrad/lykowareGE/actions/runs/41327365270) passed Windows Debug/Release and all three Linux profiles, including staged execution. Local Linux Debug and ASan/UBSan ctest also passed.
+- Unverified: no renderer, scene load, screenshot, or trace implementation. Downloadable CI artifacts were not uploaded.
+- Next: merge only with owner approval. Phase 1 window/input is still the following implementation task.
+- Checklist: no new box ticked.
 
 Read [WORK_BOARD.md](WORK_BOARD.md), [CLI.md](CLI.md), [ROADMAP.md](ROADMAP.md) and [ADRs](adr/README.md). Check latest main and active PRs; do not implement from a stale chat. Update this file with exact commits/checks, failures and next actions.

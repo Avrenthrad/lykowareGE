@@ -34,12 +34,29 @@ jobs:
         run: cmake --install build/windows --config ${{ matrix.configuration }} --prefix out/windows-${{ matrix.configuration }}
       - name: Run staged executables
         run: |
+          # Expected nonzero lyko exits must not fail the pwsh step by themselves.
+          $PSNativeCommandUseErrorActionPreference = $false
+          function Assert-Exit([int]$Expected) {
+            if ($LASTEXITCODE -ne $Expected) {
+              Write-Error "expected exit $Expected, got $LASTEXITCODE"
+              exit 1
+            }
+          }
           ./out/windows-${{ matrix.configuration }}/bin/lykoware_sandbox.exe
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Assert-Exit 0
           ./out/windows-${{ matrix.configuration }}/bin/lyko.exe --version
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Assert-Exit 0
           ./out/windows-${{ matrix.configuration }}/bin/lyko.exe test --source . --preset windows-${{ matrix.configuration == 'Debug' && 'debug' || 'release' }}
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Assert-Exit 0
+          ./out/windows-${{ matrix.configuration }}/bin/lyko.exe run
+          Assert-Exit 0
+          ./out/windows-${{ matrix.configuration }}/bin/lyko.exe screenshot
+          Assert-Exit 3
+          ./out/windows-${{ matrix.configuration }}/bin/lyko.exe trace
+          Assert-Exit 3
+          ./out/windows-${{ matrix.configuration }}/bin/lyko.exe run --scene
+          Assert-Exit 3
+          exit 0
       # Upload is opt-in and best-effort. The account's Actions artifact quota
       # can reject CreateArtifact even when the build, tests, and staged run
       # succeeded. That quota failure must not hide a green foundation check.
@@ -79,5 +96,18 @@ jobs:
       - name: Stage and run CLI
         run: |
           cmake --install build/${{ matrix.preset }} --prefix out/${{ matrix.preset }}
-          ./out/${{ matrix.preset }}/bin/lyko --version
-          ./out/${{ matrix.preset }}/bin/lyko test --source . --preset ${{ matrix.preset }}
+          bin=./out/${{ matrix.preset }}/bin/lyko
+          "$bin" --version
+          "$bin" test --source . --preset ${{ matrix.preset }}
+          "$bin" run
+          expect_unsupported() {
+            status=0
+            "$@" || status=$?
+            if [ "$status" -ne 3 ]; then
+              echo "expected exit 3, got $status for: $*"
+              exit 1
+            fi
+          }
+          expect_unsupported "$bin" screenshot
+          expect_unsupported "$bin" trace
+          expect_unsupported "$bin" run --scene

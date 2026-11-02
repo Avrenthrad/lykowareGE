@@ -1,3 +1,16 @@
-add_executable(lyko main.cpp process.cpp)
+add_executable(lyko main.cpp commands.cpp process.cpp)
 target_link_libraries(lyko PRIVATE lykoware::engine)
+target_include_directories(lyko PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>")
+add_dependencies(lyko lykoware_sandbox)
 lykoware_configure_target(lyko)
+
+# Absolute sandbox path for the build tree. The installed layout prefers the
+# sibling executable; see find_sandbox in commands.cpp.
+file(GENERATE
+    OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/lyko_sandbox_path.hpp"
+    CONTENT [[#pragma once
+
+namespace lykoware::cli {
+inline constexpr char built_sandbox_path[] = R"gen($<TARGET_FILE:lykoware_sandbox>)gen";
+}
+]])
