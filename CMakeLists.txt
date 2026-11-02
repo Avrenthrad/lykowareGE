@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
-project(lykowareGE VERSION 0.1.0 LANGUAGES CXX)
+# C is for vendored sources only (SDL3, volk). Engine code is C++20.
+project(lykowareGE VERSION 0.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -8,6 +9,8 @@ include(CTest)
 include(cmake/ProjectOptions.cmake)
 include(cmake/VendorSdl3.cmake)
 lykoware_add_sdl3()
+include(cmake/VendorVulkan.cmake)
+lykoware_add_vulkan()
 add_subdirectory(engine)
 add_subdirectory(samples/sandbox)
 add_subdirectory(tools/cli)
@@ -58,6 +61,14 @@ if(BUILD_TESTING)
     lykoware_configure_target(lykoware_window_test)
     add_test(NAME window.lifecycle COMMAND lykoware_window_test)
     set_tests_properties(window.lifecycle PROPERTIES TIMEOUT 30)
+
+    # Needs a Vulkan loader at run time. Exit 77 is reported as Skipped, not
+    # Passed, on a machine without one (ADR 0009).
+    add_executable(lykoware_rhi_instance_test tests/rhi_instance.cpp)
+    target_link_libraries(lykoware_rhi_instance_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_rhi_instance_test)
+    add_test(NAME rhi.instance COMMAND lykoware_rhi_instance_test)
+    set_tests_properties(rhi.instance PROPERTIES TIMEOUT 60 SKIP_RETURN_CODE 77)
 
     add_executable(lykoware_cpu_budget tests/cpu_budget.cpp tools/cli/process.cpp)
     target_link_libraries(lykoware_cpu_budget PRIVATE lykoware::engine)
