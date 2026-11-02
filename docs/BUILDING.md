@@ -19,7 +19,7 @@ ctest --preset windows-debug
 .\build\windows\samples\sandbox\Debug\lykoware_sandbox.exe
 ```
 
-The current program prints startup messages and exits. It has no window or 3D graphics yet.
+The current program prints startup messages and exits. It has no 3D graphics yet. `lykoware_sandbox --window` opens a window until it is closed. `lykoware_sandbox --window --dummy --frames N` uses the headless video driver and exits after N pumps.
 
 For Release:
 
@@ -61,13 +61,15 @@ Build output is ignored by Git. CMakeUserPresets.json is available for local ove
 
 ## Dependencies and versions
 
-Module 01 has **no third-party runtime dependencies**. Logging uses the C++ standard library. The project requires C++20 and CMake 3.25+; the presets use Visual Studio 2022 on Windows. CI actions are pinned to immutable commit SHAs in the workflow.
+SDL 3.4.18 is vendored under `third_party/sdl3` and built as a static library. The pin, zlib licence, HIDAPI BSD election, and omitted upstream directories are in [third_party/sdl3/PROVENANCE.md](../third_party/sdl3/PROVENANCE.md). The build does not download it. Logging still uses the C++ standard library. The project requires C++20 and CMake 3.25+; the presets use Visual Studio 2022 on Windows. CI actions are pinned to immutable commit SHAs in the workflow.
 
-SDL3 is proposed for Phase 1 window/input (formerly Module 02). Select a specific release and pin its source commit when integrating it. Evaluate and pin rendering, physics, and editor dependencies in their own modules. Do not download unversioned dependency branches during builds.
+A Linux configure succeeds without X11 or Wayland headers. The dummy and offscreen drivers are enough for tests and for `--window --dummy`. A desktop `--window` on Linux needs X11 or Wayland development headers at configure time. `libx11-dev` and `libxext-dev` are enough for the X11 driver this build enables. Optional X11 extras are left off so a partial install does not fail configure. Windows builds the Win32 driver. Vulkan is not linked.
+
+Evaluate and pin rendering, physics, and editor dependencies in their own modules. Do not download unversioned dependency branches during builds.
 
 ## Verification
 
-CTest verifies the sandbox, the CPU trace API, the GPU-free image harness, and the CLI. `cli.commands` checks help text, `lyko run`, `lyko trace --frames`, and exit code 3 for `screenshot` and `run --scene`. `image.harness.api`, `image.harness.golden_pass`, and `image.harness.golden_fail` exercise the software pattern, committed PPM fixtures, and a comparison that is required to fail. Those tests are not renderer screenshots. Their outputs stay in the build directory. `perf.sandbox_startup` and `perf.cpu_fixture` enforce the provisional CPU-only thresholds in the root `CMakeLists.txt`. CLI integration covers real configure/build/test execution, literal Unicode/quoted arguments, child cwd, a Unicode trace path, failed configure/build/test commands, absent tools and zero-test failures. GitHub Actions repeats these on Windows Debug/Release, Linux Debug, ASan/UBSan, and clang-tidy 18 builds, then stages/runs the CLI. Current results are in STATUS.
+CTest verifies the sandbox, the CPU trace API, the GPU-free image harness, window and input, and the CLI. `input.mapping` checks edge state and the SDL scancode, mouse, and gamepad map without a display. `window.lifecycle` creates, resizes, pumps, and closes a dummy window, including a virtual gamepad. `foundation.smoke` also runs `lykoware_sandbox --window --dummy --frames 1`. None of these is a renderer test. `cli.commands` checks help text, `lyko run`, `lyko trace --frames`, and exit code 3 for `screenshot` and `run --scene`. `image.harness.api`, `image.harness.golden_pass`, and `image.harness.golden_fail` exercise the software pattern, committed PPM fixtures, and a comparison that is required to fail. Those tests are not renderer screenshots. Their outputs stay in the build directory. `perf.sandbox_startup` and `perf.cpu_fixture` enforce the provisional CPU-only thresholds in the root `CMakeLists.txt`. CLI integration covers real configure/build/test execution, literal Unicode/quoted arguments, child cwd, a Unicode trace path, failed configure/build/test commands, absent tools and zero-test failures. GitHub Actions repeats these on Windows Debug/Release, Linux Debug, ASan/UBSan, and clang-tidy 18 builds, then stages/runs the CLI. Current results are in STATUS.
 
 ## Native CLI
 

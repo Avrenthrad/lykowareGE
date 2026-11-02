@@ -39,3 +39,6 @@ string(FIND "${sandbox_json}" "sandbox.loop" sandbox_loop)
 if(sandbox_loop EQUAL -1)
     message(FATAL_ERROR "Sandbox trace is missing sandbox.loop:\n${sandbox_json}")
 endif()
+
+check_run(0 "Opened sandbox window." --window --dummy --frames 1)
+check_run(1 "--window --dummy requires --frames" --window --dummy)

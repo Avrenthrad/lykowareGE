@@ -1,17 +1,21 @@
 #include <lykoware/log.hpp>
 #include <lykoware/trace.hpp>
 #include <lykoware/version.hpp>
+#include <lykoware/window.hpp>
 
 #include <charconv>
+#include <chrono>
 #include <cstdint>
 #include <cstdlib>
 #include <exception>
 #include <filesystem>
 #include <iostream>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <thread>
 #include <vector>
 
 #ifdef _WIN32
@@ -100,16 +104,95 @@ int run_trace(const std::vector<std::string>& args)
     return write_cpu_trace(frames, utf8_path(trace_file));
 }
 
-int run(const std::vector<std::string>& args)
+bool has_option(const std::vector<std::string>& args, std::string_view name)
 {
-    bool trace_mode = false;
     for (const std::string& arg : args) {
-        if (arg == "--frames" || arg == "--trace") {
-            trace_mode = true;
-            break;
+        if (arg == name) {
+            return true;
         }
     }
-    if (trace_mode) {
+    return false;
+}
+
+int run_window(const std::vector<std::string>& args)
+{
+    bool saw_window = false;
+    bool saw_dummy = false;
+    bool saw_frames = false;
+    std::uint64_t frames = 0;
+    for (std::size_t index = 0; index < args.size(); ++index) {
+        const std::string& option = args[index];
+        if (option == "--window") {
+            if (saw_window) {
+                throw std::invalid_argument("Duplicate option: --window");
+            }
+            saw_window = true;
+            continue;
+        }
+        if (option == "--dummy") {
+            if (saw_dummy) {
+                throw std::invalid_argument("Duplicate option: --dummy");
+            }
+            saw_dummy = true;
+            continue;
+        }
+        if (option != "--frames") {
+            throw std::invalid_argument("Unknown option: " + option + ". Use --help.");
+        }
+        if (saw_frames) {
+            throw std::invalid_argument("Duplicate option: --frames");
+        }
+        if (index + 1 >= args.size() || args[index + 1].empty()
+            || args[index + 1].starts_with("--")) {
+            throw std::invalid_argument("Missing value for --frames");
+        }
+        frames = parse_frames(args[++index]);
+        saw_frames = true;
+    }
+    if (!saw_window) {
+        throw std::invalid_argument("Expected --window.");
+    }
+    if (saw_dummy && !saw_frames) {
+        throw std::invalid_argument(
+            "--window --dummy requires --frames N so it can exit without a display.");
+    }
+
+    lykoware::WindowConfig config;
+    config.title = "lykoware sandbox";
+    config.width = 960;
+    config.height = 540;
+    config.resizable = true;
+    config.visible = !saw_dummy;
+    config.vulkan = false;
+    config.driver = saw_dummy ? lykoware::VideoDriver::Dummy : lykoware::VideoDriver::Platform;
+    std::string error;
+    const std::unique_ptr<lykoware::Window> window = lykoware::Window::open(config, error);
+    if (!window) {
+        lykoware::log(lykoware::LogLevel::error, error);
+        return EXIT_FAILURE;
+    }
+    lykoware::log(lykoware::LogLevel::info, "Opened sandbox window.");
+    if (saw_frames) {
+        for (std::uint64_t index = 0; index < frames; ++index) {
+            if (!window->pump()) {
+                break;
+            }
+        }
+    } else {
+        while (window->pump()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(16));
+        }
+    }
+    lykoware::log(lykoware::LogLevel::info, "Closed sandbox window.");
+    return EXIT_SUCCESS;
+}
+
+int run(const std::vector<std::string>& args)
+{
+    if (has_option(args, "--window")) {
+        return run_window(args);
+    }
+    if (has_option(args, "--frames") || has_option(args, "--trace")) {
         return run_trace(args);
     }
     if (args.size() > 1) {
@@ -124,8 +207,11 @@ int run(const std::vector<std::string>& args)
         if (option == "--help") {
             std::cout << "Usage: lykoware_sandbox [--version|--help]\n"
                          "       lykoware_sandbox --frames N --trace FILE\n"
+                         "       lykoware_sandbox --window [--dummy] [--frames N]\n"
                          "Without options, runs the console foundation check.\n"
-                         "--frames runs N CPU iterations and --trace writes a Chrome trace.\n";
+                         "--frames with --trace runs N CPU iterations and writes a Chrome trace.\n"
+                         "--window opens a window and pumps input until it closes.\n"
+                         "--dummy selects the headless video driver and requires --frames.\n";
             return EXIT_SUCCESS;
         }
         throw std::invalid_argument("Unknown option: " + std::string{option}
@@ -137,7 +223,7 @@ int run(const std::vector<std::string>& args)
     lykoware::log(lykoware::LogLevel::info,
                   "Engine library linked; sandbox bootstrap ready.");
     lykoware::log(lykoware::LogLevel::info,
-                  "Foundation check complete. Window and input arrive in Phase 1.");
+                  "Foundation check complete. Pass --window to open one.");
     return EXIT_SUCCESS;
 }
 

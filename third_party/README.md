@@ -1,6 +1,6 @@
 # Vendored dependencies
 
-No third-party runtime source is vendored yet. Before adding a dependency, record:
+SDL 3.4.18 is vendored under [sdl3/](sdl3/) and wrapped by the engine window and input API. Provenance, the zlib licence, the elected HIDAPI BSD terms, and the omitted archive directories are recorded in [sdl3/PROVENANCE.md](sdl3/PROVENANCE.md). No other runtime source is vendored. Before adding a dependency, record:
 
 - Name, upstream URL, exact source commit/version and integrity hash.
 - Exact SPDX licence/terms, original copyright and required notices.

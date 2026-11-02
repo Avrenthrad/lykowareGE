@@ -6,13 +6,13 @@ Status: current foundation plus intended boundaries. Planned modules below do no
 
 | Target | Contents |
 | --- | --- |
-| lykoware_engine (alias lykoware::engine) | Static library: logging, CPU timer/trace, GPU-free image harness (not a renderer), and generated version header |
-| lykoware_sandbox | Console sample linked against the engine. No arguments runs the foundation check. `--frames N --trace FILE` runs N CPU-loop iterations and writes a Chrome trace |
+| lykoware_engine (alias lykoware::engine) | Static library: logging, CPU timer/trace, GPU-free image harness (not a renderer), window and input, and generated version header |
+| lykoware_sandbox | Console sample linked against the engine. No arguments runs the foundation check. `--frames N --trace FILE` runs N CPU-loop iterations and writes a Chrome trace. `--window` pumps a window until close. `--window --dummy --frames N` does that without a display |
 | lyko | Native CLI. `build`/`test` call CMake/CTest presets. `run` launches lykoware_sandbox. `trace --frames N` records that sandbox CPU loop. `screenshot` and `run --scene` return an unsupported-renderer error. One dispatcher in tools/cli; not a command bus |
 | foundation.smoke | Sandbox executable startup/CLI checks |
 | cli.integration | Real CMake/CTest runs plus process/argument/failure integration checks |
 
-The root CMake project builds these targets and stages the sample executable. There are no third-party runtime dependencies. Python 3.10+ is a test-only dependency; clang-tidy 18 is an optional analysis tool.
+The root CMake project builds these targets and stages the sample executable. SDL 3.4.18 is the one vendored runtime dependency, wrapped by the window and input API. Python 3.10+ is a test-only dependency; clang-tidy 18 is an optional analysis tool.
 
 ## Intended dependency direction
 
@@ -55,6 +55,8 @@ The build/test/run CLI is described in [ADR 0005](adr/0005-native-cli.md) and [C
 The CPU timer and trace live in the existing engine library, not a separate module. [ADR 0006](adr/0006-cpu-trace.md) and [engine/include/lykoware/trace.hpp](../engine/include/lykoware/trace.hpp) record ownership, lifetime, threading, and failure. Zones are single-threaded steady-clock measurements. The file is hand-written Chrome Trace Event JSON for diagnostics. It is not an authored project format. ADR 0004 accepts canonical JSON, TOML config, and glTF 2.0 meshes; this trace is not that format. There are no GPU events. Provisional CPU-only CI thresholds for the pinned hosted runners are in the root `CMakeLists.txt`; see [PERFORMANCE.md](PERFORMANCE.md).
 
 The image harness lives in that same library. [ADR 0007](adr/0007-image-harness.md) and [engine/include/lykoware/image.hpp](../engine/include/lykoware/image.hpp) record ownership, lifetime, threading, and failure. It is a CPU-side RGB image, a capture interface, a hand-written PPM P6 reader and writer, and a per-pixel comparison with a tolerance and a diff image. The only capture is a deterministic software test pattern. CTest owns the golden files under `tests/golden/` and writes its outputs under the build directory. `lyko screenshot` is unchanged and still reports that no renderer exists. A later Vulkan offscreen capture can implement the same capture interface. [ADR 0002](adr/0002-graphics.md) accepts that RHI and records the plug-in; this harness does not implement it. Real screenshot tests are still waiting on a renderer. The PPM file is not an authored project format.
+
+The window and input API lives in that same library. [ADR 0008](adr/0008-window-input.md) is proposed. [engine/include/lykoware/window.hpp](../engine/include/lykoware/window.hpp) and [engine/include/lykoware/input.hpp](../engine/include/lykoware/input.hpp) record ownership, lifetime, threading, and failure. SDL types stay in the engine sources. `VideoDriver::Dummy` is the headless path. The Vulkan surface hook takes an opaque instance pointer and does not link Vulkan. ADR 0002 is accepted; this wrapper does not implement the RHI.
 
 ## Engine-first command boundary
 

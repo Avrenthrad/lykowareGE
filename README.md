@@ -30,7 +30,7 @@ Every tool/content operation must be reachable through CLI and scripting, with d
 
 A C++20/CMake engine library, console sandbox, and native **lyko** CLI. `lyko build` and `lyko test` call the CMake/CTest presets without a shell. `lyko run` launches the console sandbox. `lyko trace --frames N` writes a CPU Chrome trace of that sandbox loop. `lyko run --scene` and `screenshot` return an explicit unsupported-renderer error. The engine also has a GPU-free image harness used by CTest; it is a software pattern and PPM comparison, not a renderer screenshot. Compiler warnings are errors by default; Linux ASan/UBSan and clang-tidy 18 presets are available. Provisional CPU-only budgets run in CTest for the pinned hosted runners.
 
-See [build instructions](docs/BUILDING.md), [CLI contract](docs/CLI.md), and [STATUS](docs/STATUS.md) for current verification. There is no window, renderer, physics, scene loader, or editor yet.
+See [build instructions](docs/BUILDING.md), [CLI contract](docs/CLI.md), and [STATUS](docs/STATUS.md) for current verification. The engine can open a window and read keyboard, mouse, and gamepad state through its own API. SDL3 is vendored for that and is not part of the public headers. There is no renderer, physics, scene loader, or editor yet. `lyko` does not open a window.
 
 Joshua selected **C++20 with CMake** in [ADR 0001](docs/adr/0001-language.md). [ADR 0002](docs/adr/0002-graphics.md) accepts Vulkan 1.3 from C++ behind an owned RHI. [ADR 0004](docs/adr/0004-data-formats.md) accepts canonical JSON, TOML for hand-edited config, and glTF 2.0 for meshes. Jolt remains proposed in [ADR 0003](docs/adr/0003-physics.md); if adopted, it is called natively from C++, not through bindings. No graphics or parser dependency is vendored yet.
 

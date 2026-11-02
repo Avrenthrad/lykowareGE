@@ -5,7 +5,12 @@
 Canonical implementation status: [STATUS.md](STATUS.md).
 Canonical plan: [ROADMAP.md](ROADMAP.md).
 
-Active task owner: Cursor cloud agent. Branch feat/phase0-image-harness. Base: 9a2e9b5254011f2b4b6001fa4762dab364596918 on feat/phase0-cpu-trace-budget ([PR #6](https://github.com/Avrenthrad/lykowareGE/pull/6), not merged). Not merged.
+Active task owner: Cursor cloud agent. Branch feat/module02-window-input. Base: da71b1e9b9d08ead31f8c03e8ceb325deeca0cf4 on feat/phase0-image-harness ([PR #7](https://github.com/Avrenthrad/lykowareGE/pull/7), not merged). Not merged.
+Scope: vendored SDL 3.4.18 behind `lykoware::Window` and `lykoware::InputState`. No SDL types in public headers. Dummy-driver tests for input mapping and window lifecycle. Optional `lykoware_sandbox --window`. `lyko` unchanged. Vulkan surface hook without a Vulkan dependency. ADR 0002 is accepted; this wrapper does not implement the RHI. ADR 0008 is Proposed. No checklist box ticked.
+Local GCC 13.3.0 Debug and ASan/UBSan passed the full CTest set, including `input.mapping`, `window.lifecycle`, and `lykoware_sandbox --window --dummy --frames 1`. Acceptance passed on [run 41454076091](https://github.com/Avrenthrad/lykowareGE/actions/runs/41454076091): Windows Debug/Release and Linux Debug, ASan/UBSan, and clang-tidy. Tested code commit 439917c. Delivery: [PR #8](https://github.com/Avrenthrad/lykowareGE/pull/8). Artifact upload stayed opt-in and did not fail.
+Handoff: do not describe the window as a renderer, and do not treat ADR 0008 as accepted. Merge only with owner approval.
+
+Review task owner: Cursor cloud agent. Branch feat/phase0-image-harness. Base: 9a2e9b5254011f2b4b6001fa4762dab364596918 on feat/phase0-cpu-trace-budget ([PR #6](https://github.com/Avrenthrad/lykowareGE/pull/6), not merged). Not merged.
 Scope: GPU-free image harness in the existing engine library. `Image` and `ImageCapture`, a deterministic software pattern, hand-written PPM P6, and a per-pixel tolerance comparison with a diff image. Golden fixtures in `tests/golden/`. CTest writes only under the build directory. `lyko screenshot` remains exit 3. Contract: engine/include/lykoware/image.hpp and ADR 0007. Real Vulkan offscreen capture plugs into this harness later. ADR 0002 is accepted; this harness does not implement it. No new module, dependency, or renderer. The image/performance-gate checklist box stays open.
 Acceptance passed on [run 41330369114](https://github.com/Avrenthrad/lykowareGE/actions/runs/41330369114): Windows Debug/Release and Linux Debug, ASan/UBSan, and clang-tidy, including `image.harness.golden_pass`, `image.harness.golden_fail`, and exit 3 for `screenshot`. Tested code commit fc3860e. Delivery: [PR #7](https://github.com/Avrenthrad/lykowareGE/pull/7). Local GCC 13.3.0 Debug, ASan/UBSan, and clang-tidy also passed. No checklist item ticked. The image/performance-gate box stays open. Artifact upload stayed opt-in and did not fail.
 Handoff: do not describe the harness as a screenshot test, a scene capture, or a Vulkan backend. Merge only with owner approval.
@@ -91,4 +96,4 @@ Use in the task/PR when pausing, completing, or transferring work:
 
 ## Suggested next task
 
-Develop Phase 1 window/input/timing. Resolve ADR 0003 before adding physics. Obtain multiplayer and hardware answers while preparing representative tests. When rendering work starts, vendor pinned Vulkan-Headers, volk and Vulkan Memory Allocator under third_party and review the shader-compiler licence first. No full editor or content suite work before the roadmap gates.
+Leave ADR 0008 Proposed until the owner accepts it. Next implementation is the Phase 1 clock and fixed step. Resolve ADR 0003 before adding physics. When rendering work starts, vendor pinned Vulkan-Headers, volk and Vulkan Memory Allocator under third_party and review the shader-compiler licence first. No full editor or content suite work before the roadmap gates.

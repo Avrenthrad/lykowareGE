@@ -10,6 +10,18 @@ Jolt remains proposed in ADR 0003. If adopted, call it natively from C++ rather 
 
 ## Current development task
 
+Task owner: Cursor cloud agent. Branch feat/module02-window-input. Base: da71b1e9b9d08ead31f8c03e8ceb325deeca0cf4 on feat/phase0-image-harness ([PR #7](https://github.com/Avrenthrad/lykowareGE/pull/7), not merged). The pull request targets that branch until #7 merges, and it is not merged by this task.
+Scope: vendored SDL 3.4.18 behind `lykoware::Window` and `lykoware::InputState`. Public headers do not include SDL. The wrapper creates and destroys a window, pumps events, and exposes keyboard, mouse, and one gamepad. Resize, DPI, and close are on the same object. A Vulkan surface hook takes an opaque `VkInstance` and reports instance extensions. Vulkan is not linked. ADR 0002 is accepted; this wrapper does not implement the RHI. ADR 0008 is Proposed, not accepted. Tests use the dummy video driver. `lykoware_sandbox --window` is optional. `lyko` is unchanged. No Phase 1 checkbox is ticked.
+
+Local checks on this Linux machine (GCC 13.3.0):
+- Debug and ASan/UBSan: `input.mapping`, `window.lifecycle`, `image.harness.api`, `image.harness.golden_pass`, `image.harness.golden_fail`, `trace.api`, `perf.sandbox_startup`, `perf.cpu_fixture`, `perf.budget_rejects_overrun`, `perf.budget_accepts_within`, `foundation.smoke`, `cli.commands`, and `cli.integration` passed. `foundation.smoke` includes `lykoware_sandbox --window --dummy --frames 1`.
+- `window.lifecycle` ran with no display. It resized, closed, reopened, pumped a key, mouse, and virtual gamepad, and rejected a Vulkan surface call with a null instance.
+- clang-tidy 18 could not run as the analysis preset on this VM: `/usr/bin/c++` is clang and that clang-tidy invocation did not see the GCC 13 libstdc++ headers. The same preset is the CI job. A manual clang-tidy 18 pass over the new translation units, given the GCC include path, reported no findings in those files.
+
+CI: [run 41454076091](https://github.com/Avrenthrad/lykowareGE/actions/runs/41454076091) passed all five jobs: Windows Debug, Windows Release, Linux Debug, ASan/UBSan, and clang-tidy 18. Each job built and tested `input.mapping` and `window.lifecycle`. Tested code commit: 439917c. Delivery: [PR #8](https://github.com/Avrenthrad/lykowareGE/pull/8). Artifact upload did not run; it is opt-in and was not a failure. No storage was purchased. No checklist box was ticked. No paid operation.
+
+## Previous image-harness task, still in review
+
 Task owner: Cursor cloud agent. Branch feat/phase0-image-harness. Base: 9a2e9b5254011f2b4b6001fa4762dab364596918 on feat/phase0-cpu-trace-budget ([PR #6](https://github.com/Avrenthrad/lykowareGE/pull/6), not merged). The pull request targets that branch until #6 merges, and it is not merged by this task.
 Scope: a GPU-free image harness inside `lykoware_engine` (no new library and no dependency). `Image`, `ImageCapture`, and `TestPatternCapture` produce a deterministic software pattern. Hand-written PPM P6 read/write, a per-pixel tolerance comparison, and a diff image live beside it. CTest uses small fixtures in `tests/golden/` and writes only under the build directory. `lyko screenshot` stays exit 3, including when given extra arguments. This is not a renderer screenshot test. Real Vulkan offscreen capture plugs into `ImageCapture` later. ADR 0002 is accepted; this harness does not implement it. No image/performance-gate checklist box is ticked.
 
@@ -60,30 +72,41 @@ Local validation: GCC 14.2 Debug build and two CTest suites passed; ASan/UBSan b
 
 First CI run: [41325630051](https://github.com/Avrenthrad/lykowareGE/actions/runs/41325630051) verified Windows Debug/Release compile/tests/staged execution and all three Linux profiles. Windows jobs then failed only at artifact upload because GitHub storage quota was exhausted. Uploads are now manual opt-in; validation stays mandatory. [Follow-up run 41325853657](https://github.com/Avrenthrad/lykowareGE/actions/runs/41325853657) passed all five profiles: Windows Debug/Release, Linux Debug, ASan/UBSan and clang-tidy analysis, including staged CLI execution. Tested code commit: 04243e61d4ba108360c9928c1fe1fbcc188183bc. Subsequent changes only record this evidence in documentation. No billing changes or artifact deletion.
 
-This branch accepts ADR 0002 (Vulkan 1.3 from C++ behind an owned RHI) and ADR 0004 (canonical JSON, TOML config, glTF 2.0 meshes). ADR 0003 physics stays proposed. No renderer, parser, or vendored dependency is added.
+ADR 0002 (Vulkan 1.3 from C++ behind an owned RHI) and ADR 0004 (canonical JSON, TOML config, glTF 2.0 meshes) are accepted. ADR 0003 physics stays proposed. That acceptance adds no renderer, parser, or graphics dependency. SDL 3.4.18 is vendored later, behind the window wrapper, and is not a graphics backend.
 
 The supplied Lykoware logo vector set is under `assets/brand/`. Those files do not change the runtime, API, or schema. Artifact upload stays opt-in and is continue-on-error so a storage-quota rejection does not fail the foundation check.
 
 ## Next
 
-1. Phase 1 window/input/timing, with a pinned vendored SDL3 evaluation and explicit lifecycle contract.
-2. Resolve native Jolt through ADR 0003 before adding physics. Do not vendor Vulkan-Headers, volk, Vulkan Memory Allocator, nlohmann/json or toml++ until a caller needs them; record exact licences and versions then. Review the shader-compiler licence as a build-time tool, and evaluate a software Vulkan driver such as Mesa lavapipe in CI, before claiming graphics CI.
-3. Agree multiplayer intent, exact hardware profiles, world/simulation scope and budgets.
+1. Owner decision on ADR 0008. The wrapper is implemented and the ADR stays Proposed until then.
+2. Phase 1 clocks and fixed-step update. Window and input do not include that clock.
+3. Resolve native Jolt through ADR 0003 before adding physics. Do not vendor Vulkan-Headers, volk, Vulkan Memory Allocator, nlohmann/json or toml++ until a caller needs them; record exact licences and versions then. Review the shader-compiler licence as a build-time tool, and evaluate a software Vulkan driver such as Mesa lavapipe in CI, before claiming graphics CI.
+4. Agree multiplayer intent, exact hardware profiles, world/simulation scope and budgets.
 
 ## Known issues and limitations
 
-- No window, renderer, ECS, scene loader, physics, audio/animation runtime, world streaming or inference.
+- No renderer, ECS, scene loader, physics, audio/animation runtime, world streaming or inference. A window and input snapshot exist. ADR 0008 is still Proposed.
 - `lyko run` launches the console sandbox only. `run --scene` and screenshot print `unsupported: no renderer` and return exit 3. `lyko trace --frames N` writes a CPU Chrome trace of the sandbox loop. It is not a GPU capture.
-- The image harness compares a software test pattern with committed PPM fixtures. It is not a screenshot, not a GPU capture, and not the image/performance gate. Vulkan offscreen capture is not implemented; ADR 0002 remains proposed and is the later plug-in point.
+- The image harness compares a software test pattern with committed PPM fixtures. It is not a screenshot, not a GPU capture, and not the image/performance gate. Vulkan offscreen capture is not implemented. ADR 0002 is accepted and is the later plug-in point.
 - Provisional CPU budgets in CTest apply only to windows-2022 and ubuntu-24.04. They are not an RTX 4070 or MSI Claw gate, and no screenshot gate exists.
 - Sanitizers are Linux-only; ThreadSanitizer is deferred until concurrent engine systems.
 - The CLI is a developer process wrapper, not the future runtime/editor mutation command bus. See CLI.md for limitations.
-- No dependencies are vendored. The Vulkan 1.3 RHI direction and data encodings are accepted decisions only; no renderer or parser is implemented. Jolt remains proposed in ADR 0003. wgpu, ash and RON are not open tasks.
+- SDL 3.4.18 is the only vendored runtime. HIDAPI inside it is used under the BSD-style licence, not GPL. The Vulkan 1.3 RHI direction and data encodings are accepted decisions only; no renderer or parser is implemented. Jolt remains proposed in ADR 0003. wgpu, ash and RON are not open tasks. The surface hook does not link Vulkan and fails closed when no loader or instance is available. A Linux desktop window needs X11 or Wayland headers at configure time. Without them, the dummy driver still builds.
 - Pax/publication gate remains policy; no Pax implementation or legal clearance.
 - No paid service/spend or personal-data export was performed.
 - GitHub artifact storage was exhausted; downloadable CI binaries remain unavailable until storage is available and upload is explicitly requested. Builds/tests do not depend on uploads.
 
 ## Handoff
+
+- Task: window and input. Branch feat/module02-window-input. Base da71b1e on feat/phase0-image-harness (PR #7, not merged).
+- Completed behavior: `Window` and `InputState` in the engine library. SDL 3.4.18 is vendored, static, and hidden. Dummy-driver create, resize, DPI, pump, close, and reopen. Keyboard, mouse, and one gamepad. Vulkan instance-extension query and surface create/destroy without linking Vulkan. `lykoware_sandbox --window` and `--window --dummy --frames N`. `lyko` unchanged.
+- Files/interfaces: `engine/include/lykoware/window.hpp`, `engine/include/lykoware/input.hpp`, `engine/src/window.cpp`, `engine/src/input.cpp`, `engine/src/platform_map.cpp`, `third_party/sdl3/`, ADR 0008.
+- Checks: local GCC 13.3.0 Debug and ASan/UBSan passed the full CTest set, including `input.mapping`, `window.lifecycle`, and `foundation.smoke`. [Run 41454076091](https://github.com/Avrenthrad/lykowareGE/actions/runs/41454076091) passed Windows Debug/Release and all three Linux profiles. Tested code commit 439917c. The local analysis preset did not run because this VM's default `c++` is clang; the CI clang-tidy job passed.
+- Unverified: a real Win32 or X11 window on a desktop, focus changes, and a successful Vulkan surface. Downloadable CI artifacts were not uploaded.
+- Next: record CI, then merge only with owner approval. Do not treat ADR 0008 as accepted. Do not tick Phase 1.
+- Checklist: no box ticked.
+
+Earlier image-harness handoff, for the branch this work builds on:
 
 - Task: GPU-free image harness. Branch feat/phase0-image-harness. Base 9a2e9b5 on feat/phase0-cpu-trace-budget (PR #6, not merged).
 - Completed behavior: `Image`, `ImageCapture`, and `TestPatternCapture` in the engine library; hand-written PPM P6 read/write; per-pixel tolerance comparison and diff image. CTest golden pass and golden fail. `lyko screenshot` still exits 3. Not a renderer screenshot.

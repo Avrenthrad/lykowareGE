@@ -6,6 +6,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include(CTest)
 include(cmake/ProjectOptions.cmake)
+include(cmake/VendorSdl3.cmake)
+lykoware_add_sdl3()
 add_subdirectory(engine)
 add_subdirectory(samples/sandbox)
 add_subdirectory(tools/cli)
@@ -38,6 +40,24 @@ if(BUILD_TESTING)
             "${CMAKE_CURRENT_BINARY_DIR}/image-harness/fail")
     set_tests_properties(image.harness.api image.harness.golden_pass image.harness.golden_fail
         PROPERTIES TIMEOUT 20)
+
+    add_executable(lykoware_input_test tests/input_state.cpp)
+    target_link_libraries(lykoware_input_test PRIVATE lykoware::engine)
+    target_include_directories(lykoware_input_test PRIVATE
+        "${CMAKE_SOURCE_DIR}/engine/src")
+    target_include_directories(lykoware_input_test SYSTEM PRIVATE
+        "${CMAKE_SOURCE_DIR}/third_party/sdl3/include")
+    lykoware_configure_target(lykoware_input_test)
+    add_test(NAME input.mapping COMMAND lykoware_input_test)
+    set_tests_properties(input.mapping PROPERTIES TIMEOUT 20)
+
+    add_executable(lykoware_window_test tests/window_lifecycle.cpp)
+    target_link_libraries(lykoware_window_test PRIVATE lykoware::engine)
+    target_include_directories(lykoware_window_test SYSTEM PRIVATE
+        "${CMAKE_SOURCE_DIR}/third_party/sdl3/include")
+    lykoware_configure_target(lykoware_window_test)
+    add_test(NAME window.lifecycle COMMAND lykoware_window_test)
+    set_tests_properties(window.lifecycle PROPERTIES TIMEOUT 30)
 
     add_executable(lykoware_cpu_budget tests/cpu_budget.cpp tools/cli/process.cpp)
     target_link_libraries(lykoware_cpu_budget PRIVATE lykoware::engine)
