@@ -24,8 +24,9 @@ Proposed, not accepted by the owner:
 - Defer Vulkan Memory Allocator to the first RHI change that allocates GPU memory (offscreen render target), per the caller rule in ADR 0002.
 - Load Vulkan at run time through volk. Compile with `VK_NO_PROTOTYPES`. Only `engine/src/rhi/` includes `volk.h`. Public RHI headers include no Vulkan headers.
 - `lykoware::rhi::Instance` requires a loader reporting instance version 1.3 or later, allows one live instance per process (volk's table is global), and can enable `VK_LAYER_KHRONOS_validation` (off, if available, or required). Validation messages go to `lykoware::log` and are counted, so tests can assert zero validation errors.
-- A GPU test that finds no Vulkan loader exits 77, which CTest reports as Skipped, never Passed.
-- Linux CI installs the Ubuntu `libvulkan1` and `vulkan-validationlayers` packages so the instance test runs there. These are free distribution packages. A software driver for device-level tests (Mesa lavapipe) is evaluated in the next RHI PR.
+- Instance creation needs a loader and at least one Vulkan driver (ICD): with a loader but no driver, `vkCreateInstance` returns `VK_ERROR_INCOMPATIBLE_DRIVER`, reported as `RhiFailure::NoDriver`. A missing loader is `RhiFailure::NoLoader`.
+- A GPU test that finds no loader or no driver exits 77, which CTest reports as Skipped, never Passed. `rhi.instance.no_driver` hides every driver from the loader and requires the `NoDriver` classification.
+- Linux CI installs the Ubuntu `libvulkan1`, `mesa-vulkan-drivers` (which includes the lavapipe CPU driver; hosted runners have no GPU) and `vulkan-validationlayers` packages so the RHI tests run there. These are free distribution packages.
 
 ## Contracts and compatibility
 
@@ -33,10 +34,11 @@ Ownership, lifetime, threading and failure are documented on the declarations in
 
 ## Consequences
 
-The engine and every tool still build and start on a machine with no Vulkan installed. Only RHI calls fail, with `RhiFailure::NoLoader`. The one-instance rule matches the engine's single renderer; supporting several instances would need volk's per-instance tables and is not planned. macOS portability enumeration is not handled because Windows and Linux are the targets.
+The engine and every tool still build and start on a machine with no Vulkan installed. Only RHI calls fail, with `RhiFailure::NoLoader` or `RhiFailure::NoDriver`. The one-instance rule matches the engine's single renderer; supporting several instances would need volk's per-instance tables and is not planned. macOS portability enumeration is not handled because Windows and Linux are the targets.
 
 ## Verification
 
 - `rhi.instance` creates and destroys an instance, checks the version, refuses a second live instance, refuses an unknown extension by name, enables validation when installed (and checks `Required` fails with `MissingLayer` when it is not), and re-creates an instance after destruction.
-- Local results (Linux, GCC 13, loader 1.3.275 with the Khronos validation layer): passed in the Debug, ASan/UBSan and clang-tidy presets. With the loader removed, the test exited 77 and CTest reported it as Skipped.
-- CI results are recorded in STATUS when the PR runs. A Windows runner without a loader is expected to report Skipped.
+- Local results (Linux, GCC 13, loader 1.3.275, Mesa 25.2 lavapipe, Khronos validation layer): passed in the Debug, ASan/UBSan and clang-tidy presets. With the loader removed, `rhi.instance` exited 77 and CTest reported it as Skipped. With drivers hidden (`VK_DRIVER_FILES` pointing at a missing file), it exited 77 with `NoDriver`.
+- First CI run of this change failed `rhi.instance` on Linux: the runner had a loader but no driver, and the test reported `VK_ERROR_INCOMPATIBLE_DRIVER` as a failure. That run is why `NoDriver` and the lavapipe install exist.
+- CI results are recorded in STATUS when the PR runs. A Windows runner without a loader or driver is expected to report Skipped.

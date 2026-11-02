@@ -53,10 +53,10 @@ Windows remains the primary target; this check helps keep the foundation portabl
 Building never needs a Vulkan SDK or driver: the Vulkan headers are vendored and the loader is opened at run time. To run the RHI tests instead of skipping them, a Vulkan loader must be installed. On Windows it comes with any current GPU driver (`vulkan-1.dll`). On Ubuntu:
 
 ```sh
-sudo apt-get install libvulkan1 vulkan-validationlayers
+sudo apt-get install libvulkan1 mesa-vulkan-drivers vulkan-validationlayers
 ```
 
-Without a loader, `rhi.instance` is reported by CTest as Skipped, not Passed.
+`mesa-vulkan-drivers` includes lavapipe, a CPU Vulkan driver for machines without a GPU. Without a loader or a driver, the RHI tests are reported by CTest as Skipped, not Passed.
 
 ## Structure
 

@@ -262,7 +262,16 @@ std::unique_ptr<Instance> Instance::create(const InstanceConfig& config, RhiErro
     const VkResult created = vkCreateInstance(&create_info, nullptr, &impl->instance);
     if (created != VK_SUCCESS) {
         impl->instance = VK_NULL_HANDLE;
-        fail(error, RhiFailure::DriverError, driver_failure("vkCreateInstance", created));
+        // The loader returns INCOMPATIBLE_DRIVER when it found no ICD at all,
+        // or none supporting the requested API version.
+        const RhiFailure failure =
+            created == VK_ERROR_INCOMPATIBLE_DRIVER ? RhiFailure::NoDriver : RhiFailure::DriverError;
+        std::string message = driver_failure("vkCreateInstance", created);
+        if (failure == RhiFailure::NoDriver) {
+            message += "; no Vulkan driver supporting " + std::to_string(required_api_major) + "."
+                + std::to_string(required_api_minor) + " is installed";
+        }
+        fail(error, failure, std::move(message));
         return nullptr;
     }
     volkLoadInstanceOnly(impl->instance);

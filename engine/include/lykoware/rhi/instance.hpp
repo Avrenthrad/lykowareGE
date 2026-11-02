@@ -15,7 +15,7 @@ namespace lykoware::rhi {
 //
 // The Vulkan loader is opened at run time. The engine has no link-time Vulkan
 // dependency, so it builds and runs on a machine without a Vulkan driver;
-// only the calls below fail, with RhiFailure::NoLoader.
+// only the calls below fail, with RhiFailure::NoLoader or NoDriver.
 
 // Lowest Vulkan API version the RHI accepts.
 inline constexpr std::uint32_t required_api_major = 1;
@@ -30,8 +30,11 @@ struct ApiVersion {
 // Why an RHI call failed. None means success.
 enum class RhiFailure {
     None,
-    // No Vulkan loader library could be opened (no driver installed).
+    // No Vulkan loader library could be opened (nothing Vulkan installed).
     NoLoader,
+    // A loader is installed but it found no Vulkan driver (ICD), so it
+    // cannot create an instance. Typical on GPU-less machines.
+    NoDriver,
     // The loader reports an instance version below required_api_*.
     VersionTooOld,
     // A requested instance extension is not offered by the loader or layers.

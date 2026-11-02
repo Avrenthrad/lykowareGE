@@ -26,7 +26,29 @@ void expect(bool condition, std::string_view message)
 bool skip_reason(const lykoware::rhi::RhiError& error)
 {
     return error.failure == lykoware::rhi::RhiFailure::NoLoader
+        || error.failure == lykoware::rhi::RhiFailure::NoDriver
         || error.failure == lykoware::rhi::RhiFailure::VersionTooOld;
+}
+
+// Run by CTest with the loader's driver list pointed at a missing file, so a
+// loader is present but finds no driver. Creation must fail as NoDriver, not
+// as a generic DriverError. Without any loader the case cannot be built: skip.
+int expect_no_driver()
+{
+    lykoware::rhi::RhiError error;
+    auto instance = lykoware::rhi::Instance::create({}, error);
+    if (error.failure == lykoware::rhi::RhiFailure::NoLoader) {
+        std::cout << "SKIP: " << error.message << '\n';
+        return exit_skip;
+    }
+    expect(instance == nullptr, "no instance without a driver");
+    expect(error.failure == lykoware::rhi::RhiFailure::NoDriver, "missing driver is reported as NoDriver");
+    if (g_failures != 0) {
+        std::cerr << "got: " << error.message << '\n';
+        return EXIT_FAILURE;
+    }
+    std::cout << "no-driver classification passed: " << error.message << '\n';
+    return EXIT_SUCCESS;
 }
 
 void test_basic(const lykoware::rhi::Instance& instance)
@@ -94,8 +116,15 @@ void test_validation()
 
 }
 
-int main()
+int main(int argc, char* argv[])
 {
+    if (argc == 2 && std::string_view{argv[1]} == "--expect-no-driver") {
+        return expect_no_driver();
+    }
+    if (argc != 1) {
+        std::cerr << "usage: lykoware_rhi_instance_test [--expect-no-driver]\n";
+        return EXIT_FAILURE;
+    }
     lykoware::rhi::RhiError error;
     auto instance = lykoware::rhi::Instance::create({}, error);
     if (!instance) {

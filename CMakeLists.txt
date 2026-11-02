@@ -68,7 +68,12 @@ if(BUILD_TESTING)
     target_link_libraries(lykoware_rhi_instance_test PRIVATE lykoware::engine)
     lykoware_configure_target(lykoware_rhi_instance_test)
     add_test(NAME rhi.instance COMMAND lykoware_rhi_instance_test)
-    set_tests_properties(rhi.instance PROPERTIES TIMEOUT 60 SKIP_RETURN_CODE 77)
+    # Same binary with every driver hidden from the loader: must report NoDriver.
+    # VK_DRIVER_FILES is the current loader variable; VK_ICD_FILENAMES the older one.
+    add_test(NAME rhi.instance.no_driver COMMAND lykoware_rhi_instance_test --expect-no-driver)
+    set_tests_properties(rhi.instance.no_driver PROPERTIES
+        ENVIRONMENT "VK_DRIVER_FILES=lykoware-no-such-driver.json;VK_ICD_FILENAMES=lykoware-no-such-driver.json")
+    set_tests_properties(rhi.instance rhi.instance.no_driver PROPERTIES TIMEOUT 60 SKIP_RETURN_CODE 77)
 
     add_executable(lykoware_cpu_budget tests/cpu_budget.cpp tools/cli/process.cpp)
     target_link_libraries(lykoware_cpu_budget PRIVATE lykoware::engine)

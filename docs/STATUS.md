@@ -38,10 +38,10 @@ Vulkan RHI bring-up, PR 1 of 5. Owner: Claude. Branch `claude/vulkan-rhi-1`, sta
 
 - Vendored, unmodified: Vulkan-Headers C headers and volk, both at `vulkan-sdk-1.4.363.0`. Provenance, commits, hashes and licences in `third_party/vulkan-headers/PROVENANCE.md` and `third_party/volk/PROVENANCE.md`. Vulkan Memory Allocator is deferred to the first GPU allocation (RHI PR 3).
 - `lykoware::rhi::Instance` (`engine/include/lykoware/rhi/instance.hpp`): loads Vulkan at run time through volk, requires loader version 1.3+, one instance per process, optional Khronos validation with messages logged and counted. No Vulkan types in public headers. ADR 0009, Proposed.
-- New test `rhi.instance`. Exit 77 without a loader, which CTest reports as Skipped.
-- Linux CI installs `libvulkan1` and `vulkan-validationlayers` (free Ubuntu packages) so the test runs there.
-- Local checks (Linux, GCC 13, loader 1.3.275 with validation layer): Debug, ASan/UBSan and clang-tidy presets passed all 14 tests. With the loader removed, `rhi.instance` exited 77 and CTest reported Skipped.
-- CI: pending on the PR.
+- New tests `rhi.instance` and `rhi.instance.no_driver`. Exit 77 without a loader or driver, which CTest reports as Skipped.
+- Linux CI installs `libvulkan1`, `mesa-vulkan-drivers` (lavapipe CPU driver) and `vulkan-validationlayers` (free Ubuntu packages) so the tests run there.
+- Local checks (Linux, GCC 13, loader 1.3.275, lavapipe, validation layer): Debug, ASan/UBSan and clang-tidy presets passed all 15 tests. With the loader removed, `rhi.instance` reported Skipped; with drivers hidden, it reported Skipped with `NoDriver`.
+- CI: the first run failed `rhi.instance` on Linux (loader but no driver gave `VK_ERROR_INCOMPATIBLE_DRIVER`). Fixed by the `NoDriver` classification and installing lavapipe. Re-run pending.
 
 ## Next
 
@@ -55,7 +55,7 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 ## Known issues and limitations
 
 - No renderer, ECS, scene loader, physics, audio, animation, world streaming or inference. The RHI so far creates a Vulkan instance only (in review): no device, swapchain, offscreen target or shaders.
-- GPU tests skip (exit 77, CTest "Skipped") where no Vulkan loader is installed. Hosted Windows runners may skip them; a skip is not a pass.
+- GPU tests skip (exit 77, CTest "Skipped") where no Vulkan loader or driver is installed. Hosted Windows runners may skip them; a skip is not a pass.
 - `lyko run` launches the console sandbox. `lyko screenshot` and `lyko run --scene` print `unsupported: no renderer` and exit 3. `lyko trace --frames N` is a CPU trace of the sandbox loop, not a GPU capture.
 - The image harness compares a software test pattern with committed PPM fixtures. It is not a screenshot and not the image/performance gate.
 - Provisional CPU budgets apply only to the hosted windows-2022 and ubuntu-24.04 runners. They are not an RTX 4070 or MSI Claw gate.
@@ -70,7 +70,7 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 
 - State: `main` at b907aa7 contains PRs #2 and #4–#9. CI is green on all five jobs ([run 41460782212](https://github.com/Avrenthrad/lykowareGE/actions/runs/41460782212)).
 - Open decisions for the owner: ADR 0003 (Jolt), ADR 0008 (SDL3), hardware profiles, multiplayer, world scope and budgets.
-- In review: RHI PR 1 (`claude/vulkan-rhi-1`). Next concrete action: RHI PR 2, physical device and logical device, with Mesa lavapipe evaluated as the free Linux CI driver.
+- In review: RHI PR 1 (`claude/vulkan-rhi-1`). Next concrete action: RHI PR 2, physical device and logical device, tested on the lavapipe driver Linux CI now installs.
 - Checklist: no box ticked by this update. Phase 1 and the image/performance gate stay open.
 
 Read [WORK_BOARD.md](WORK_BOARD.md), [CLI.md](CLI.md), [ROADMAP.md](ROADMAP.md) and the [ADRs](adr/README.md). Check latest `main` and open PRs before starting. Update this file with exact commits, checks, failures and next actions.
