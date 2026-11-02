@@ -284,6 +284,25 @@ void test_events_reach_their_window()
            "an event with no window reaches every window");
 }
 
+void test_offscreen_driver()
+{
+    // Headless like Dummy, but able to host a Vulkan surface (rhi.swapchain
+    // covers that). Here: it opens, reports its kind, and resizes.
+    lykoware::WindowConfig config = dummy_config();
+    config.driver = lykoware::VideoDriver::Offscreen;
+    std::string error;
+    auto window = lykoware::Window::open(config, error);
+    expect(window != nullptr, "offscreen window opens without a display");
+    if (!window) {
+        std::cerr << "offscreen error: " << error << '\n';
+        return;
+    }
+    expect(window->native_window().kind == lykoware::NativeWindowKind::Offscreen, "offscreen native kind");
+    expect(window->resize(100, 50, error) && window->width() == 100 && window->height() == 50,
+           "offscreen window resizes");
+    expect(window->pump(), "offscreen window pumps");
+}
+
 void test_vulkan_without_loader()
 {
     lykoware::WindowConfig config = dummy_config();
@@ -307,6 +326,7 @@ int main()
     test_lifecycle();
     test_second_gamepad_takes_over();
     test_events_reach_their_window();
+    test_offscreen_driver();
     test_vulkan_without_loader();
     if (g_failures != 0) {
         std::cerr << g_failures << " window assertion(s) failed\n";

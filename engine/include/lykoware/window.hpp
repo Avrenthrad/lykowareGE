@@ -23,7 +23,12 @@ enum class VideoDriver {
     // override the platform library already understands).
     Platform,
     // No display. Tests and CI use this. It does not open a desktop window.
-    Dummy
+    // It cannot host a Vulkan surface.
+    Dummy,
+    // No display, but the window can host a Vulkan surface through
+    // VK_EXT_headless_surface when the driver offers it (Mesa lavapipe does).
+    // Used to test the swapchain path in CI.
+    Offscreen
 };
 
 enum class NativeWindowKind {
@@ -32,7 +37,8 @@ enum class NativeWindowKind {
     X11,
     Wayland,
     Cocoa,
-    Dummy
+    Dummy,
+    Offscreen
 };
 
 // Handles a future RHI can pass to a platform surface call without this

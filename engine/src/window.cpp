@@ -49,6 +49,17 @@ Session& session()
     return value;
 }
 
+// SDL driver name for the headless drivers; nullptr lets SDL choose.
+const char* forced_driver_name(VideoDriver driver) noexcept
+{
+    switch (driver) {
+    case VideoDriver::Dummy: return "dummy";
+    case VideoDriver::Offscreen: return "offscreen";
+    case VideoDriver::Platform: return nullptr;
+    }
+    return nullptr;
+}
+
 bool session_acquire(VideoDriver driver, std::string& error)
 {
     Session& current = session();
@@ -60,11 +71,12 @@ bool session_acquire(VideoDriver driver, std::string& error)
         ++current.holders;
         return true;
     }
-    if (driver == VideoDriver::Dummy) {
+    const char* const forced = forced_driver_name(driver);
+    if (forced != nullptr) {
         const char* existing = SDL_GetHint(SDL_HINT_VIDEO_DRIVER);
-        const bool already_dummy = existing != nullptr && std::string_view{existing} == "dummy";
-        if (!already_dummy && !SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "dummy")) {
-            error = "could not select the dummy video driver";
+        const bool already = existing != nullptr && std::string_view{existing} == forced;
+        if (!already && !SDL_SetHint(SDL_HINT_VIDEO_DRIVER, forced)) {
+            error = std::string{"could not select the "} + forced + " video driver";
             return false;
         }
     }
@@ -73,11 +85,11 @@ bool session_acquire(VideoDriver driver, std::string& error)
         error = sdl_failure("SDL_Init");
         return false;
     }
-    if (driver == VideoDriver::Dummy) {
+    if (forced != nullptr) {
         const char* name = SDL_GetCurrentVideoDriver();
-        if (name == nullptr || std::string_view{name} != "dummy") {
+        if (name == nullptr || std::string_view{name} != forced) {
             SDL_Quit();
-            error = "dummy video driver was not selected";
+            error = std::string{forced} + " video driver was not selected";
             return false;
         }
     }
@@ -582,6 +594,8 @@ NativeWindow Window::native_window() const
     const char* driver = SDL_GetCurrentVideoDriver();
     if (driver != nullptr && std::string_view{driver} == "dummy") {
         native.kind = NativeWindowKind::Dummy;
+    } else if (driver != nullptr && std::string_view{driver} == "offscreen") {
+        native.kind = NativeWindowKind::Offscreen;
     }
     return native;
 }
