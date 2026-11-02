@@ -22,6 +22,8 @@ Local validation: GCC 14.2 Debug build and two CTest suites passed; ASan/UBSan b
 
 First CI run: [41325630051](https://github.com/Avrenthrad/lykowareGE/actions/runs/41325630051) verified Windows Debug/Release compile/tests/staged execution and all three Linux profiles. Windows jobs then failed only at artifact upload because GitHub storage quota was exhausted. Uploads are now manual opt-in; validation stays mandatory. [Follow-up run 41325853657](https://github.com/Avrenthrad/lykowareGE/actions/runs/41325853657) passed all five profiles: Windows Debug/Release, Linux Debug, ASan/UBSan and clang-tidy analysis, including staged CLI execution. Tested code commit: 04243e61d4ba108360c9928c1fe1fbcc188183bc. Subsequent changes only record this evidence in documentation. No billing changes or artifact deletion.
 
+This branch also adds the supplied Lykoware logo vector set under `assets/brand/`. Those files do not change the runtime, API, or schema. Artifact upload stays opt-in and is continue-on-error so a storage-quota rejection does not fail the foundation check.
+
 ## Next
 
 1. Phase 1 window/input/timing, with a pinned vendored SDL3 evaluation and explicit lifecycle contract.
