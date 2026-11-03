@@ -94,7 +94,7 @@ Owner: Claude. Branch `claude/vulkan-rhi-5a`, stacked on `claude/shader-compiler
   - Debug passed 21/21 tests, including `shaders.spirv_valid*`;
   - the sanitizer and clang-tidy presets reused the cache ("using cached"), configured in seconds, and passed 21/21;
   - after the final copy-step change, a rebuild into an empty cache took 750 s, left exactly `slangc`, `spirv-opt`, `spirv-val` and Slang's GLSL module, and passed 21/21.
-- CI: pending. The first run per OS builds the tools before caching them.
+- CI: [run 41626480873](https://github.com/Avrenthrad/lykowareGE/actions/runs/41626480873) on b275474 passed all five jobs on the first, cold-cache run (about 20 min on Windows, about 27 min on Linux). Windows Debug and Release built Slang and SPIRV-Tools with MSVC for the first time and passed `shaders.spirv_valid*`; their Vulkan tests reported Skipped. Linux ran the RHI tests on lavapipe. Caches are scoped to the branch that saved them, so the first run on `main` after merging builds the tools once more.
 
 ### RHI PR 5b (stacked on 5a): first draw
 
