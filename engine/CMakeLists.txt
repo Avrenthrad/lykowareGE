@@ -10,7 +10,9 @@ add_library(lykoware_engine STATIC
     src/input.cpp
     src/platform_map.cpp
     src/window.cpp
-    src/rhi/instance.cpp)
+    src/rhi/common.cpp
+    src/rhi/instance.cpp
+    src/rhi/device.cpp)
 add_library(lykoware::engine ALIAS lykoware_engine)
 target_compile_features(lykoware_engine PUBLIC cxx_std_20)
 target_include_directories(lykoware_engine PUBLIC

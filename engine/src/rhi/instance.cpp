@@ -1,5 +1,7 @@
 #include <lykoware/rhi/instance.hpp>
 
+#include "common.hpp"
+
 #include <lykoware/log.hpp>
 
 #include <volk.h>
@@ -15,43 +17,13 @@
 namespace lykoware::rhi {
 namespace {
 
+using detail::driver_failure;
+using detail::fail;
+
 constexpr const char* validation_layer = "VK_LAYER_KHRONOS_validation";
 
 // volk keeps one process-wide function table, so only one instance may own it.
 std::atomic<bool> g_instance_alive{false};
-
-std::string_view result_name(VkResult result) noexcept
-{
-    switch (result) {
-    case VK_SUCCESS: return "VK_SUCCESS";
-    case VK_INCOMPLETE: return "VK_INCOMPLETE";
-    case VK_ERROR_OUT_OF_HOST_MEMORY: return "VK_ERROR_OUT_OF_HOST_MEMORY";
-    case VK_ERROR_OUT_OF_DEVICE_MEMORY: return "VK_ERROR_OUT_OF_DEVICE_MEMORY";
-    case VK_ERROR_INITIALIZATION_FAILED: return "VK_ERROR_INITIALIZATION_FAILED";
-    case VK_ERROR_LAYER_NOT_PRESENT: return "VK_ERROR_LAYER_NOT_PRESENT";
-    case VK_ERROR_EXTENSION_NOT_PRESENT: return "VK_ERROR_EXTENSION_NOT_PRESENT";
-    case VK_ERROR_INCOMPATIBLE_DRIVER: return "VK_ERROR_INCOMPATIBLE_DRIVER";
-    default: return "VkResult error";
-    }
-}
-
-std::string driver_failure(std::string_view call, VkResult result)
-{
-    std::string message{call};
-    message += " failed: ";
-    message += result_name(result);
-    message += " (";
-    message += std::to_string(static_cast<int>(result));
-    message += ')';
-    return message;
-}
-
-bool fail(RhiError& error, RhiFailure failure, std::string message)
-{
-    error.failure = failure;
-    error.message = std::move(message);
-    return false;
-}
 
 std::vector<std::string> available_extensions(const char* layer)
 {
@@ -103,6 +75,10 @@ void add_unique(std::vector<std::string>& names, std::string_view name)
 struct Instance::Impl {
     ~Impl()
     {
+        if (instance != VK_NULL_HANDLE && detail::device_alive()) {
+            log(LogLevel::error,
+                "rhi::Instance destroyed while an rhi::Device is alive; destroy the Device first");
+        }
         if (messenger != VK_NULL_HANDLE) {
             vkDestroyDebugUtilsMessengerEXT(instance, messenger, nullptr);
             messenger = VK_NULL_HANDLE;

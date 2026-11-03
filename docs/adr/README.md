@@ -14,6 +14,7 @@ Canonical directory: docs/adr. Decisions remain Proposed until resolved; disting
 | [0007](0007-image-harness.md) | Accepted implementation | GPU-free image harness; not a renderer screenshot |
 | [0008](0008-window-input.md) | Proposed | Vendored SDL3 behind a Lykoware window and input API |
 | [0009](0009-vulkan-loading.md) | Proposed | Vulkan-Headers and volk; run-time loading; RHI instance; skip-not-pass GPU tests |
+| [0010](0010-rhi-device.md) | Proposed | RHI device requirements, selection ranking, one graphics-and-compute queue |
 
 Use [the template](TEMPLATE.md). Record context, options, decision/status, contracts, consequences and verification. Use a new ADR to supersede an accepted choice; do not silently rewrite its history.
 

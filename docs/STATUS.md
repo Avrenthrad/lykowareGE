@@ -13,6 +13,7 @@ Records what is implemented and verified on `main`. Plans live in [ROADMAP.md](R
 | [0005](adr/0005-native-cli.md)–[0007](adr/0007-image-harness.md) | Accepted implementation | CLI, CPU trace, GPU-free image harness |
 | [0008](adr/0008-window-input.md) | Proposed | SDL 3.4.18 behind the window and input API. Merged and working; owner has not accepted it. |
 | [0009](adr/0009-vulkan-loading.md) | Proposed (in review) | Vulkan-Headers and volk, Vulkan loaded at run time, RHI instance, GPU tests skip rather than pass without a loader. |
+| [0010](adr/0010-rhi-device.md) | Proposed (in review) | Device requirements (Vulkan 1.3, dynamic rendering, synchronization2), selection ranking, one graphics-and-compute queue. |
 
 ## Verified on main
 
@@ -43,6 +44,16 @@ Vulkan RHI bring-up, PR 1 of 5. Owner: Claude. Branch `claude/vulkan-rhi-1`, sta
 - Local checks (Linux, GCC 13, loader 1.3.275, lavapipe, validation layer): Debug, ASan/UBSan and clang-tidy presets passed all 15 tests. With the loader removed, `rhi.instance` reported Skipped; with drivers hidden, it reported Skipped with `NoDriver`.
 - CI: the first run failed `rhi.instance` on Linux (loader but no driver gave `VK_ERROR_INCOMPATIBLE_DRIVER`). Fixed by the `NoDriver` classification and installing lavapipe. [run 41473805033](https://github.com/Avrenthrad/lykowareGE/actions/runs/41473805033) on code commit 9c8c7c3 passed all five jobs: on Linux, `rhi.instance` ran on lavapipe and passed in Debug, ASan/UBSan and clang-tidy, and `rhi.instance.no_driver` passed; on Windows (no Vulkan on hosted runners) both reported Skipped.
 
+### RHI PR 2 of 5 (stacked on PR 1)
+
+Owner: Claude. Branch `claude/vulkan-rhi-2`, stacked on `claude/vulkan-rhi-1`. Not merged.
+
+- `lykoware::rhi::Device` and `enumerate_devices` (`engine/include/lykoware/rhi/device.hpp`): requires Vulkan 1.3, a graphics-and-compute queue family, `dynamicRendering` and `synchronization2`; ranks discrete > integrated > virtual > other > CPU, or CPU first with `DevicePreference::Software`; optional name filter; every rejection explained. One device and one queue; one Device per process. ADR 0010, Proposed.
+- Internal helpers shared by the RHI sources moved to `engine/src/rhi/common.*`. Destroying an Instance while a Device lives is logged as an error.
+- New test `rhi.device` (Skipped without Vulkan).
+- Local checks (Linux, GCC 13, lavapipe "llvmpipe", Vulkan 1.4.318, validation on): Debug, ASan/UBSan and clang-tidy presets passed all 16 tests with zero validation errors. With drivers hidden, `rhi.device` reported Skipped.
+- CI: [run 41475053247](https://github.com/Avrenthrad/lykowareGE/actions/runs/41475053247) on code commit 1047e92 passed all five jobs. On Linux, `rhi.device` ran on lavapipe and passed in Debug, ASan/UBSan and clang-tidy; Windows hosted runners reported the RHI tests as Skipped.
+
 ## Next
 
 Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
@@ -54,7 +65,7 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 
 ## Known issues and limitations
 
-- No renderer, ECS, scene loader, physics, audio, animation, world streaming or inference. The RHI so far creates a Vulkan instance only (in review): no device, swapchain, offscreen target or shaders.
+- No renderer, ECS, scene loader, physics, audio, animation, world streaming or inference. The RHI so far creates a Vulkan instance and a device with one queue (in review): no command buffers, swapchain, offscreen target or shaders.
 - GPU tests skip (exit 77, CTest "Skipped") where no Vulkan loader or driver is installed. Hosted Windows runners may skip them; a skip is not a pass.
 - `lyko run` launches the console sandbox. `lyko screenshot` and `lyko run --scene` print `unsupported: no renderer` and exit 3. `lyko trace --frames N` is a CPU trace of the sandbox loop, not a GPU capture.
 - The image harness compares a software test pattern with committed PPM fixtures. It is not a screenshot and not the image/performance gate.
@@ -70,7 +81,7 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 
 - State: `main` at b907aa7 contains PRs #2 and #4–#9. CI is green on all five jobs ([run 41460782212](https://github.com/Avrenthrad/lykowareGE/actions/runs/41460782212)).
 - Open decisions for the owner: ADR 0003 (Jolt), ADR 0008 (SDL3), hardware profiles, multiplayer, world scope and budgets.
-- In review: RHI PR 1 (`claude/vulkan-rhi-1`). Next concrete action: RHI PR 2, physical device and logical device, tested on the lavapipe driver Linux CI now installs.
+- In review: RHI PR 1 (`claude/vulkan-rhi-1`) and PR 2 (`claude/vulkan-rhi-2`). Next concrete action: RHI PR 3, vendor Vulkan Memory Allocator with an offscreen render target, clear, readback into `ImageCapture`, and a golden compare.
 - Checklist: no box ticked by this update. Phase 1 and the image/performance gate stay open.
 
 Read [WORK_BOARD.md](WORK_BOARD.md), [CLI.md](CLI.md), [ROADMAP.md](ROADMAP.md) and the [ADRs](adr/README.md). Check latest `main` and open PRs before starting. Update this file with exact commits, checks, failures and next actions.

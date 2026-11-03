@@ -14,12 +14,12 @@ Check latest main and open PRs before starting. Documents do not automatically s
 
 ## Active task
 
-Vulkan RHI bring-up. Owner: Claude. Status: active; PR 1 in review on `claude/vulkan-rhi-1`, stacked on PR #10. Base: `main` at b907aa7. Delivered as a stack of small PRs; each PR states its own base.
+Vulkan RHI bring-up. Owner: Claude. Status: active; PR 1 in review on `claude/vulkan-rhi-1` (stacked on PR #10), PR 2 in review on `claude/vulkan-rhi-2` (stacked on PR 1). Base: `main` at b907aa7. Delivered as a stack of small PRs; each PR states its own base.
 
 - Objective: first pixels through a Lykoware-owned Vulkan 1.3 RHI (ADR 0002), on the SDL window and headless, with headless output checked by the image harness.
 - Planned PRs, in order:
   1. (In review.) Vendor pinned Vulkan-Headers and volk under `third_party/`, with provenance, exact versions and licences. First caller: `rhi::Instance`, loading Vulkan at run time through volk and failing with a clear error when no loader is present. ADR 0009.
-  2. Physical device selection, logical device and queues, tested on Mesa lavapipe (installed in Linux CI by PR 1).
+  2. (In review.) Physical device selection, logical device and one graphics-and-compute queue, tested on Mesa lavapipe (installed in Linux CI by PR 1). ADR 0010.
   3. Vendor Vulkan Memory Allocator with its first caller: an offscreen render target and clear, read back into `ImageCapture` and compared with a golden by the image harness (headless path).
   4. Swapchain on the SDL window and a clear screen (interactive path through the same RHI).
   5. Ahead-of-time SPIR-V compilation, after a recorded shader-compiler licence review (ADR).
