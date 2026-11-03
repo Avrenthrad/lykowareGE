@@ -9,7 +9,7 @@ This directory is a trimmed copy of the Slang shading-language compiler. It is n
 | Tag | `v2026.18.3` (released 2026-09-24) |
 | Commit | `6eb89786ca882d71049c8568638e247f60864b6f` |
 | Obtained by | `git clone --depth 1 --branch v2026.18.3`, then `git submodule update --init --depth 1` for the dependencies listed below only |
-| Vendored-file sha256 | `9e0642e508afae5132bf041bfb90a8893231019f1aae923d4ce1da3815887001` (see below) |
+| Vendored-file sha256 | `3a3d04905eb95ece6dd9b625c795c0e03d1c36bad262f2e268f4e3ae2af6da8d` (see below) |
 | SPDX licence | `Apache-2.0 WITH LLVM-exception` (Slang's own code); see exceptions and dependencies below |
 | Licence file | [LICENSE](LICENSE), full texts in [LICENSES/](LICENSES/), per-file annotations in [REUSE.toml](REUSE.toml) |
 | Use | Host tool only: `slangc` compiles shaders to SPIR-V at build time. Not linked into the engine and not shipped in games. Built by [cmake/HostTools.cmake](../../cmake/HostTools.cmake). |
@@ -36,7 +36,7 @@ SPIRV-Headers is shared with SPIRV-Tools from [../spirv-headers](../spirv-header
 
 ## What was omitted
 
-From Slang: `docs/`, `tests/`, `examples/`, `extras/`, `docker/`, `.github/`, `.claude/`, and top-level README, contributor, review, agent (`AGENTS.md`, `CLAUDE.md`), editor and Nix files. Every submodule not listed above is omitted, including glslang, SPIRV-Tools, DXC, slang-rhi, OptiX, imgui, glm, Catch2, replxx, mimalloc, metal-cpp, nlohmann-json, tinyobjloader and Slang's own Vulkan-Headers copy. The build switches them off (ADR 0013).
+From Slang: `docs/`, `tests/`, `examples/` except its `CMakeLists.txt` (Slang always adds the folder; the file only declares a helper and builds nothing with examples off), `extras/`, `docker/`, `.github/`, `.claude/`, and top-level README, contributor, review, agent (`AGENTS.md`, `CLAUDE.md`), editor and Nix files. Every submodule not listed above is omitted, including glslang, SPIRV-Tools, DXC, slang-rhi, OptiX, imgui, glm, Catch2, replxx, mimalloc, metal-cpp, nlohmann-json, tinyobjloader and Slang's own Vulkan-Headers copy. The build switches them off (ADR 0013).
 
 From dependencies:
 - lz4: everything except `lib/`, `build/cmake/` and `LICENSE`. This excludes lz4's GPL-2.0-or-later programs, so no GPL file is vendored.
