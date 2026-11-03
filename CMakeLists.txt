@@ -107,12 +107,35 @@ if(BUILD_TESTING)
         COMMAND "${LYKOWARE_SPIRV_VAL}" --target-env vulkan1.3 "${triangle_frag_spv}")
     set_tests_properties(shaders.spirv_valid shaders.spirv_valid_fragment PROPERTIES TIMEOUT 30)
 
+    # First draw: the Slang triangle through rhi::GraphicsPipeline. Mismatch
+    # images go under the build directory only. Exit 77 is Skipped.
+    add_executable(lykoware_rhi_pipeline_test tests/rhi_pipeline.cpp)
+    target_link_libraries(lykoware_rhi_pipeline_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_rhi_pipeline_test)
+    add_dependencies(lykoware_rhi_pipeline_test lykoware_test_shaders)
+    add_test(NAME rhi.pipeline
+        COMMAND lykoware_rhi_pipeline_test "${triangle_vert_spv}" "${triangle_frag_spv}"
+            "${CMAKE_CURRENT_BINARY_DIR}/rhi-pipeline")
+    set_tests_properties(rhi.pipeline PROPERTIES TIMEOUT 60 SKIP_RETURN_CODE 77)
+
     # The sandbox's Vulkan window on the headless offscreen driver. The
     # sandbox exits 3 ("unsupported") without a usable Vulkan device, which
     # CTest reports as Skipped; it exits 1 on any validation error.
     add_test(NAME sandbox.vulkan_window
         COMMAND lykoware_sandbox --window --offscreen --vulkan --frames 3)
     set_tests_properties(sandbox.vulkan_window PROPERTIES TIMEOUT 60 SKIP_RETURN_CODE 3)
+
+    if(LYKOWARE_SANITIZERS)
+        # The Vulkan loader unloads drivers at vkDestroyInstance. Memory a
+        # driver's own threads still hold (Mesa lavapipe's LLVM compiler
+        # threads) then appears as unsymbolised "leaks". Keeping drivers loaded
+        # (a Khronos loader option meant for leak checkers) removes those false
+        # reports; leaks in Lykoware code are still caught (ADR 0015 records the
+        # deliberate-leak check).
+        set_property(TEST rhi.instance rhi.instance.no_driver rhi.device rhi.render_target rhi.swapchain
+                          sandbox.vulkan_window rhi.pipeline
+            APPEND PROPERTY ENVIRONMENT "VK_LOADER_DISABLE_DYNAMIC_LIBRARY_UNLOADING=1")
+    endif()
 
     add_executable(lykoware_cpu_budget tests/cpu_budget.cpp tools/cli/process.cpp)
     target_link_libraries(lykoware_cpu_budget PRIVATE lykoware::engine)

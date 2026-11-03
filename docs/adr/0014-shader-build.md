@@ -1,7 +1,7 @@
 # ADR 0014 — Host tools and the ahead-of-time shader build
 
 Status: Proposed
-Related task/PR: Vulkan RHI bring-up, PR 5a (branch `claude/vulkan-rhi-5a`), stacked on ADR 0013's PR.
+Related task/PR: Vulkan RHI bring-up, PR 5a (branch `claude/vulkan-rhi-5a`), merged as [#16](https://github.com/Avrenthrad/lykowareGE/pull/16) (merge c60264d).
 Supersedes / superseded by: none. Implements the shader part of [ADR 0002](0002-graphics.md) with the compiler the owner chose in [ADR 0013](0013-shader-compiler.md).
 
 ## Context
@@ -55,7 +55,7 @@ Proposed, not accepted by the owner:
 - Every build proves its shaders compile, optimise and validate before any driver sees them.
 - Our warning, sanitizer and clang-tidy gates do not cover Slang or SPIRV-Tools; they are vendored tools like SDL3.
 - The repository grows by about 50 MB of vendored source.
-- The Windows/MSVC build of the tools is first exercised by CI on this PR.
+- GitHub scopes a cache to the branch that saved it; other branches can read only their own, their base's and `main`'s. So the first run on `main` builds the tools once, and later branches restore `main`'s cache.
 
 ## Verification
 
@@ -64,4 +64,4 @@ Proposed, not accepted by the owner:
   - 21/21 tests passed in Debug;
   - the sanitizer and clang-tidy presets reused the cache and passed 21/21.
 - Getting there took three configure fixes, all now in the recipe: SPIRV-Tools needs `test/CMakeLists.txt` and `CHANGES`; Slang's SPIRV-Headers override names the parent folder; Slang always adds `examples/CMakeLists.txt`.
-- CI results, including the first, uncached run on Windows, are recorded when the PR runs.
+- CI: [run 41626480873](https://github.com/Avrenthrad/lykowareGE/actions/runs/41626480873) on b275474 passed all five jobs on the first, uncached run. Windows Debug and Release built the tools with MSVC (about 20 min per job, cold) and passed `shaders.spirv_valid*`, with the Vulkan tests Skipped. The Linux jobs (about 27 min, cold) passed with the RHI tests running on lavapipe. Two jobs on one OS share a cache key, so one may log that it could not reserve the cache while the other saves it; that is harmless.

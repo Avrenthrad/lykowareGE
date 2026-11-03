@@ -7,20 +7,22 @@ Records what is implemented and verified on `main`. Plans live in [ROADMAP.md](R
 | ADR | Status | Subject |
 | --- | --- | --- |
 | [0001](adr/0001-language.md) | Accepted | C++20 and CMake 3.25+ |
-| [0002](adr/0002-graphics.md) | Accepted | Vulkan 1.3 from C++ behind a Lykoware-owned RHI. No graphics dependency vendored yet. |
+| [0002](adr/0002-graphics.md) | Accepted | Vulkan 1.3 from C++ behind a Lykoware-owned RHI. Vulkan-Headers, volk and VMA are vendored (ADRs 0009–0011). |
 | [0003](adr/0003-physics.md) | Proposed | Jolt, called natively from C++ if adopted. Owner has not decided. |
 | [0004](adr/0004-data-formats.md) | Accepted | Canonical JSON for machine data, TOML for hand-edited config, glTF 2.0 meshes. No parser vendored yet. |
 | [0005](adr/0005-native-cli.md)–[0007](adr/0007-image-harness.md) | Accepted implementation | CLI, CPU trace, GPU-free image harness |
 | [0008](adr/0008-window-input.md) | Proposed | SDL 3.4.18 behind the window and input API. Merged and working; owner has not accepted it. |
-| [0009](adr/0009-vulkan-loading.md) | Proposed (in review) | Vulkan-Headers and volk, Vulkan loaded at run time, RHI instance, GPU tests skip rather than pass without a loader. |
-| [0010](adr/0010-rhi-device.md) | Proposed (in review) | Device requirements (Vulkan 1.3, dynamic rendering, synchronization2), selection ranking, one graphics-and-compute queue. |
-| [0011](adr/0011-offscreen-render-target.md) | Proposed (in review) | VMA 3.4.0, offscreen RGBA8 render target, dynamic-rendering clear, read-back into the image harness. |
-| [0012](adr/0012-swapchain.md) | Proposed (in review) | Swapchain with two frames in flight and resize rebuilds; `VideoDriver::Offscreen` headless Vulkan window; sandbox `--vulkan`. |
-| [0013](adr/0013-shader-compiler.md) | **Accepted by owner 2026-11-03: Slang**, conditional on the build spike | Slang built without `slang-glslang` (avoids glslang's GPL-with-Bison-exception parser and NVIDIA AML preprocessor), plus SPIRV-Tools for validation. Owner accepted the one Unlicense file in Slang core. |
+| [0009](adr/0009-vulkan-loading.md) | Proposed (merged; owner has not accepted) | Vulkan-Headers and volk, Vulkan loaded at run time, RHI instance, GPU tests skip rather than pass without a loader. |
+| [0010](adr/0010-rhi-device.md) | Proposed (merged; owner has not accepted) | Device requirements (Vulkan 1.3, dynamic rendering, synchronization2), selection ranking, one graphics-and-compute queue. |
+| [0011](adr/0011-offscreen-render-target.md) | Proposed (merged; owner has not accepted) | VMA 3.4.0, offscreen RGBA8 render target, dynamic-rendering clear, read-back into the image harness. |
+| [0012](adr/0012-swapchain.md) | Proposed (merged; owner has not accepted) | Swapchain with two frames in flight and resize rebuilds; `VideoDriver::Offscreen` headless Vulkan window; sandbox `--vulkan`. |
+| [0013](adr/0013-shader-compiler.md) | **Accepted by owner 2026-11-03: Slang**; the build spike passed | Slang built without `slang-glslang` (avoids glslang's GPL-with-Bison-exception parser and NVIDIA AML preprocessor), plus SPIRV-Tools for validation. Owner accepted the one Unlicense file in Slang core. |
+| [0014](adr/0014-shader-build.md) | Proposed (merged; owner has not accepted) | Host tools built once from vendored source into a cache; `slangc` → `spirv-opt` → `spirv-val` at build time; CI Actions cache. |
+| [0015](adr/0015-graphics-pipeline.md) | Proposed (in review) | `rhi::Shader`, `rhi::GraphicsPipeline`, `RenderTarget::draw`, `shaderDrawParameters`; sanitizer builds keep Vulkan drivers loaded. |
 
 ## Verified on main
 
-All merges below passed the five CI jobs: Windows x64 Debug and Release, Linux Debug, Linux ASan/UBSan, and Linux clang-tidy 18.
+The five CI jobs are Windows x64 Debug and Release, Linux Debug, Linux ASan/UBSan, and Linux clang-tidy 18. Every merge up to #9 passed all five on `main`. #10–#16 each passed all five as pull requests (runs below). They were merged on 2026-11-03 at the owner's request, with `[skip ci]` on #10–#15 so that `main` runs CI once, on the #16 merge, for the whole stack.
 
 | Area | Delivery | CI on main |
 | --- | --- | --- |
@@ -33,87 +35,55 @@ All merges below passed the five CI jobs: Windows x64 Debug and Release, Linux D
 | GPU-free image harness: `Image`, PPM P6, tolerance compare, diff, goldens | [PR #7](https://github.com/Avrenthrad/lykowareGE/pull/7), merge d4daed4 | [41458677412](https://github.com/Avrenthrad/lykowareGE/actions/runs/41458677412) |
 | Module 02: `Window` and `InputState` over vendored SDL 3.4.18; dummy-driver tests; Vulkan surface hook without linking Vulkan | [PR #8](https://github.com/Avrenthrad/lykowareGE/pull/8), merge 5be6053 | [41458695818](https://github.com/Avrenthrad/lykowareGE/actions/runs/41458695818) |
 | Window fixes: per-window event routing; a remaining gamepad takes over when the active one disconnects | [PR #9](https://github.com/Avrenthrad/lykowareGE/pull/9), merge b907aa7 | [41460782212](https://github.com/Avrenthrad/lykowareGE/actions/runs/41460782212) |
+| STATUS and WORK_BOARD for the RHI-first plan (docs) | [PR #10](https://github.com/Avrenthrad/lykowareGE/pull/10), merge 392c030 | covered by the #16 run |
+| RHI 1: vendored Vulkan-Headers and volk (`vulkan-sdk-1.4.363.0`); `rhi::Instance` with run-time loading, typed failures (`NoLoader`, `NoDriver`, …) and counted validation messages; lavapipe in Linux CI | [PR #11](https://github.com/Avrenthrad/lykowareGE/pull/11), merge 1ac4e0c | PR run [41473805033](https://github.com/Avrenthrad/lykowareGE/actions/runs/41473805033); covered by the #16 run |
+| RHI 2: `rhi::Device` and `enumerate_devices`; requirements, ranking, rejection reasons; one queue, one Device per process | [PR #12](https://github.com/Avrenthrad/lykowareGE/pull/12), merge 94b6ae0 | PR run [41475053247](https://github.com/Avrenthrad/lykowareGE/actions/runs/41475053247); covered by the #16 run |
+| RHI 3: vendored VMA 3.4.0; `rhi::RenderTarget` clear and read-back; `RenderTargetCapture` feeds the image harness (first rendered pixels) | [PR #13](https://github.com/Avrenthrad/lykowareGE/pull/13), merge 8d33414 | PR run [41476543108](https://github.com/Avrenthrad/lykowareGE/actions/runs/41476543108); covered by the #16 run |
+| RHI 4: `rhi::Swapchain`, two frames in flight, resize rebuilds; `VideoDriver::Offscreen` so CI runs the present path; sandbox `--vulkan` | [PR #14](https://github.com/Avrenthrad/lykowareGE/pull/14), merge 528304a | PR run [41478643774](https://github.com/Avrenthrad/lykowareGE/actions/runs/41478643774); covered by the #16 run |
+| ADR 0013 shader-compiler licence review (docs) | [PR #15](https://github.com/Avrenthrad/lykowareGE/pull/15), merge 09ebf36 | covered by the #16 run |
+| RHI 5a: vendored Slang v2026.18.3, SPIRV-Tools v2026.4 and SPIRV-Headers; host tools built once into `.lykoware-tools/` and cached in CI; every shader compiled, optimised and validated at build time | [PR #16](https://github.com/Avrenthrad/lykowareGE/pull/16), merge c60264d | PR run [41626480873](https://github.com/Avrenthrad/lykowareGE/actions/runs/41626480873); `main` run [41735089452](https://github.com/Avrenthrad/lykowareGE/actions/runs/41735089452) passed all five jobs (cold tool cache, now saved for `main`) |
 
-CTest on `main` (13 tests): `trace.api`, `image.harness.api`, `image.harness.golden_pass`, `image.harness.golden_fail`, `input.mapping`, `window.lifecycle`, `perf.sandbox_startup`, `perf.cpu_fixture`, `perf.budget_rejects_overrun`, `perf.budget_accepts_within`, `foundation.smoke`, `cli.commands`, `cli.integration`.
+CTest on `main` (21 tests): `trace.api`, `image.harness.api`, `image.harness.golden_pass`, `image.harness.golden_fail`, `input.mapping`, `window.lifecycle`, `perf.sandbox_startup`, `perf.cpu_fixture`, `perf.budget_rejects_overrun`, `perf.budget_accepts_within`, `foundation.smoke`, `cli.commands`, `cli.integration`, `rhi.instance`, `rhi.instance.no_driver`, `rhi.device`, `rhi.render_target`, `rhi.swapchain`, `sandbox.vulkan_window`, `shaders.spirv_valid`, `shaders.spirv_valid_fragment`. The `rhi.*` and `sandbox.vulkan_window` tests run on lavapipe in Linux CI and report Skipped on the Windows runners, which have no Vulkan.
+
+Per-PR detail (local checks, failures found and fixed, mutation checks) is in each pull request and in ADRs 0009–0014.
 
 ## Current development task
 
-Vulkan RHI bring-up, PR 1 of 5. Owner: Claude. Branch `claude/vulkan-rhi-1`, stacked on `claude/determined-dirac-qq42z3` ([PR #10](https://github.com/Avrenthrad/lykowareGE/pull/10), docs). Not merged.
+### RHI PR 5b: first draw
 
-- Vendored, unmodified: Vulkan-Headers C headers and volk, both at `vulkan-sdk-1.4.363.0`. Provenance, commits, hashes and licences in `third_party/vulkan-headers/PROVENANCE.md` and `third_party/volk/PROVENANCE.md`. Vulkan Memory Allocator is deferred to the first GPU allocation (RHI PR 3).
-- `lykoware::rhi::Instance` (`engine/include/lykoware/rhi/instance.hpp`): loads Vulkan at run time through volk, requires loader version 1.3+, one instance per process, optional Khronos validation with messages logged and counted. No Vulkan types in public headers. ADR 0009, Proposed.
-- New tests `rhi.instance` and `rhi.instance.no_driver`. Exit 77 without a loader or driver, which CTest reports as Skipped.
-- Linux CI installs `libvulkan1`, `mesa-vulkan-drivers` (lavapipe CPU driver) and `vulkan-validationlayers` (free Ubuntu packages) so the tests run there.
-- Local checks (Linux, GCC 13, loader 1.3.275, lavapipe, validation layer): Debug, ASan/UBSan and clang-tidy presets passed all 15 tests. With the loader removed, `rhi.instance` reported Skipped; with drivers hidden, it reported Skipped with `NoDriver`.
-- CI: the first run failed `rhi.instance` on Linux (loader but no driver gave `VK_ERROR_INCOMPATIBLE_DRIVER`). Fixed by the `NoDriver` classification and installing lavapipe. [run 41473805033](https://github.com/Avrenthrad/lykowareGE/actions/runs/41473805033) on code commit 9c8c7c3 passed all five jobs: on Linux, `rhi.instance` ran on lavapipe and passed in Debug, ASan/UBSan and clang-tidy, and `rhi.instance.no_driver` passed; on Windows (no Vulkan on hosted runners) both reported Skipped.
+Owner: Claude. Branch `claude/vulkan-rhi-5b`, based on `main` at c60264d. In review.
 
-### RHI PR 2 of 5 (stacked on PR 1)
-
-Owner: Claude. Branch `claude/vulkan-rhi-2`, stacked on `claude/vulkan-rhi-1`. Not merged.
-
-- `lykoware::rhi::Device` and `enumerate_devices` (`engine/include/lykoware/rhi/device.hpp`): requires Vulkan 1.3, a graphics-and-compute queue family, `dynamicRendering` and `synchronization2`; ranks discrete > integrated > virtual > other > CPU, or CPU first with `DevicePreference::Software`; optional name filter; every rejection explained. One device and one queue; one Device per process. ADR 0010, Proposed.
-- Internal helpers shared by the RHI sources moved to `engine/src/rhi/common.*`. Destroying an Instance while a Device lives is logged as an error.
-- New test `rhi.device` (Skipped without Vulkan).
-- Local checks (Linux, GCC 13, lavapipe "llvmpipe", Vulkan 1.4.318, validation on): Debug, ASan/UBSan and clang-tidy presets passed all 16 tests with zero validation errors. With drivers hidden, `rhi.device` reported Skipped.
-- CI: [run 41475053247](https://github.com/Avrenthrad/lykowareGE/actions/runs/41475053247) on code commit 1047e92 passed all five jobs. On Linux, `rhi.device` ran on lavapipe and passed in Debug, ASan/UBSan and clang-tidy; Windows hosted runners reported the RHI tests as Skipped.
-
-### RHI PR 3 of 5 (stacked on PR 2)
-
-Owner: Claude. Branch `claude/vulkan-rhi-3`, stacked on `claude/vulkan-rhi-2`. Not merged.
-
-- Vendored, unmodified: Vulkan Memory Allocator 3.4.0 (MIT) under `third_party/vma`. 3.5.0 was one week old, so the previous release is pinned; see its PROVENANCE.
-- `Device` now owns the VMA allocator and a blocking one-shot submit (command pool, buffer, fence; `vkQueueSubmit2`).
-- `lykoware::rhi::RenderTarget` (`engine/include/lykoware/rhi/render_target.hpp`): RGBA8 UNORM offscreen image, dynamic-rendering load-op clear, synchronization2 read-back into the harness `Image`. `RenderTargetCapture` implements `ImageCapture`. ADR 0011, Proposed. First rendered pixels.
-- New test `rhi.render_target`: exact solid-colour compares (expected images built in code, no committed goldens), actual and diff PPMs written under the build directory on mismatch. A deliberate red/blue swap made all four compares fail.
-- Local checks (Linux, GCC 13, lavapipe, validation on): Debug, ASan/UBSan and clang-tidy presets passed all 17 tests with zero validation errors. With drivers hidden, `rhi.render_target` reported Skipped.
-- CI: [run 41476543108](https://github.com/Avrenthrad/lykowareGE/actions/runs/41476543108) on code commit 87a8435 passed all five jobs. On Linux, `rhi.render_target` rendered on lavapipe and passed in Debug, ASan/UBSan and clang-tidy; Windows hosted runners reported the RHI tests as Skipped.
-
-### RHI PR 4 of 5 (stacked on PR 3)
-
-Owner: Claude. Branch `claude/vulkan-rhi-4`, stacked on `claude/vulkan-rhi-3`. Not merged.
-
-- `lykoware::rhi::Swapchain` (`engine/include/lykoware/rhi/swapchain.hpp`): window surface, UNORM format, FIFO or mailbox/immediate, two frames in flight, per-image present semaphores, rebuild on resize/out-of-date/suboptimal, minimised windows skip frames. Uses the same dynamic-rendering clear pass as `RenderTarget`. ADR 0012, Proposed.
-- `VideoDriver::Offscreen`: SDL's headless driver that can host a Vulkan surface (`VK_EXT_headless_surface`, supported by lavapipe), so CI runs the real present path.
-- `lykoware_sandbox --window --vulkan` presents a cycling colour on the desktop; `--offscreen --frames N` is the headless form; exit 3 without a usable Vulkan device.
-- New tests `rhi.swapchain` and `sandbox.vulkan_window`; `window.lifecycle` covers the offscreen driver; `foundation.smoke` covers the new option errors.
-- Local checks (Linux, GCC 13, lavapipe, validation on): Debug, ASan/UBSan and clang-tidy presets passed all 19 tests with zero validation errors.
-- Not verified: a visible desktop window with a real GPU. Owner check: `lykoware_sandbox --window --vulkan`.
-- CI: the first run ([run 41478183872](https://github.com/Avrenthrad/lykowareGE/actions/runs/41478183872)) failed both Windows builds with MSVC C4458 (a parameter named `extent` hid the member `extent`; GCC reports it only with `-Wshadow`). Fixed in f2ca3e9 after reproducing with `-Wshadow`; [run 41478643774](https://github.com/Avrenthrad/lykowareGE/actions/runs/41478643774) on f2ca3e9 then passed all five jobs. On Linux, `rhi.swapchain` and `sandbox.vulkan_window` ran on lavapipe and passed in Debug, ASan/UBSan and clang-tidy; Windows reported the Vulkan tests as Skipped.
-
-### RHI PR 5a (stacked on ADR 0013's PR)
-
-Owner: Claude. Branch `claude/vulkan-rhi-5a`, stacked on `claude/shader-compiler-adr`. Not merged.
-
-- Vendored, trimmed and unmodified: Slang v2026.18.3, SPIRV-Tools v2026.4, and the SPIRV-Headers both pin (`third_party/slang`, `third_party/spirv-tools`, `third_party/spirv-headers`, about 54 MB). The PROVENANCE files list commits, hashes, licences and omissions. No GPL or CC-BY file is vendored, and the single Unlicense file is the one the owner accepted.
-- `cmake/HostTools.cmake` builds `slangc`, `spirv-opt` and `spirv-val` once, in Release, offline, into `.lykoware-tools/` (git-ignored, shared by presets).
-- `cmake/Shaders.cmake` compiles Slang through `slangc -O0` → `spirv-opt` → `spirv-val`.
-- CI restores the tool cache with `actions/cache` v6.1.0 (owner-approved free cache). ADR 0014, Proposed.
-- Local checks (Linux, GCC 13, network deliberately blocked):
-  - the first configure built both tools in 689 s;
-  - the engine and both triangle shaders built;
-  - Debug passed 21/21 tests, including `shaders.spirv_valid*`;
-  - the sanitizer and clang-tidy presets reused the cache ("using cached"), configured in seconds, and passed 21/21;
-  - after the final copy-step change, a rebuild into an empty cache took 750 s, left exactly `slangc`, `spirv-opt`, `spirv-val` and Slang's GLSL module, and passed 21/21.
-- CI: pending. The first run per OS builds the tools before caching them.
+- `rhi::Shader` (SPIR-V words or `.spv` file; header checked; entry point `main`) and `rhi::GraphicsPipeline`:
+  - dynamic rendering, one RGBA8 or BGRA8 colour attachment;
+  - triangle lists, no vertex buffers, no culling, blending or depth;
+  - dynamic viewport and scissor.
+- `RenderTarget::draw(clear, pipeline, vertex_count)` uses the same pass helper as `clear()` and the swapchain, and refuses a pipeline built for another colour format.
+- Devices now require and enable Vulkan 1.1 `shaderDrawParameters` (Slang's `SV_VertexID`).
+- ADR 0015, Proposed.
+- New test `rhi.pipeline`: the Slang triangle compiled at build time is drawn and checked through the image harness (sampled regions, identical repeat draw), plus refusals.
+- Sanitizer builds set `VK_LOADER_DISABLE_DYNAMIC_LIBRARY_UNLOADING=1` for the GPU tests. Without it, LeakSanitizer reported lavapipe's own LLVM-thread memory when the loader unloaded the driver; a deliberate leak in Lykoware code is still caught with it on.
+- Local checks (Linux, GCC 13, lavapipe, validation on): 22/22 in the Debug, ASan/UBSan and clang-tidy presets. Deliberately removing the draw, not enabling `shaderDrawParameters`, and leaking a `Shader` were each caught.
+- CI: [run 41735418191](https://github.com/Avrenthrad/lykowareGE/actions/runs/41735418191) on c4d2113 passed all five jobs. `rhi.pipeline` drew the triangle on lavapipe and passed in Linux Debug, ASan/UBSan and clang-tidy (22/22 each); Windows reported it Skipped, as designed.
 
 ## Next
 
 Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 
-1. Vulkan RHI bring-up, in small stacked PRs. Vendor pinned Vulkan-Headers, volk and Vulkan Memory Allocator with exact licences and versions. Create the instance and device, a swapchain on the SDL window, and a clear screen. Add headless offscreen capture through the same RHI, feeding the image harness. Compile SPIR-V ahead of time; review the shader-compiler licence first. Evaluate Mesa lavapipe for graphics CI before claiming graphics CI.
+1. Finish the Vulkan RHI bring-up. Done on `main`: instance, device, offscreen clear and read-back into the image harness, swapchain on the SDL window, and shaders compiled at build time; lavapipe runs the GPU tests in Linux CI. Left: the first draw (5b, in review), then 5c, where the sandbox window draws the triangle and we decide how the runtime finds shader files.
 2. Phase 1 clocks and fixed-step update loop.
 3. Decide Jolt (ADR 0003) before any physics.
 4. Agree hardware profiles (RTX 4070 desktop, MSI Claw), multiplayer intent, world scope and budgets. Owner's current leaning on multiplayer: co-op later or MMO, undecided. This is not a commitment.
 
 ## Known issues and limitations
 
-- No renderer, ECS, scene loader, physics, audio, animation, world streaming or inference. The RHI so far (in review) creates a Vulkan instance, a device with one queue, an offscreen render target it can clear and read back, and a swapchain that presents clears to a window; no pipelines or shaders, so nothing but clears is drawn.
+- No renderer, ECS, scene loader, physics, audio, animation, world streaming or inference. The RHI on `main` creates a Vulkan instance, a device with one queue, an offscreen render target it can clear and read back, and a swapchain that presents clears to a window, and the build compiles Slang shaders to validated SPIR-V. Graphics pipelines and the first draw (an offscreen test triangle) are in review in 5b. Nothing is drawn to the window yet beyond clears.
 - GPU tests skip (exit 77, CTest "Skipped") where no Vulkan loader or driver is installed. Hosted Windows runners may skip them; a skip is not a pass.
 - `lyko run` launches the console sandbox. `lyko screenshot` and `lyko run --scene` print `unsupported: no renderer` and exit 3. `lyko trace --frames N` is a CPU trace of the sandbox loop, not a GPU capture.
-- The image harness compares a software test pattern with committed PPM fixtures and, in review, Vulkan clears read back from a render target. Neither is a scene screenshot or the image/performance gate; `lyko screenshot` still exits 3.
+- The image harness compares a software test pattern with committed PPM fixtures, and Vulkan clears read back from a render target. Neither is a scene screenshot or the image/performance gate; `lyko screenshot` still exits 3.
 - Provisional CPU budgets apply only to the hosted windows-2022 and ubuntu-24.04 runners. They are not an RTX 4070 or MSI Claw gate.
 - Window: a real Win32/X11/Wayland desktop window, focus changes and a real Vulkan surface are untested in CI. A Linux desktop window needs X11 or Wayland headers at configure time. A newly adopted gamepad starts with released buttons and centred axes until it reports a change.
-- Vendored runtime sources: SDL 3.4.18 (HIDAPI inside it under the BSD-style licence, not GPL); in review, Vulkan-Headers C headers (MIT option), volk (MIT) and Vulkan Memory Allocator 3.4.0 (MIT). See [third_party/README.md](../third_party/README.md).
+- Vendored runtime sources: SDL 3.4.18 (HIDAPI inside it under the BSD-style licence, not GPL), Vulkan-Headers C headers (MIT option), volk (MIT) and Vulkan Memory Allocator 3.4.0 (MIT). Vendored build-time tools, not shipped: Slang (Apache-2.0 WITH LLVM-exception, one owner-accepted Unlicense file), SPIRV-Tools and SPIRV-Headers. See [third_party/README.md](../third_party/README.md).
+- The first configure on a machine builds the shader tools, which takes about 15 extra minutes once per tool version. CI keeps them in the free Actions cache.
 - Sanitizers are Linux-only. ThreadSanitizer is deferred until there are concurrent engine systems.
 - The CLI is a developer process wrapper, not the future command bus. See [CLI.md](CLI.md).
 - Pax review, patent review (including US 10,926,179 for Living Memory) and legal clearance remain required before anything is public. None has been done.
@@ -121,9 +91,9 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 
 ## Handoff
 
-- State: `main` at b907aa7 contains PRs #2 and #4–#9. CI is green on all five jobs ([run 41460782212](https://github.com/Avrenthrad/lykowareGE/actions/runs/41460782212)).
-- Open decisions for the owner: ADR 0003 (Jolt), ADR 0008 (SDL3), hardware profiles, multiplayer, world scope and budgets.
-- In review: RHI PRs 1–4 (`claude/vulkan-rhi-1` to `-4`). Owner chose Slang (ADR 0013, 2026-11-03). The build spike passed on Linux: offline minimal build (732 s on 4 cores), SPIR-V via `slangc -O0` plus our own `spirv-opt` and `spirv-val`, a triangle drawn on lavapipe with zero validation errors once `shaderDrawParameters` is enabled, and a clean licence inventory. Next concrete action: vendor Slang and SPIRV-Tools, compile shaders at build time, and add a triangle pipeline test. That waits on the owner's answer about caching the compiler in CI.
+- State: `main` at c60264d contains PRs #2, #4–#16. Every PR in #10–#16 passed all five jobs as a pull request; the `main` run for the stack ([run 41735089452](https://github.com/Avrenthrad/lykowareGE/actions/runs/41735089452)) passed all five jobs.
+- Open decisions for the owner: ADR 0003 (Jolt); accepting or rejecting ADRs 0008–0012, 0014 and 0015 (merging did not accept them); hardware profiles, multiplayer, world scope and budgets.
+- In review: RHI 5b (`claude/vulkan-rhi-5b`), graphics pipelines and the first triangle drawn offscreen and checked by the image harness. Next concrete action after it merges: RHI 5c, the sandbox window draws the triangle; decide how the runtime finds shader files.
 - Owner check wanted: run `lykoware_sandbox --window --vulkan` on the RTX 4070 desktop and the MSI Claw; a window cycling through colours is expected.
 - Checklist: no box ticked by this update. Phase 1 and the image/performance gate stay open.
 

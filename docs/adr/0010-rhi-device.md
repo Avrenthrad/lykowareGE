@@ -18,7 +18,7 @@ After an instance exists, the RHI must pick one physical device and create a log
 
 Proposed, not accepted by the owner:
 
-- A device is suitable when it supports Vulkan 1.3, has one queue family with graphics and compute, supports the 1.3 features `dynamicRendering` and `synchronization2`, and offers every requested device extension. Those two features are enabled on every device: the renderer will use dynamic rendering instead of render-pass objects, and synchronization2 barriers.
+- A device is suitable when it supports Vulkan 1.3, has one queue family with graphics and compute, supports the 1.3 features `dynamicRendering` and `synchronization2`, and offers every requested device extension. ([ADR 0015](0015-graphics-pipeline.md) adds Vulkan 1.1 `shaderDrawParameters`, which Slang's `SV_VertexID` needs.) Those two features are enabled on every device: the renderer will use dynamic rendering instead of render-pass objects, and synchronization2 barriers.
 - Among suitable devices, `DevicePreference::HighPerformance` (default) ranks discrete, integrated, virtual, other, CPU. `DevicePreference::Software` puts CPU devices first, for deterministic tests. Ties keep the driver's order. `DeviceConfig::name_contains` restricts the choice by name.
 - `enumerate_devices` reports every device with its suitability and the first failed requirement. A failed `Device::create` returns `RhiFailure::NoSuitableDevice` with that list in the message.
 - One logical device with one graphics-and-compute queue. Dedicated transfer or async-compute queues wait for a measured need.

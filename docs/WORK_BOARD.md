@@ -5,7 +5,7 @@
 Canonical implementation status: [STATUS.md](STATUS.md).
 Canonical plan: [ROADMAP.md](ROADMAP.md).
 
-`main` at b907aa7 contains PRs #2 and #4–#9, all green on the five CI jobs. Details and evidence: [STATUS.md](STATUS.md). Earlier per-task entries on this board were removed once merged; they remain in the pull requests and git history.
+`main` at c60264d contains PRs #2 and #4–#16. Details and CI evidence: [STATUS.md](STATUS.md). Earlier per-task entries on this board were removed once merged; they remain in the pull requests and git history.
 Owner-supplied vision is captured in [ENGINE_VISION.md](ENGINE_VISION.md).
 
 Owner rules for every task: small stacked PRs; commit small and often; keep all five CI jobs green; record each decision as an ADR; keep STATUS handoff-ready after every task; Joshua merges; no regenerable generated files in commits; artifact upload stays opt-in and no storage or service is bought; no roadmap box ticked unless truly done.
@@ -14,22 +14,23 @@ Check latest main and open PRs before starting. Documents do not automatically s
 
 ## Active task
 
-Vulkan RHI bring-up. Owner: Claude. Status: active; PR 1 in review on `claude/vulkan-rhi-1` (stacked on PR #10), PR 2 in review on `claude/vulkan-rhi-2` (stacked on PR 1), PR 3 in review on `claude/vulkan-rhi-3` (stacked on PR 2), PR 4 in review on `claude/vulkan-rhi-4` (stacked on PR 3). Base: `main` at b907aa7. Delivered as a stack of small PRs; each PR states its own base.
+Vulkan RHI bring-up. Owner: Claude. Status: active. PRs 1–4 and 5a are merged (#11–#14, #16; ADR 0013 in #15). 5b is in review on `claude/vulkan-rhi-5b`, based on `main` at c60264d. Delivered as small PRs; each PR states its own base.
 
 - Objective: first pixels through a Lykoware-owned Vulkan 1.3 RHI (ADR 0002), on the SDL window and headless, with headless output checked by the image harness.
 - Planned PRs, in order:
-  1. (In review.) Vendor pinned Vulkan-Headers and volk under `third_party/`, with provenance, exact versions and licences. First caller: `rhi::Instance`, loading Vulkan at run time through volk and failing with a clear error when no loader is present. ADR 0009.
-  2. (In review.) Physical device selection, logical device and one graphics-and-compute queue, tested on Mesa lavapipe (installed in Linux CI by PR 1). ADR 0010.
-  3. (In review.) Vendor Vulkan Memory Allocator 3.4.0 with its first caller: an offscreen render target, a dynamic-rendering clear, read back through `ImageCapture` and compared exactly by the image harness (headless path). ADR 0011.
-  4. (In review.) Swapchain on the SDL window presenting the same clear (interactive path through the same RHI), two frames in flight, resize rebuilds; headless offscreen Vulkan window so CI runs the present path. ADR 0012.
-  5. Shader compiler: owner chose **Slang** (ADR 0013, 2026-11-03); spike passed on Linux; owner approved the CI Actions cache.
-     - 5a (in review, branch `claude/vulkan-rhi-5a`): vendor Slang, SPIRV-Tools and SPIRV-Headers; host tools built once into a cache; build-time `slangc -O0` → `spirv-opt` → `spirv-val`; test shader compiled every build. ADR 0014.
-     - 5b: graphics pipeline API, device enables `shaderDrawParameters`, triangle drawn and checked by the image harness.
+  1. (Merged, #11.) Vendor pinned Vulkan-Headers and volk under `third_party/`, with provenance, exact versions and licences. First caller: `rhi::Instance`, loading Vulkan at run time through volk and failing with a clear error when no loader is present. ADR 0009.
+  2. (Merged, #12.) Physical device selection, logical device and one graphics-and-compute queue, tested on Mesa lavapipe (installed in Linux CI by PR 1). ADR 0010.
+  3. (Merged, #13.) Vendor Vulkan Memory Allocator 3.4.0 with its first caller: an offscreen render target, a dynamic-rendering clear, read back through `ImageCapture` and compared exactly by the image harness (headless path). ADR 0011.
+  4. (Merged, #14.) Swapchain on the SDL window presenting the same clear (interactive path through the same RHI), two frames in flight, resize rebuilds; headless offscreen Vulkan window so CI runs the present path. ADR 0012.
+  5. Shader compiler: owner chose **Slang** (ADR 0013, merged in #15); spike passed on Linux; owner approved the CI Actions cache.
+     - 5a (merged, #16): vendor Slang, SPIRV-Tools and SPIRV-Headers; host tools built once into a cache; build-time `slangc -O0` → `spirv-opt` → `spirv-val`; test shader compiled every build. ADR 0014.
+     - 5b (in review, branch `claude/vulkan-rhi-5b`): `rhi::Shader`, `rhi::GraphicsPipeline`, `RenderTarget::draw`; device enables `shaderDrawParameters`; triangle drawn and checked by the image harness. ADR 0015.
+     - 5c (next): the sandbox window draws the triangle; decide how the runtime finds shader files.
 - Scope and affected paths: `third_party/`, `engine/include/lykoware/rhi/`, `engine/src/rhi/`, tests, CMake, CI workflow, docs and ADRs.
 - Shared interfaces/formats affected: new public RHI API; each PR documents ownership, lifetime, threading and failure on its declarations.
 - Related tasks/PRs and dependencies: ADR 0002 (accepted), ADR 0007 image harness, ADR 0008 window surface hook. Independent of ADR 0003.
 - Acceptance checks: all five CI jobs green on every PR; no Vulkan link-time dependency on machines without a driver; headless golden compare passes wherever a Vulkan driver is available, and is reported as skipped (not passed) where it is not.
-- Assumptions and decisions needed: lavapipe on GitHub-hosted Ubuntu runners uses distribution packages, which costs nothing; confirm before relying on it. Windows-hosted runners have no GPU, so Windows graphics tests may be compile-only until there is a driver. Shader-compiler choice needs a licence review before PR 5.
+- Assumptions and decisions needed: lavapipe on GitHub-hosted Ubuntu runners comes from free distribution packages and has run every GPU test since PR 1. Windows-hosted runners have no GPU, so Windows graphics tests report Skipped until there is a driver. The shader compiler was decided in ADR 0013 (Slang). The owner has not accepted ADRs 0009–0012, 0014 or 0015; merging them did not accept them.
 
 ## Task template
 

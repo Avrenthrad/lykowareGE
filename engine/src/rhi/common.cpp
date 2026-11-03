@@ -71,6 +71,12 @@ void image_barrier(VkCommandBuffer commands, VkImage image, VkImageLayout from, 
 
 void record_clear_pass(VkCommandBuffer commands, VkImageView view, VkExtent2D extent, const float (&rgba)[4])
 {
+    record_draw_pass(commands, view, extent, rgba, VK_NULL_HANDLE, 0);
+}
+
+void record_draw_pass(VkCommandBuffer commands, VkImageView view, VkExtent2D extent, const float (&rgba)[4],
+                      VkPipeline pipeline, std::uint32_t vertex_count)
+{
     VkRenderingAttachmentInfo attachment{};
     attachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
     attachment.imageView = view;
@@ -87,6 +93,18 @@ void record_clear_pass(VkCommandBuffer commands, VkImageView view, VkExtent2D ex
     rendering.colorAttachmentCount = 1;
     rendering.pColorAttachments = &attachment;
     vkCmdBeginRendering(commands, &rendering);
+    if (pipeline != VK_NULL_HANDLE) {
+        vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+        VkViewport viewport{};
+        viewport.width = static_cast<float>(extent.width);
+        viewport.height = static_cast<float>(extent.height);
+        viewport.maxDepth = 1.0F;
+        vkCmdSetViewport(commands, 0, 1, &viewport);
+        VkRect2D scissor{};
+        scissor.extent = extent;
+        vkCmdSetScissor(commands, 0, 1, &scissor);
+        vkCmdDraw(commands, vertex_count, 1, 0, 0);
+    }
     vkCmdEndRendering(commands);
 }
 

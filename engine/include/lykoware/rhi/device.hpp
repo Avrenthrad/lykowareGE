@@ -55,7 +55,8 @@ struct DeviceConfig {
 // Lists every physical device with its suitability for `config`.
 // Requirements for "suitable": Vulkan 1.3 or later, a queue family with
 // graphics and compute, the 1.3 dynamicRendering and synchronization2
-// features, every extension in config.extensions, and config.name_contains.
+// features, the 1.1 shaderDrawParameters feature (Slang's SV_VertexID),
+// every extension in config.extensions, and config.name_contains.
 //
 // Ownership: returns owned copies; nothing refers back to the instance.
 // Threading: same thread rules as Instance. Failure: returns an empty list
