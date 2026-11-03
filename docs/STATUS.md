@@ -80,6 +80,21 @@ Owner: Claude. Branch `claude/vulkan-rhi-4`, stacked on `claude/vulkan-rhi-3`. N
 - Not verified: a visible desktop window with a real GPU. Owner check: `lykoware_sandbox --window --vulkan`.
 - CI: the first run ([run 41478183872](https://github.com/Avrenthrad/lykowareGE/actions/runs/41478183872)) failed both Windows builds with MSVC C4458 (a parameter named `extent` hid the member `extent`; GCC reports it only with `-Wshadow`). Fixed in f2ca3e9 after reproducing with `-Wshadow`; [run 41478643774](https://github.com/Avrenthrad/lykowareGE/actions/runs/41478643774) on f2ca3e9 then passed all five jobs. On Linux, `rhi.swapchain` and `sandbox.vulkan_window` ran on lavapipe and passed in Debug, ASan/UBSan and clang-tidy; Windows reported the Vulkan tests as Skipped.
 
+### RHI PR 5a (stacked on ADR 0013's PR)
+
+Owner: Claude. Branch `claude/vulkan-rhi-5a`, stacked on `claude/shader-compiler-adr`. Not merged.
+
+- Vendored, trimmed and unmodified: Slang v2026.18.3, SPIRV-Tools v2026.4, and the SPIRV-Headers both pin (`third_party/slang`, `third_party/spirv-tools`, `third_party/spirv-headers`, about 54 MB). The PROVENANCE files list commits, hashes, licences and omissions. No GPL or CC-BY file is vendored, and the single Unlicense file is the one the owner accepted.
+- `cmake/HostTools.cmake` builds `slangc`, `spirv-opt` and `spirv-val` once, in Release, offline, into `.lykoware-tools/` (git-ignored, shared by presets).
+- `cmake/Shaders.cmake` compiles Slang through `slangc -O0` → `spirv-opt` → `spirv-val`.
+- CI restores the tool cache with `actions/cache` v6.1.0 (owner-approved free cache). ADR 0014, Proposed.
+- Local checks (Linux, GCC 13, network deliberately blocked):
+  - the first configure built both tools in 689 s;
+  - the engine and both triangle shaders built;
+  - Debug passed 21/21 tests, including `shaders.spirv_valid*`;
+  - the sanitizer and clang-tidy presets reused the cache ("using cached"), configured in seconds, and passed 21/21.
+- CI: pending. The first run per OS builds the tools before caching them.
+
 ## Next
 
 Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.

@@ -35,7 +35,7 @@ endfunction()
 
 # Configure, build and copy one host-tool project into ${install_dir}/bin.
 function(_lykoware_build_tool name source_dir work_dir install_dir)
-    cmake_parse_arguments(PARSE_ARGV 4 TOOL "" "" "TARGETS;OPTIONS;OUTPUT_DIRS")
+    cmake_parse_arguments(PARSE_ARGV 4 TOOL "" "" "TARGETS;OPTIONS;OUTPUT_DIRS;OUTPUT_FILES")
     set(generator_args -G "${CMAKE_GENERATOR}")
     if(CMAKE_GENERATOR_PLATFORM)
         list(APPEND generator_args -A "${CMAKE_GENERATOR_PLATFORM}")
@@ -63,14 +63,14 @@ function(_lykoware_build_tool name source_dir work_dir install_dir)
     _lykoware_run_step("building ${name} (${TOOL_TARGETS})"
         "${CMAKE_COMMAND}" --build "${work_dir}" --config Release --parallel ${jobs} --target ${TOOL_TARGETS})
     file(MAKE_DIRECTORY "${install_dir}/bin")
+    # Copy only the named executables and shared libraries (glob patterns),
+    # never build-system bookkeeping, debug info or static libraries.
     foreach(relative IN LISTS TOOL_OUTPUT_DIRS)
-        file(GLOB built LIST_DIRECTORIES false "${work_dir}/${relative}/*")
-        foreach(file IN LISTS built)
-            # Executables and shared libraries only; skip split debug info and
-            # import/static libraries.
-            if(NOT file MATCHES "\\.(dwarf|pdb|lib|a|exp|ilk)$")
+        foreach(pattern IN LISTS TOOL_OUTPUT_FILES)
+            file(GLOB built LIST_DIRECTORIES false "${work_dir}/${relative}/${pattern}")
+            foreach(file IN LISTS built)
                 file(COPY "${file}" DESTINATION "${install_dir}/bin")
-            endif()
+            endforeach()
         endforeach()
     endforeach()
 endfunction()
@@ -103,7 +103,8 @@ function(lykoware_add_host_tools)
                 -DSPIRV_TOOLS_BUILD_STATIC=ON
                 -DSPIRV_BUILD_FUZZER=OFF
                 "-DPython3_EXECUTABLE=${Python3_EXECUTABLE}"
-            OUTPUT_DIRS tools tools/Release)
+            OUTPUT_DIRS tools tools/Release
+            OUTPUT_FILES "spirv-opt${exe}" "spirv-val${exe}")
 
         _lykoware_build_tool(Slang "${CMAKE_SOURCE_DIR}/third_party/slang" "${work}/slang" "${staging}"
             TARGETS slangc
@@ -139,7 +140,8 @@ function(lykoware_add_host_tools)
                 # folder (<path>/spirv-headers, <path>/vulkan).
                 "-DSLANG_OVERRIDE_SPIRV_HEADERS_PATH=${CMAKE_SOURCE_DIR}/third_party"
                 "-DSLANG_OVERRIDE_VULKAN_HEADERS_PATH=${CMAKE_SOURCE_DIR}/cmake/host-tools"
-            OUTPUT_DIRS Release/bin Release/lib)
+            OUTPUT_DIRS Release/bin Release/lib
+            OUTPUT_FILES "slangc${exe}" "*${CMAKE_SHARED_LIBRARY_SUFFIX}")
 
         foreach(tool IN ITEMS slangc spirv-opt spirv-val)
             if(NOT EXISTS "${staging}/bin/${tool}${exe}")

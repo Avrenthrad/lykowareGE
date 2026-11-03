@@ -59,4 +59,9 @@ Proposed, not accepted by the owner:
 
 ## Verification
 
-Local (Linux, GCC 13, network deliberately blocked): results are recorded in STATUS and in this PR. CI results, including the first, uncached run on Windows, are recorded when the PR runs.
+- Local (Linux, GCC 13, network deliberately blocked):
+  - the first configure built the host tools from the vendored trees in 689 s on 4 cores, and both triangle shaders compiled, optimised and validated;
+  - 21/21 tests passed in Debug;
+  - the sanitizer and clang-tidy presets reused the cache and passed 21/21.
+- Getting there took three configure fixes, all now in the recipe: SPIRV-Tools needs `test/CMakeLists.txt` and `CHANGES`; Slang's SPIRV-Headers override names the parent folder; Slang always adds `examples/CMakeLists.txt`.
+- CI results, including the first, uncached run on Windows, are recorded when the PR runs.
