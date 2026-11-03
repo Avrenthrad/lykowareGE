@@ -48,12 +48,23 @@ ctest --preset linux-debug
 
 Windows remains the primary target; this check helps keep the foundation portable.
 
+## Vulkan at run time
+
+Building never needs a Vulkan SDK or driver: the Vulkan headers are vendored and the loader is opened at run time. To run the RHI tests instead of skipping them, a Vulkan loader must be installed. On Windows it comes with any current GPU driver (`vulkan-1.dll`). On Ubuntu:
+
+```sh
+sudo apt-get install libvulkan1 mesa-vulkan-drivers vulkan-validationlayers
+```
+
+`mesa-vulkan-drivers` includes lavapipe, a CPU Vulkan driver for machines without a GPU. Without a loader or a driver, the RHI tests are reported by CTest as Skipped, not Passed.
+
 ## Structure
 
 - engine/: reusable static C++20 library, linked as lykoware::engine.
 - samples/sandbox/: separate executable containing sample-game code.
 - tools/cli/: native lyko executable, command dispatcher, and private platform process runner.
-- tests/: sandbox smoke tests and CLI integration tests with genuine CMake/CTest runs.
+- tests/: sandbox smoke tests, engine unit tests, the RHI instance test, and CLI integration tests with genuine CMake/CTest runs.
+- third_party/: vendored, pinned upstream sources (SDL3, Vulkan-Headers, volk) with provenance records.
 - assets/brand/: Lykoware logo vector set (SVG logo, icon, wordmark, mono variants), .ico, 512 px icon, preview sheet, BRAND.md guidelines and PROVENANCE.md.
 - .github/workflows/build.yml: clean Windows Debug/Release builds, tests, staged execution, and downloadable artifacts; also Linux validation.
 

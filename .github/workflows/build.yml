@@ -91,11 +91,16 @@ jobs:
       UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: Install clang-tidy major version 18
-        if: matrix.preset == 'linux-analysis'
+      # The Vulkan loader, Khronos validation layer and Mesa drivers (including
+      # the lavapipe CPU driver; the runner has no GPU) are free Ubuntu
+      # packages, so the RHI tests run here instead of skipping.
+      - name: Install Vulkan loader, lavapipe, validation layer and analysis tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang-tidy-18
+          sudo apt-get install -y --no-install-recommends libvulkan1 mesa-vulkan-drivers vulkan-validationlayers
+          if [ "${{ matrix.preset }}" = "linux-analysis" ]; then
+            sudo apt-get install -y clang-tidy-18
+          fi
       - name: Configure
         run: cmake --preset ${{ matrix.preset }}
       - name: Build and analyze
