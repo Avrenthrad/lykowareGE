@@ -96,6 +96,22 @@ Owner: Claude. Branch `claude/vulkan-rhi-5a`, stacked on `claude/shader-compiler
   - after the final copy-step change, a rebuild into an empty cache took 750 s, left exactly `slangc`, `spirv-opt`, `spirv-val` and Slang's GLSL module, and passed 21/21.
 - CI: pending. The first run per OS builds the tools before caching them.
 
+### RHI PR 5b (stacked on 5a): first draw
+
+Owner: Claude. Branch `claude/vulkan-rhi-5b`, stacked on `claude/vulkan-rhi-5a`. Not merged.
+
+- `rhi::Shader` (SPIR-V words or `.spv` file; header checked; entry point `main`) and `rhi::GraphicsPipeline`:
+  - dynamic rendering, one RGBA8 or BGRA8 colour attachment;
+  - triangle lists, no vertex buffers, no culling, blending or depth;
+  - dynamic viewport and scissor.
+- `RenderTarget::draw(clear, pipeline, vertex_count)` uses the same pass helper as `clear()` and the swapchain, and refuses a pipeline built for another colour format.
+- Devices now require and enable Vulkan 1.1 `shaderDrawParameters` (Slang's `SV_VertexID`).
+- ADR 0015, Proposed.
+- New test `rhi.pipeline`: the Slang triangle compiled at build time is drawn and checked through the image harness (sampled regions, identical repeat draw), plus refusals.
+- Sanitizer builds set `VK_LOADER_DISABLE_DYNAMIC_LIBRARY_UNLOADING=1` for the GPU tests. Without it, LeakSanitizer reported lavapipe's own LLVM-thread memory when the loader unloaded the driver; a deliberate leak in Lykoware code is still caught with it on.
+- Local checks (Linux, GCC 13, lavapipe, validation on): 22/22 in the Debug, ASan/UBSan and clang-tidy presets. Deliberately removing the draw, not enabling `shaderDrawParameters`, and leaking a `Shader` were each caught.
+- CI: pending.
+
 ## Next
 
 Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
@@ -107,7 +123,7 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 
 ## Known issues and limitations
 
-- No renderer, ECS, scene loader, physics, audio, animation, world streaming or inference. The RHI so far (in review) creates a Vulkan instance, a device with one queue, an offscreen render target it can clear and read back, and a swapchain that presents clears to a window; no pipelines or shaders, so nothing but clears is drawn.
+- No renderer, ECS, scene loader, physics, audio, animation, world streaming or inference. The RHI so far (in review) creates a Vulkan instance, a device with one queue, an offscreen render target it can clear, draw into and read back, a swapchain that presents clears to a window, and graphics pipelines from Slang shaders compiled at build time. The first draw is a test triangle, offscreen only; nothing is drawn to the window yet beyond clears.
 - GPU tests skip (exit 77, CTest "Skipped") where no Vulkan loader or driver is installed. Hosted Windows runners may skip them; a skip is not a pass.
 - `lyko run` launches the console sandbox. `lyko screenshot` and `lyko run --scene` print `unsupported: no renderer` and exit 3. `lyko trace --frames N` is a CPU trace of the sandbox loop, not a GPU capture.
 - The image harness compares a software test pattern with committed PPM fixtures and, in review, Vulkan clears read back from a render target. Neither is a scene screenshot or the image/performance gate; `lyko screenshot` still exits 3.

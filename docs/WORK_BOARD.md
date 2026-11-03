@@ -24,7 +24,8 @@ Vulkan RHI bring-up. Owner: Claude. Status: active; PR 1 in review on `claude/vu
   4. (In review.) Swapchain on the SDL window presenting the same clear (interactive path through the same RHI), two frames in flight, resize rebuilds; headless offscreen Vulkan window so CI runs the present path. ADR 0012.
   5. Shader compiler: owner chose **Slang** (ADR 0013, 2026-11-03); spike passed on Linux; owner approved the CI Actions cache.
      - 5a (in review, branch `claude/vulkan-rhi-5a`): vendor Slang, SPIRV-Tools and SPIRV-Headers; host tools built once into a cache; build-time `slangc -O0` → `spirv-opt` → `spirv-val`; test shader compiled every build. ADR 0014.
-     - 5b: graphics pipeline API, device enables `shaderDrawParameters`, triangle drawn and checked by the image harness.
+     - 5b (in review, branch `claude/vulkan-rhi-5b`): `rhi::Shader`, `rhi::GraphicsPipeline`, `RenderTarget::draw`; device enables `shaderDrawParameters`; triangle drawn and checked by the image harness. ADR 0015.
+     - 5c (next): the sandbox window draws the triangle; decide how the runtime finds shader files.
 - Scope and affected paths: `third_party/`, `engine/include/lykoware/rhi/`, `engine/src/rhi/`, tests, CMake, CI workflow, docs and ADRs.
 - Shared interfaces/formats affected: new public RHI API; each PR documents ownership, lifetime, threading and failure on its declarations.
 - Related tasks/PRs and dependencies: ADR 0002 (accepted), ADR 0007 image harness, ADR 0008 window surface hook. Independent of ADR 0003.
