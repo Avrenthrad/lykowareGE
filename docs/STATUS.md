@@ -16,6 +16,7 @@ Records what is implemented and verified on `main`. Plans live in [ROADMAP.md](R
 | [0010](adr/0010-rhi-device.md) | Proposed (in review) | Device requirements (Vulkan 1.3, dynamic rendering, synchronization2), selection ranking, one graphics-and-compute queue. |
 | [0011](adr/0011-offscreen-render-target.md) | Proposed (in review) | VMA 3.4.0, offscreen RGBA8 render target, dynamic-rendering clear, read-back into the image harness. |
 | [0012](adr/0012-swapchain.md) | Proposed (in review) | Swapchain with two frames in flight and resize rebuilds; `VideoDriver::Offscreen` headless Vulkan window; sandbox `--vulkan`. |
+| [0013](adr/0013-shader-compiler.md) | Proposed, **owner decision required** | Shader compiler licence review. Recommends Slang built without `slang-glslang` (avoids glslang's GPL-with-Bison-exception parser and NVIDIA AML preprocessor), plus SPIRV-Tools for validation, pending a build spike. |
 
 ## Verified on main
 
@@ -106,7 +107,7 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 
 - State: `main` at b907aa7 contains PRs #2 and #4–#9. CI is green on all five jobs ([run 41460782212](https://github.com/Avrenthrad/lykowareGE/actions/runs/41460782212)).
 - Open decisions for the owner: ADR 0003 (Jolt), ADR 0008 (SDL3), hardware profiles, multiplayer, world scope and budgets.
-- In review: RHI PRs 1–4 (`claude/vulkan-rhi-1` to `-4`). Next concrete action: RHI PR 5, the shader-compiler licence review (ADR) and ahead-of-time SPIR-V compilation, then a first pipeline drawing a triangle compared by the image harness.
+- In review: RHI PRs 1–4 (`claude/vulkan-rhi-1` to `-4`). The shader-compiler licence review is written (ADR 0013, in review) and needs the owner's choice. Next concrete action after that choice: the build spike ADR 0013 lists, then ahead-of-time SPIR-V and a first pipeline drawing a triangle compared by the image harness.
 - Owner check wanted: run `lykoware_sandbox --window --vulkan` on the RTX 4070 desktop and the MSI Claw; a window cycling through colours is expected.
 - Checklist: no box ticked by this update. Phase 1 and the image/performance gate stay open.
 
