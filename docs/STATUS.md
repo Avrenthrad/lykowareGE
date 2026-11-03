@@ -14,6 +14,7 @@ Records what is implemented and verified on `main`. Plans live in [ROADMAP.md](R
 | [0008](adr/0008-window-input.md) | Proposed | SDL 3.4.18 behind the window and input API. Merged and working; owner has not accepted it. |
 | [0009](adr/0009-vulkan-loading.md) | Proposed (in review) | Vulkan-Headers and volk, Vulkan loaded at run time, RHI instance, GPU tests skip rather than pass without a loader. |
 | [0010](adr/0010-rhi-device.md) | Proposed (in review) | Device requirements (Vulkan 1.3, dynamic rendering, synchronization2), selection ranking, one graphics-and-compute queue. |
+| [0011](adr/0011-offscreen-render-target.md) | Proposed (in review) | VMA 3.4.0, offscreen RGBA8 render target, dynamic-rendering clear, read-back into the image harness. |
 
 ## Verified on main
 
@@ -54,6 +55,17 @@ Owner: Claude. Branch `claude/vulkan-rhi-2`, stacked on `claude/vulkan-rhi-1`. N
 - Local checks (Linux, GCC 13, lavapipe "llvmpipe", Vulkan 1.4.318, validation on): Debug, ASan/UBSan and clang-tidy presets passed all 16 tests with zero validation errors. With drivers hidden, `rhi.device` reported Skipped.
 - CI: [run 41475053247](https://github.com/Avrenthrad/lykowareGE/actions/runs/41475053247) on code commit 1047e92 passed all five jobs. On Linux, `rhi.device` ran on lavapipe and passed in Debug, ASan/UBSan and clang-tidy; Windows hosted runners reported the RHI tests as Skipped.
 
+### RHI PR 3 of 5 (stacked on PR 2)
+
+Owner: Claude. Branch `claude/vulkan-rhi-3`, stacked on `claude/vulkan-rhi-2`. Not merged.
+
+- Vendored, unmodified: Vulkan Memory Allocator 3.4.0 (MIT) under `third_party/vma`. 3.5.0 was one week old, so the previous release is pinned; see its PROVENANCE.
+- `Device` now owns the VMA allocator and a blocking one-shot submit (command pool, buffer, fence; `vkQueueSubmit2`).
+- `lykoware::rhi::RenderTarget` (`engine/include/lykoware/rhi/render_target.hpp`): RGBA8 UNORM offscreen image, dynamic-rendering load-op clear, synchronization2 read-back into the harness `Image`. `RenderTargetCapture` implements `ImageCapture`. ADR 0011, Proposed. First rendered pixels.
+- New test `rhi.render_target`: exact solid-colour compares (expected images built in code, no committed goldens), actual and diff PPMs written under the build directory on mismatch. A deliberate red/blue swap made all four compares fail.
+- Local checks (Linux, GCC 13, lavapipe, validation on): Debug, ASan/UBSan and clang-tidy presets passed all 17 tests with zero validation errors. With drivers hidden, `rhi.render_target` reported Skipped.
+- CI: [run 41476543108](https://github.com/Avrenthrad/lykowareGE/actions/runs/41476543108) on code commit 87a8435 passed all five jobs. On Linux, `rhi.render_target` rendered on lavapipe and passed in Debug, ASan/UBSan and clang-tidy; Windows hosted runners reported the RHI tests as Skipped.
+
 ## Next
 
 Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
@@ -65,13 +77,13 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 
 ## Known issues and limitations
 
-- No renderer, ECS, scene loader, physics, audio, animation, world streaming or inference. The RHI so far creates a Vulkan instance and a device with one queue (in review): no command buffers, swapchain, offscreen target or shaders.
+- No renderer, ECS, scene loader, physics, audio, animation, world streaming or inference. The RHI so far (in review) creates a Vulkan instance, a device with one queue, and an offscreen render target that it can clear and read back; no swapchain, pipelines or shaders, so nothing but clears is drawn.
 - GPU tests skip (exit 77, CTest "Skipped") where no Vulkan loader or driver is installed. Hosted Windows runners may skip them; a skip is not a pass.
 - `lyko run` launches the console sandbox. `lyko screenshot` and `lyko run --scene` print `unsupported: no renderer` and exit 3. `lyko trace --frames N` is a CPU trace of the sandbox loop, not a GPU capture.
-- The image harness compares a software test pattern with committed PPM fixtures. It is not a screenshot and not the image/performance gate.
+- The image harness compares a software test pattern with committed PPM fixtures and, in review, Vulkan clears read back from a render target. Neither is a scene screenshot or the image/performance gate; `lyko screenshot` still exits 3.
 - Provisional CPU budgets apply only to the hosted windows-2022 and ubuntu-24.04 runners. They are not an RTX 4070 or MSI Claw gate.
 - Window: a real Win32/X11/Wayland desktop window, focus changes and a real Vulkan surface are untested in CI. A Linux desktop window needs X11 or Wayland headers at configure time. A newly adopted gamepad starts with released buttons and centred axes until it reports a change.
-- Vendored runtime sources: SDL 3.4.18 (HIDAPI inside it under the BSD-style licence, not GPL); in review, Vulkan-Headers C headers (MIT option) and volk (MIT). See [third_party/README.md](../third_party/README.md).
+- Vendored runtime sources: SDL 3.4.18 (HIDAPI inside it under the BSD-style licence, not GPL); in review, Vulkan-Headers C headers (MIT option), volk (MIT) and Vulkan Memory Allocator 3.4.0 (MIT). See [third_party/README.md](../third_party/README.md).
 - Sanitizers are Linux-only. ThreadSanitizer is deferred until there are concurrent engine systems.
 - The CLI is a developer process wrapper, not the future command bus. See [CLI.md](CLI.md).
 - Pax review, patent review (including US 10,926,179 for Living Memory) and legal clearance remain required before anything is public. None has been done.
@@ -81,7 +93,7 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 
 - State: `main` at b907aa7 contains PRs #2 and #4–#9. CI is green on all five jobs ([run 41460782212](https://github.com/Avrenthrad/lykowareGE/actions/runs/41460782212)).
 - Open decisions for the owner: ADR 0003 (Jolt), ADR 0008 (SDL3), hardware profiles, multiplayer, world scope and budgets.
-- In review: RHI PR 1 (`claude/vulkan-rhi-1`) and PR 2 (`claude/vulkan-rhi-2`). Next concrete action: RHI PR 3, vendor Vulkan Memory Allocator with an offscreen render target, clear, readback into `ImageCapture`, and a golden compare.
+- In review: RHI PRs 1–3 (`claude/vulkan-rhi-1` to `-3`). Next concrete action: RHI PR 4, a swapchain on the SDL window presenting the same dynamic-rendering clear (interactive path), with frames in flight.
 - Checklist: no box ticked by this update. Phase 1 and the image/performance gate stay open.
 
 Read [WORK_BOARD.md](WORK_BOARD.md), [CLI.md](CLI.md), [ROADMAP.md](ROADMAP.md) and the [ADRs](adr/README.md). Check latest `main` and open PRs before starting. Update this file with exact commits, checks, failures and next actions.

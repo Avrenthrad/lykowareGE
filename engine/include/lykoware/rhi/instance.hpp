@@ -48,6 +48,10 @@ enum class RhiFailure {
     // No physical device meets the RHI requirements and the request. The
     // message lists every device and why it was rejected.
     NoSuitableDevice,
+    // The caller passed a value outside the documented range, or called in
+    // the wrong order (for example reading back a target that was never
+    // rendered). Nothing was submitted to the device.
+    InvalidArgument,
     // The driver refused a call. message holds the Vulkan result name.
     DriverError,
 };

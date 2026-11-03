@@ -64,7 +64,7 @@ sudo apt-get install libvulkan1 mesa-vulkan-drivers vulkan-validationlayers
 - samples/sandbox/: separate executable containing sample-game code.
 - tools/cli/: native lyko executable, command dispatcher, and private platform process runner.
 - tests/: sandbox smoke tests, engine unit tests, the RHI instance test, and CLI integration tests with genuine CMake/CTest runs.
-- third_party/: vendored, pinned upstream sources (SDL3, Vulkan-Headers, volk) with provenance records.
+- third_party/: vendored, pinned upstream sources (SDL3, Vulkan-Headers, volk, Vulkan Memory Allocator) with provenance records.
 - assets/brand/: Lykoware logo vector set (SVG logo, icon, wordmark, mono variants), .ico, 512 px icon, preview sheet, BRAND.md guidelines and PROVENANCE.md.
 - .github/workflows/build.yml: clean Windows Debug/Release builds, tests, staged execution, and downloadable artifacts; also Linux validation.
 

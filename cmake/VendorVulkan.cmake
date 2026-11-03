@@ -23,9 +23,24 @@ function(lykoware_add_vulkan)
         C_STANDARD_REQUIRED ON
         POSITION_INDEPENDENT_CODE ON)
 
+    # Vulkan Memory Allocator: header-only upstream; the one implementation
+    # translation unit is a Lykoware file compiled here without Lykoware's
+    # warning flags. See third_party/vma/PROVENANCE.md.
+    add_library(lykoware_vma STATIC "${CMAKE_SOURCE_DIR}/engine/src/rhi/vma_impl.cpp")
+    target_include_directories(lykoware_vma SYSTEM PUBLIC
+        "${CMAKE_SOURCE_DIR}/third_party/vma/include")
+    target_compile_definitions(lykoware_vma PUBLIC
+        VMA_STATIC_VULKAN_FUNCTIONS=0
+        VMA_DYNAMIC_VULKAN_FUNCTIONS=1)
+    target_link_libraries(lykoware_vma PUBLIC lykoware_volk)
+    target_compile_features(lykoware_vma PRIVATE cxx_std_20)
+    set_target_properties(lykoware_vma PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
     if(LYKOWARE_SANITIZERS)
-        target_compile_options(lykoware_volk PRIVATE
-            -fsanitize=address,undefined -fno-omit-frame-pointer)
-        target_link_options(lykoware_volk PRIVATE -fsanitize=address,undefined)
+        foreach(target lykoware_volk lykoware_vma)
+            target_compile_options(${target} PRIVATE
+                -fsanitize=address,undefined -fno-omit-frame-pointer)
+            target_link_options(${target} PRIVATE -fsanitize=address,undefined)
+        endforeach()
     endif()
 endfunction()

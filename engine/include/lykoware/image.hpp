@@ -70,8 +70,9 @@ private:
 };
 
 // Fills one caller-owned Image. Implementations are harness sources.
-// TestPatternCapture is the only implementation. It is a software pattern,
-// not a rendered frame.
+// TestPatternCapture is a software pattern, not a rendered frame.
+// rhi::RenderTargetCapture (lykoware/rhi/render_target.hpp) reads back a
+// Vulkan offscreen render target.
 //
 // Ownership: the caller owns `destination` before and after capture().
 // The implementation must not retain the Image or its pixel span.
