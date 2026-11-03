@@ -48,6 +48,10 @@ ctest --preset linux-debug
 
 Windows remains the primary target; this check helps keep the foundation portable.
 
+## Shader tools (first configure)
+
+Shaders are written in Slang and compiled to SPIR-V during the build ([ADR 0014](adr/0014-shader-build.md)). The first `cmake --preset ...` on a machine builds the Slang compiler and SPIRV-Tools from `third_party/` into `.lykoware-tools/`. That takes about 15 minutes on a 4-core machine, needs no network, and happens once per tool version; every preset then reuses it. Set `LYKOWARE_TOOL_CACHE` to share the cache between checkouts.
+
 ## Vulkan at run time
 
 Building never needs a Vulkan SDK or driver: the Vulkan headers are vendored and the loader is opened at run time. To run the RHI tests instead of skipping them, a Vulkan loader must be installed. On Windows it comes with any current GPU driver (`vulkan-1.dll`). On Ubuntu:
@@ -72,7 +76,8 @@ It exits 3 if no usable Vulkan device exists. `--window --offscreen --vulkan --f
 - samples/sandbox/: separate executable containing sample-game code.
 - tools/cli/: native lyko executable, command dispatcher, and private platform process runner.
 - tests/: sandbox smoke tests, engine unit tests, the RHI instance test, and CLI integration tests with genuine CMake/CTest runs.
-- third_party/: vendored, pinned upstream sources (SDL3, Vulkan-Headers, volk, Vulkan Memory Allocator) with provenance records.
+- third_party/: vendored, pinned upstream sources (SDL3, Vulkan-Headers, volk, Vulkan Memory Allocator, and the host tools Slang, SPIRV-Tools and SPIRV-Headers) with provenance records.
+- .lykoware-tools/ (not committed): host tools built from third_party on first configure and shared by every preset.
 - assets/brand/: Lykoware logo vector set (SVG logo, icon, wordmark, mono variants), .ico, 512 px icon, preview sheet, BRAND.md guidelines and PROVENANCE.md.
 - .github/workflows/build.yml: clean Windows Debug/Release builds, tests, staged execution, and downloadable artifacts; also Linux validation.
 

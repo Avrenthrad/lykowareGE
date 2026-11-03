@@ -11,6 +11,9 @@ include(cmake/VendorSdl3.cmake)
 lykoware_add_sdl3()
 include(cmake/VendorVulkan.cmake)
 lykoware_add_vulkan()
+include(cmake/HostTools.cmake)
+lykoware_add_host_tools()
+include(cmake/Shaders.cmake)
 add_subdirectory(engine)
 add_subdirectory(samples/sandbox)
 add_subdirectory(tools/cli)
@@ -89,6 +92,20 @@ if(BUILD_TESTING)
     add_test(NAME rhi.swapchain COMMAND lykoware_rhi_swapchain_test)
     set_tests_properties(rhi.instance rhi.instance.no_driver rhi.device rhi.render_target rhi.swapchain
         PROPERTIES TIMEOUT 60 SKIP_RETURN_CODE 77)
+
+    # Test shaders, compiled ahead of time from Slang and validated at build
+    # time (cmake/Shaders.cmake). shaders.spirv_valid re-validates the outputs
+    # so the evidence also appears in the test log.
+    lykoware_compile_shader(triangle_vert_spv SOURCE tests/shaders/triangle.slang
+        ENTRY vertexMain STAGE vertex NAME triangle.vert)
+    lykoware_compile_shader(triangle_frag_spv SOURCE tests/shaders/triangle.slang
+        ENTRY fragmentMain STAGE fragment NAME triangle.frag)
+    add_custom_target(lykoware_test_shaders ALL DEPENDS "${triangle_vert_spv}" "${triangle_frag_spv}")
+    add_test(NAME shaders.spirv_valid
+        COMMAND "${LYKOWARE_SPIRV_VAL}" --target-env vulkan1.3 "${triangle_vert_spv}")
+    add_test(NAME shaders.spirv_valid_fragment
+        COMMAND "${LYKOWARE_SPIRV_VAL}" --target-env vulkan1.3 "${triangle_frag_spv}")
+    set_tests_properties(shaders.spirv_valid shaders.spirv_valid_fragment PROPERTIES TIMEOUT 30)
 
     # The sandbox's Vulkan window on the headless offscreen driver. The
     # sandbox exits 3 ("unsupported") without a usable Vulkan device, which

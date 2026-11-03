@@ -4,3 +4,5 @@
 /CMakeUserPresets.json
 *.user
 *.suo
+# Host tools built from third_party (cmake/HostTools.cmake)
+/.lykoware-tools/

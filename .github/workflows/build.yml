@@ -24,6 +24,15 @@ jobs:
         configuration: [Debug, Release]
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      # Host tools (Slang, SPIRV-Tools) are built from third_party on the first
+      # configure and reused from the free Actions cache afterwards (owner
+      # approved 2026-11-03; separate from artifact storage). The key changes
+      # when a tool version or the build recipe changes.
+      - name: Restore host tools
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .lykoware-tools
+          key: lykoware-tools-${{ runner.os }}-${{ hashFiles('cmake/HostTools.cmake', 'cmake/host-tools/**', 'third_party/slang/PROVENANCE.md', 'third_party/spirv-tools/PROVENANCE.md', 'third_party/spirv-headers/PROVENANCE.md') }}
       - name: Configure
         run: cmake --preset windows
       - name: Build
@@ -101,6 +110,15 @@ jobs:
           if [ "${{ matrix.preset }}" = "linux-analysis" ]; then
             sudo apt-get install -y clang-tidy-18
           fi
+      # Host tools (Slang, SPIRV-Tools) are built from third_party on the first
+      # configure and reused from the free Actions cache afterwards (owner
+      # approved 2026-11-03; separate from artifact storage). The key changes
+      # when a tool version or the build recipe changes.
+      - name: Restore host tools
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .lykoware-tools
+          key: lykoware-tools-${{ runner.os }}-${{ hashFiles('cmake/HostTools.cmake', 'cmake/host-tools/**', 'third_party/slang/PROVENANCE.md', 'third_party/spirv-tools/PROVENANCE.md', 'third_party/spirv-headers/PROVENANCE.md') }}
       - name: Configure
         run: cmake --preset ${{ matrix.preset }}
       - name: Build and analyze
