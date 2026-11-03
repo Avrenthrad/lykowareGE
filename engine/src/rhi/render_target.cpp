@@ -2,6 +2,7 @@
 
 #include "common.hpp"
 #include "device_access.hpp"
+#include "pipeline_access.hpp"
 
 #include <lykoware/log.hpp>
 
@@ -160,8 +161,32 @@ std::uint32_t RenderTarget::height() const
 
 bool RenderTarget::clear(const ClearColor& color, RhiError& error)
 {
+    return render(color, VK_NULL_HANDLE, 0, error);
+}
+
+ColorFormat RenderTarget::color_format() const
+{
+    return ColorFormat::Rgba8Unorm;
+}
+
+bool RenderTarget::draw(const ClearColor& clear, const GraphicsPipeline& pipeline, std::uint32_t vertex_count,
+                        RhiError& error)
+{
+    error = {};
+    if (pipeline.color_format() != color_format()) {
+        return fail(error, RhiFailure::InvalidArgument,
+                    "the pipeline targets a different colour format than this render target");
+    }
+    return render(clear, static_cast<VkPipeline>(pipeline.native_handle()), vertex_count, error);
+}
+
+bool RenderTarget::render(const ClearColor& color, void* pipeline_handle, std::uint32_t vertex_count,
+                          RhiError& error)
+{
     Impl& impl = *impl_;
-    const bool ok = DeviceAccess::submit_and_wait(*impl.device, [&impl, &color](VkCommandBuffer commands) {
+    const auto pipeline = static_cast<VkPipeline>(pipeline_handle);
+    const bool ok = DeviceAccess::submit_and_wait(*impl.device, [&impl, &color, pipeline,
+                                                                 vertex_count](VkCommandBuffer commands) {
         // Previous contents are discarded by the clear, so the old layout is
         // treated as UNDEFINED.
         image_barrier(commands, impl.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
@@ -169,7 +194,7 @@ bool RenderTarget::clear(const ClearColor& color, RhiError& error)
                       VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT);
 
         const float rgba[4] = {color.r, color.g, color.b, color.a};
-        detail::record_clear_pass(commands, impl.view, {impl.width, impl.height}, rgba);
+        detail::record_draw_pass(commands, impl.view, {impl.width, impl.height}, rgba, pipeline, vertex_count);
     }, error);
     if (!ok) {
         impl.rendered = false;

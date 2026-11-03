@@ -130,8 +130,11 @@ void judge(Candidate& candidate, const DeviceConfig& config)
         return;
     }
 
+    VkPhysicalDeviceVulkan11Features features11{};
+    features11.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
     VkPhysicalDeviceVulkan13Features features13{};
     features13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+    features13.pNext = &features11;
     VkPhysicalDeviceFeatures2 features{};
     features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
     features.pNext = &features13;
@@ -142,6 +145,11 @@ void judge(Candidate& candidate, const DeviceConfig& config)
     }
     if (features13.synchronization2 != VK_TRUE) {
         reject("synchronization2 is not supported");
+        return;
+    }
+    if (features11.shaderDrawParameters != VK_TRUE) {
+        // Slang implements SV_VertexID with the DrawParameters capability.
+        reject("shaderDrawParameters is not supported");
         return;
     }
 
@@ -319,8 +327,12 @@ std::unique_ptr<Device> Device::create(const Instance& instance, const DeviceCon
     queue_info.queueCount = 1;
     queue_info.pQueuePriorities = &priority;
 
+    VkPhysicalDeviceVulkan11Features features11{};
+    features11.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
+    features11.shaderDrawParameters = VK_TRUE; // Slang's SV_VertexID (ADR 0015)
     VkPhysicalDeviceVulkan13Features features13{};
     features13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+    features13.pNext = &features11;
     features13.dynamicRendering = VK_TRUE;
     features13.synchronization2 = VK_TRUE;
     VkPhysicalDeviceFeatures2 features{};

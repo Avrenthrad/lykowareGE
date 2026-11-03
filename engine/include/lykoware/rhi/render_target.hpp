@@ -3,6 +3,7 @@
 #include <lykoware/image.hpp>
 #include <lykoware/rhi/device.hpp>
 #include <lykoware/rhi/instance.hpp>
+#include <lykoware/rhi/pipeline.hpp>
 
 #include <cstdint>
 #include <memory>
@@ -64,6 +65,16 @@ public:
     // of the whole target, then waits for it.
     [[nodiscard]] bool clear(const ClearColor& color, RhiError& error);
 
+    // Format pipelines must target to draw here: always Rgba8Unorm.
+    [[nodiscard]] ColorFormat color_format() const;
+
+    // One dynamic-rendering pass: load-op clear to `clear`, then draw
+    // `vertex_count` vertices with `pipeline` (no vertex buffers), then wait.
+    // A pipeline built for another colour format is InvalidArgument and
+    // nothing is submitted.
+    [[nodiscard]] bool draw(const ClearColor& clear, const GraphicsPipeline& pipeline, std::uint32_t vertex_count,
+                            RhiError& error);
+
     // Copies the current contents into `image` as tightly packed RGB8 with
     // the top-left origin of lykoware::Image. Alpha is dropped. On failure
     // `image` is left empty.
@@ -72,6 +83,8 @@ public:
 private:
     struct Impl;
     explicit RenderTarget(std::unique_ptr<Impl> impl);
+    // Shared by clear() and draw(); pipeline is a VkPipeline or null.
+    [[nodiscard]] bool render(const ClearColor& color, void* pipeline, std::uint32_t vertex_count, RhiError& error);
 
     std::unique_ptr<Impl> impl_;
 };

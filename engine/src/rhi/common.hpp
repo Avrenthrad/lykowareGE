@@ -6,6 +6,7 @@
 
 #include <volk.h>
 
+#include <cstdint>
 #include <string>
 #include <string_view>
 
@@ -31,6 +32,12 @@ void image_barrier(VkCommandBuffer commands, VkImage image, VkImageLayout from, 
 // load-op clear of `extent`. The view must be in COLOR_ATTACHMENT_OPTIMAL.
 void record_clear_pass(VkCommandBuffer commands, VkImageView view, VkExtent2D extent,
                        const float (&rgba)[4]);
+
+// The same pass, then (when pipeline is not null) binds the graphics
+// pipeline, sets a full-extent viewport and scissor and draws vertex_count
+// vertices with no vertex buffers.
+void record_draw_pass(VkCommandBuffer commands, VkImageView view, VkExtent2D extent, const float (&rgba)[4],
+                      VkPipeline pipeline, std::uint32_t vertex_count);
 
 // True while an rhi::Device is alive. Defined in device.cpp; the Instance
 // destructor uses it to report a Device that outlived its Instance.
