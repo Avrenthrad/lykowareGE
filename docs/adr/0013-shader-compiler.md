@@ -71,6 +71,43 @@ If the spike fails item 1 or 2, the fallback is option 1 (glslang). That fallbac
 - Slang or glslang: **Slang**. The glslang licence questions do not arise unless the spike fails and the fallback is needed. They would then go back to the owner.
 - Shader language: **Slang**.
 
+## Spike results (2026-11-03, Linux)
+
+Run in a scratch directory; nothing was committed or vendored. Slang v2026.18.3 (`6eb89786ca88`), SPIRV-Tools v2026.4 (`ef96ed763b43`), Mesa 25.2 lavapipe, Khronos validation layer.
+
+1. **Minimal build from source, offline. Passed on Linux.**
+   - Configured with:
+     - `SLANG_ENABLE_SLANG_GLSLANG=OFF`, `SLANG_ENABLE_DXIL=OFF`, `SLANG_SLANG_LLVM_FLAVOR=DISABLE`;
+     - GFX, slang-rhi, tests, examples, slangd, slangi, slang-rt, CUDA, OptiX, NVAPI, mimalloc and the replayer all off.
+   - Configure and build ran with the network deliberately blocked, so nothing was downloaded. Two settings matter here: the default `SLANG_SLANG_LLVM_FLAVOR` downloads a prebuilt LLVM, and `SLANG_ENABLE_DXIL` downloads a prebuilt DXC. Both must stay off.
+   - The `slangc` Release build took **732 s on 4 cores** (491 build steps). SPIRV-Tools (`spirv-val`, `spirv-opt`) took **191 s**.
+   - Not verified: Windows/MSVC (CI will be the first check), and Slang under our sanitizer and clang-tidy presets. Slang is vendored code, so like SDL3 and volk it is built with its own flags.
+2. **SPIR-V without `slang-glslang`. Passed, with one condition.**
+   - By default `slangc` passes its SPIR-V through `spirv-opt`, which it loads from the disabled `slang-glslang` library, so compilation fails.
+   - With **`-O0`** it emits SPIR-V 1.6 directly.
+   - Optimisation is kept by running **our own** vendored `spirv-opt -O` as a separate build step, then `spirv-val`.
+3. **Triangle. Passed.**
+   - A Slang vertex and fragment shader (`SV_VertexID`, interpolated colour) compiled at `-O0` passed `spirv-val --target-env vulkan1.3`. After `spirv-opt -O` it passed again (vertex shader 1468 → 1084 bytes).
+   - Drawn with dynamic rendering on lavapipe, both versions produced **byte-identical images**, with every pixel check passing.
+   - The validation layer flagged one real requirement: Slang implements `SV_VertexID` with the SPIR-V `DrawParameters` capability, so the device must enable the Vulkan 1.1 feature **`shaderDrawParameters`**. With it enabled, there were **zero validation errors**.
+4. **Compiled-file inventory. Passed.** From Ninja's dependency records for every object built:
+   - Slang's own source: `source/core`, `compiler-core`, `slang`, `slang-core-module`, `slang-glsl-module` (Slang's own GLSL-compatibility module, not glslang), `slang-record-replay`, `slangc`, and generator tools. All Apache-2.0 WITH LLVM-exception, except the accepted Unlicense file `source/core/slang-crypto.cpp`.
+   - External, all permissive:
+     - `lz4` (only `lib/`, BSD-2-Clause; none of lz4's GPL-2.0 program files are compiled);
+     - `miniz` (MIT-style);
+     - `cmark` (BSD-2-Clause and MIT notices);
+     - `fast_float` (Apache-2.0 / MIT / BSL-1.0, our choice);
+     - `unordered_dense` (MIT);
+     - `spirv-headers` (Khronos MIT);
+     - `lua` (MIT), used only by the build-time generator `slang-fiddle`, so it is not in shipped binaries.
+   - **No file** from `external/glslang`, `external/spirv-tools`, DXC or LLVM was compiled. The only files under `source/slang-glslang` and `source/slang-llvm` were Slang's own interface headers.
+   - SPIRV-Tools v2026.4 pins SPIRV-Headers `4965431`, the same commit Slang pins, so one vendored copy serves both.
+
+**Costs found by the spike (owner awareness):**
+
+- **Repository size.** The minimal Slang source set (source, include, tools, cmake, prelude) is about 32 MB, plus the external parts above. Slang's own `external/vulkan` (which includes the large Vulkan-Hpp) can be replaced by our existing `third_party/vulkan-headers` through Slang's override option.
+- **CI time.** Building `slangc` in all five CI jobs on every push would add roughly 12 to 25 minutes per job; GitHub's hosted runners for private repositories have fewer cores than this machine. Windows minutes count double against the plan's monthly allowance. Planned mitigation: cache the built compiler per Slang commit with the GitHub Actions cache. That cache is a free per-repository allowance (10 GB), separate from the exhausted artifact storage. **Owner confirmation requested before relying on it**, because the owner's rule forbids paid CI storage.
+
 ## Contracts and compatibility
 
 No API or format changes here. When a compiler is adopted:
@@ -87,5 +124,5 @@ Drawing anything beyond clears waits for this decision and the spike. Choosing S
 ## Verification
 
 - Licence evidence comes from upstream `LICENSE`, `LICENSES/`, `REUSE.toml`, `.gitmodules`, `ThirdPartyNotices.txt` and `CMakeLists.txt` files at the commits above, read on 2026-11-03.
-- Not verified: building any candidate, Slang's SPIR-V output without `slang-glslang`, and the complete set of compiled files. Those are the spike's job.
+- Spike (above): items 1 to 4 passed on Linux. Not verified: a Windows/MSVC build of Slang, and Slang under our sanitizer and clang-tidy presets.
 - This record ticks no checklist box.

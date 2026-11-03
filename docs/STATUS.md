@@ -107,7 +107,7 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 
 - State: `main` at b907aa7 contains PRs #2 and #4–#9. CI is green on all five jobs ([run 41460782212](https://github.com/Avrenthrad/lykowareGE/actions/runs/41460782212)).
 - Open decisions for the owner: ADR 0003 (Jolt), ADR 0008 (SDL3), hardware profiles, multiplayer, world scope and budgets.
-- In review: RHI PRs 1–4 (`claude/vulkan-rhi-1` to `-4`). Owner chose Slang (ADR 0013, 2026-11-03). Next concrete action: the build spike ADR 0013 lists, then vendoring Slang and SPIRV-Tools, ahead-of-time SPIR-V and a first pipeline drawing a triangle compared by the image harness.
+- In review: RHI PRs 1–4 (`claude/vulkan-rhi-1` to `-4`). Owner chose Slang (ADR 0013, 2026-11-03). The build spike passed on Linux: offline minimal build (732 s on 4 cores), SPIR-V via `slangc -O0` plus our own `spirv-opt` and `spirv-val`, a triangle drawn on lavapipe with zero validation errors once `shaderDrawParameters` is enabled, and a clean licence inventory. Next concrete action: vendor Slang and SPIRV-Tools, compile shaders at build time, and add a triangle pipeline test. That waits on the owner's answer about caching the compiler in CI.
 - Owner check wanted: run `lykoware_sandbox --window --vulkan` on the RTX 4070 desktop and the MSI Claw; a window cycling through colours is expected.
 - Checklist: no box ticked by this update. Phase 1 and the image/performance gate stay open.
 

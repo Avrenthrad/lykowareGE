@@ -22,7 +22,7 @@ Vulkan RHI bring-up. Owner: Claude. Status: active; PR 1 in review on `claude/vu
   2. (In review.) Physical device selection, logical device and one graphics-and-compute queue, tested on Mesa lavapipe (installed in Linux CI by PR 1). ADR 0010.
   3. (In review.) Vendor Vulkan Memory Allocator 3.4.0 with its first caller: an offscreen render target, a dynamic-rendering clear, read back through `ImageCapture` and compared exactly by the image harness (headless path). ADR 0011.
   4. (In review.) Swapchain on the SDL window presenting the same clear (interactive path through the same RHI), two frames in flight, resize rebuilds; headless offscreen Vulkan window so CI runs the present path. ADR 0012.
-  5. Shader compiler: owner chose **Slang** (ADR 0013, 2026-11-03). Build spike, then vendor Slang and SPIRV-Tools, compile SPIR-V ahead of time, and draw a first triangle pipeline.
+  5. Shader compiler: owner chose **Slang** (ADR 0013, 2026-11-03); spike passed on Linux. Next: vendor Slang (minimal configuration) and SPIRV-Tools; build-time `slangc -O0` → `spirv-opt` → `spirv-val`; device enables `shaderDrawParameters`; triangle pipeline compared by the image harness. CI compiler caching needs the owner's OK.
 - Scope and affected paths: `third_party/`, `engine/include/lykoware/rhi/`, `engine/src/rhi/`, tests, CMake, CI workflow, docs and ADRs.
 - Shared interfaces/formats affected: new public RHI API; each PR documents ownership, lifetime, threading and failure on its declarations.
 - Related tasks/PRs and dependencies: ADR 0002 (accepted), ADR 0007 image harness, ADR 0008 window surface hook. Independent of ADR 0003.
