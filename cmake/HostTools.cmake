@@ -134,8 +134,10 @@ function(lykoware_add_host_tools)
                 -DSLANG_INSTALL_USER_SKILLS=OFF
                 -DLZ4_BUILD_CLI=OFF
                 -DLZ4_BUILD_LEGACY_LZ4C=OFF
-                # Shared vendored headers instead of Slang's own copies.
-                "-DSLANG_OVERRIDE_SPIRV_HEADERS_PATH=${CMAKE_SOURCE_DIR}/third_party/spirv-headers"
+                # Shared vendored headers instead of Slang's own copies. Both
+                # overrides name the directory that contains the dependency
+                # folder (<path>/spirv-headers, <path>/vulkan).
+                "-DSLANG_OVERRIDE_SPIRV_HEADERS_PATH=${CMAKE_SOURCE_DIR}/third_party"
                 "-DSLANG_OVERRIDE_VULKAN_HEADERS_PATH=${CMAKE_SOURCE_DIR}/cmake/host-tools"
             OUTPUT_DIRS Release/bin Release/lib)
 
