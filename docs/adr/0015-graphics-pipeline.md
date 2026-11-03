@@ -63,4 +63,4 @@ Deliberate-break checks (all reverted, byte-identical):
 - with `shaderDrawParameters` not enabled, the validation layer reported `VUID-VkShaderModuleCreateInfo-pCode-08740` and the zero-errors check failed;
 - with a `Shader` leaked under ASan, LeakSanitizer reported it with the loader option set.
 
-Local results (Linux, GCC 13, lavapipe, validation layer on): 22/22 tests in the Debug, ASan/UBSan and clang-tidy presets. The sanitizer GPU tests passed three repeated runs. A `-Wshadow` sweep of the new and changed files is clean. CI results are recorded in STATUS when the PR runs.
+Local results (Linux, GCC 13, lavapipe, validation layer on): 22/22 tests in the Debug, ASan/UBSan and clang-tidy presets. The sanitizer GPU tests passed three repeated runs. A `-Wshadow` sweep of the new and changed files is clean. CI: [run 41735418191](https://github.com/Avrenthrad/lykowareGE/actions/runs/41735418191) on c4d2113 passed all five jobs. `rhi.pipeline` drew the triangle on lavapipe and passed in Linux Debug, ASan/UBSan and clang-tidy (22/22 each); Windows Debug and Release reported it Skipped (no Vulkan on hosted runners).

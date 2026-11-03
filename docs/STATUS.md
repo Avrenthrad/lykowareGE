@@ -41,7 +41,7 @@ The five CI jobs are Windows x64 Debug and Release, Linux Debug, Linux ASan/UBSa
 | RHI 3: vendored VMA 3.4.0; `rhi::RenderTarget` clear and read-back; `RenderTargetCapture` feeds the image harness (first rendered pixels) | [PR #13](https://github.com/Avrenthrad/lykowareGE/pull/13), merge 8d33414 | PR run [41476543108](https://github.com/Avrenthrad/lykowareGE/actions/runs/41476543108); covered by the #16 run |
 | RHI 4: `rhi::Swapchain`, two frames in flight, resize rebuilds; `VideoDriver::Offscreen` so CI runs the present path; sandbox `--vulkan` | [PR #14](https://github.com/Avrenthrad/lykowareGE/pull/14), merge 528304a | PR run [41478643774](https://github.com/Avrenthrad/lykowareGE/actions/runs/41478643774); covered by the #16 run |
 | ADR 0013 shader-compiler licence review (docs) | [PR #15](https://github.com/Avrenthrad/lykowareGE/pull/15), merge 09ebf36 | covered by the #16 run |
-| RHI 5a: vendored Slang v2026.18.3, SPIRV-Tools v2026.4 and SPIRV-Headers; host tools built once into `.lykoware-tools/` and cached in CI; every shader compiled, optimised and validated at build time | [PR #16](https://github.com/Avrenthrad/lykowareGE/pull/16), merge c60264d | PR run [41626480873](https://github.com/Avrenthrad/lykowareGE/actions/runs/41626480873); `main` run [41735089452](https://github.com/Avrenthrad/lykowareGE/actions/runs/41735089452) in progress at the time of writing (cold tool cache on `main`) |
+| RHI 5a: vendored Slang v2026.18.3, SPIRV-Tools v2026.4 and SPIRV-Headers; host tools built once into `.lykoware-tools/` and cached in CI; every shader compiled, optimised and validated at build time | [PR #16](https://github.com/Avrenthrad/lykowareGE/pull/16), merge c60264d | PR run [41626480873](https://github.com/Avrenthrad/lykowareGE/actions/runs/41626480873); `main` run [41735089452](https://github.com/Avrenthrad/lykowareGE/actions/runs/41735089452) passed all five jobs (cold tool cache, now saved for `main`) |
 
 CTest on `main` (21 tests): `trace.api`, `image.harness.api`, `image.harness.golden_pass`, `image.harness.golden_fail`, `input.mapping`, `window.lifecycle`, `perf.sandbox_startup`, `perf.cpu_fixture`, `perf.budget_rejects_overrun`, `perf.budget_accepts_within`, `foundation.smoke`, `cli.commands`, `cli.integration`, `rhi.instance`, `rhi.instance.no_driver`, `rhi.device`, `rhi.render_target`, `rhi.swapchain`, `sandbox.vulkan_window`, `shaders.spirv_valid`, `shaders.spirv_valid_fragment`. The `rhi.*` and `sandbox.vulkan_window` tests run on lavapipe in Linux CI and report Skipped on the Windows runners, which have no Vulkan.
 
@@ -63,7 +63,7 @@ Owner: Claude. Branch `claude/vulkan-rhi-5b`, based on `main` at c60264d. In rev
 - New test `rhi.pipeline`: the Slang triangle compiled at build time is drawn and checked through the image harness (sampled regions, identical repeat draw), plus refusals.
 - Sanitizer builds set `VK_LOADER_DISABLE_DYNAMIC_LIBRARY_UNLOADING=1` for the GPU tests. Without it, LeakSanitizer reported lavapipe's own LLVM-thread memory when the loader unloaded the driver; a deliberate leak in Lykoware code is still caught with it on.
 - Local checks (Linux, GCC 13, lavapipe, validation on): 22/22 in the Debug, ASan/UBSan and clang-tidy presets. Deliberately removing the draw, not enabling `shaderDrawParameters`, and leaking a `Shader` were each caught.
-- CI: pending. This is the first run of the pipeline code on CI; until `main`'s own run saves the tool cache, it may also build the host tools from scratch.
+- CI: [run 41735418191](https://github.com/Avrenthrad/lykowareGE/actions/runs/41735418191) on c4d2113 passed all five jobs. `rhi.pipeline` drew the triangle on lavapipe and passed in Linux Debug, ASan/UBSan and clang-tidy (22/22 each); Windows reported it Skipped, as designed.
 
 ## Next
 
@@ -91,7 +91,7 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 
 ## Handoff
 
-- State: `main` at c60264d contains PRs #2, #4–#16. Every PR in #10–#16 passed all five jobs as a pull request; the `main` run for the stack ([run 41735089452](https://github.com/Avrenthrad/lykowareGE/actions/runs/41735089452)) was in progress when this was written.
+- State: `main` at c60264d contains PRs #2, #4–#16. Every PR in #10–#16 passed all five jobs as a pull request; the `main` run for the stack ([run 41735089452](https://github.com/Avrenthrad/lykowareGE/actions/runs/41735089452)) passed all five jobs.
 - Open decisions for the owner: ADR 0003 (Jolt); accepting or rejecting ADRs 0008–0012, 0014 and 0015 (merging did not accept them); hardware profiles, multiplayer, world scope and budgets.
 - In review: RHI 5b (`claude/vulkan-rhi-5b`), graphics pipelines and the first triangle drawn offscreen and checked by the image harness. Next concrete action after it merges: RHI 5c, the sandbox window draws the triangle; decide how the runtime finds shader files.
 - Owner check wanted: run `lykoware_sandbox --window --vulkan` on the RTX 4070 desktop and the MSI Claw; a window cycling through colours is expected.
