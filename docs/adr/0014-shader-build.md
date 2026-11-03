@@ -1,7 +1,7 @@
 # ADR 0014 — Host tools and the ahead-of-time shader build
 
 Status: Proposed
-Related task/PR: Vulkan RHI bring-up, PR 5a (branch `claude/vulkan-rhi-5a`), stacked on ADR 0013's PR.
+Related task/PR: Vulkan RHI bring-up, PR 5a (branch `claude/vulkan-rhi-5a`), merged as [#16](https://github.com/Avrenthrad/lykowareGE/pull/16) (merge c60264d).
 Supersedes / superseded by: none. Implements the shader part of [ADR 0002](0002-graphics.md) with the compiler the owner chose in [ADR 0013](0013-shader-compiler.md).
 
 ## Context

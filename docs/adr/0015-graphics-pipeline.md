@@ -1,7 +1,7 @@
 # ADR 0015 — Shader modules and the first graphics pipeline
 
 Status: Proposed
-Related task/PR: Vulkan RHI bring-up, PR 5b (branch `claude/vulkan-rhi-5b`), stacked on RHI PR 5a.
+Related task/PR: Vulkan RHI bring-up, PR 5b (branch `claude/vulkan-rhi-5b`), based on `main` after RHI PR 5a ([#16](https://github.com/Avrenthrad/lykowareGE/pull/16)) merged.
 Supersedes / superseded by: none. Builds on [ADR 0010](0010-rhi-device.md), [ADR 0011](0011-offscreen-render-target.md) and [ADR 0014](0014-shader-build.md).
 
 ## Context
