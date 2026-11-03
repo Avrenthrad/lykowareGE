@@ -1,6 +1,6 @@
 # ADR 0013 — Shader compiler (licence review and choice)
 
-Status: Proposed. **Owner decision required.** Nothing is vendored by this record.
+Status: **Accepted by the owner on 2026-11-03: Slang**, conditional on the build spike below. Nothing is vendored until the spike passes.
 Related task/PR: Vulkan RHI bring-up, PR 5 prerequisite (branch `claude/shader-compiler-adr`), stacked on RHI PR 4.
 Supersedes / superseded by: none. Required by [ADR 0002](0002-graphics.md): "The shader-compiler licence must be reviewed as a build-time tool before that compiler is adopted."
 
@@ -54,7 +54,7 @@ Licence findings:
 
 ## Decision
 
-**Proposed, not accepted. Owner decision required.**
+**Owner decision, 2026-11-03.** Joshua chose Slang, accepted the single Unlicense file in Slang core (`source/core/slang-crypto.cpp`) as an exception to the ADR 0000 licence list, and asked for the spike to run. The shader language is therefore Slang. The record of the original recommendation follows.
 
 The recommendation is option 4: **Slang** with `SLANG_ENABLE_SLANG_GLSLANG=OFF`, DXIL, CUDA, OptiX, tests, examples, the REPL and GFX off, plus **SPIRV-Tools** (Apache-2.0) vendored for `spirv-val` in CI. Before anything is vendored, a spike must show:
 
@@ -65,11 +65,11 @@ The recommendation is option 4: **Slang** with `SLANG_ENABLE_SLANG_GLSLANG=OFF`,
 
 If the spike fails item 1 or 2, the fallback is option 1 (glslang). That fallback needs the owner's explicit acceptance of the Bison-exception and AML terms, or a plan to replace the generated parser and preprocessor.
 
-**The owner needs to decide:**
+**Owner answers (2026-11-03):**
 
-- Whether the Unlicense file inside Slang core is acceptable under ADR 0000, which names only MIT, BSD, Apache and zlib.
-- Whether to choose Slang (recommended) or glslang. For glslang, whether a GPL-3.0-with-Bison-exception parser and the NVIDIA AML preprocessor licence are acceptable.
-- Whether shader source should be Slang or GLSL. This decides the language every material and effect is written in.
+- The Unlicense file inside Slang core: **accepted**, as a named exception to ADR 0000's list. Any further non-listed licence still needs the owner.
+- Slang or glslang: **Slang**. The glslang licence questions do not arise unless the spike fails and the fallback is needed. They would then go back to the owner.
+- Shader language: **Slang**.
 
 ## Contracts and compatibility
 
