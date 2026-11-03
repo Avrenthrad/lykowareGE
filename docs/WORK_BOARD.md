@@ -14,14 +14,14 @@ Check latest main and open PRs before starting. Documents do not automatically s
 
 ## Active task
 
-Vulkan RHI bring-up. Owner: Claude. Status: active; PR 1 in review on `claude/vulkan-rhi-1` (stacked on PR #10), PR 2 in review on `claude/vulkan-rhi-2` (stacked on PR 1), PR 3 in review on `claude/vulkan-rhi-3` (stacked on PR 2). Base: `main` at b907aa7. Delivered as a stack of small PRs; each PR states its own base.
+Vulkan RHI bring-up. Owner: Claude. Status: active; PR 1 in review on `claude/vulkan-rhi-1` (stacked on PR #10), PR 2 in review on `claude/vulkan-rhi-2` (stacked on PR 1), PR 3 in review on `claude/vulkan-rhi-3` (stacked on PR 2), PR 4 in review on `claude/vulkan-rhi-4` (stacked on PR 3). Base: `main` at b907aa7. Delivered as a stack of small PRs; each PR states its own base.
 
 - Objective: first pixels through a Lykoware-owned Vulkan 1.3 RHI (ADR 0002), on the SDL window and headless, with headless output checked by the image harness.
 - Planned PRs, in order:
   1. (In review.) Vendor pinned Vulkan-Headers and volk under `third_party/`, with provenance, exact versions and licences. First caller: `rhi::Instance`, loading Vulkan at run time through volk and failing with a clear error when no loader is present. ADR 0009.
   2. (In review.) Physical device selection, logical device and one graphics-and-compute queue, tested on Mesa lavapipe (installed in Linux CI by PR 1). ADR 0010.
   3. (In review.) Vendor Vulkan Memory Allocator 3.4.0 with its first caller: an offscreen render target, a dynamic-rendering clear, read back through `ImageCapture` and compared exactly by the image harness (headless path). ADR 0011.
-  4. Swapchain on the SDL window and a clear screen (interactive path through the same RHI).
+  4. (In review.) Swapchain on the SDL window presenting the same clear (interactive path through the same RHI), two frames in flight, resize rebuilds; headless offscreen Vulkan window so CI runs the present path. ADR 0012.
   5. Ahead-of-time SPIR-V compilation, after a recorded shader-compiler licence review (ADR).
 - Scope and affected paths: `third_party/`, `engine/include/lykoware/rhi/`, `engine/src/rhi/`, tests, CMake, CI workflow, docs and ADRs.
 - Shared interfaces/formats affected: new public RHI API; each PR documents ownership, lifetime, threading and failure on its declarations.

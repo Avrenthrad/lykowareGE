@@ -13,7 +13,8 @@ add_library(lykoware_engine STATIC
     src/rhi/common.cpp
     src/rhi/instance.cpp
     src/rhi/device.cpp
-    src/rhi/render_target.cpp)
+    src/rhi/render_target.cpp
+    src/rhi/swapchain.cpp)
 add_library(lykoware::engine ALIAS lykoware_engine)
 target_compile_features(lykoware_engine PUBLIC cxx_std_20)
 target_include_directories(lykoware_engine PUBLIC

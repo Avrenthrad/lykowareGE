@@ -15,6 +15,7 @@ Records what is implemented and verified on `main`. Plans live in [ROADMAP.md](R
 | [0009](adr/0009-vulkan-loading.md) | Proposed (in review) | Vulkan-Headers and volk, Vulkan loaded at run time, RHI instance, GPU tests skip rather than pass without a loader. |
 | [0010](adr/0010-rhi-device.md) | Proposed (in review) | Device requirements (Vulkan 1.3, dynamic rendering, synchronization2), selection ranking, one graphics-and-compute queue. |
 | [0011](adr/0011-offscreen-render-target.md) | Proposed (in review) | VMA 3.4.0, offscreen RGBA8 render target, dynamic-rendering clear, read-back into the image harness. |
+| [0012](adr/0012-swapchain.md) | Proposed (in review) | Swapchain with two frames in flight and resize rebuilds; `VideoDriver::Offscreen` headless Vulkan window; sandbox `--vulkan`. |
 
 ## Verified on main
 
@@ -66,6 +67,18 @@ Owner: Claude. Branch `claude/vulkan-rhi-3`, stacked on `claude/vulkan-rhi-2`. N
 - Local checks (Linux, GCC 13, lavapipe, validation on): Debug, ASan/UBSan and clang-tidy presets passed all 17 tests with zero validation errors. With drivers hidden, `rhi.render_target` reported Skipped.
 - CI: [run 41476543108](https://github.com/Avrenthrad/lykowareGE/actions/runs/41476543108) on code commit 87a8435 passed all five jobs. On Linux, `rhi.render_target` rendered on lavapipe and passed in Debug, ASan/UBSan and clang-tidy; Windows hosted runners reported the RHI tests as Skipped.
 
+### RHI PR 4 of 5 (stacked on PR 3)
+
+Owner: Claude. Branch `claude/vulkan-rhi-4`, stacked on `claude/vulkan-rhi-3`. Not merged.
+
+- `lykoware::rhi::Swapchain` (`engine/include/lykoware/rhi/swapchain.hpp`): window surface, UNORM format, FIFO or mailbox/immediate, two frames in flight, per-image present semaphores, rebuild on resize/out-of-date/suboptimal, minimised windows skip frames. Uses the same dynamic-rendering clear pass as `RenderTarget`. ADR 0012, Proposed.
+- `VideoDriver::Offscreen`: SDL's headless driver that can host a Vulkan surface (`VK_EXT_headless_surface`, supported by lavapipe), so CI runs the real present path.
+- `lykoware_sandbox --window --vulkan` presents a cycling colour on the desktop; `--offscreen --frames N` is the headless form; exit 3 without a usable Vulkan device.
+- New tests `rhi.swapchain` and `sandbox.vulkan_window`; `window.lifecycle` covers the offscreen driver; `foundation.smoke` covers the new option errors.
+- Local checks (Linux, GCC 13, lavapipe, validation on): Debug, ASan/UBSan and clang-tidy presets passed all 19 tests with zero validation errors.
+- Not verified: a visible desktop window with a real GPU. Owner check: `lykoware_sandbox --window --vulkan`.
+- CI: the first run ([run 41478183872](https://github.com/Avrenthrad/lykowareGE/actions/runs/41478183872)) failed both Windows builds with MSVC C4458 (a parameter named `extent` hid the member `extent`; GCC reports it only with `-Wshadow`). Fixed in f2ca3e9 after reproducing with `-Wshadow`; [run 41478643774](https://github.com/Avrenthrad/lykowareGE/actions/runs/41478643774) on f2ca3e9 then passed all five jobs. On Linux, `rhi.swapchain` and `sandbox.vulkan_window` ran on lavapipe and passed in Debug, ASan/UBSan and clang-tidy; Windows reported the Vulkan tests as Skipped.
+
 ## Next
 
 Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
@@ -77,7 +90,7 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 
 ## Known issues and limitations
 
-- No renderer, ECS, scene loader, physics, audio, animation, world streaming or inference. The RHI so far (in review) creates a Vulkan instance, a device with one queue, and an offscreen render target that it can clear and read back; no swapchain, pipelines or shaders, so nothing but clears is drawn.
+- No renderer, ECS, scene loader, physics, audio, animation, world streaming or inference. The RHI so far (in review) creates a Vulkan instance, a device with one queue, an offscreen render target it can clear and read back, and a swapchain that presents clears to a window; no pipelines or shaders, so nothing but clears is drawn.
 - GPU tests skip (exit 77, CTest "Skipped") where no Vulkan loader or driver is installed. Hosted Windows runners may skip them; a skip is not a pass.
 - `lyko run` launches the console sandbox. `lyko screenshot` and `lyko run --scene` print `unsupported: no renderer` and exit 3. `lyko trace --frames N` is a CPU trace of the sandbox loop, not a GPU capture.
 - The image harness compares a software test pattern with committed PPM fixtures and, in review, Vulkan clears read back from a render target. Neither is a scene screenshot or the image/performance gate; `lyko screenshot` still exits 3.
@@ -93,7 +106,8 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 
 - State: `main` at b907aa7 contains PRs #2 and #4–#9. CI is green on all five jobs ([run 41460782212](https://github.com/Avrenthrad/lykowareGE/actions/runs/41460782212)).
 - Open decisions for the owner: ADR 0003 (Jolt), ADR 0008 (SDL3), hardware profiles, multiplayer, world scope and budgets.
-- In review: RHI PRs 1–3 (`claude/vulkan-rhi-1` to `-3`). Next concrete action: RHI PR 4, a swapchain on the SDL window presenting the same dynamic-rendering clear (interactive path), with frames in flight.
+- In review: RHI PRs 1–4 (`claude/vulkan-rhi-1` to `-4`). Next concrete action: RHI PR 5, the shader-compiler licence review (ADR) and ahead-of-time SPIR-V compilation, then a first pipeline drawing a triangle compared by the image harness.
+- Owner check wanted: run `lykoware_sandbox --window --vulkan` on the RTX 4070 desktop and the MSI Claw; a window cycling through colours is expected.
 - Checklist: no box ticked by this update. Phase 1 and the image/performance gate stay open.
 
 Read [WORK_BOARD.md](WORK_BOARD.md), [CLI.md](CLI.md), [ROADMAP.md](ROADMAP.md) and the [ADRs](adr/README.md). Check latest `main` and open PRs before starting. Update this file with exact commits, checks, failures and next actions.

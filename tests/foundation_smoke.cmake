@@ -41,4 +41,6 @@ if(sandbox_loop EQUAL -1)
 endif()
 
 check_run(0 "Opened sandbox window." --window --dummy --frames 1)
-check_run(1 "--window --dummy requires --frames" --window --dummy)
+check_run(1 "requires --frames N" --window --dummy)
+check_run(1 "--dummy cannot host Vulkan" --window --dummy --vulkan --frames 1)
+check_run(1 "requires --frames N" --window --offscreen --vulkan)

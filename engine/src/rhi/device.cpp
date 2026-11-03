@@ -446,6 +446,11 @@ VmaAllocator DeviceAccess::allocator(const Device& device)
     return device.impl_->allocator;
 }
 
+VkQueue DeviceAccess::queue(const Device& device)
+{
+    return device.impl_->queue;
+}
+
 bool DeviceAccess::submit_and_wait(
     const Device& device, const std::function<void(VkCommandBuffer)>& record, RhiError& error)
 {

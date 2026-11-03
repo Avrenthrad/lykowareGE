@@ -16,6 +16,7 @@ namespace lykoware::rhi::detail {
 struct DeviceAccess {
     [[nodiscard]] static VkDevice device(const Device& device);
     [[nodiscard]] static VmaAllocator allocator(const Device& device);
+    [[nodiscard]] static VkQueue queue(const Device& device);
 
     // Records commands with `record` into the device's one-shot command
     // buffer, submits them to the graphics queue and waits for completion.
