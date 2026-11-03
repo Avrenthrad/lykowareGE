@@ -92,7 +92,8 @@ Owner: Claude. Branch `claude/vulkan-rhi-5a`, stacked on `claude/shader-compiler
   - the first configure built both tools in 689 s;
   - the engine and both triangle shaders built;
   - Debug passed 21/21 tests, including `shaders.spirv_valid*`;
-  - the sanitizer and clang-tidy presets reused the cache ("using cached"), configured in seconds, and passed 21/21.
+  - the sanitizer and clang-tidy presets reused the cache ("using cached"), configured in seconds, and passed 21/21;
+  - after the final copy-step change, a rebuild into an empty cache took 750 s, left exactly `slangc`, `spirv-opt`, `spirv-val` and Slang's GLSL module, and passed 21/21.
 - CI: pending. The first run per OS builds the tools before caching them.
 
 ## Next
