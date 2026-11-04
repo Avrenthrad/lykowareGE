@@ -21,6 +21,7 @@ Records what is implemented and verified on `main`. Plans live in [ROADMAP.md](R
 | [0015](adr/0015-graphics-pipeline.md) | Proposed (merged; owner has not accepted) | `rhi::Shader`, `rhi::GraphicsPipeline`, `RenderTarget::draw`, `shaderDrawParameters`; sanitizer builds keep Vulkan drivers loaded. |
 | [0016](adr/0016-runtime-shader-files.md) | Proposed (merged; owner has not accepted) | Programs load their compiled shaders from a `shaders` folder beside the executable; the build and `cmake --install` deploy them there. |
 | [0017](adr/0017-clocks-fixed-step.md) | Proposed (merged; owner has not accepted) | Fixed-step simulation clock: 60 ticks a second by default, exact integer accumulator, interpolation alpha for drawing, 250 ms and 8 ticks per frame limits. |
+| [0018](adr/0018-jolt-integration.md) | Proposed (in review) | Jolt built from vendored source with options forced; cross-platform determinism verified by a recorded state hash in every CI job; requires an AVX2 CPU. |
 
 ## Verified on main
 
@@ -47,6 +48,7 @@ The five CI jobs are Windows x64 Debug and Release, Linux Debug, Linux ASan/UBSa
 | RHI 5b: `rhi::Shader`, `rhi::GraphicsPipeline`, `RenderTarget::draw`; devices enable `shaderDrawParameters`; the first triangle drawn offscreen and checked by the image harness | [PR #17](https://github.com/Avrenthrad/lykowareGE/pull/17), merge 5ffb8ac | PR run [41735418191](https://github.com/Avrenthrad/lykowareGE/actions/runs/41735418191); `main` run [41740344136](https://github.com/Avrenthrad/lykowareGE/actions/runs/41740344136) passed all five jobs |
 | RHI 5c: the triangle drawn in the sandbox window; programs load shaders from a `shaders` folder beside the executable, deployed by the build and install | [PR #18](https://github.com/Avrenthrad/lykowareGE/pull/18), merge 16101ec | PR run [41747802339](https://github.com/Avrenthrad/lykowareGE/actions/runs/41747802339); `main` run [41758233376](https://github.com/Avrenthrad/lykowareGE/actions/runs/41758233376) passed all five jobs |
 | Phase 1 clocks: `FixedStep` simulation clock (60 Hz default, exact integer accumulator, interpolation alpha, per-frame limits) and `FrameClock`; the sandbox animates per tick | [PR #19](https://github.com/Avrenthrad/lykowareGE/pull/19), merge ff2a1ea | PR run [41758959579](https://github.com/Avrenthrad/lykowareGE/actions/runs/41758959579) passed all five jobs (`clock.fixed_step` on MSVC, GCC, Clang-tidy and sanitizers); `main` run [41759429068](https://github.com/Avrenthrad/lykowareGE/actions/runs/41759429068) in progress at the time of writing |
+| Jolt licence and fit review; owner accepted ADR 0003 (docs) | [PR #20](https://github.com/Avrenthrad/lykowareGE/pull/20), merge 8089b22 | documentation only |
 
 CTest on `main` (24 tests): `trace.api`, `clock.fixed_step`, `image.harness.api`, `image.harness.golden_pass`, `image.harness.golden_fail`, `input.mapping`, `window.lifecycle`, `perf.sandbox_startup`, `perf.cpu_fixture`, `perf.budget_rejects_overrun`, `perf.budget_accepts_within`, `foundation.smoke`, `cli.commands`, `cli.integration`, `rhi.instance`, `rhi.instance.no_driver`, `rhi.device`, `rhi.render_target`, `rhi.swapchain`, `sandbox.vulkan_window`, `shaders.spirv_valid`, `shaders.spirv_valid_fragment`, `rhi.pipeline`, `sandbox.missing_shaders`. The `rhi.*` and `sandbox.vulkan_window` tests run on lavapipe in Linux CI and report Skipped on the Windows runners, which have no Vulkan.
 
@@ -54,27 +56,24 @@ Per-PR detail (local checks, failures found and fixed, mutation checks) is in ea
 
 ## Current development task
 
-### ADR 0003: Jolt licence and fit review
+### Physics spike, PR 1: vendored Jolt, local patch, determinism check
 
-Owner: Claude. Branch `claude/jolt-review`, based on `main` at ff2a1ea. Documentation only; in review.
+Owner: Claude. Branch `claude/physics-spike`, based on `main` at 8089b22. In review.
 
-- Jolt Physics v5.6.0 (MIT, 2026-07-11) is recommended over PhysX, Bullet and writing our own. It would be used natively from C++ behind a Lykoware physics API.
-- Licence inventory of `Jolt/`: 556 of 559 files MIT-tagged, and the rest covered by the repository's MIT licence. The only Apache-2.0 files are Android Gradle wrappers, which would not be vendored. Its GPU compute backends need DXC and serve only hair simulation, so they would be switched off.
-- Two core files are adapted from *Numerical Recipes*, whose code is not permissively licensed. They need an owner decision: accept them, or replace them with our own implementations as a recorded local patch.
-- Fit covers:
-  - fixed-step stepping per ADR 0017 tick;
-  - deterministic replay, with an optional cross-platform mode (about 8% slower);
-  - save and restore state for replay and rollback;
-  - float or double precision for world size;
-  - characters, ragdoll motors and skeleton mapping;
-  - the structural-physics gap that Lykoware must fill itself.
-- Owner decisions (2026-11-04), yes to each recommendation:
-  1. Jolt;
-  2. replace the *Numerical Recipes*-derived functions with our own;
-  3. cross-platform determinism on;
-  4. floats for now.
-  
-  The build spike follows.
+- **Vendored:** Jolt Physics v5.6.0 under `third_party/jolt` (5.7 MB), with provenance and hashes. The two *Numerical Recipes*-derived headers are replaced by Lykoware implementations (cyclic Jacobi eigenvalues; Gauss–Jordan with row pivoting), as the owner chose.
+- **Build:** `cmake/VendorJolt.cmake` adds upstream's CMake as a system subdirectory with options forced (ADR 0018, Proposed):
+  - cross-platform determinism on, float precision;
+  - a static library with the engine's MSVC runtime, no link-time optimisation, RTTI on;
+  - vendored warnings not treated as errors;
+  - no debug renderer, profiler, object streams or GPU compute;
+  - sanitizer builds compile Jolt with ASan/UBSan.
+- **Hardware:** Jolt's AVX2 instruction-set flags are kept, so the engine now needs an AVX2 CPU. The MSI Claw and current desktops qualify (owner attention, ADR 0018).
+- **New tests** (call Jolt directly; the `lykoware::physics` wrapper is the next PR):
+  - `physics.jolt_math`: both replacement functions against known answers, and inertia decomposition;
+  - `physics.jolt_determinism`: a 64-body scene for 300 ticks at 60 Hz. Two runs match, save and restore reproduces the state, and the final state hash must equal `0x17e8264fc6fa9cd7` in every build.
+- **Local checks:** GCC 13 and Clang 18, Debug and Release, all produce that hash. 26/26 tests pass in the Debug, ASan/UBSan (with Jolt itself instrumented) and clang-tidy presets.
+- **Deliberate breaks,** each caught: turning determinism off (different hash), a sign error in the eigen solver, removing row swaps from Gauss–Jordan.
+- **CI:** pending. MSVC is the first Windows check of the hash.
 
 ## Next
 
@@ -82,7 +81,7 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 
 1. Vulkan RHI bring-up: done (#11–#18). Instance, device, offscreen render target read back into the image harness, swapchain, build-time Slang shaders, graphics pipelines, and the triangle offscreen and in the sandbox window.
 2. Phase 1 clocks and fixed-step update loop: done (#19, ADR 0017).
-3. Physics: Jolt accepted (ADR 0003, 2026-11-04). Next: the spike that vendors, patches, builds and wraps it.
+3. Physics: Jolt accepted (ADR 0003, 2026-11-04). Spike PR 1 (vendor, patch, build, determinism hash) is in review. Next: the `lykoware::physics` wrapper with stable body handles, per-tick stepping, ray casts and invalid-handle checks; then a character on a height field and a first body-count benchmark.
 4. Agree hardware profiles (RTX 4070 desktop, MSI Claw), multiplayer intent, world scope and budgets. Owner's current leaning on multiplayer: co-op later or MMO, undecided. This is not a commitment.
 
 ## Known issues and limitations
@@ -102,9 +101,9 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 
 ## Handoff
 
-- State: `main` at ff2a1ea contains PRs #2, #4–#19. The Vulkan RHI bring-up and Phase 1 clocks are complete. The previous `main` run ([41758233376](https://github.com/Avrenthrad/lykowareGE/actions/runs/41758233376)) passed all five jobs; the run for #19 was in progress when this was written.
-- Open decisions for the owner: ADR 0003 (Jolt); accepting or rejecting ADRs 0008–0012 and 0014–0017 (merging did not accept them); hardware profiles, multiplayer, world scope and budgets.
-- ADR 0003 (Jolt) was accepted by the owner on 2026-11-04. Next concrete action: the physics spike. Vendor Jolt v5.6.0 with the two *Numerical Recipes*-derived functions replaced, build it in all five jobs with cross-platform determinism, and prove it with a first scene and a fixed state hash.
+- State: `main` at 8089b22 contains PRs #2, #4–#20. The Vulkan RHI bring-up and Phase 1 clocks are complete. The previous `main` run ([41758233376](https://github.com/Avrenthrad/lykowareGE/actions/runs/41758233376)) passed all five jobs; the run for #19 was in progress when this was written.
+- Open decisions for the owner: ADR 0003 (Jolt); accepting or rejecting ADRs 0008–0012 and 0014–0018 (merging did not accept them), including ADR 0018's AVX2 CPU requirement; hardware profiles, multiplayer, world scope and budgets.
+- In review: physics spike PR 1 (`claude/physics-spike`, ADR 0018): vendored Jolt v5.6.0 with the owner's local patch, built in all five jobs, with a cross-platform determinism hash. Next concrete action after it merges: the `lykoware::physics` wrapper.
 - Owner check wanted: run `lykoware_sandbox --window --vulkan` on the RTX 4070 desktop and the MSI Claw. With 5c, a red, green and blue triangle over a slowly changing background is expected.
 - Checklist: no box ticked by this update. Phase 1 and the image/performance gate stay open.
 
