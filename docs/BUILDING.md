@@ -142,3 +142,7 @@ Python and analysis tools are development dependencies, not shipped game/runtime
 ## CI artifacts
 
 Builds, tests and staged execution are mandatory. Artifact upload is opt-in through the manual workflow's upload_artifacts input, defaults off, uses three-day retention, and is continue-on-error so a storage-quota rejection does not fail the foundation check. GitHub reported an exhausted artifact-storage quota during this task; no billing changes or artifact deletions were made. Ordinary PR/main checks do not require storage. Feature branches use PR checks rather than duplicate push/PR runs.
+
+## First-build memory
+
+Host shader tools default to two parallel build jobs, including on CPUs with many logical cores. Override with `-DLYKOWARE_HOST_TOOL_JOBS=N` (1–64) at configure time when machine memory permits. The local Windows validation runner explicitly uses two host-tool and two engine-build jobs for the owner's 16 GB PC. This is a concurrency limit, not a runtime performance setting; compiled tool options/recipe are unchanged. CI may restore prior cache contents, but HostTools selects only its exact version/recipe/platform directory.

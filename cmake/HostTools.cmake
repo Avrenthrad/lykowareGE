@@ -25,6 +25,11 @@ set(LYKOWARE_HOST_TOOLS_RECIPE "1")
 set(LYKOWARE_TOOL_CACHE "${CMAKE_SOURCE_DIR}/.lykoware-tools" CACHE PATH
     "Directory holding prebuilt host tools (Slang, SPIRV-Tools), shared by presets")
 
+set(LYKOWARE_HOST_TOOL_JOBS "2" CACHE STRING "Parallel host-tool build jobs (1-64); default suits 16 GB PCs")
+if(NOT LYKOWARE_HOST_TOOL_JOBS MATCHES "^[1-9][0-9]*$" OR LYKOWARE_HOST_TOOL_JOBS GREATER 64)
+    message(FATAL_ERROR "LYKOWARE_HOST_TOOL_JOBS must be an integer from 1 to 64")
+endif()
+
 function(_lykoware_run_step description)
     message(STATUS "Host tools: ${description}")
     execute_process(COMMAND ${ARGN} RESULT_VARIABLE result OUTPUT_VARIABLE output ERROR_VARIABLE output)
@@ -55,11 +60,8 @@ function(_lykoware_build_tool name source_dir work_dir install_dir)
             ${compiler_args}
             -DBUILD_TESTING=OFF
             ${TOOL_OPTIONS})
-    include(ProcessorCount)
-    ProcessorCount(jobs)
-    if(jobs EQUAL 0)
-        set(jobs 2)
-    endif()
+    # Compiler memory, rather than CPU count, bounds the first build on a 16 GB PC.
+    set(jobs "${LYKOWARE_HOST_TOOL_JOBS}")
     _lykoware_run_step("building ${name} (${TOOL_TARGETS})"
         "${CMAKE_COMMAND}" --build "${work_dir}" --config Release --parallel ${jobs} --target ${TOOL_TARGETS})
     file(MAKE_DIRECTORY "${install_dir}/bin")

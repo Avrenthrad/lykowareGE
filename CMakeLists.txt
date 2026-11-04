@@ -21,6 +21,7 @@ add_subdirectory(samples/sandbox)
 add_subdirectory(tools/cli)
 
 if(BUILD_TESTING)
+    find_package(Python3 3.10 REQUIRED COMPONENTS Interpreter)
     add_executable(lykoware_trace_test tests/trace_api.cpp)
     target_link_libraries(lykoware_trace_test PRIVATE lykoware::engine)
     lykoware_configure_target(lykoware_trace_test)
@@ -212,6 +213,19 @@ if(BUILD_TESTING)
     set_tests_properties(math.types PROPERTIES TIMEOUT 60)
 
     # The entity-component system (ADR 0023). Links only the engine.
+    add_test(NAME scene.cli_capture COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_SOURCE_DIR}/tests/scene_capture.py" "$<TARGET_FILE:lyko>"
+        "${CMAKE_SOURCE_DIR}/samples/scenes" "${CMAKE_BINARY_DIR}/test-output/scene-cli")
+    set_tests_properties(scene.cli_capture PROPERTIES TIMEOUT 240 SKIP_RETURN_CODE 77)
+
+    add_executable(lykoware_scene_replay_test tests/scene_replay.cpp)
+    target_link_libraries(lykoware_scene_replay_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_scene_replay_test)
+    add_test(NAME scene.replay COMMAND lykoware_scene_replay_test
+        "${CMAKE_SOURCE_DIR}/samples/scenes/falling-crates.scene.json"
+        "${CMAKE_SOURCE_DIR}/samples/scenes/falling-crates.commands.json")
+    set_tests_properties(scene.replay PROPERTIES TIMEOUT 120)
+
     add_executable(lykoware_ecs_test tests/ecs.cpp)
     target_link_libraries(lykoware_ecs_test PRIVATE lykoware::engine)
     lykoware_configure_target(lykoware_ecs_test)
@@ -324,7 +338,6 @@ if(BUILD_TESTING)
             "-DTRACE_DIR=$<TARGET_FILE_DIR:lyko>"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/cli_commands.cmake")
     set_tests_properties(cli.commands PROPERTIES TIMEOUT 60)
-    find_package(Python3 3.10 REQUIRED COMPONENTS Interpreter)
     add_executable(lyko_tool_fixture tests/tool_fixture.cpp tools/cli/process.cpp)
     target_compile_features(lyko_tool_fixture PRIVATE cxx_std_20)
     lykoware_configure_target(lyko_tool_fixture)
@@ -336,3 +349,7 @@ if(BUILD_TESTING)
 endif()
 
 install(TARGETS lykoware_sandbox lyko RUNTIME DESTINATION bin)
+
+# nlohmann/json is compiled into runtime/tools; preserve its MIT notice in staged builds.
+install(FILES third_party/json/LICENSE.MIT third_party/json/PROVENANCE.md
+    DESTINATION share/lykoware/licenses/json)

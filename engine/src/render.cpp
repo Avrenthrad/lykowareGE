@@ -65,7 +65,7 @@ struct Renderer::Impl {
     std::vector<rhi::MeshDraw> draws;
 
     // Builds one draw per entity with Transform and MeshRenderer, relative to the camera.
-    void prepare(ecs::World& entities, const Camera& camera, float aspect)
+    void prepare(const ecs::World& entities, const Camera& camera, float aspect)
     {
         constants.clear();
         draws.clear();
@@ -73,7 +73,7 @@ struct Renderer::Impl {
             math::look_at({0.F, 0.F, 0.F}, math::relative_to(camera.target, camera.eye), camera.up);
         const math::Mat4 projection = math::perspective(camera.vertical_fov, aspect, camera.near);
         const math::Mat4 view_projection = projection * view;
-        entities.each<Transform, MeshRenderer>([&](ecs::Entity, Transform& transform, MeshRenderer& mesh) {
+        entities.each<Transform, MeshRenderer>([&](ecs::Entity, const Transform& transform, const MeshRenderer& mesh) {
             const math::Mat4 model =
                 math::trs(math::relative_to(transform.position, camera.eye), transform.rotation, mesh.scale);
             Constants c;
@@ -137,14 +137,14 @@ std::unique_ptr<Renderer> Renderer::create(const rhi::Device& device, rhi::Color
     return std::unique_ptr<Renderer>(new Renderer(std::move(impl)));
 }
 
-bool Renderer::draw(ecs::World& entities, const Camera& camera, rhi::RenderTarget& target,
+bool Renderer::draw(const ecs::World& entities, const Camera& camera, rhi::RenderTarget& target,
                     const rhi::ClearColor& clear, rhi::RhiError& error)
 {
     impl_->prepare(entities, camera, static_cast<float>(target.width()) / static_cast<float>(target.height()));
     return target.draw_meshes(clear, *impl_->pipeline, impl_->draws, error);
 }
 
-bool Renderer::draw(ecs::World& entities, const Camera& camera, rhi::Swapchain& swapchain,
+bool Renderer::draw(const ecs::World& entities, const Camera& camera, rhi::Swapchain& swapchain,
                     const rhi::ClearColor& clear, rhi::RhiError& error)
 {
     const float aspect = swapchain.width() > 0 && swapchain.height() > 0

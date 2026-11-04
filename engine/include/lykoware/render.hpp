@@ -68,10 +68,10 @@ public:
 
     // Clears to `clear` and draws every entity with a Transform and a MeshRenderer, in ECS
     // iteration order (deterministic). The target needs a depth buffer.
-    [[nodiscard]] bool draw(ecs::World& entities, const Camera& camera, rhi::RenderTarget& target,
+    [[nodiscard]] bool draw(const ecs::World& entities, const Camera& camera, rhi::RenderTarget& target,
                             const rhi::ClearColor& clear, rhi::RhiError& error);
     // The same into a window. The swapchain needs depth (SwapchainConfig::depth).
-    [[nodiscard]] bool draw(ecs::World& entities, const Camera& camera, rhi::Swapchain& swapchain,
+    [[nodiscard]] bool draw(const ecs::World& entities, const Camera& camera, rhi::Swapchain& swapchain,
                             const rhi::ClearColor& clear, rhi::RhiError& error);
 
     // Entities drawn by the last draw().

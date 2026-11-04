@@ -1,4 +1,4 @@
-# Exit codes and help text for the lyko dispatcher. No renderer is claimed.
+# Exit codes and help text for the lyko dispatcher. Includes validation of the versioned scene command path.
 function(check_lyko expected_exit expected_text)
     execute_process(
         COMMAND "${LYKO}" ${ARGN}
@@ -24,14 +24,14 @@ endfunction()
 check_lyko(0 "Usage:" --help)
 check_lyko(0 "lyko run" --help)
 check_lyko(0 "lyko trace --frames" --help)
-check_lyko(0 "unsupported: no renderer" --help)
+check_lyko(0 "run --scene FILE" --help)
 check_lyko(0 "lyko ${EXPECTED_VERSION}" --version)
 check_lyko(0 "Foundation check complete" run)
-check_lyko(3 "unsupported: no renderer" screenshot)
-check_lyko(3 "unsupported: no renderer" screenshot --harness)
-check_lyko(3 "unsupported: no renderer" screenshot --output "not-a-screenshot.ppm")
-check_lyko(3 "unsupported: no renderer" run --scene)
-check_lyko(3 "unsupported: no renderer" run --scene fixture)
+check_lyko(2 "requires --scene" screenshot)
+check_lyko(2 "missing scene option value" screenshot --harness)
+check_lyko(2 "requires --scene" screenshot --output "not-a-screenshot.ppm")
+check_lyko(2 "missing scene option value" run --scene)
+check_lyko(2 "cannot read input" run --scene fixture)
 check_lyko(2 "Unknown command:" nope)
 check_lyko(2 "run accepts no options" run --extra)
 check_lyko(2 "trace requires --frames" trace)

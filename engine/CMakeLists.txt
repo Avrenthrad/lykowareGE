@@ -5,6 +5,7 @@ configure_file(
 
 add_library(lykoware_engine STATIC
     src/clock.cpp
+    src/scene.cpp
     src/ecs.cpp
     src/world_identity.cpp
     src/log.cpp
@@ -32,3 +33,6 @@ target_include_directories(lykoware_engine PUBLIC
 target_link_libraries(lykoware_engine PRIVATE SDL3-static lykoware_volk lykoware_vma Jolt)
 
 lykoware_configure_target(lykoware_engine)
+
+# JSON stays private behind scene.hpp; upstream licence/notices are vendored.
+target_include_directories(lykoware_engine SYSTEM PRIVATE "${CMAKE_SOURCE_DIR}/third_party/json/include")

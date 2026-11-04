@@ -50,12 +50,11 @@ Later Track C provides original modelling, sculpting, UV/texturing/material pain
 
 ## Confirmed implementation versus proposals
 
-Existing: C++20/CMake console foundation, logging, native lyko build/test CLI, warning gates, and Linux sanitizer/static-analysis presets. See STATUS for actual verification.
-Not implemented: runtime world, renderer, physics, editor, AI, CLI scene/capture commands.
-Language: C++20/CMake accepted by Joshua; continue the verified foundation. No Rust migration or benchmark comparison required.
-Graphics: Vulkan 1.3 from C++ behind a Lykoware-owned RHI, accepted in ADR 0002. D3D12 only if Intel Arc measurements justify it. Nothing is vendored yet.
-Physics: Jolt preferred and, if adopted, used natively in C++ rather than through bindings. ADR 0003 is still proposed.
-Data: canonical JSON, TOML config and glTF 2.0 meshes are accepted in ADR 0004. RON is dropped. Schemas are not implemented.
+Implemented on main: native C++20/CMake tools, SDL input/windowing, Vulkan RHI, clocks, Jolt physics and the owned ECS/physics link. Claude's PRs #32–#34 add math, depth/meshes and the first camera-relative renderer. Codex's review branches add isolated handles, exception safety and versioned scene/command/capture tooling. See STATUS for exact branch and verification evidence.
+Not implemented: the full editor/content suite, large-world streaming, gameplay systems and local AI.
+Language/graphics: accepted C++20/CMake and Vulkan 1.3 behind owned APIs; no Rust migration. D3D12 remains a measurement-driven contingency.
+Physics: Jolt v5.6.0 accepted (ADR 0003), native C++ API (0020), double-precision positions (0022).
+Data: canonical JSON, TOML config and glTF 2.0 accepted (0004). The first box-scene and command schemas are proposed in ADR 0031; a generic content/save schema is future work.
 See [ADRs](adr/README.md), [roadmap](ROADMAP.md), and [status](STATUS.md).
 
 ## Remaining product questions

@@ -26,28 +26,36 @@ def invoke(*args, expected=0, cwd=None):
 
 assert "Usage:" in invoke("--help")
 assert "lyko trace --frames" in invoke("--help")
-assert "unsupported: no renderer" in invoke("--help")
+assert "run --scene FILE" in invoke("--help")
 assert invoke("--version").startswith("lyko ")
 assert "Unknown command" in invoke("nonsense", expected=2)
-assert "unsupported: no renderer" in invoke("screenshot", expected=3)
-assert "unsupported: no renderer" in invoke("screenshot", "--harness", expected=3)
-assert "unsupported: no renderer" in invoke("screenshot", "--output", "not-a-screenshot.ppm", expected=3)
-screenshot_text = invoke("screenshot", expected=3).lower()
-assert "ppm" not in screenshot_text
-assert "wrote" not in screenshot_text
-help_text = invoke("--help").lower()
-assert "ppm" not in help_text
-assert "harness" not in help_text
+assert "requires --scene" in invoke("screenshot", expected=2)
+assert "missing scene option value" in invoke("screenshot", "--harness", expected=2)
+assert "requires --scene" in invoke("screenshot", "--output", "not-a-screenshot.ppm", expected=2)
 assert "trace requires --frames" in invoke("trace", expected=2)
 assert "integer from 1 to 1000000" in invoke("trace", "--frames", "0", expected=2)
-assert "unsupported: no renderer" in invoke("run", "--scene", expected=3)
-assert "unsupported: no renderer" in invoke("run", "--scene", "room", expected=3)
-assert "unsupported: no renderer" in invoke("run", "--scene=room", expected=3)
+assert "missing scene option value" in invoke("run", "--scene", expected=2)
+assert "cannot read input" in invoke("run", "--scene", "room", expected=2)
+assert "missing scene option value" in invoke("run", "--scene=room", expected=2)
 assert "Foundation check complete" in invoke("run")
 assert "run accepts no options" in invoke("run", "--extra", expected=2)
 
 with tempfile.TemporaryDirectory(prefix="lyko tests ") as temporary:
     root = Path(temporary)
+    scene_source = Path(__file__).resolve().parents[1] / "samples" / "scenes"
+    report = root / "replay Ω report.json"
+    scene_args = ("run", "--scene", scene_source / "falling-crates.scene.json",
+                  "--commands", scene_source / "falling-crates.commands.json", "--ticks", "120")
+    assert "ticks=120 entities=4" in invoke(*scene_args, "--report", report)
+    first = json.loads(report.read_text(encoding="utf-8"))
+    assert first["commands_applied"] == 3
+    assert first["simulation"]["samples"] == 120
+    invoke(*scene_args, "--report", report)
+    second = json.loads(report.read_text(encoding="utf-8"))
+    assert first["replay_state_hash"] == second["replay_state_hash"]
+    assert first["gpu_timestamp_ms"] is None
+    assert first["gpu_resident_bytes"] is None
+
     trace_dir = root / "trace Ω & ; literal"
     trace_dir.mkdir()
     trace_file = trace_dir / "cpu trace.json"

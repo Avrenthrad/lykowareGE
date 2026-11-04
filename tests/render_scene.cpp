@@ -143,6 +143,7 @@ Result run(rhi::Device& device, render::Renderer& renderer, math::DVec3 offset)
         result.crate_positions.push_back(entities.get<lykoware::Transform>(e)->position);
     }
 
+    const auto before_draw = world->state_hash();
     rhi::RhiError rhi_error;
     auto target = rhi::RenderTarget::create(device, {width, height, true}, rhi_error);
     const render::Camera camera{offset + math::Vec3{0.F, 3.F, 9.F}, offset + math::Vec3{0.F, 0.5F, 0.F}};
@@ -151,6 +152,7 @@ Result run(rhi::Device& device, render::Renderer& renderer, math::DVec3 offset)
         return result;
     }
     result.drawn = renderer.last_draw_count();
+    expect(world->state_hash() == before_draw, "GPU draw leaves physics state unchanged");
     if (!rhi::RenderTargetCapture{*target}.capture(result.image)) {
         result.image.clear();
     }

@@ -30,7 +30,8 @@ using Quat = math::Quat;
 
 // Stable handle to a body. A destroyed body's handle stays invalid for the rest of the world's
 // life: its slot can be reused, but with a new generation, so an old handle never reaches a
-// new body. The default handle is never valid.
+// new body. A slot that has used every generation is retired rather than reused. The default
+// handle is never valid.
 struct BodyId {
     std::uint32_t index = 0;
     std::uint32_t generation = 0;

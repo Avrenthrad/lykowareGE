@@ -33,6 +33,8 @@ Canonical directory: docs/adr. Decisions remain Proposed until resolved; disting
 
 | [0030](0030-runtime-contract-hardening.md) | Proposed | Runtime owner tokens, transactional ECS storage and exclusive physics links |
 
+| [0031](0031-scenes-and-command-replay.md) | Proposed | Versioned scenes, stable authored IDs, fixed-tick commands and read-only presentation |
+
 Use [the template](TEMPLATE.md). Record context, options, decision/status, contracts, consequences and verification. Use a new ADR to supersede an accepted choice; do not silently rewrite its history.
 
 [Pre-brief records](../decisions/README.md) remain historical and are not part of this numbering sequence.

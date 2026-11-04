@@ -22,6 +22,7 @@ Accepted by the owner on 2026-11-04:
 - **`lykoware::physics::World`** (`engine/include/lykoware/physics.hpp`) owns one Jolt physics system and all its bodies. Jolt is linked privately into the engine, and only `engine/src/physics.cpp` includes it.
 - **Stable handles.** `BodyId` is `{index, generation}` into a Lykoware slot table.
   - Freed slots are reused last-in first-out, so the order is deterministic, with a new generation. A destroyed body's handle stays invalid for the world's whole life and can never reach a later body.
+  - A slot whose generation has reached 2^32 - 1 is retired when freed, not reused, as in the ECS ([ADR 0023](0023-ecs.md)). The code merged in [#23](https://github.com/Avrenthrad/lykowareGE/pull/23) wrapped back to generation 1 instead, which broke the promise above after 2^32 - 1 reuses of one slot. Fixed after acceptance, with no change below that count.
   - We do not rely on Jolt's own `BodyID`, whose 8-bit sequence number repeats after 256 reuses of a slot.
   - The default handle is never valid.
 - **Bodies.**

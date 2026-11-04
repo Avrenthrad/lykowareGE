@@ -2,11 +2,11 @@
 
 Records what is implemented and verified on `main`. Plans live in [ROADMAP.md](ROADMAP.md); task ownership in [WORK_BOARD.md](WORK_BOARD.md). Older per-branch handoffs are in the merged pull requests and git history.
 
-## Runtime review follow-up ready for owner review
+## Review follow-up verification
 
-PR [#35](https://github.com/Avrenthrad/lykowareGE/pull/35), branch `codex/core-contract-hardening`, implements world-specific handles, transactional component storage/physics attachment, exclusive lifetime hooks, deterministic per-world cleanup order and allocation-free move transfer ([ADR 0030](adr/0030-runtime-contract-hardening.md)). All five CI jobs passed on source commit `f113b45` in [run 41826863572](https://github.com/Avrenthrad/lykowareGE/actions/runs/41826863572): Windows Debug/Release, Linux Debug, ASan/UBSan and clang-tidy 18. The 39-test suite includes allocation fault injection and unchanged physics hashes. This paragraph is a documentation-only handoff after that source result.
-
-Joshua merges per WORK_BOARD. Scene/command/replay/capture integration follows in [#36](https://github.com/Avrenthrad/lykowareGE/pull/36); actual Windows target-PC performance remains unverified. No Phase 1 completion is claimed.
+- Runtime PR [#35](https://github.com/Avrenthrad/lykowareGE/pull/35), `codex/core-contract-hardening`: [ADR 0030](adr/0030-runtime-contract-hardening.md), world-specific handles, transactional attachment/storage, exclusive cleanup hooks, world-local hook order and allocation-free moves. All five CI jobs passed on source `f113b45` in [run 41826863572](https://github.com/Avrenthrad/lykowareGE/actions/runs/41826863572), including Windows Debug/Release and 39 CTests; the follow-up commit changes handoff prose only.
+- Integration PR [#36](https://github.com/Avrenthrad/lykowareGE/pull/36), `codex/scene-command-replay`: [ADR 0031](adr/0031-scenes-and-command-replay.md), versioned scene/command schemas with stable IDs, read-only interpolated snapshots, CLI replay/capture/report and a Windows measurement runner. Preserves Claude's #30 and merged #32–#34. Local Linux Debug: **41/41 passed, no skips**, with Mesa lavapipe (LLVM 19), including 180-tick hashes at 30/60/144 Hz and irregular frames, real repeated captures and far-origin/read-only GPU checks. Staged CLI replay and real capture from `/tmp` pass, including shader deployment and the JSON MIT notice. All five CI jobs passed on source `26f7332` ([run 41827916577](https://github.com/Avrenthrad/lykowareGE/actions/runs/41827916577)): Windows Debug/Release, Linux Debug, ASan/UBSan and clang-tidy 18. Hosted Windows GPU tests report Skipped; Linux uses software Vulkan. The subsequent handoff/build-concurrency change caps first-build compiler jobs at two and validates job counts; current PR-head checks govern merge readiness.
+- [REVIEW_FOLLOWUP](REVIEW_FOLLOWUP.md) records completion gates. Actual Windows target-PC performance remains unverified. Joshua merges per WORK_BOARD; Phase 1 remains open.
 
 ## Decisions
 
@@ -14,8 +14,8 @@ Joshua merges per WORK_BOARD. Scene/command/replay/capture integration follows i
 | --- | --- | --- |
 | [0001](adr/0001-language.md) | Accepted | C++20 and CMake 3.25+ |
 | [0002](adr/0002-graphics.md) | Accepted | Vulkan 1.3 from C++ behind a Lykoware-owned RHI. Vulkan-Headers, volk and VMA are vendored (ADRs 0009–0011). |
-| [0003](adr/0003-physics.md) | **Accepted by owner 2026-11-04** | Jolt Physics v5.6.0 (MIT), natively from C++ behind a Lykoware API. The two *Numerical Recipes*-derived functions are replaced by our own; cross-platform determinism is on; float precision for now. Not yet vendored: the spike follows. |
-| [0004](adr/0004-data-formats.md) | Accepted | Canonical JSON for machine data, TOML for hand-edited config, glTF 2.0 meshes. No parser vendored yet. |
+| [0003](adr/0003-physics.md) | **Accepted by owner 2026-11-04** | Jolt Physics v5.6.0 (MIT), natively from C++ behind a Lykoware API. The two *Numerical Recipes*-derived functions are replaced by our own; cross-platform determinism is on; the initial float-position choice was superseded by double positions in ADR 0022. Vendored and integrated. |
+| [0004](adr/0004-data-formats.md) | Accepted | Canonical JSON for machine data, TOML for hand-edited config, glTF 2.0 meshes. The review branch vendors nlohmann/json 3.11.3 for the first scene/command caller. |
 | [0005](adr/0005-native-cli.md)–[0007](adr/0007-image-harness.md) | Accepted implementation | CLI, CPU trace, GPU-free image harness |
 | [0008](adr/0008-window-input.md) | Proposed | SDL 3.4.18 behind the window and input API. Merged and working; owner has not accepted it. |
 | [0009](adr/0009-vulkan-loading.md) | Proposed (merged; owner has not accepted) | Vulkan-Headers and volk, Vulkan loaded at run time, RHI instance, GPU tests skip rather than pass without a loader. |
@@ -122,6 +122,15 @@ Owner: Claude. Branch `claude/render-scene`, stacked on PR 2 (`claude/rhi-mesh`)
 - **Local checks:** 38/38 pass in Debug, ASan/UBSan and clang-tidy, with no Vulkan validation errors.
 - **CI:** [run 41823030117](https://github.com/Avrenthrad/lykowareGE/actions/runs/41823030117) on eb3716a passed all five jobs, after a fix for MSVC's C4458 (a local hid a member) that failed the first run's Windows jobs.
 
+### Physics handles: retire a slot instead of wrapping its generation
+
+Owner: Claude. Branch `claude/nice-mendel-lm4mb0`, stacked on `claude/ecs-core`. In review.
+
+- **Bug:** after 2^32 - 1 reuses of one slot, a physics body or character generation wrapped back to 1. A handle kept from the slot's first use could then match a later object, against ADR 0020's promise.
+- **Fix:** such a slot is retired when freed, not reused, as in the ECS. Nothing changes below that count, so the recorded physics hashes stay the same.
+- **Local checks:** 34/34 pass in GCC 13 Debug. A temporary build whose slots start two generations short of the limit showed the fix retiring the full slot for bodies and characters; the old code handed the slot out again at generation 1. No permanent test: reaching the limit through the API would take hours.
+- **CI:** [run 41817249456](https://github.com/Avrenthrad/lykowareGE/actions/runs/41817249456) on 7126cec passed all five jobs with the recorded physics hashes.
+
 ## Next
 
 Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
@@ -131,20 +140,20 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 3. Physics: Jolt accepted (ADR 0003) and vendored (#21, ADR 0018). The `lykoware::physics` API is merged (#23). Terrain and characters (#24) and the body-count benchmark (#25) are merged; the spike is done. The owner accepted ADR 0020 on 2026-11-04.
 4. Hardware profiles, multiplayer intent, world scope and budgets: decided on 2026-11-04 (ADR 0021). Desktop PC only, RTX 4070 recommended at 1440p60, 16 GB RAM, single-player built co-op-ready, a 16 km+ world, double-precision positions.
 5. Physics positions in double precision: done (#27, #28, ADR 0022).
-6. The rest of Phase 1: the ECS is done (#29, #31, ADR 0023). 3D rendering is in progress (maths, then GPU buffers and depth, then falling crates drawn from the ECS); then scene loading, screenshots, command bus and replay, audio.
+6. The rest of Phase 1: ECS and the first lit renderer are merged (#29/#31–#34). #35 hardens contracts; #36 adds the first scene/command/replay/capture path. Audio, other Phase 1 exits and measured hardware budgets remain future work.
 
 ## Known issues and limitations
 
-- No scene loader, audio, animation, world streaming or inference yet. With 3D rendering PRs 1–3: the renderer draws lit, coloured cubes from ECS entities with depth, camera-relative, offscreen and in the sandbox window. There are no meshes from files, textures, materials, shadows, more than one light, interpolation between ticks or window read-back, so window pixels are not checked automatically (offscreen renders are).
+- The merged renderer draws lit cubes with depth and camera-relative positions; #36 adds versioned box scenes, commands and interpolation snapshots. General mesh import, textures/PBR materials, shadows, multiple lights, audio, animation, streaming and inference remain future work. Window read-back/frame-pacing validation is still absent; offscreen pixels are checked.
 - GPU tests skip (exit 77, CTest "Skipped") where no Vulkan loader or driver is installed. Hosted Windows runners may skip them; a skip is not a pass.
-- `lyko run` launches the console sandbox. `lyko screenshot` and `lyko run --scene` print `unsupported: no renderer` and exit 3. `lyko trace --frames N` is a CPU trace of the sandbox loop, not a GPU capture.
-- The image harness compares a software test pattern with committed PPM fixtures, and Vulkan clears read back from a render target. Neither is a scene screenshot or the image/performance gate; `lyko screenshot` still exits 3.
+- On main, `lyko run` launches the console sandbox; scene/capture support is added on the Codex integration branch (ADR 0031). `lyko trace --frames N` remains a CPU trace of the sandbox loop, not a GPU trace.
+- The image harness supports software fixtures and real Vulkan readback. #36 implements scene screenshots and repeated pixel/hash checks; this does not close the calibrated hardware performance gate.
 - Provisional CPU budgets apply only to the hosted windows-2022 and ubuntu-24.04 runners. They are not an RTX 4070 gate.
 - Window: a real Win32/X11/Wayland desktop window, focus changes and a real Vulkan surface are untested in CI. A Linux desktop window needs X11 or Wayland headers at configure time. A newly adopted gamepad starts with released buttons and centred axes until it reports a change.
-- Vendored runtime sources: SDL 3.4.18 (HIDAPI inside it under the BSD-style licence, not GPL), Vulkan-Headers C headers (MIT option), volk (MIT) and Vulkan Memory Allocator 3.4.0 (MIT). Vendored build-time tools, not shipped: Slang (Apache-2.0 WITH LLVM-exception, one owner-accepted Unlicense file), SPIRV-Tools and SPIRV-Headers. See [third_party/README.md](../third_party/README.md).
+- Vendored runtime sources: SDL 3.4.18 (HIDAPI inside it under the BSD-style licence, not GPL), Vulkan-Headers C headers (MIT option), volk (MIT), Vulkan Memory Allocator 3.4.0 (MIT), Jolt 5.6.0 (MIT) and, on #36, nlohmann/json 3.11.3 (MIT). Vendored build-time tools, not shipped: Slang (Apache-2.0 WITH LLVM-exception, one owner-accepted Unlicense file), SPIRV-Tools and SPIRV-Headers. See [third_party/README.md](../third_party/README.md).
 - The first configure on a machine builds the shader tools, which takes about 15 extra minutes once per tool version. CI keeps them in the free Actions cache.
 - Sanitizers are Linux-only. ThreadSanitizer is deferred until there are concurrent engine systems.
-- The CLI is a developer process wrapper, not the future command bus. See [CLI.md](CLI.md).
+- The CLI keeps its build/test process wrapper and adds the shared native scene command handler in #36. Generic editor actions/undo and a scripting language are not implemented. See [CLI.md](CLI.md).
 - Pax review, patent review (including US 10,926,179 for Living Memory) and legal clearance remain required before anything is public. None has been done.
 - GitHub artifact storage is exhausted. Uploads stay opt-in; builds and tests do not depend on them. No storage was bought and no paid operation was run.
 

@@ -15,13 +15,13 @@ Owner decisions ([ADR 0021](adr/0021-product-targets.md), 2026-11-04): desktop P
 | System RAM | Game and local AI within about 10–12 GB of a 16 GB machine | Same |
 | VRAM | 12 GB card | Minimum settings within 8 GB (proposal) |
 
-Desktop CPU (proposed: 6 cores, 12 threads, AVX2), the exact minimum GPU, OS and driver versions, world and traversal workload, and story-state size remain unconfirmed. GPU memory, streaming bandwidth and inference budgets must be selected before their phase gates can pass. Desktop and handheld parity means coherent gameplay, not identical settings or local LLM throughput.
+Desktop CPU (proposed: 6 cores, 12 threads, AVX2), the exact minimum GPU, OS and driver versions, world and traversal workload, and story-state size remain unconfirmed. GPU memory, streaming bandwidth and inference budgets must be selected before their phase gates can pass. Only desktop PC is targeted (ADR 0021).
 
 ## Measurement method
 
 Pin fixture version, random seed, toolchain, driver, device, power mode, resolution, camera path and warmup. Report cold start separately from warmed traversal. Capture CPU/GPU frame-time distributions, hitches, peak/resident memory, upload/decompression work, shader/pipeline misses and loaded asset counts.
 
-Generic hosted CI can enforce unit/CPU tests and agreed CPU budgets on a pinned runner class. Device-specific GPU gates require calibrated runners or reproducible local hardware reports; arbitrary hosted timings are not a valid handheld/4070 baseline. Record threshold changes in reviewed configuration rather than silently weakening failures.
+Generic hosted CI can enforce unit/CPU tests and agreed CPU budgets on a pinned runner class. Device-specific GPU gates require calibrated runners or reproducible local hardware reports; arbitrary hosted timings are not a valid recommended-PC baseline. Record threshold changes in reviewed configuration rather than silently weakening failures.
 
 ## Provisional hosted CPU check
 
@@ -75,3 +75,17 @@ Local, GCC 13 Release, one thread: about 4 ns per entity per frame. 1000 entitie
 - Local inference tests with async deadlines, cancellation, bounded output validation and fallback behavior.
 
 "Zero stutter" guides engineering. [ADR 0002](adr/0002-graphics.md) accepts ahead-of-time SPIR-V and device/driver-keyed pipeline caches as the approach. Precompiled shaders, cache invalidation, background streaming and bounded workloads reduce causes; they do not prove universal hitch-free operation. Record failed hardware runs and known limits rather than declaring the goal achieved.
+
+## Repeatable scene measurement (review branch)
+
+The owner supplied Windows 11 Home build 26300, Intel Core i7-14700F (20 cores / 28 logical processors), and 16 GB RAM. GPU/VRAM are unconfirmed; no personal host/user identifiers are recorded. This is context for a future local run, not measured performance.
+
+From a Visual Studio developer PowerShell with CMake, Python and Git available:
+
+```powershell
+./tools/validation/measure-scene.ps1
+```
+
+The runner builds/tests Release, records CPU/OS/RAM and GPU driver metadata, then runs the same versioned box scene/commands three times at 2560×1440, warming 120 draws and measuring 600 simulation+offscreen-draw frames. Local outputs stay in ignored `build/measurements`; nothing uploads. `-SkipBuild`, `-Executable PATH`, `-OutputDirectory PATH` and `-Frames N` customize it. A software GPU is explicitly refused as hardware evidence.
+
+Each report contains the simulation replay hash, final hash/tick, active entities, CPU simulation percentiles, end-to-end synchronous offscreen frame percentiles/raw samples, device/driver and peak process resident bytes. Capture is a PPM of the real renderer. Timings exclude pipeline creation and final screenshot readback; snapshot preparation and GPU completion wait are included. These times are not GPU timestamp measurements or swapchain frame pacing. GPU timestamps and VRAM residency are null rather than invented. This four-box fixture cannot establish the flagship or 16 km streaming budget; the recommended-profile gate remains open until the actual PC report and later representative loads are reviewed.

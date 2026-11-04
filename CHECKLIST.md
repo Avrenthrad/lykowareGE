@@ -18,9 +18,10 @@ This replaces the old module ordering while preserving verified Module 01 histor
 - [x] Add proprietary notice and dependency-vendoring requirements.
 - [ ] Confirm final repository name before any rename (keep existing name meanwhile).
 - [x] Accept C++20/CMake as the runtime/native-tooling stack with Joshua (ADR 0001; owner decision, no comparative benchmark claimed).
-- [x] Accept graphics (ADR 0002: Vulkan 1.3 C++ behind an owned RHI) and data/command formats (ADR 0004: canonical JSON, TOML config, glTF 2.0 meshes). Decision only; nothing vendored.
-- [ ] Accept physics integration (ADR 0003). Jolt is preferred and, if adopted, is native C++ rather than bindings.
-- [ ] Agree hardware profiles, frame-time/memory budgets and multiplayer direction.
+- [x] Accept graphics (ADR 0002: Vulkan 1.3 C++ behind an owned RHI) and data/command formats (ADR 0004: canonical JSON, TOML config, glTF 2.0 meshes). Decision and current dependencies are recorded separately in STATUS.
+- [x] Accept Jolt v5.6.0 integration (ADR 0003, owner decision 2026-11-04; native C++ API in ADR 0020).
+- [x] Agree desktop/RTX 4070 direction, 16 GB RAM, single-player built co-op-ready and double-position 16 km+ scope (ADR 0021).
+- [ ] Calibrate concrete CPU/GPU/VRAM/frame-pacing budgets on target hardware.
 - [x] Extend the C++20/CMake foundation with real lyko build/test commands (branch implementation; see STATUS for platform evidence).
 - [x] Verify warnings-as-errors, sanitizer/static-analysis and CLI integration CI matrix ([all five profiles passed](https://github.com/Avrenthrad/lykowareGE/actions/runs/41325853657)).
 - [ ] Introduce actual image/performance gates as renderer and calibrated fixtures become available.
@@ -58,3 +59,7 @@ Phase 7's editor work has moved to Track E.
 - [ ] C5 — VFX/terrain/audio tools.
 
 Every stage requires the roadmap's command parity, round-trip, quality and performance evidence. A prepared plan is not an implemented system.
+
+## Core review follow-ups
+
+Tracked with exit evidence in [REVIEW_FOLLOWUP.md](docs/REVIEW_FOLLOWUP.md). Branch implementations alone do not check off the Phase 1 gate.

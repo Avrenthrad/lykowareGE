@@ -5,7 +5,8 @@
 Canonical implementation status: [STATUS.md](STATUS.md).
 Canonical plan: [ROADMAP.md](ROADMAP.md).
 
-`main` at 5b46f08 contains PRs #2, #4–#21, #23–#29 and #31. Details and CI evidence: [STATUS.md](STATUS.md). Earlier per-task entries on this board were removed once merged; they remain in the pull requests and git history.
+`main` at `855e01e` includes Claude's #32–#34 math/mesh/renderer stack (alongside #31 ECS/physics). Review follow-ups #35 and #36 remain separate owner-merge PRs. Earlier per-task entries remain in pull requests/git history. Details: [STATUS](STATUS.md).
+
 Owner-supplied vision is captured in [ENGINE_VISION.md](ENGINE_VISION.md).
 
 Owner rules for every task: small stacked PRs; commit small and often; keep all five CI jobs green; record each decision as an ADR; keep STATUS handoff-ready after every task; Joshua merges; no regenerable generated files in commits; artifact upload stays opt-in and no storage or service is bought; no roadmap box ticked unless truly done.
@@ -19,26 +20,21 @@ Check latest main and open PRs before starting. Documents do not automatically s
 - Affected interfaces: ECS Entity, physics handles, ECS movement/hook claims, physics component accessors.
 - Checks: cross-world rejection; move/locked/rebind tests; injected allocation failures; unchanged deterministic physics hashes; full five-job CI.
 - Related work: Claude's `claude/math`, `claude/rhi-mesh`, and `claude/render-scene` supply camera-relative rendering. Keep their ownership and changes intact.
-- Remaining follow-ups: stable persisted scene/schema IDs and fixed-tick command replay; render/simulation separation tests; integrated capture/measurement runner; documentation reconciliation.
+- Implemented on #36, verification in progress: stable scene/schema IDs, fixed-tick replay, render/simulation separation, capture/measurement runner and documentation reconciliation.
 - Hardware gate: actual Windows GPU timing and memory on the recommended desktop require that machine. A software Vulkan run is not that evidence.
 - Integration: Joshua merges, per the owner rules above. Stacked follow-up PRs may be built/tested together locally before owner merge.
 
-## Active task
+## Related rendering work
 
-3D rendering (Phase 1). Owner: Claude. Status: PR 1 in review as #32 (`claude/math`), PR 2 as #33 (`claude/rhi-mesh`) and PR 3 on `claude/render-scene`, each stacked on the one before.
+Claude owns #32 (`claude/math`), #33 (`claude/rhi-mesh`) and #34 (`claude/render-scene`). They supply camera-relative math, RHI mesh/depth drawing and the first lit ECS falling-crates renderer. Their CI evidence is recorded in those PRs/STATUS. Codex's scene-command integration preserves that stack and #30's physics slot retirement; it does not replace or publish Claude's branches.
 
-- Objective: lit 3D objects drawn from the ECS through the Lykoware RHI. First milestone, chosen by the owner on 2026-11-04: the physics demo's falling crates, drawn with a camera and depth, pixel-checked in CI.
-- Planned PRs, in order:
-  1. (In review, ADR 0024.) Lykoware's own maths module; physics value types become its aliases.
-  2. (In review, ADR 0025.) RHI: GPU vertex and index buffers, a depth buffer, pipelines with vertex input, depth test, culling and push constants; a lit cube drawn offscreen and pixel-checked on lavapipe.
-  3. (In review, ADR 0026.) Renderer: mesh and camera components, camera-relative drawing from ECS `Transform`s, depth on the window path, falling crates in the sandbox window, and a pixel-checked scene test.
-- Shared interfaces/formats affected: new `lykoware/math.hpp`; RHI additions in PR 2; a renderer API in PR 3.
-- Acceptance checks: all five CI jobs green; pixel checks on lavapipe (Windows runners have no Vulkan, so they skip).
-- Assumptions and decisions needed: the owner chose our own maths and the falling-crates milestone; ADR 0024 is Proposed.
+## Active scene/replay integration
 
-## Completed task: ECS
-
-Owner: Claude. Done: #29 and #31 merged (ADR 0023, Proposed; the owner chose to write our own). Generation-checked entities, packed component storage, deterministic iteration, removal hooks, a change buffer, and physics bodies and characters on entities. Details and CI runs are in [STATUS.md](STATUS.md).
+- Owner/status: Codex, implemented and ready for review as #36 (`codex/scene-command-replay`), stacked on #35; preserves Claude's #30 and merged #32–#34. Runtime/scene source `26f7332` passed all five CI jobs (run 41827916577); subsequent documentation/build-concurrency checks must stay green.
+- Scope: ADR 0031, versioned JSON box scene/command schema, stable authored IDs, fixed-tick dispatch, render-only snapshots, CLI replay/capture/report, local Windows measurement script and documentation reconciliation.
+- Verified on `26f7332`: canonical/malformed-input checks; every tick equal at 30/60/144 Hz/irregular frames; unchanged simulation after interpolation/GPU draw; repeated real CLI captures/hash equality; installed shader paths; five CI jobs green.
+- Hardware: owner supplied Windows 11 Home / i7-14700F / 16 GB; graphics device/VRAM and actual measurements pending. Do not record personal machine/user identifiers from the screenshot.
+- Integration: [REVIEW_FOLLOWUP](REVIEW_FOLLOWUP.md); Joshua merges. No full editor or later-phase gameplay work.
 
 ## Completed task: double-precision positions
 
@@ -113,3 +109,11 @@ Use in the task/PR when pausing, completing, or transferring work:
 ## Suggested next task
 
 Owner order, set 2026-11-02: (1) Vulkan RHI bring-up, now done; (2) Phase 1 clocks and fixed-step update, now done; (3) decide Jolt in ADR 0003 before any physics, now decided, with the spike as the active task above; (4) agree hardware profiles, multiplayer intent, world scope and budgets, now decided in ADR 0021 (desktop only, RTX 4070 recommended at 1440p60, 16 GB RAM, single-player built co-op-ready, 16 km+ world, double precision). Leave ADR 0008 Proposed until the owner accepts it. No full editor or content suite work before the roadmap gates.
+
+## Codex handoff: review follow-ups
+
+- PR #35: `codex/core-contract-hardening`; source `f113b45` passed all five profiles. Following `6a1f299` updates documentation only.
+- PR #36: `codex/scene-command-replay`; runtime/scene source `26f7332` passed all five profiles; subsequent commit records that evidence and adds the two-job host-tool build limit for the owner's 16 GB system. See current PR checks for the exact final head.
+- Local: 41/41 CTests pass with Mesa lavapipe (LLVM19), including actual capture; installed replay/capture works from `/tmp`. Broken-link/conflict-marker checks pass. Job count 0 is rejected; 2 configures successfully; CI cache fallback preserves exact tool version/recipe/platform selection.
+- No paid services, artifact uploads, generated build files or personal host/user identifiers committed. Upstream JSON source is intentionally vendored with its MIT licence/provenance and staged notice.
+- Next: Joshua merges reviewed PRs in dependency order; run `tools/validation/measure-scene.ps1` on the Windows PC and inspect the local reports. Hardware profile/frame pacing/VRAM remain unverified; no Phase 1 exit or flagship budget is claimed.

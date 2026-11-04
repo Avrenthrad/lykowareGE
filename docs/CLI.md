@@ -1,52 +1,37 @@
-# lyko — native build/test tools
+# Native lyko CLI
 
-Implemented Phase 0 scope: C++20 executable, installed in bin/. Bootstrap it using CMake; it cannot build itself before it exists.
+C++20 developer tool; CMake/CTest use child processes without shell interpretation. See [BUILDING](BUILDING.md), [ADR 0005](adr/0005-native-cli.md), [ADR 0031](adr/0031-scenes-and-command-replay.md), and [STATUS](STATUS.md) for branch/verification evidence.
 
-## Commands
+```text
+lyko build [--source DIR] [--configure-preset NAME] [--preset NAME] [--cmake EXECUTABLE]
+lyko test [--source DIR] [--preset NAME] [--ctest EXECUTABLE]
+lyko run
+lyko run --scene FILE [--commands FILE] [--ticks N] [--capture FILE] [--report FILE]
+lyko screenshot --scene FILE --output FILE [--commands FILE] [--ticks N] [--report FILE]
+lyko trace --frames N [--output FILE]
+lyko --help | --version
+```
 
-- lyko build [--source DIR] [--configure-preset NAME] [--preset NAME] [--cmake EXECUTABLE]
-- lyko test [--source DIR] [--preset NAME] [--ctest EXECUTABLE]
-- lyko run
-- lyko trace --frames N [--output FILE]
-- lyko --help
-- lyko --version
+Scene render/measurement options: `--width N --height N --warmup N --measure-frames N`. Every option takes a value and may appear once. Paths accept spaces/Unicode. Parent output directories must exist. Output files are replaced when explicitly selected.
 
-`run` launches the console sample `lykoware_sandbox` and returns its exit code. It loads no scene. `trace --frames N` launches that sandbox's CPU loop for N iterations and writes a Chrome trace JSON file. The capture is CPU-only: there is no renderer and no GPU event. N is an integer from 1 to 1000000. The default file is `lykoware-cpu-trace.json` in the current directory; `--output FILE` chooses another path. `run --scene` and `screenshot` are not implemented: each prints `unsupported: no renderer` and returns exit code 3. Extra `screenshot` arguments do not change that result. Help text names those two only as unavailable and does not offer a PPM or harness command. Do not treat that message as a successful capture.
+Build defaults: Windows configure `windows`, build/test `windows-debug`; Linux `linux-debug`. Source defaults to the current directory. Build configures then builds; test invokes CTest. Tool overrides are individual executable paths, never shell fragments.
 
-The engine has a separate GPU-free image harness ([ADR 0007](adr/0007-image-harness.md)). CTest runs it through `lykoware_image_harness_test`. That path is not `lyko screenshot` and not a renderer screenshot.
+Plain `run` launches the sandbox beside lyko (or the recorded build-tree path), waits and returns its exit code. `trace` launches that sandbox with `--frames` and `--trace`; it records CPU loop zones, not GPU events. Frame count is 1–1,000,000; default trace output is `lykoware-cpu-trace.json` in the working directory.
 
-Source defaults to the caller's current directory and must contain CMakePresets.json. Windows defaults to configure preset windows and build/test preset windows-debug; Linux defaults to linux-debug. For Release explicitly choose windows-release. build runs configure first, stops on failure, then invokes the build preset. test does not build; it invokes CTest with output-on-failure and treats zero discovered tests as failure.
+`run --scene` parses versioned scene JSON, constructs an ECS/physics world, dispatches optional versioned commands before their fixed 60 Hz ticks, and runs 120 ticks by default. It works without a window or Vulkan when capture/measurement is not requested. `--report` records tick/hash, applied commands, entity count and measured CPU times. Scene and command parsing/dispatch use the public engine API in `lykoware/scene.hpp`; future scripting/editor callers can invoke that same handler. Build/test process routing is separate from the scene command contract.
 
-Configure and build presets can differ. When overriding the build preset, supply a matching configure preset if needed; lyko deliberately does not parse CMake preset inheritance itself.
+`screenshot` or `--capture` creates an offscreen depth target, draws the scene through the real Vulkan renderer, and writes PPM P6 RGB bytes. It loads validated `cli_lit.vert.spv` and `cli_lit.frag.spv` from the executable's `shaders` directory, independent of the working directory. This is distinct from the GPU-free image test pattern. Installed builds deploy both shaders.
 
-CMake and CTest are found on PATH by default. Explicit --cmake/--ctest paths may include spaces/Unicode; relative executable paths containing a parent path are resolved relative to the caller before launching. Only pass a tool you intend to execute. Tool output is inherited directly; it is not a JSON protocol.
+`--measure-frames` runs additional fixed ticks and synchronous offscreen draws after the replay, with raw samples and p50/p95/p99/max in the report. Warmup defaults to 30 draws of the settled scene; it does not advance simulation. Final capture is after the additional measured frames. Readback/file writing and pipeline creation are outside measured frames. This fixture measures offscreen throughput and CPU simulation, not display pacing, pure GPU time or VRAM residency. See [PERFORMANCE](PERFORMANCE.md) for the local Windows runner and limits.
 
-## Exit codes
+Limits: 16 MiB per scene/command input; 10,000 lifetime IDs/commands; 36,000 initial ticks; 10,000 measured frames; 1,000 warmup draws; dimensions at most 8192 and 16 megapixels total. Authored envelopes use `schema_version: 1` (ADR 0004). Inputs reject unknown fields/schema versions, duplicate keys/IDs/sequences, nonfinite numbers and invalid shapes. Commands beyond `--ticks` are rejected before simulation; commands with nonexistent/destroyed IDs fail explicitly. Persisted files never contain runtime handles or process-local type IDs.
 
-- 0: successful command/help/version.
-- 2: invalid command/options/source or CLI internal error.
-- 3: renderer capability unavailable (`screenshot`, `run --scene`). The stderr line contains `unsupported: no renderer`. The sandbox is not started. `trace` is not this case.
-- 127: executable could not launch.
-- Other child exit codes: passed through. POSIX signals map to 128 + signal; Windows exit codes outside signed int range map to 1.
+Exit codes:
 
-A child can itself return 2/3/127; messages identify whether the failure came from the CLI or tool.
+- 0: operation completed.
+- 2: invalid input/options, I/O failure, or reported runtime failure (with `lyko:` reason).
+- 77: capture/measurement requested but no suitable Vulkan loader/device; CTest reports Skipped.
+- 127: sandbox/tool executable unavailable or launch failed.
+- Other nonzero statuses from build/test/sandbox children propagate. The sandbox retains its own GPU-unavailable exit code 3.
 
-## Process behavior and limits
-
-Processes launch directly through CreateProcessW or fork/execvp, never through a shell. Arguments remain literal; Unicode Windows arguments use wide entry points and CRT-compatible quoting. The child works in the selected project directory without changing the parent directory, and inherits streams/environment. The CLI waits for completion.
-
-Every subcommand goes through `dispatch` in [tools/cli/commands.hpp](../tools/cli/commands.hpp). That is one fixed handler table inside the tool. It is not a serializable editor command bus, and scripting does not have a second copy of these operations. Build and test behavior is unchanged.
-
-`run` looks for `lykoware_sandbox` beside the `lyko` executable (the install/`bin` layout) and otherwise uses the sandbox path recorded when this `lyko` was built. It passes no arguments. `trace` uses that same lookup, then passes `--frames` and `--trace` and waits. The sandbox writes the Chrome trace. There is no renderer, scene loader, screenshot, or GPU capture.
-
-This is a developer tool, not the future editor command bus, job scheduler, or remote execution service. Cancellation, process-tree management, and machine-readable event output are not implemented. Build-only commands do not require game data or schema decisions.
-When rebuilding lyko itself on Windows, run an installed copy outside its build output directory so the linker can replace the build executable. Restage after that command exits.
-
-## Header contract
-
-[tools/cli/commands.hpp](../tools/cli/commands.hpp) and [tools/cli/process.hpp](../tools/cli/process.hpp) state the contracts next to the declarations. They are tool headers, not installed engine APIs.
-
-- Ownership: argument strings and paths belong to the caller. `dispatch` and `run_process` do not keep them after return. Child handles are local and closed before return. Standard streams are inherited, not captured.
-- Lifetime: both calls block until the handler or child finishes. No queued command, callback, or process handle remains. The caller may free the arguments immediately after return.
-- Threading: one CLI thread. Neither function is synchronized. Do not call them concurrently. No handler starts a background thread.
-- Failure: bad usage returns 2 and prints `lyko:` plus the reason. That includes `trace` without a valid `--frames` value. `screenshot` and `run --scene` return 3 and print `unsupported: no renderer` without launching a renderer. A missing or unstartable executable returns 127. `trace --frames N` returns the sandbox status, including 1 when the trace file cannot be written. Other statuses come from the child. Wait failures throw `std::runtime_error`; the executable boundary reports an unexpected exception as exit 2. The CPU trace API's own ownership, lifetime, threading, and failure contract is in [engine/include/lykoware/trace.hpp](../engine/include/lykoware/trace.hpp). The image harness contract is in [engine/include/lykoware/image.hpp](../engine/include/lykoware/image.hpp). It is not a lyko command.
+No scene/capture path starts a network request, external AI call, editor or paid service. CLI handlers are synchronous on one thread; worlds/resources are owned until handler return. Process handles use RAII. Allocation exceptions are caught at the CLI boundary; scene attachment rolls back before propagation. A failed replay stops and preserves earlier successful command effects in memory; there is no transactional rollback of an entire stream. There is no undo, remote execution service, process-tree cancellation, generic scripting language or full editor command catalogue yet.
