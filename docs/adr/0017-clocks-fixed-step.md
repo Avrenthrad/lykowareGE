@@ -1,7 +1,7 @@
 # ADR 0017 — Clocks and the fixed-step simulation loop
 
 Status: Proposed
-Related task/PR: Phase 1 clocks and fixed-step update (branch `claude/clocks`), based on `main` after RHI PR 5c ([#18](https://github.com/Avrenthrad/lykowareGE/pull/18)) merged.
+Related task/PR: Phase 1 clocks and fixed-step update, merged as [#19](https://github.com/Avrenthrad/lykowareGE/pull/19) (merge ff2a1ea).
 Supersedes / superseded by: none. Builds on [ADR 0006](0006-cpu-trace.md) (CPU timer) and the Phase 1 roadmap.
 
 ## Context
@@ -64,4 +64,5 @@ Ownership, lifetime, threading and failure are documented on the declarations. `
 - Deliberate breaks, each caught:
   - a whole-nanosecond accumulator, the classic drift bug, failed 3 assertions, including the 1000-hour count;
   - keeping the backlog instead of dropping it failed 3 assertions.
+- CI: [run 41758959579](https://github.com/Avrenthrad/lykowareGE/actions/runs/41758959579) on 70cf2ba passed all five jobs; `clock.fixed_step` passed with MSVC (Windows Debug and Release), GCC, ASan/UBSan and clang-tidy.
 - Not verified: behaviour on the RTX 4070 and MSI Claw at their real frame rates.
