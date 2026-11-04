@@ -101,7 +101,7 @@ Use in the task/PR when pausing, completing, or transferring work:
 
 ### Handoff
 
-- Task, branch, commit, PR: Lykoware Remaster proposal; branch `cursor/lykoware-remaster-docs-567c`; commits through the STATUS and board update; PR against `main` (URL recorded when the pull request is open).
+- Task, branch, commit, PR: Lykoware Remaster proposal; branch `cursor/lykoware-remaster-docs-567c`; pull request https://github.com/Avrenthrad/lykowareGE/pull/22.
 - Completed behavior: the pipeline is described as a separate personal-use tool. It is sequenced after the editor command bus and an MCP server. The Personal Asset Library default path is gitignored. Nothing is implemented.
 - Files/interfaces changed: documentation and `.gitignore` only. No public API and no on-disk schema in the repository.
 - Checks run and actual results: relative links in the edited Markdown resolve. No engine behavior changed, so no new runtime test was added. CI on the pull request is the build check.
