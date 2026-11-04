@@ -24,6 +24,14 @@ if(BUILD_TESTING)
     lykoware_configure_target(lykoware_trace_test)
     add_test(NAME trace.api COMMAND lykoware_trace_test)
 
+    # The simulation clock (ADR 0017): exact tick counts, frame-rate
+    # independence and limits, all from fixed frame times.
+    add_executable(lykoware_clock_test tests/clock.cpp)
+    target_link_libraries(lykoware_clock_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_clock_test)
+    add_test(NAME clock.fixed_step COMMAND lykoware_clock_test)
+    set_tests_properties(clock.fixed_step PROPERTIES TIMEOUT 30)
+
     # GPU-free image harness. These tests compare a software pattern with
     # committed PPM fixtures. They are not renderer screenshot tests.
     # Outputs are confined to the build directory. lyko screenshot stays
