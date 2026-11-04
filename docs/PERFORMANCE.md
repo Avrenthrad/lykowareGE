@@ -56,6 +56,8 @@ The 250 ms limit catches large regressions in Debug and sanitizer builds on a bu
 
 For scale, a 60 Hz frame is 16.67 ms. In Release, 1024 colliding boxes use about 4% of it on average and a quarter of it in the worst step. The worst steps come early, while the pile is falling and most contacts are new. These are numbers from one local machine, not a hardware profile. CTest does not print a passing test's output, so the hosted runners' per-step numbers are not in the CI logs, but each test's total time (setup plus 300 steps) bounds them. In [run 41771495786](https://github.com/Avrenthrad/lykowareGE/actions/runs/41771495786) the 1024-box test took 0.27 s on Windows Release (under 0.9 ms per step), 7.9 s on Windows Debug (under 27 ms) and 12.4 s under Linux ASan/UBSan (under 42 ms).
 
+The table and timings above are for single precision. With double-precision positions ([ADR 0022](adr/0022-double-precision-positions.md)), Release is about 10–15% slower with many contacts: 1024 boxes mean 0.81–0.83 ms, worst 4.1–5.6 ms; 4096 boxes mean 10.9–11.3 ms. 256 boxes are unchanged.
+
 ## Testing layers
 
 - Unit checks for algorithms and validation.
