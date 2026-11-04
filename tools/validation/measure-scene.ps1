@@ -13,9 +13,9 @@ if (-not $OutputDirectory) { $OutputDirectory = Join-Path $repository 'build/mea
 if (-not $SkipBuild) {
     Push-Location $repository
     try {
-        & cmake --preset windows
+        & cmake --preset windows -DLYKOWARE_HOST_TOOL_JOBS=2
         if ($LASTEXITCODE -ne 0) { throw 'Configure failed' }
-        & cmake --build --preset windows-release --parallel 4
+        & cmake --build --preset windows-release --parallel 2
         if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
         & ctest --preset windows-release --output-on-failure
         if ($LASTEXITCODE -ne 0) { throw 'Tests failed' }

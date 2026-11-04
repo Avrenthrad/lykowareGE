@@ -30,9 +30,9 @@ Claude owns #32 (`claude/math`), #33 (`claude/rhi-mesh`) and #34 (`claude/render
 
 ## Active scene/replay integration
 
-- Owner/status: Codex, active on `codex/scene-command-replay`, stacked on #35 and Claude's #30/#32–#34.
+- Owner/status: Codex, implemented and ready for review as #36 (`codex/scene-command-replay`), stacked on #35; preserves Claude's #30 and merged #32–#34. Runtime/scene source `26f7332` passed all five CI jobs (run 41827916577); subsequent documentation/build-concurrency checks must stay green.
 - Scope: ADR 0031, versioned JSON box scene/command schema, stable authored IDs, fixed-tick dispatch, render-only snapshots, CLI replay/capture/report, local Windows measurement script and documentation reconciliation.
-- Acceptance: canonical/malformed-input checks; every tick equal at 30/60/144 Hz/irregular frames; unchanged simulation after interpolation/GPU draw; repeated real CLI captures/hash equality; installed shader paths; five CI jobs green.
+- Verified on `26f7332`: canonical/malformed-input checks; every tick equal at 30/60/144 Hz/irregular frames; unchanged simulation after interpolation/GPU draw; repeated real CLI captures/hash equality; installed shader paths; five CI jobs green.
 - Hardware: owner supplied Windows 11 Home / i7-14700F / 16 GB; graphics device/VRAM and actual measurements pending. Do not record personal machine/user identifiers from the screenshot.
 - Integration: [REVIEW_FOLLOWUP](REVIEW_FOLLOWUP.md); Joshua merges. No full editor or later-phase gameplay work.
 
@@ -109,3 +109,11 @@ Use in the task/PR when pausing, completing, or transferring work:
 ## Suggested next task
 
 Owner order, set 2026-11-02: (1) Vulkan RHI bring-up, now done; (2) Phase 1 clocks and fixed-step update, now done; (3) decide Jolt in ADR 0003 before any physics, now decided, with the spike as the active task above; (4) agree hardware profiles, multiplayer intent, world scope and budgets, now decided in ADR 0021 (desktop only, RTX 4070 recommended at 1440p60, 16 GB RAM, single-player built co-op-ready, 16 km+ world, double precision). Leave ADR 0008 Proposed until the owner accepts it. No full editor or content suite work before the roadmap gates.
+
+## Codex handoff: review follow-ups
+
+- PR #35: `codex/core-contract-hardening`; source `f113b45` passed all five profiles. Following `6a1f299` updates documentation only.
+- PR #36: `codex/scene-command-replay`; runtime/scene source `26f7332` passed all five profiles; subsequent commit records that evidence and adds the two-job host-tool build limit for the owner's 16 GB system. See current PR checks for the exact final head.
+- Local: 41/41 CTests pass with Mesa lavapipe (LLVM19), including actual capture; installed replay/capture works from `/tmp`. Broken-link/conflict-marker checks pass. Job count 0 is rejected; 2 configures successfully; CI cache fallback preserves exact tool version/recipe/platform selection.
+- No paid services, artifact uploads, generated build files or personal host/user identifiers committed. Upstream JSON source is intentionally vendored with its MIT licence/provenance and staged notice.
+- Next: Joshua merges reviewed PRs in dependency order; run `tools/validation/measure-scene.ps1` on the Windows PC and inspect the local reports. Hardware profile/frame pacing/VRAM remain unverified; no Phase 1 exit or flagship budget is claimed.

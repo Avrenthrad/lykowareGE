@@ -33,6 +33,9 @@ jobs:
         with:
           path: .lykoware-tools
           key: lykoware-tools-${{ runner.os }}-${{ hashFiles('cmake/HostTools.cmake', 'cmake/host-tools/**', 'third_party/slang/PROVENANCE.md', 'third_party/spirv-tools/PROVENANCE.md', 'third_party/spirv-headers/PROVENANCE.md') }}
+          # Fallback restores cache contents only. HostTools still selects its exact
+          # version/recipe/platform directory; incompatible binaries are never selected.
+          restore-keys: lykoware-tools-${{ runner.os }}-
       - name: Configure
         run: cmake --preset windows
       - name: Build
@@ -129,6 +132,9 @@ jobs:
         with:
           path: .lykoware-tools
           key: lykoware-tools-${{ runner.os }}-${{ hashFiles('cmake/HostTools.cmake', 'cmake/host-tools/**', 'third_party/slang/PROVENANCE.md', 'third_party/spirv-tools/PROVENANCE.md', 'third_party/spirv-headers/PROVENANCE.md') }}
+          # Fallback restores cache contents only. HostTools still selects its exact
+          # version/recipe/platform directory; incompatible binaries are never selected.
+          restore-keys: lykoware-tools-${{ runner.os }}-
       - name: Configure
         run: cmake --preset ${{ matrix.preset }}
       - name: Build and analyze
