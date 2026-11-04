@@ -80,7 +80,7 @@ Owner: Claude. Branch `claude/physics-double`, stacked on `claude/product-target
 - The physics state hashes now cover all 64 bits of every position. New recorded hashes: `physics.jolt_determinism` `0x3ae5ee6746df5bad`, `physics.world` `0x38077780cc770c57`, `physics.character` `0x4879cae68e652c53`.
 - **Local checks:** GCC 13 Debug and Release and Clang 18 Debug and Release all produce the three new hashes. 30/30 pass in Debug, ASan/UBSan and clang-tidy.
 - **Cost:** the benchmark is about 10–15% slower with many contacts (1024 boxes in Release: 0.72 → about 0.82 ms per step). Details in ADR 0022.
-- **CI:** pending. MSVC is the cross-platform check.
+- **CI:** [run 41786685034](https://github.com/Avrenthrad/lykowareGE/actions/runs/41786685034) on a5230ab passed all five jobs, so MSVC Debug and Release reproduce the three new hashes.
 
 ### Double-precision spike, PR 2: `double` positions in the API
 
@@ -91,7 +91,7 @@ Owner: Claude. Branch `claude/physics-double-api`, stacked on PR 1. In review.
 - **Bug fixed:** Jolt put kinematic bodies slower than about 6 cm/s to sleep after half a second, which stopped them. Kinematic bodies now never sleep.
 - **New test `physics.far_from_origin`:** the same scene at the origin, 16 km and 64 km ends within a micrometre of the origin scene (measured: identical at 16 km). A 1 mm/s box moves exactly 2 mm in 2 s at every distance, which `float` could not do at 16 km. Hash at 16 km: `0x93590957722d8131`.
 - **Local checks:** 31/31 pass in Debug, ASan/UBSan and clang-tidy; GCC 13 and Clang 18 Release give the same 16 km hash. Passing positions through `float` in the API, or letting kinematic bodies sleep, were each caught.
-- **CI:** pending.
+- **CI:** [run 41787184894](https://github.com/Avrenthrad/lykowareGE/actions/runs/41787184894) on ab42ce2 passed all five jobs, so MSVC reproduces the 16 km hash.
 
 ## Next
 

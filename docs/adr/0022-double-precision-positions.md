@@ -69,7 +69,7 @@ Proposed:
 | 4096 | 9.86 / 27.8 | 10.9–11.3 / 29.2–35.3 |
 
   About 10–15% slower with many contacts. 1024 colliding boxes still use about 5% of a 60 FPS frame on average.
-- **CI (PR 1):** pending. MSVC is the cross-platform check.
+- **CI (PR 1):** [run 41786685034](https://github.com/Avrenthrad/lykowareGE/actions/runs/41786685034) on a5230ab passed all five jobs: Windows MSVC Debug and Release and Linux GCC Debug, ASan/UBSan and clang-tidy all reproduce the three new hashes.
 - **PR 2, new test `physics.far_from_origin`** (links only the engine): the same scene at the origin, 16 km and 64 km away (64 km also 120 m up). The scene has flat height-field terrain, a sphere dropped onto it, a kinematic box creeping at 1 mm/s and a character that walks for one second.
   - In every place: the sphere rests on the terrain; the box moves exactly 2 mm in 2 s; the character walks 2 m and stands on the terrain; a ray hits the top of the sphere.
   - **Far scenes match the origin scene to within a micrometre.** Measured: identical at 16 km; 0.00000000006 mm apart at 64 km.
@@ -79,3 +79,4 @@ Proposed:
   - `physics.world` adds: a 1 cm/s kinematic body moves 3 cm in 3 s; NaN or infinite positions and velocities are refused. `physics.world` and `physics.character` hashes are unchanged (their scenes have no kinematic bodies).
   - **Deliberate breaks, each caught:** passing positions through `float` in the API failed the 16 km and 64 km checks; letting kinematic bodies sleep failed the 1 cm/s check.
   - Local results: 31/31 pass in the Debug, ASan/UBSan and clang-tidy presets; GCC 13 and Clang 18 Release both give the 16 km hash.
+- **CI (PR 2):** [run 41787184894](https://github.com/Avrenthrad/lykowareGE/actions/runs/41787184894) on ab42ce2 passed all five jobs: MSVC Debug and Release reproduce the 16 km hash `0x93590957722d8131` and the unchanged physics hashes.
