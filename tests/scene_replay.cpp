@@ -66,7 +66,7 @@ void malformed_and_ordering(const scene::Description& description, const std::ve
     std::string error;
     const std::string canonical = scene::encode(description);
     scene::Description output = description;
-    for (const std::string text : {std::string("{}"), std::string("[]"),
+    for (const std::string& text : {std::string("{}"), std::string("[]"),
              std::string("{\"version\":1,\"version\":1}"),
              canonical.substr(0, canonical.size()/2),
              std::string(16U*1024U*1024U + 1, ' ')}) {
