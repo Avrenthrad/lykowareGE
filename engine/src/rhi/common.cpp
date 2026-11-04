@@ -103,6 +103,81 @@ void record_draw_pass(VkCommandBuffer commands, VkImageView view, VkExtent2D ext
     vkCmdEndRendering(commands);
 }
 
+void depth_barrier(VkCommandBuffer commands, VkImage image)
+{
+    VkImageMemoryBarrier2 barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+    barrier.srcStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
+    barrier.srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    barrier.dstStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
+    barrier.dstAccessMask =
+        VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    barrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = image;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.layerCount = 1;
+    VkDependencyInfo dependency{};
+    dependency.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+    dependency.imageMemoryBarrierCount = 1;
+    dependency.pImageMemoryBarriers = &barrier;
+    vkCmdPipelineBarrier2(commands, &dependency);
+}
+
+void record_mesh_pass(VkCommandBuffer commands, VkImageView colour_view, VkImageView depth_view, VkExtent2D extent,
+                      const float (&rgba)[4], VkPipeline pipeline, VkPipelineLayout layout,
+                      const PreparedDraw* draws, std::size_t draw_count)
+{
+    VkRenderingAttachmentInfo colour{};
+    colour.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    colour.imageView = colour_view;
+    colour.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    colour.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    colour.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    for (int channel = 0; channel < 4; ++channel) {
+        colour.clearValue.color.float32[channel] = rgba[channel];
+    }
+    VkRenderingAttachmentInfo depth{};
+    depth.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    depth.imageView = depth_view;
+    depth.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+    depth.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depth.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depth.clearValue.depthStencil.depth = 0.0F; // reversed depth: 0 is infinitely far
+    VkRenderingInfo rendering{};
+    rendering.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+    rendering.renderArea.extent = extent;
+    rendering.layerCount = 1;
+    rendering.colorAttachmentCount = 1;
+    rendering.pColorAttachments = &colour;
+    rendering.pDepthAttachment = depth_view != VK_NULL_HANDLE ? &depth : nullptr;
+    vkCmdBeginRendering(commands, &rendering);
+    vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+    VkViewport viewport{};
+    viewport.width = static_cast<float>(extent.width);
+    viewport.height = static_cast<float>(extent.height);
+    viewport.maxDepth = 1.0F;
+    vkCmdSetViewport(commands, 0, 1, &viewport);
+    VkRect2D scissor{};
+    scissor.extent = extent;
+    vkCmdSetScissor(commands, 0, 1, &scissor);
+    for (std::size_t index = 0; index < draw_count; ++index) {
+        const PreparedDraw& draw = draws[index];
+        if (draw.push_constant_bytes > 0) {
+            vkCmdPushConstants(commands, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                               draw.push_constant_bytes, draw.push_constants);
+        }
+        const VkDeviceSize offset = 0;
+        vkCmdBindVertexBuffers(commands, 0, 1, &draw.vertices, &offset);
+        vkCmdBindIndexBuffer(commands, draw.indices, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdDrawIndexed(commands, draw.index_count, 1, 0, 0, 0);
+    }
+    vkCmdEndRendering(commands);
+}
+
 bool fail(RhiError& error, RhiFailure failure, std::string message)
 {
     error.failure = failure;

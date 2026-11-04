@@ -1,12 +1,15 @@
 #pragma once
 
 #include <lykoware/image.hpp>
+#include <lykoware/rhi/buffer.hpp>
 #include <lykoware/rhi/device.hpp>
 #include <lykoware/rhi/instance.hpp>
 #include <lykoware/rhi/pipeline.hpp>
 
+#include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <span>
 
 namespace lykoware::rhi {
 
@@ -26,6 +29,19 @@ inline constexpr std::uint32_t render_target_max_extent = image_harness_max_exte
 struct RenderTargetDesc {
     std::uint32_t width = 0;
     std::uint32_t height = 0;
+    // Also create a 32-bit float depth buffer, for pipelines with depth.
+    bool depth = false;
+};
+
+// One indexed mesh to draw: a VertexLayout::PositionNormal vertex buffer,
+// a buffer of 32-bit triangle indices, and the bytes the pipeline's push
+// constants hold for this mesh.
+struct MeshDraw {
+    const Buffer* vertices = nullptr;
+    const Buffer* indices = nullptr;
+    // Indices to draw from the start of the index buffer; 0 means all.
+    std::uint32_t index_count = 0;
+    std::span<const std::byte> push_constants;
 };
 
 // An offscreen colour target: an 8-bit RGBA UNORM image the RHI renders
@@ -74,6 +90,19 @@ public:
     // nothing is submitted.
     [[nodiscard]] bool draw(const ClearColor& clear, const GraphicsPipeline& pipeline, std::uint32_t vertex_count,
                             RhiError& error);
+
+    [[nodiscard]] bool has_depth() const;
+
+    // One dynamic-rendering pass: clear colour to `clear` and depth to far,
+    // then draw each mesh in order with `pipeline`, then wait. Refused with
+    // InvalidArgument, nothing submitted, when: the pipeline's colour format
+    // differs; it has no PositionNormal vertex layout; it uses depth and this
+    // target has none; a mesh lacks a vertex or index buffer of the right
+    // usage; its index count is 0, not a multiple of 3 or more than the
+    // buffer holds; an index reaches past the last vertex; or its push
+    // constants are not exactly the pipeline's push_constant_bytes.
+    [[nodiscard]] bool draw_meshes(const ClearColor& clear, const GraphicsPipeline& pipeline,
+                                   std::span<const MeshDraw> meshes, RhiError& error);
 
     // Copies the current contents into `image` as tightly packed RGB8 with
     // the top-left origin of lykoware::Image. Alpha is dropped. On failure

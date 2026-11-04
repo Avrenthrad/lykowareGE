@@ -14,12 +14,12 @@ Check latest main and open PRs before starting. Documents do not automatically s
 
 ## Active task
 
-3D rendering (Phase 1). Owner: Claude. Status: PR 1 in review on `claude/math`, based on `main` at 5b46f08.
+3D rendering (Phase 1). Owner: Claude. Status: PR 1 in review on `claude/math` (#32), based on `main` at 5b46f08; PR 2 in review on `claude/rhi-mesh`, stacked on it.
 
 - Objective: lit 3D objects drawn from the ECS through the Lykoware RHI. First milestone, chosen by the owner on 2026-11-04: the physics demo's falling crates, drawn with a camera and depth, pixel-checked in CI.
 - Planned PRs, in order:
   1. (In review, ADR 0024.) Lykoware's own maths module; physics value types become its aliases.
-  2. RHI: GPU vertex and index buffers, a depth buffer, pipelines with vertex input, depth test and push constants; a lit cube drawn offscreen and pixel-checked on lavapipe.
+  2. (In review, ADR 0025.) RHI: GPU vertex and index buffers, a depth buffer, pipelines with vertex input, depth test, culling and push constants; a lit cube drawn offscreen and pixel-checked on lavapipe.
   3. Renderer: mesh and camera components, camera-relative drawing from ECS `Transform`s, falling crates in the sandbox window and a golden-image test.
 - Shared interfaces/formats affected: new `lykoware/math.hpp`; RHI additions in PR 2; a renderer API in PR 3.
 - Acceptance checks: all five CI jobs green; pixel checks on lavapipe (Windows runners have no Vulkan, so they skip).

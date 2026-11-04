@@ -27,6 +27,7 @@ Records what is implemented and verified on `main`. Plans live in [ROADMAP.md](R
 | [0022](adr/0022-double-precision-positions.md) | Proposed (merged; owner chose the direction in ADR 0021) | Jolt built with `DOUBLE_PRECISION` on; public physics positions are `double` (`DVec3`); kinematic bodies never sleep; the same scene 16 km and 64 km out matches the origin. |
 | [0023](adr/0023-ecs.md) | Proposed (merged in #29 and #31; owner chose "write our own") | `lykoware::ecs::World`: generation-checked entities, packed per-type component storage, deterministic `each` iteration, structural changes refused during iteration; removal hooks, `ChangeBuffer`, physics bodies and characters on entities. |
 | [0024](adr/0024-math.md) | Proposed (owner chose "write our own") | `lykoware::math`: vectors, quaternions, column-major matrices, right-handed +Y up, Vulkan reversed infinite-depth projection, camera-relative `relative_to`; physics value types are now its aliases. |
+| [0025](adr/0025-rhi-meshes.md) | Proposed | RHI meshes: `rhi::Buffer` (vertex and 32-bit index data), pipelines with a position-normal vertex layout, reversed-depth test, back-face culling (counter-clockwise front faces) and up to 128 bytes of push constants; render targets with depth and `draw_meshes`. |
 
 ## Verified on main
 
@@ -84,6 +85,17 @@ Owner: Claude. Branch `claude/math`, based on `main` at 5b46f08. In review.
 - **Local checks:** 36/36 pass in Debug, ASan/UBSan and clang-tidy; every physics hash unchanged.
 - **CI:** pending.
 
+### 3D rendering, PR 2: meshes in the RHI
+
+Owner: Claude. Branch `claude/rhi-mesh`, stacked on PR 1 (`claude/math`). In review.
+
+- `rhi::Buffer` for vertex and index data.
+- Pipelines with a position-and-normal vertex layout, a reversed-depth test, back-face culling and push constants.
+- Render targets with a depth buffer, and `draw_meshes` for a list of indexed meshes. Every misuse is refused before anything reaches the GPU. [ADR 0025](adr/0025-rhi-meshes.md) (Proposed).
+- **New test `rhi.mesh`** (lavapipe): a lit cube with lighting per face, depth order regardless of draw order, the winding convention, repeatable bytes, identical bytes 16 km out, and every misuse. Six deliberate breaks, each caught.
+- **Local checks:** 37/37 pass in Debug, ASan/UBSan and clang-tidy, with no Vulkan validation errors. Under ASan, `rhi.mesh` joined the GPU tests that keep Vulkan drivers loaded, which avoids lavapipe's known false leak report; a deliberate leak in our own code is still caught.
+- **CI:** pending.
+
 ## Next
 
 Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
@@ -114,7 +126,7 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 
 - State: `main` at 5b46f08 contains PRs #2, #4–#21, #23–#29 and #31. The Vulkan RHI bring-up, Phase 1 clocks, the physics spike, double-precision positions and the ECS (with physics on entities) are complete; Jolt is vendored behind the `lykoware::physics` API, with cross-platform determinism verified on MSVC, GCC and Clang.
 - Open decisions for the owner: accepting or rejecting ADRs 0008–0012, 0014–0017 and 0022–0024 (merging did not accept them); the working assumptions in ADR 0021 (2–4 player co-op, 6-core CPU, 8 GB VRAM at minimum settings, camera-relative rendering); Cursor's #22 (ADR 0019).
-- In review: `claude/math` (3D rendering PR 1, ADR 0024). Also open: #30 (physics handle slots retire instead of wrapping, from a separate session) and Cursor's #22. Next concrete action: 3D rendering PR 2 (GPU vertex and index buffers, a depth buffer, pipelines with vertex input, depth test and push constants; a lit cube drawn offscreen and pixel-checked), then PR 3 (falling crates from the ECS in the sandbox).
+- In review: `claude/math` (#32, 3D rendering PR 1, ADR 0024) and `claude/rhi-mesh` (PR 2, ADR 0025, stacked on it). Also open: #30 (physics handle slots retire instead of wrapping, from a separate session) and Cursor's #22. Next concrete action: 3D rendering PR 3 (depth on the swapchain, a renderer drawing ECS entities camera-relative, and falling crates in the sandbox window with a golden-image test).
 - Owner check wanted: run `lykoware_sandbox --window --vulkan` on the RTX 4070 desktop. With 5c, a red, green and blue triangle over a slowly changing background is expected.
 - Checklist: no box ticked by this update. Phase 1 and the image/performance gate stay open.
 

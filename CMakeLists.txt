@@ -106,7 +106,12 @@ if(BUILD_TESTING)
         ENTRY vertexMain STAGE vertex NAME triangle.vert)
     lykoware_compile_shader(triangle_frag_spv SOURCE tests/shaders/triangle.slang
         ENTRY fragmentMain STAGE fragment NAME triangle.frag)
-    add_custom_target(lykoware_test_shaders ALL DEPENDS "${triangle_vert_spv}" "${triangle_frag_spv}")
+    lykoware_compile_shader(lit_vert_spv SOURCE tests/shaders/lit.slang
+        ENTRY vertexMain STAGE vertex NAME lit.vert)
+    lykoware_compile_shader(lit_frag_spv SOURCE tests/shaders/lit.slang
+        ENTRY fragmentMain STAGE fragment NAME lit.frag)
+    add_custom_target(lykoware_test_shaders ALL DEPENDS "${triangle_vert_spv}" "${triangle_frag_spv}"
+        "${lit_vert_spv}" "${lit_frag_spv}")
 
     # The interactive path: present, resize, and the test triangle drawn
     # through the swapchain. Exit 77 is Skipped.
@@ -134,6 +139,16 @@ if(BUILD_TESTING)
             "${CMAKE_CURRENT_BINARY_DIR}/rhi-pipeline")
     set_tests_properties(rhi.pipeline PROPERTIES TIMEOUT 60 SKIP_RETURN_CODE 77)
 
+    # Lit 3D meshes: buffers, depth, culling, push constants (ADR 0025). Exit 77 is Skipped.
+    add_executable(lykoware_rhi_mesh_test tests/rhi_mesh.cpp)
+    target_link_libraries(lykoware_rhi_mesh_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_rhi_mesh_test)
+    add_dependencies(lykoware_rhi_mesh_test lykoware_test_shaders)
+    add_test(NAME rhi.mesh
+        COMMAND lykoware_rhi_mesh_test "${lit_vert_spv}" "${lit_frag_spv}" "${triangle_vert_spv}" "${triangle_frag_spv}"
+            "${CMAKE_CURRENT_BINARY_DIR}/rhi-mesh")
+    set_tests_properties(rhi.mesh PROPERTIES TIMEOUT 60 SKIP_RETURN_CODE 77)
+
     # The sandbox's Vulkan window on the headless offscreen driver: it loads
     # its deployed shaders and draws the triangle. The sandbox exits 3
     # ("unsupported") without a usable Vulkan device, which CTest reports as
@@ -159,7 +174,7 @@ if(BUILD_TESTING)
         # reports; leaks in Lykoware code are still caught (ADR 0015 records the
         # deliberate-leak check).
         set_property(TEST rhi.instance rhi.instance.no_driver rhi.device rhi.render_target rhi.swapchain
-                          sandbox.vulkan_window rhi.pipeline
+                          sandbox.vulkan_window rhi.pipeline rhi.mesh
             APPEND PROPERTY ENVIRONMENT "VK_LOADER_DISABLE_DYNAMIC_LIBRARY_UNLOADING=1")
     endif()
 
