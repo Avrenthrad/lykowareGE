@@ -30,7 +30,8 @@ void expect(bool condition, std::string_view message)
     }
 }
 
-bool close_to(float a, float b, float tolerance)
+// Positions are double (ADR 0022); float arguments widen exactly.
+bool close_to(double a, double b, double tolerance)
 {
     return std::fabs(a - b) <= tolerance;
 }
@@ -114,7 +115,7 @@ physics::BodyId add_terrain(physics::World& world, const std::function<float(flo
     return *body;
 }
 
-physics::CharacterId add_character(physics::World& world, physics::Vec3 feet)
+physics::CharacterId add_character(physics::World& world, physics::DVec3 feet)
 {
     physics::CharacterDesc desc;
     desc.position = feet;
