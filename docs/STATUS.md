@@ -59,9 +59,20 @@ Per-PR detail (local checks, failures found and fixed, mutation checks) is in ea
 
 ## Current development task
 
+### Physics spike, PR 4: body-count benchmark and step-memory fix
+
+Owner: Claude. Branch `claude/physics-benchmark`, stacked on PR 3 (`claude/physics-character`). In review.
+
+- **Bug fixed:** Jolt's plain step allocator called `std::abort()` when a step needed more scratch memory than reserved (4096 colliding boxes need more than the default 16 MiB). The world now uses Jolt's heap-fallback allocator: a big scene is slower, not fatal. `step_memory_bytes` must be from 64 KiB to 1 GiB.
+- **Regression test** in `physics.world`: 300 boxes with only 64 KiB reserved step 60 ticks. The old allocator aborted here (exit 134).
+- **Benchmark:** `lykoware_physics_benchmark`, run by CTest as `perf.physics_bodies_256` and `perf.physics_bodies_1024` (300 ticks; fails over 250 ms mean per step, if a step fails, or if a box falls through the ground). Provisional and CPU-only; not a hardware profile.
+- **Local numbers** (4 threads, GCC 13 Release, ms per step): 1024 boxes mean 0.72, worst 4.06; 4096 boxes mean 9.86, worst 27.84. Full table in [PERFORMANCE.md](PERFORMANCE.md).
+- **Local checks:** 30/30 pass in Debug, ASan/UBSan and clang-tidy; physics hashes unchanged; `-Wshadow` sweep clean. Putting the old allocator back aborted the regression test.
+- **CI:** pending.
+
 ### Physics spike, PR 3: terrain and characters
 
-Owner: Claude. Branch `claude/physics-character`, based on `main` at 346ee0d. In review.
+Owner: Claude. Branch `claude/physics-character`, based on `main` at 346ee0d. In review as [#24](https://github.com/Avrenthrad/lykowareGE/pull/24).
 
 - **Height-field terrain:** static bodies; sample count even, from 4 to 4096; heights compressed to within 1 cm.
 - **Characters:** `create_character` makes an upright capsule (Jolt's `CharacterVirtual`) with a generation-checked `CharacterId`.
@@ -77,8 +88,8 @@ Owner: Claude. Branch `claude/physics-character`, based on `main` at 346ee0d. In
   - rays on terrain and every misuse case;
   - a determinism hash `0xbe1264481a8a8720` (three characters and six crates on rolling terrain; 1 and 4 threads match).
 - **Local checks:** GCC and Clang, Debug and Release, all produce the hash. 28/28 pass in Debug, ASan/UBSan and clang-tidy, and a `-Wshadow` sweep is clean. Ignoring the step height, the slope limit, or using a jump forever were each caught.
-- **Not yet:** bodies pushing characters, character-to-character collision, and a body-count benchmark (spike PR 4, next).
-- **CI:** pending.
+- **Not yet:** bodies pushing characters and character-to-character collision.
+- **CI:** [run 41770820818](https://github.com/Avrenthrad/lykowareGE/actions/runs/41770820818) on 3d40d91: Windows Debug and all three Linux jobs passed, so MSVC reproduced `0xbe1264481a8a8720`; Windows Release was still running when this was written.
 
 ## Next
 
@@ -86,7 +97,7 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 
 1. Vulkan RHI bring-up: done (#11–#18). Instance, device, offscreen render target read back into the image harness, swapchain, build-time Slang shaders, graphics pipelines, and the triangle offscreen and in the sandbox window.
 2. Phase 1 clocks and fixed-step update loop: done (#19, ADR 0017).
-3. Physics: Jolt accepted (ADR 0003) and vendored (#21, ADR 0018). The `lykoware::physics` API is merged (#23). Spike PR 3 (terrain and characters) is in review; spike PR 4 (a body-count benchmark) is next.
+3. Physics: Jolt accepted (ADR 0003) and vendored (#21, ADR 0018). The `lykoware::physics` API is merged (#23). Spike PR 3 (terrain and characters, #24) and spike PR 4 (body-count benchmark and step-memory fix) are in review. That finishes the spike.
 4. Agree hardware profiles (RTX 4070 desktop, MSI Claw), multiplayer intent, world scope and budgets. Owner's current leaning on multiplayer: co-op later or MMO, undecided. This is not a commitment.
 
 ## Known issues and limitations
@@ -108,7 +119,7 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 
 - State: `main` at 346ee0d contains PRs #2, #4–#21 and #23. The Vulkan RHI bring-up and Phase 1 clocks are complete; Jolt is vendored behind the `lykoware::physics` API, with cross-platform determinism verified on MSVC, GCC and Clang.
 - Open decisions for the owner: ADR 0003 (Jolt); accepting or rejecting ADRs 0008–0012, 0014–0017 and 0020 (merging did not accept them); hardware profiles, multiplayer, world scope and budgets.
-- In review: physics spike PR 3 (`claude/physics-character`): height-field terrain and characters. Next concrete action: spike PR 4, a first body-count benchmark on the hosted runners; then the owner's step 4 (hardware profiles, multiplayer, world scope and budgets).
+- In review: physics spike PR 3 ([#24](https://github.com/Avrenthrad/lykowareGE/pull/24), `claude/physics-character`): height-field terrain and characters; and PR 4 (`claude/physics-benchmark`, stacked on it): body-count benchmark and the step-memory fix. Next concrete action: the owner's step 4 (hardware profiles, multiplayer, world scope and budgets), then the rest of Phase 1 (ECS, 3D rendering, scene loading, screenshots, command bus and replay, audio).
 - Owner check wanted: run `lykoware_sandbox --window --vulkan` on the RTX 4070 desktop and the MSI Claw. With 5c, a red, green and blue triangle over a slowly changing background is expected.
 - Checklist: no box ticked by this update. Phase 1 and the image/performance gate stay open.
 

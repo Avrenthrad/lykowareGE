@@ -1,7 +1,7 @@
 # ADR 0020 — The Lykoware physics API
 
 Status: Proposed
-Related task/PR: physics spike, PR 2 (merged as [#23](https://github.com/Avrenthrad/lykowareGE/pull/23)); extended by spike PR 3 (branch `claude/physics-character`) with terrain and characters.
+Related task/PR: physics spike, PR 2 (merged as [#23](https://github.com/Avrenthrad/lykowareGE/pull/23)); extended by spike PR 3 (branch `claude/physics-character`) with terrain and characters, and by spike PR 4 (branch `claude/physics-benchmark`) with step memory that overflows to the heap and a body-count benchmark.
 Numbered 0020 because a concurrent documentation proposal ([#22](https://github.com/Avrenthrad/lykowareGE/pull/22)) claimed 0019 first.
 Supersedes / superseded by: none. Builds on [ADR 0003](0003-physics.md), [ADR 0017](0017-clocks-fixed-step.md) and [ADR 0018](0018-jolt-integration.md).
 
@@ -32,9 +32,9 @@ Proposed, not accepted by the owner:
   More shapes (meshes, height fields, compounds) arrive with their callers: height fields with the character in spike PR 3.
 - **Misuse is defined, never a crash.**
   - Every call with an invalid, destroyed or foreign handle returns false or nullopt.
-  - Bad shapes and limits are refused with a message: non-positive sizes, non-finite values, too many bodies, too little step memory.
+  - Bad shapes and limits are refused with a message: non-positive sizes, non-finite values, too many bodies, step memory outside 64 KiB to 1 GiB.
   - Giving a static body a velocity is refused.
-- **Stepping.** `step(seconds)` advances one fixed step. Callers step once per ADR 0017 tick with `FixedStep::tick_seconds()`. A failed step (out of step memory or contact space) returns false and leaves the world usable.
+- **Stepping.** `step(seconds)` advances one fixed step. Callers step once per ADR 0017 tick with `FixedStep::tick_seconds()`. A failed step (out of body-pair or contact space) returns false and leaves the world usable. A step that needs more scratch memory than `step_memory_bytes` takes the rest from the heap (spike PR 4).
 - **Queries.** `cast_ray(origin, direction)` returns the closest hit as a body handle, fraction and point. More queries arrive with callers.
 - **Collision filtering.** Static bodies do not collide with each other; everything else collides. Game-defined layers wait for a caller.
 - **Determinism.**
@@ -65,6 +65,13 @@ Proposed, not accepted by the owner:
     These come with a caller.
 - Shapes are now built through Jolt's shape settings, which also cover height fields. `physics.world`'s hash did not change, so the switch changed no behaviour.
 - Jolt numbers characters from a process-wide counter. The determinism test creates its scene twice in one process (so with different character numbers) and requires identical states.
+
+### Step memory and body count (spike PR 4)
+
+- **The problem.** Jolt's plain `TempAllocatorImpl` calls `std::abort()` when a step needs more scratch memory than was reserved. That ends the process even in Release, so the old "returns false" promise did not hold. The body-count benchmark found it: 4096 colliding boxes need more than the default 16 MiB.
+- **The fix.** The world uses `TempAllocatorImplWithMallocFallback`. The reserved block is used first and anything beyond it comes from the heap. A big scene is slower, not fatal.
+- **Limits.** `step_memory_bytes` must be from 64 KiB to 1 GiB. Jolt takes the size as a 32-bit number, so the upper limit also stops a large value from wrapping round to a tiny one.
+- **Benchmark.** `lykoware_physics_benchmark BODIES TICKS LIMIT_MS` drops layers of 16 x 16 small boxes, each turned a little, onto the ground and times every step. It prints the mean, 95th-percentile and worst step times and how many boxes still move at the end. It fails if a step fails, a box falls through the ground, or the mean step time is over the limit. CTest runs it as `perf.physics_bodies_256` and `perf.physics_bodies_1024`, provisional and CPU-only like the other `perf.*` checks ([PERFORMANCE.md](../PERFORMANCE.md)).
 
 ## Contracts and compatibility
 
@@ -111,4 +118,8 @@ Ownership, threading and failure are documented on the declarations:
   - **Local results:** GCC 13 and Clang 18 Debug and Release give that hash; 28/28 tests pass in the Debug, ASan/UBSan and clang-tidy presets.
   - **Deliberate breaks, each caught:** ignoring `step_height` failed the 0.3 m ledge; ignoring `max_slope` failed the 63° slope check and the 0.7 m ledge; a jump that is never used up failed "lands again".
   - **A gap found by a break:** my first steep-slope check ran out of time before the character reached the steep part. With the 85° break it had only just started climbing, so the break was caught only by the ledge check. The check now pushes for six seconds and requires the character to stay at the foot.
+- **Step memory and body count** (spike PR 4):
+  - **Regression test** (in `physics.world`): a world with only 64 KiB of reserved step memory steps 300 boxes for 60 ticks. With Jolt's plain allocator this aborted with "TempAllocator: Out of memory trying to allocate 131072 bytes" (exit 134); now it passes. A request for 2 GiB is refused.
+  - **Benchmark, local** (4 hardware threads, GCC 13): see the table in [PERFORMANCE.md](../PERFORMANCE.md). In Release, 1024 colliding boxes take 0.72 ms per step on average and 4.1 ms at worst; 4096 take 9.9 ms on average.
+  - **Hashes unchanged:** `physics.world` and `physics.character` still give `0x84f90a3cbf37a28b` and `0xbe1264481a8a8720`, so the allocator change did not change results.
 - **CI (spike PR 2):** [run 41765080887](https://github.com/Avrenthrad/lykowareGE/actions/runs/41765080887) on 9204b58 passed all five jobs. `physics.world` reproduced `0x84f90a3cbf37a28b` on Windows MSVC Debug and Release and on Linux GCC Debug, ASan/UBSan and the clang-tidy build.

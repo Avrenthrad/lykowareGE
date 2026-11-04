@@ -1,6 +1,6 @@
 # Performance and validation contract
 
-Status: desktop and handheld budgets below remain proposals for owner review, not measured device guarantees. A provisional CPU-only CTest check is active for the pinned hosted runners windows-2022 and ubuntu-24.04. It is not a hardware profile, not a frame-time or memory gate, and it does not satisfy the image/performance-gate checklist item.
+Status: desktop and handheld budgets below remain proposals for owner review, not measured device guarantees. Provisional CPU-only CTest checks, including a physics body-count benchmark, are active for the pinned hosted runners windows-2022 and ubuntu-24.04. They are not a hardware profile, not a frame-time or memory gate, and they do not satisfy the image/performance-gate checklist item.
 
 ## Proposed profiles
 
@@ -29,6 +29,28 @@ The root `CMakeLists.txt` is the reviewed configuration. It passes three numbers
 | perf.cpu_fixture | LYKOWARE_PROVISIONAL_CPU_FIXTURE_ITERATIONS and LYKOWARE_PROVISIONAL_CPU_FIXTURE_MS | 1000000 iterations and 20000 ms | In-process loop of `cpu_fixture_iteration`, the same step each sandbox frame runs |
 
 The check fails when elapsed microseconds are greater than the millisecond limit times 1000. `perf.budget_rejects_overrun` locks that comparison, so a broken check does not pass by ignoring the limit. Margins are wide on purpose. A local GCC 13.3.0 Debug run measured sandbox startup at about 1 ms and one million iterations at about 323 ms, so 20000 ms is slack for a busy shared runner rather than a frame budget. These numbers are valid only for windows-2022 and ubuntu-24.04. They are CPU-only. They are not an RTX 4070 or MSI Claw result.
+
+### Physics body count
+
+`lykoware_physics_benchmark BODIES TICKS LIMIT_MS` drops layers of 16 x 16 boxes (0.5 m cubes) onto the ground, so they collide and pile up. It steps the world TICKS times at 60 Hz and times each step. It prints the mean, 95th-percentile (p95) and worst step times and how many boxes still move at the end. It fails if a step fails, a box falls through the ground, or the mean step time is over LIMIT_MS.
+
+| Check | CMake variables | Value | Measurement |
+| --- | --- | --- | --- |
+| perf.physics_bodies_256 | LYKOWARE_PROVISIONAL_PHYSICS_TICKS and LYKOWARE_PROVISIONAL_PHYSICS_MEAN_STEP_MS | 300 ticks, 250 ms mean per step | 256 boxes |
+| perf.physics_bodies_1024 | the same | the same | 1024 boxes |
+
+The 250 ms limit catches large regressions in Debug and sanitizer builds on a busy shared runner. It is not a frame budget. Local results on 4 hardware threads with GCC 13.3, 300 ticks, ms per step:
+
+| Build | Boxes | Mean | p95 | Worst |
+| --- | --- | --- | --- | --- |
+| Release | 256 | 0.08 | 0.43 | 1.09 |
+| Release | 1024 | 0.72 | 2.60 | 4.06 |
+| Release | 4096 | 9.86 | 12.84 | 27.84 |
+| Debug | 256 | 0.59 | 3.19 | 5.76 |
+| Debug | 1024 | 6.26 | 22.91 | 35.89 |
+| ASan/UBSan | 1024 | 14.6 | 53.8 | 74.3 |
+
+For scale, a 60 Hz frame is 16.67 ms. In Release, 1024 colliding boxes use about 4% of it on average and a quarter of it in the worst step. The worst steps come early, while the pile is falling and most contacts are new. These are numbers from one local machine, not a hardware profile; the hosted-runner numbers are in the CI logs.
 
 ## Testing layers
 
