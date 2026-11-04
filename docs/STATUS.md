@@ -77,7 +77,7 @@ Owner: Claude. Branch `claude/ecs-core`, based on `main` at f50b9dd. In review.
 - **New benchmark `perf.ecs_iterate_100k`:** a movement system over 100,000 entities.
 - **Deliberate breaks:** six, each caught. One first slipped through and led to a new three-component test.
 - **Local checks:** 34/34 pass in Debug, ASan/UBSan and clang-tidy. Release benchmark: about 4 ns per entity per frame (100,000 entities: 0.39 ms per frame).
-- **CI:** pending.
+- **CI:** [run 41815974698](https://github.com/Avrenthrad/lykowareGE/actions/runs/41815974698) on 2b38af7 passed all five jobs.
 
 ### Physics handles: retire a slot instead of wrapping its generation
 
