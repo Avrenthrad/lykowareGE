@@ -173,6 +173,13 @@ if(BUILD_TESTING)
     add_test(NAME physics.jolt_determinism COMMAND lykoware_physics_jolt_test determinism)
     set_tests_properties(physics.jolt_math physics.jolt_determinism PROPERTIES TIMEOUT 120)
 
+    # The Lykoware physics API (ADR 0019). Links only the engine: no Jolt types are needed.
+    add_executable(lykoware_physics_world_test tests/physics_world.cpp)
+    target_link_libraries(lykoware_physics_world_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_physics_world_test)
+    add_test(NAME physics.world COMMAND lykoware_physics_world_test)
+    set_tests_properties(physics.world PROPERTIES TIMEOUT 120)
+
     add_executable(lykoware_cpu_budget tests/cpu_budget.cpp tools/cli/process.cpp)
     target_link_libraries(lykoware_cpu_budget PRIVATE lykoware::engine)
     lykoware_configure_target(lykoware_cpu_budget)
