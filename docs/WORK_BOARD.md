@@ -5,7 +5,7 @@
 Canonical implementation status: [STATUS.md](STATUS.md).
 Canonical plan: [ROADMAP.md](ROADMAP.md).
 
-`main` at ff2a1ea contains PRs #2 and #4–#19. Details and CI evidence: [STATUS.md](STATUS.md). Earlier per-task entries on this board were removed once merged; they remain in the pull requests and git history.
+`main` at 8089b22 contains PRs #2 and #4–#20. Details and CI evidence: [STATUS.md](STATUS.md). Earlier per-task entries on this board were removed once merged; they remain in the pull requests and git history.
 Owner-supplied vision is captured in [ENGINE_VISION.md](ENGINE_VISION.md).
 
 Owner rules for every task: small stacked PRs; commit small and often; keep all five CI jobs green; record each decision as an ADR; keep STATUS handoff-ready after every task; Joshua merges; no regenerable generated files in commits; artifact upload stays opt-in and no storage or service is bought; no roadmap box ticked unless truly done.
@@ -14,14 +14,20 @@ Check latest main and open PRs before starting. Documents do not automatically s
 
 ## Active task
 
-Decide physics (ADR 0003). Owner: Claude for the review; the owner decided. Status: **decided 2026-11-04**: Jolt v5.6.0; the *Numerical Recipes*-derived functions are replaced by our own; cross-platform determinism on; floats for now. The spike is next. Review branch `claude/jolt-review`, based on `main` at ff2a1ea.
+Physics spike (ADR 0003 accepted 2026-11-04; build in ADR 0018). Owner: Claude. Status: PR 1 in review on `claude/physics-spike`, based on `main` at 8089b22.
 
-- Objective: choose the physics library before any physics code, under ADR 0000's licence rules, and record what the spike must prove.
-- Scope and affected paths: documentation only (ADR 0003, ADR index, STATUS, this board). Nothing is vendored until the owner decides.
-- Shared interfaces/formats affected: none yet. The spike will add a `lykoware::physics` API with no Jolt types in public headers.
-- Related tasks/PRs and dependencies: uses the ADR 0017 tick for stepping. Precision depends on the open world-scope decision.
-- Acceptance checks: the owner answers the four decisions in ADR 0003 (Jolt; the *Numerical Recipes*-derived files; cross-platform determinism; precision).
-- Assumptions and decisions needed: the review is not legal advice; licence questions outside ADR 0000's list are the owner's call.
+- Objective: Jolt Physics running deterministically inside the engine, behind a Lykoware API, with the evidence ADR 0003 asks for.
+- Planned PRs, in order:
+  1. (In review.) Vendor Jolt v5.6.0 with the two *Numerical Recipes*-derived headers replaced; build it in all five jobs with options forced; tests for the replacements and a cross-platform determinism hash.
+  2. `lykoware::physics` wrapper: Jolt setup, stable body handles, create/destroy, stepping once per `FixedStep` tick, ray casts, invalid-handle and repeated-cleanup tests; no Jolt types in public headers.
+  3. A character capsule on a height field, and a first active-body benchmark on the hosted runners, labelled as not a hardware profile.
+- Shared interfaces/formats affected: PR 2 adds the public physics API. PR 1 adds none (tests use Jolt directly).
+- Acceptance checks: all five CI jobs green; the same state hash in every job; no vendored warnings promoted; nothing downloaded.
+- Assumptions and decisions needed: AVX2 CPU requirement (ADR 0018) for the owner to confirm with the hardware profiles.
+
+## Completed task: physics decision (ADR 0003)
+
+Owner: Claude for the review; the owner decided on 2026-11-04 (#20). Jolt v5.6.0; the *Numerical Recipes*-derived functions are replaced by our own; cross-platform determinism on; floats for now.
 
 ## Completed task: Phase 1 clocks and fixed-step update
 
@@ -83,4 +89,4 @@ Use in the task/PR when pausing, completing, or transferring work:
 
 ## Suggested next task
 
-Owner order, set 2026-11-02: (1) Vulkan RHI bring-up, now done; (2) Phase 1 clocks and fixed-step update, now done; (3) decide Jolt in ADR 0003 before any physics, the active task above; (4) agree hardware profiles (RTX 4070 desktop, MSI Claw), multiplayer intent, world scope and budgets. Leave ADR 0008 Proposed until the owner accepts it. No full editor or content suite work before the roadmap gates.
+Owner order, set 2026-11-02: (1) Vulkan RHI bring-up, now done; (2) Phase 1 clocks and fixed-step update, now done; (3) decide Jolt in ADR 0003 before any physics, now decided, with the spike as the active task above; (4) agree hardware profiles (RTX 4070 desktop, MSI Claw), multiplayer intent, world scope and budgets. Leave ADR 0008 Proposed until the owner accepts it. No full editor or content suite work before the roadmap gates.
