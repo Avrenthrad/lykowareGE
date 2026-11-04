@@ -81,4 +81,4 @@ Proposed:
 - **A weakness found and fixed:** before the wall was added, turning depth off did not change this test's image, because nothing overlapped.
 - **Sandbox:** `sandbox.vulkan_window` (headless window on lavapipe) and `sandbox.missing_shaders` pass. A local run of 600 frames drew 26 objects with no validation errors.
 - **Local results:** 38/38 pass in the Debug, ASan/UBSan and clang-tidy presets.
-- **CI:** pending.
+- **CI:** the first run on 1e402d1 failed both Windows jobs. MSVC (warnings as errors) rejected a local `depth_view` in `swapchain.cpp` that hid the member of the same name (C4458); GCC does not warn about this without `-Wshadow`. After the rename, #34 [run 41823030117](https://github.com/Avrenthrad/lykowareGE/actions/runs/41823030117) on eb3716a passed all five jobs. A `-Wshadow` and `-Wconversion` sweep of every file the stack touches is clean.

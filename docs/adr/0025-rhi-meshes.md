@@ -81,4 +81,4 @@ Proposed:
 - **A test bug found and fixed:** one misuse check first built a pipeline without vertex input from the mesh shader, which Vulkan's validator flagged. That check now uses the triangle shaders, which make their own vertices.
 - **Sanitizers:** under ASan, LeakSanitizer first reported 112 bytes held by a lavapipe driver thread. This is the known false report that the other GPU tests avoid by keeping Vulkan drivers loaded (ADR 0015), so `rhi.mesh` joined that list. A deliberate 64-byte leak in the test's own code is still reported, at the right line.
 - **Local results:** 37/37 pass in the Debug, ASan/UBSan and clang-tidy presets.
-- **CI:** pending.
+- **CI:** #33 [run 41820726840](https://github.com/Avrenthrad/lykowareGE/actions/runs/41820726840) on 507a269 passed all five jobs. `rhi.mesh` ran on lavapipe in the Linux jobs and was skipped on the Windows runners, which have no Vulkan.
