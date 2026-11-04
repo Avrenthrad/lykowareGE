@@ -28,6 +28,7 @@ Canonical directory: docs/adr. Decisions remain Proposed until resolved; disting
 | [0022](0022-double-precision-positions.md) | Proposed (owner chose the direction in ADR 0021) | Jolt built with `DOUBLE_PRECISION` on; 64-bit positions in state hashes; public positions become `double` |
 | [0023](0023-ecs.md) | Proposed (owner chose "write our own") | Lykoware's own ECS: generation-checked entities, packed per-type component storage, deterministic iteration |
 | [0024](0024-math.md) | Proposed (owner chose "write our own") | Lykoware's own maths: vectors, quaternions, column-major matrices, reversed infinite-depth Vulkan projection, camera-relative positions |
+| [0025](0025-rhi-meshes.md) | Proposed | RHI meshes: vertex and index buffers, depth, culling, push constants, `draw_meshes` |
 
 Use [the template](TEMPLATE.md). Record context, options, decision/status, contracts, consequences and verification. Use a new ADR to supersede an accepted choice; do not silently rewrite its history.
 
