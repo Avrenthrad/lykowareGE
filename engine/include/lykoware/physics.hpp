@@ -7,7 +7,7 @@
 #include <string>
 #include <variant>
 
-// The Lykoware physics API (ADR 0019) over vendored Jolt Physics (ADR 0003, ADR 0018).
+// The Lykoware physics API (ADR 0020) over vendored Jolt Physics (ADR 0003, ADR 0018).
 // No Jolt type appears here; game and tool code use only these types.
 //
 // Units and axes: metres, kilograms, seconds, radians; +Y is up; right-handed. Gravity is a

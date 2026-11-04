@@ -1,7 +1,8 @@
-# ADR 0019 — The Lykoware physics API
+# ADR 0020 — The Lykoware physics API
 
 Status: Proposed
 Related task/PR: physics spike, PR 2 (branch `claude/physics-api`), after spike PR 1 ([#21](https://github.com/Avrenthrad/lykowareGE/pull/21)) merged.
+Numbered 0020 because a concurrent documentation proposal ([#22](https://github.com/Avrenthrad/lykowareGE/pull/22)) claimed 0019 first.
 Supersedes / superseded by: none. Builds on [ADR 0003](0003-physics.md), [ADR 0017](0017-clocks-fixed-step.md) and [ADR 0018](0018-jolt-integration.md).
 
 ## Context

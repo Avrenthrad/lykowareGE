@@ -52,7 +52,7 @@ Use an [ADR](adr/README.md) for consequential decisions. Avoid inventing shared 
 
 The build/test/run CLI is described in [ADR 0005](adr/0005-native-cli.md) and [CLI.md](CLI.md). Its dispatcher validates the small fixed command set. It does not implement the future engine mutation/undo command bus.
 
-Physics lives in the engine library behind `lykoware::physics` ([ADR 0019](adr/0019-physics-api.md), [engine/include/lykoware/physics.hpp](../engine/include/lykoware/physics.hpp)). Jolt Physics (ADR 0003, ADR 0018) is linked privately and only `engine/src/physics.cpp` includes it; game and tool code see Lykoware handles and value types only.
+Physics lives in the engine library behind `lykoware::physics` ([ADR 0020](adr/0020-physics-api.md), [engine/include/lykoware/physics.hpp](../engine/include/lykoware/physics.hpp)). Jolt Physics (ADR 0003, ADR 0018) is linked privately and only `engine/src/physics.cpp` includes it; game and tool code see Lykoware handles and value types only.
 
 The simulation clock lives in the engine library too: [ADR 0017](adr/0017-clocks-fixed-step.md) and [engine/include/lykoware/clock.hpp](../engine/include/lykoware/clock.hpp). `FixedStep` turns real frame times into numbered fixed-length ticks; simulation code advances only per tick and drawing blends the last two ticks by `alpha`. `FrameClock` measures real time between frames.
 

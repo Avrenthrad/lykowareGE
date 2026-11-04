@@ -22,7 +22,7 @@ Records what is implemented and verified on `main`. Plans live in [ROADMAP.md](R
 | [0016](adr/0016-runtime-shader-files.md) | Proposed (merged; owner has not accepted) | Programs load their compiled shaders from a `shaders` folder beside the executable; the build and `cmake --install` deploy them there. |
 | [0017](adr/0017-clocks-fixed-step.md) | Proposed (merged; owner has not accepted) | Fixed-step simulation clock: 60 ticks a second by default, exact integer accumulator, interpolation alpha for drawing, 250 ms and 8 ticks per frame limits. |
 | [0018](adr/0018-jolt-integration.md) | **Accepted by owner 2026-11-04** (including the AVX2 CPU requirement) | Jolt built from vendored source with options forced; cross-platform determinism verified by a recorded state hash in every CI job; requires an AVX2 CPU. |
-| [0019](adr/0019-physics-api.md) | Proposed (in review) | `lykoware::physics::World`: stable generation-checked body handles, box/sphere/capsule bodies, per-tick stepping, ray casts, defined failure for misuse; no Jolt types in public headers. |
+| [0020](adr/0020-physics-api.md) | Proposed (in review) | `lykoware::physics::World`: stable generation-checked body handles, box/sphere/capsule bodies, per-tick stepping, ray casts, defined failure for misuse; no Jolt types in public headers. |
 
 ## Verified on main
 
@@ -62,7 +62,7 @@ Per-PR detail (local checks, failures found and fixed, mutation checks) is in ea
 
 Owner: Claude. Branch `claude/physics-api`, based on `main` at b5a19a6. In review.
 
-- `lykoware::physics::World` (`engine/include/lykoware/physics.hpp`) is the engine's physics API. Jolt is linked privately and included only by `engine/src/physics.cpp`. ADR 0019, Proposed.
+- `lykoware::physics::World` (`engine/include/lykoware/physics.hpp`) is the engine's physics API. Jolt is linked privately and included only by `engine/src/physics.cpp`. ADR 0020, Proposed.
   - **Handles:** stable `BodyId` handles (`{index, generation}`). A destroyed body's handle never reaches a later one.
   - **Bodies:** box, sphere and capsule shapes; static, dynamic or kinematic.
   - **Operations:** `step(seconds)` once per `FixedStep` tick; `cast_ray`; `set_velocity`; `state`; `state_hash`.
@@ -103,8 +103,8 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 ## Handoff
 
 - State: `main` at b5a19a6 contains PRs #2, #4–#21, green on all five jobs ([run 41763671709](https://github.com/Avrenthrad/lykowareGE/actions/runs/41763671709)). The Vulkan RHI bring-up and Phase 1 clocks are complete; Jolt is vendored with cross-platform determinism verified on MSVC, GCC and Clang.
-- Open decisions for the owner: ADR 0003 (Jolt); accepting or rejecting ADRs 0008–0012, 0014–0017 and 0019 (merging did not accept them); hardware profiles, multiplayer, world scope and budgets.
-- In review: physics spike PR 2 (`claude/physics-api`, ADR 0019), the `lykoware::physics` API. Next concrete action after it merges: spike PR 3, a character capsule on a height field and a first body-count benchmark.
+- Open decisions for the owner: ADR 0003 (Jolt); accepting or rejecting ADRs 0008–0012, 0014–0017 and 0020 (merging did not accept them); hardware profiles, multiplayer, world scope and budgets.
+- In review: physics spike PR 2 (`claude/physics-api`, ADR 0020), the `lykoware::physics` API. Next concrete action after it merges: spike PR 3, a character capsule on a height field and a first body-count benchmark.
 - Owner check wanted: run `lykoware_sandbox --window --vulkan` on the RTX 4070 desktop and the MSI Claw. With 5c, a red, green and blue triangle over a slowly changing background is expected.
 - Checklist: no box ticked by this update. Phase 1 and the image/performance gate stay open.
 

@@ -1,4 +1,4 @@
-// physics.world: the Lykoware physics API (ADR 0019) over vendored Jolt. This test links only
+// physics.world: the Lykoware physics API (ADR 0020) over vendored Jolt. This test links only
 // lykoware::engine, so it also proves the public API needs no Jolt types.
 
 #include <lykoware/clock.hpp>

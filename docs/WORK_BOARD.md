@@ -19,11 +19,11 @@ Physics spike (ADR 0003 accepted 2026-11-04; build in ADR 0018). Owner: Claude. 
 - Objective: Jolt Physics running deterministically inside the engine, behind a Lykoware API, with the evidence ADR 0003 asks for.
 - Planned PRs, in order:
   1. (Merged, #21.) Vendor Jolt v5.6.0 with the two *Numerical Recipes*-derived headers replaced; build it in all five jobs with options forced; tests for the replacements and a cross-platform determinism hash.
-  2. (In review, ADR 0019.) `lykoware::physics` wrapper: Jolt setup, stable body handles, create/destroy, stepping once per `FixedStep` tick, ray casts, invalid-handle and repeated-cleanup tests; no Jolt types in public headers.
+  2. (In review, ADR 0020.) `lykoware::physics` wrapper: Jolt setup, stable body handles, create/destroy, stepping once per `FixedStep` tick, ray casts, invalid-handle and repeated-cleanup tests; no Jolt types in public headers.
   3. A character capsule on a height field, and a first active-body benchmark on the hosted runners, labelled as not a hardware profile.
 - Shared interfaces/formats affected: PR 2 adds the public physics API. PR 1 adds none (tests use Jolt directly).
 - Acceptance checks: all five CI jobs green; the same state hash in every job; no vendored warnings promoted; nothing downloaded.
-- Assumptions and decisions needed: ADR 0018 (including AVX2) was accepted on 2026-11-04. ADR 0019 (the API shape) is Proposed.
+- Assumptions and decisions needed: ADR 0018 (including AVX2) was accepted on 2026-11-04. ADR 0020 (the API shape) is Proposed.
 
 ## Completed task: physics decision (ADR 0003)
 
