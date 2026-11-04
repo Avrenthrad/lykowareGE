@@ -7,7 +7,7 @@ Canonical directory: docs/adr. Decisions remain Proposed until resolved; disting
 | [0000](0000-ownership-and-licensing.md) | Accepted policy | Full ownership, licensing, privacy and release gates |
 | [0001](0001-language.md) | Accepted | C++20/CMake for runtime and native tooling |
 | [0002](0002-graphics.md) | Accepted | Vulkan 1.3 from C++ behind an owned RHI |
-| [0003](0003-physics.md) | Proposed; review done, owner decision required | Physics: Jolt v5.6.0 recommended (MIT); Numerical Recipes-derived files, cross-platform determinism and precision need owner decisions |
+| [0003](0003-physics.md) | Accepted by owner 2026-11-04 | Physics: Jolt v5.6.0 (MIT) behind a Lykoware API; *Numerical Recipes*-derived functions replaced locally; cross-platform determinism on; float precision for now |
 | [0004](0004-data-formats.md) | Accepted | Canonical JSON, TOML config, glTF 2.0 meshes |
 | [0005](0005-native-cli.md) | Accepted implementation | Minimal native build/test CLI |
 | [0006](0006-cpu-trace.md) | Accepted implementation | CPU timer, scoped trace, provisional hosted budgets |

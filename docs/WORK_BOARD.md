@@ -14,7 +14,7 @@ Check latest main and open PRs before starting. Documents do not automatically s
 
 ## Active task
 
-Decide physics (ADR 0003). Owner: Claude for the review; the owner decides. Status: review written, waiting on the owner's decisions. Branch `claude/jolt-review`, based on `main` at ff2a1ea.
+Decide physics (ADR 0003). Owner: Claude for the review; the owner decided. Status: **decided 2026-11-04**: Jolt v5.6.0; the *Numerical Recipes*-derived functions are replaced by our own; cross-platform determinism on; floats for now. The spike is next. Review branch `claude/jolt-review`, based on `main` at ff2a1ea.
 
 - Objective: choose the physics library before any physics code, under ADR 0000's licence rules, and record what the spike must prove.
 - Scope and affected paths: documentation only (ADR 0003, ADR index, STATUS, this board). Nothing is vendored until the owner decides.

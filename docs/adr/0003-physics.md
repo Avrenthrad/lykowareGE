@@ -1,7 +1,14 @@
 # ADR 0003 — Physics integration
 
-Status: Proposed. The licence and fit review was done on 2026-11-04 (below), and **owner decisions are required**. Recommendation: Jolt Physics v5.6.0, used natively from C++ behind a Lykoware physics API, then a build spike. Not yet vendored or integrated.
-Related task/PR: physics decision; review on branch `claude/jolt-review`. Nothing is vendored until the owner decides.
+Status: **Accepted by owner 2026-11-04.**
+- Jolt Physics v5.6.0, used natively from C++ behind a Lykoware physics API.
+- The two *Numerical Recipes*-derived functions are replaced by our own implementations, as a recorded local patch.
+- Cross-platform determinism is on from the start.
+- Float precision for now, revisited with the world-scope decision.
+
+The build spike follows. The licence and fit review that led to this is below.
+
+Related task/PR: physics decision. Review in [#20](https://github.com/Avrenthrad/lykowareGE/pull/20); integration in the spike PRs that follow.
 
 ## Options and boundary
 
@@ -79,7 +86,7 @@ Read from upstream sources on 2026-11-04. This is not legal advice. Anything out
 
 Adopt Jolt Physics v5.6.0, vendored unmodified (except as decided below) with provenance, and wrapped behind `lykoware::physics` with no Jolt types in public headers.
 
-### Owner decisions
+### Owner decisions (answered 2026-11-04: yes to each recommendation)
 
 1. **Jolt** (recommended) or another candidate?
 2. **The two Numerical Recipes-derived files.** Options:

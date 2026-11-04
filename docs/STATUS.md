@@ -8,7 +8,7 @@ Records what is implemented and verified on `main`. Plans live in [ROADMAP.md](R
 | --- | --- | --- |
 | [0001](adr/0001-language.md) | Accepted | C++20 and CMake 3.25+ |
 | [0002](adr/0002-graphics.md) | Accepted | Vulkan 1.3 from C++ behind a Lykoware-owned RHI. Vulkan-Headers, volk and VMA are vendored (ADRs 0009–0011). |
-| [0003](adr/0003-physics.md) | Proposed; licence and fit review done 2026-11-04, **owner decision required** | Jolt Physics v5.6.0 (MIT) recommended, natively from C++ behind a Lykoware API. Two files adapted from *Numerical Recipes*, cross-platform determinism and float or double precision need owner decisions. |
+| [0003](adr/0003-physics.md) | **Accepted by owner 2026-11-04** | Jolt Physics v5.6.0 (MIT), natively from C++ behind a Lykoware API. The two *Numerical Recipes*-derived functions are replaced by our own; cross-platform determinism is on; float precision for now. Not yet vendored: the spike follows. |
 | [0004](adr/0004-data-formats.md) | Accepted | Canonical JSON for machine data, TOML for hand-edited config, glTF 2.0 meshes. No parser vendored yet. |
 | [0005](adr/0005-native-cli.md)–[0007](adr/0007-image-harness.md) | Accepted implementation | CLI, CPU trace, GPU-free image harness |
 | [0008](adr/0008-window-input.md) | Proposed | SDL 3.4.18 behind the window and input API. Merged and working; owner has not accepted it. |
@@ -68,13 +68,13 @@ Owner: Claude. Branch `claude/jolt-review`, based on `main` at ff2a1ea. Document
   - float or double precision for world size;
   - characters, ragdoll motors and skeleton mapping;
   - the structural-physics gap that Lykoware must fill itself.
-- Owner decisions:
+- Owner decisions (2026-11-04), yes to each recommendation:
   1. Jolt;
-  2. the *Numerical Recipes* files;
-  3. cross-platform determinism;
-  4. precision.
+  2. replace the *Numerical Recipes*-derived functions with our own;
+  3. cross-platform determinism on;
+  4. floats for now.
   
-  The build spike follows them.
+  The build spike follows.
 
 ## Next
 
@@ -82,7 +82,7 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 
 1. Vulkan RHI bring-up: done (#11–#18). Instance, device, offscreen render target read back into the image harness, swapchain, build-time Slang shaders, graphics pipelines, and the triangle offscreen and in the sandbox window.
 2. Phase 1 clocks and fixed-step update loop: done (#19, ADR 0017).
-3. Decide Jolt (ADR 0003) before any physics. The review is written (`claude/jolt-review`); the owner decides on Jolt, the *Numerical Recipes*-derived files, cross-platform determinism and precision. Then a build spike vendors and wraps it.
+3. Physics: Jolt accepted (ADR 0003, 2026-11-04). Next: the spike that vendors, patches, builds and wraps it.
 4. Agree hardware profiles (RTX 4070 desktop, MSI Claw), multiplayer intent, world scope and budgets. Owner's current leaning on multiplayer: co-op later or MMO, undecided. This is not a commitment.
 
 ## Known issues and limitations
@@ -104,7 +104,7 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 
 - State: `main` at ff2a1ea contains PRs #2, #4–#19. The Vulkan RHI bring-up and Phase 1 clocks are complete. The previous `main` run ([41758233376](https://github.com/Avrenthrad/lykowareGE/actions/runs/41758233376)) passed all five jobs; the run for #19 was in progress when this was written.
 - Open decisions for the owner: ADR 0003 (Jolt); accepting or rejecting ADRs 0008–0012 and 0014–0017 (merging did not accept them); hardware profiles, multiplayer, world scope and budgets.
-- In review: the Jolt licence and fit review (ADR 0003, `claude/jolt-review`). It waits on the owner's four decisions listed there; the physics spike follows them.
+- ADR 0003 (Jolt) was accepted by the owner on 2026-11-04. Next concrete action: the physics spike. Vendor Jolt v5.6.0 with the two *Numerical Recipes*-derived functions replaced, build it in all five jobs with cross-platform determinism, and prove it with a first scene and a fixed state hash.
 - Owner check wanted: run `lykoware_sandbox --window --vulkan` on the RTX 4070 desktop and the MSI Claw. With 5c, a red, green and blue triangle over a slowly changing background is expected.
 - Checklist: no box ticked by this update. Phase 1 and the image/performance gate stay open.
 
