@@ -4,7 +4,9 @@ Records what is implemented and verified on `main`. Plans live in [ROADMAP.md](R
 
 ## Review follow-ups in progress
 
-Codex branch `codex/core-contract-hardening`, based on `5b46f08` (#31 merged), changes runtime handle and attachment contracts under [ADR 0030](adr/0030-runtime-contract-hardening.md). The standalone ECS regression binary passes locally. Full native build and fault-injection tests are pending; no completion box is checked. Owner merges after CI/review. See [WORK_BOARD](WORK_BOARD.md).
+- Runtime contract PR [#35](https://github.com/Avrenthrad/lykowareGE/pull/35), `codex/core-contract-hardening`, based on `5b46f08` (#31 merged): foreign-handle rejection, exclusive physics links, rollback-safe attachment/storage and fault-injection tests; [ADR 0030](adr/0030-runtime-contract-hardening.md). Linux Debug and ASan/UBSan passed on `ac35f79`; Windows/static-analysis issues are being resolved, so this PR remains draft.
+- Integration branch `codex/scene-command-replay` preserves Claude's #30 and #32–#34, then adds versioned scene IDs/commands, per-tick replay tests, read-only interpolated snapshots, CLI run/capture/report and a local Windows runner; [ADR 0031](adr/0031-scenes-and-command-replay.md). Native source compilation is checked; full integrated tests/CI pending. No target-PC result is claimed.
+- Follow-up checklist: [REVIEW_FOLLOWUP](REVIEW_FOLLOWUP.md). Owner merges after review/green CI; no Phase 1 completion box checked.
 
 ## Decisions
 
@@ -12,8 +14,8 @@ Codex branch `codex/core-contract-hardening`, based on `5b46f08` (#31 merged), c
 | --- | --- | --- |
 | [0001](adr/0001-language.md) | Accepted | C++20 and CMake 3.25+ |
 | [0002](adr/0002-graphics.md) | Accepted | Vulkan 1.3 from C++ behind a Lykoware-owned RHI. Vulkan-Headers, volk and VMA are vendored (ADRs 0009–0011). |
-| [0003](adr/0003-physics.md) | **Accepted by owner 2026-11-04** | Jolt Physics v5.6.0 (MIT), natively from C++ behind a Lykoware API. The two *Numerical Recipes*-derived functions are replaced by our own; cross-platform determinism is on; float precision for now. Not yet vendored: the spike follows. |
-| [0004](adr/0004-data-formats.md) | Accepted | Canonical JSON for machine data, TOML for hand-edited config, glTF 2.0 meshes. No parser vendored yet. |
+| [0003](adr/0003-physics.md) | **Accepted by owner 2026-11-04** | Jolt Physics v5.6.0 (MIT), natively from C++ behind a Lykoware API. The two *Numerical Recipes*-derived functions are replaced by our own; cross-platform determinism is on; the initial float-position choice was superseded by double positions in ADR 0022. Vendored and integrated. |
+| [0004](adr/0004-data-formats.md) | Accepted | Canonical JSON for machine data, TOML for hand-edited config, glTF 2.0 meshes. The review branch vendors nlohmann/json 3.11.3 for the first scene/command caller. |
 | [0005](adr/0005-native-cli.md)–[0007](adr/0007-image-harness.md) | Accepted implementation | CLI, CPU trace, GPU-free image harness |
 | [0008](adr/0008-window-input.md) | Proposed | SDL 3.4.18 behind the window and input API. Merged and working; owner has not accepted it. |
 | [0009](adr/0009-vulkan-loading.md) | Proposed (merged; owner has not accepted) | Vulkan-Headers and volk, Vulkan loaded at run time, RHI instance, GPU tests skip rather than pass without a loader. |
@@ -144,7 +146,7 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 
 - No scene loader, audio, animation, world streaming or inference yet. With 3D rendering PRs 1–3: the renderer draws lit, coloured cubes from ECS entities with depth, camera-relative, offscreen and in the sandbox window. There are no meshes from files, textures, materials, shadows, more than one light, interpolation between ticks or window read-back, so window pixels are not checked automatically (offscreen renders are).
 - GPU tests skip (exit 77, CTest "Skipped") where no Vulkan loader or driver is installed. Hosted Windows runners may skip them; a skip is not a pass.
-- `lyko run` launches the console sandbox. `lyko screenshot` and `lyko run --scene` print `unsupported: no renderer` and exit 3. `lyko trace --frames N` is a CPU trace of the sandbox loop, not a GPU capture.
+- On main, `lyko run` launches the console sandbox; scene/capture support is added on the Codex integration branch (ADR 0031). `lyko trace --frames N` remains a CPU trace of the sandbox loop, not a GPU trace.
 - The image harness compares a software test pattern with committed PPM fixtures, and Vulkan clears read back from a render target. Neither is a scene screenshot or the image/performance gate; `lyko screenshot` still exits 3.
 - Provisional CPU budgets apply only to the hosted windows-2022 and ubuntu-24.04 runners. They are not an RTX 4070 gate.
 - Window: a real Win32/X11/Wayland desktop window, focus changes and a real Vulkan surface are untested in CI. A Linux desktop window needs X11 or Wayland headers at configure time. A newly adopted gamepad starts with released buttons and centred axes until it reports a change.

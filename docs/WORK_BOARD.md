@@ -23,22 +23,17 @@ Check latest main and open PRs before starting. Documents do not automatically s
 - Hardware gate: actual Windows GPU timing and memory on the recommended desktop require that machine. A software Vulkan run is not that evidence.
 - Integration: Joshua merges, per the owner rules above. Stacked follow-up PRs may be built/tested together locally before owner merge.
 
-## Active task
+## Related rendering work
 
-3D rendering (Phase 1). Owner: Claude. Status: PR 1 in review as #32 (`claude/math`), PR 2 as #33 (`claude/rhi-mesh`) and PR 3 on `claude/render-scene`, each stacked on the one before.
+Claude owns #32 (`claude/math`), #33 (`claude/rhi-mesh`) and #34 (`claude/render-scene`). They supply camera-relative math, RHI mesh/depth drawing and the first lit ECS falling-crates renderer. Their CI evidence is recorded in those PRs/STATUS. Codex's scene-command integration preserves that stack and #30's physics slot retirement; it does not replace or publish Claude's branches.
 
-- Objective: lit 3D objects drawn from the ECS through the Lykoware RHI. First milestone, chosen by the owner on 2026-11-04: the physics demo's falling crates, drawn with a camera and depth, pixel-checked in CI.
-- Planned PRs, in order:
-  1. (In review, ADR 0024.) Lykoware's own maths module; physics value types become its aliases.
-  2. (In review, ADR 0025.) RHI: GPU vertex and index buffers, a depth buffer, pipelines with vertex input, depth test, culling and push constants; a lit cube drawn offscreen and pixel-checked on lavapipe.
-  3. (In review, ADR 0026.) Renderer: mesh and camera components, camera-relative drawing from ECS `Transform`s, depth on the window path, falling crates in the sandbox window, and a pixel-checked scene test.
-- Shared interfaces/formats affected: new `lykoware/math.hpp`; RHI additions in PR 2; a renderer API in PR 3.
-- Acceptance checks: all five CI jobs green; pixel checks on lavapipe (Windows runners have no Vulkan, so they skip).
-- Assumptions and decisions needed: the owner chose our own maths and the falling-crates milestone; ADR 0024 is Proposed.
+## Active scene/replay integration
 
-## Completed task: ECS
-
-Owner: Claude. Done: #29 and #31 merged (ADR 0023, Proposed; the owner chose to write our own). Generation-checked entities, packed component storage, deterministic iteration, removal hooks, a change buffer, and physics bodies and characters on entities. Details and CI runs are in [STATUS.md](STATUS.md).
+- Owner/status: Codex, active on `codex/scene-command-replay`, stacked on #35 and Claude's #30/#32–#34.
+- Scope: ADR 0031, versioned JSON box scene/command schema, stable authored IDs, fixed-tick dispatch, render-only snapshots, CLI replay/capture/report, local Windows measurement script and documentation reconciliation.
+- Acceptance: canonical/malformed-input checks; every tick equal at 30/60/144 Hz/irregular frames; unchanged simulation after interpolation/GPU draw; repeated real CLI captures/hash equality; installed shader paths; five CI jobs green.
+- Hardware: owner supplied Windows 11 Home / i7-14700F / 16 GB; graphics device/VRAM and actual measurements pending. Do not record personal machine/user identifiers from the screenshot.
+- Integration: [REVIEW_FOLLOWUP](REVIEW_FOLLOWUP.md); Joshua merges. No full editor or later-phase gameplay work.
 
 ## Completed task: double-precision positions
 

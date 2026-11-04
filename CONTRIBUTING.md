@@ -13,7 +13,7 @@ The owner is whoever is actively implementing the task, whether human or assista
 
 Keep engine, tools, and game responsibilities separate. Before changing a shared public API or persisted format, document its proposed contract in an ADR and review it with affected contributors. The project owner resolves product scope decisions; contributors can choose routine implementation details within an agreed task.
 
-C++20/CMake is accepted in [ADR 0001](docs/adr/0001-language.md); use the documented CMake presets. Graphics and authored formats are accepted in [ADR 0002](docs/adr/0002-graphics.md) and [ADR 0004](docs/adr/0004-data-formats.md). Physics remains [ADR 0003](docs/adr/0003-physics.md). Follow [ownership/licensing policy](docs/adr/0000-ownership-and-licensing.md), keep [STATUS](docs/STATUS.md) current, and use docs/adr for new decisions.
+C++20/CMake is accepted in [ADR 0001](docs/adr/0001-language.md); use the documented CMake presets. Graphics and authored formats are accepted in [ADR 0002](docs/adr/0002-graphics.md) and [ADR 0004](docs/adr/0004-data-formats.md). Jolt is accepted in [ADR 0003](docs/adr/0003-physics.md) and integrated behind the owned native API (ADR 0020). Follow [ownership/licensing policy](docs/adr/0000-ownership-and-licensing.md), keep [STATUS](docs/STATUS.md) current, and use docs/adr for new decisions.
 
 For C++ changes, build and test affected behavior, then use the Windows CI checks to verify the primary target. Changes to builds, dependencies, packaging, or public headers should be exercised in Windows Debug and Release. Do not claim checks that have not finished.
 

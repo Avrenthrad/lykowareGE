@@ -79,10 +79,10 @@ Built-in Highlighter-style replay capture.
 - Nothing public without Pax review.
 - Any spend needs Joshua's approval: flag paid tools/services before use.
 
-## 13. Technical direction (language, graphics, and data formats accepted; physics proposed)
+## 13. Technical direction (language, graphics, physics and data formats accepted)
 - Language: C++20/CMake accepted in [ADR 0001](adr/0001-language.md). Continue the verified foundation. Use warnings-as-errors, ASan/UBSan, clang-tidy and strong tests; distinguish configured checks from successful runs in STATUS.
 - Graphics: Vulkan 1.3 used directly from C++, behind a thin render hardware interface (RHI) owned by Lykoware. D3D12 is a possible later backend, only if Intel Arc measurements justify it. No Rust ash/wgpu evaluation. Accepted in [ADR 0002](adr/0002-graphics.md).
-- Physics: Jolt, used natively in C++ (not via bindings). Integration is still proposed in [ADR 0003](adr/0003-physics.md).
+- Physics: Jolt, used natively in C++ (not via bindings). Jolt v5.6.0 is accepted in [ADR 0003](adr/0003-physics.md) and integrated behind ADR 0020, with double positions in ADR 0022.
 - Formats: canonical JSON for machine-written data (sorted keys, schema_version, stable IDs); TOML for hand-edited config; glTF 2.0 for meshes; binary only as cooked build output. RON is not used. Accepted in [ADR 0004](adr/0004-data-formats.md). No production schema is implemented by this decision.
 
 Note: language, graphics and data formats are [ADR 0001](adr/0001-language.md), [ADR 0002](adr/0002-graphics.md) and [ADR 0004](adr/0004-data-formats.md). Jolt's native C++ use is the integration style; selecting and vendoring Jolt remains [ADR 0003](adr/0003-physics.md).
