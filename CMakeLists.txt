@@ -187,6 +187,13 @@ if(BUILD_TESTING)
     add_test(NAME physics.character COMMAND lykoware_physics_character_test)
     set_tests_properties(physics.character PROPERTIES TIMEOUT 120)
 
+    # The same scene 16 km and 64 km from the origin (ADR 0021, ADR 0022). Links only the engine.
+    add_executable(lykoware_physics_far_test tests/physics_far.cpp)
+    target_link_libraries(lykoware_physics_far_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_physics_far_test)
+    add_test(NAME physics.far_from_origin COMMAND lykoware_physics_far_test)
+    set_tests_properties(physics.far_from_origin PROPERTIES TIMEOUT 120)
+
     add_executable(lykoware_cpu_budget tests/cpu_budget.cpp tools/cli/process.cpp)
     target_link_libraries(lykoware_cpu_budget PRIVATE lykoware::engine)
     lykoware_configure_target(lykoware_cpu_budget)
@@ -235,6 +242,13 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION "provisional CPU-only; pinned hosted runners windows-2022 and ubuntu-24.04; within"
             TIMEOUT 300)
     endforeach()
+    # The same 1024 boxes 16 km from the origin (ADR 0021, ADR 0022).
+    add_test(NAME perf.physics_bodies_1024_far
+        COMMAND lykoware_physics_benchmark 1024
+            "${LYKOWARE_PROVISIONAL_PHYSICS_TICKS}" "${LYKOWARE_PROVISIONAL_PHYSICS_MEAN_STEP_MS}" 16000)
+    set_tests_properties(perf.physics_bodies_1024_far PROPERTIES
+        PASS_REGULAR_EXPRESSION "1024 boxes 16000 m from the origin.*provisional CPU-only; pinned hosted runners windows-2022 and ubuntu-24.04; within"
+        TIMEOUT 300)
 
     add_test(NAME foundation.smoke
         COMMAND "${CMAKE_COMMAND}"

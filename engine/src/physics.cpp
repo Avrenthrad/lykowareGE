@@ -143,6 +143,17 @@ Vec3 from_jolt(JPH::Vec3Arg v)
     return {v.GetX(), v.GetY(), v.GetZ()};
 }
 
+// Positions are double precision on both sides (ADR 0022).
+JPH::RVec3 to_jolt_position(DVec3 v)
+{
+    return {v.x, v.y, v.z};
+}
+
+DVec3 from_jolt_position(JPH::RVec3Arg v)
+{
+    return {v.GetX(), v.GetY(), v.GetZ()};
+}
+
 Quat from_jolt(JPH::QuatArg q)
 {
     return {q.GetX(), q.GetY(), q.GetZ(), q.GetW()};
@@ -154,6 +165,11 @@ bool positive(float value)
 }
 
 bool finite(Vec3 v)
+{
+    return std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z);
+}
+
+bool finite(DVec3 v)
 {
     return std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z);
 }
@@ -487,6 +503,10 @@ std::optional<BodyId> World::create_body(const BodyDesc& desc, std::string& erro
         error = "the world already has max_bodies (" + std::to_string(impl.max_bodies) + ") bodies";
         return std::nullopt;
     }
+    if (!finite(desc.position) || !finite(desc.linear_velocity) || !finite(desc.angular_velocity)) {
+        error = "position and velocities must be finite";
+        return std::nullopt;
+    }
     const JPH::Quat rotation = to_jolt(desc.rotation);
     if (rotation.IsNaN() || rotation.LengthSq() < 1e-12F) {
         error = "rotation must be a non-zero quaternion";
@@ -505,10 +525,13 @@ std::optional<BodyId> World::create_body(const BodyDesc& desc, std::string& erro
     const std::uint32_t index = impl.bodies.reserve();
     const bool is_static = desc.motion == MotionType::Static;
     // The creation settings take the only reference to the shape settings.
-    JPH::BodyCreationSettings settings{shape, JPH::RVec3(to_jolt(desc.position)), rotation.Normalized(),
+    JPH::BodyCreationSettings settings{shape, to_jolt_position(desc.position), rotation.Normalized(),
                                        to_jolt(desc.motion), is_static ? layer::static_bodies : layer::moving_bodies};
     settings.mFriction = desc.friction;
     settings.mRestitution = desc.restitution;
+    // A kinematic body moves only by its velocity. Jolt would put one moving slower than about
+    // 6 cm/s to sleep after half a second, and a sleeping body stops: a slow door would freeze.
+    settings.mAllowSleeping = desc.motion != MotionType::Kinematic;
     settings.mUserData = index;
     if (!is_static) {
         settings.mLinearVelocity = to_jolt(desc.linear_velocity);
@@ -558,7 +581,7 @@ std::optional<BodyState> World::state(BodyId body) const
     JPH::RVec3 position;
     JPH::Quat rotation;
     interface.GetPositionAndRotation(*jolt, position, rotation);
-    return BodyState{from_jolt(JPH::Vec3(position)), from_jolt(rotation), from_jolt(interface.GetLinearVelocity(*jolt)),
+    return BodyState{from_jolt_position(position), from_jolt(rotation), from_jolt(interface.GetLinearVelocity(*jolt)),
                      from_jolt(interface.GetAngularVelocity(*jolt))};
 }
 
@@ -613,7 +636,7 @@ std::optional<CharacterId> World::create_character(const CharacterDesc& desc, st
 
     const std::uint32_t index = impl.characters.reserve();
     Character character;
-    character.jolt = new JPH::CharacterVirtual(&settings, JPH::RVec3(to_jolt(desc.position)), JPH::Quat::sIdentity(),
+    character.jolt = new JPH::CharacterVirtual(&settings, to_jolt_position(desc.position), JPH::Quat::sIdentity(),
                                                index, &impl.system);
     character.step_height = desc.step_height;
     return CharacterId{index, impl.characters.activate(index, std::move(character))};
@@ -657,7 +680,7 @@ std::optional<CharacterState> World::character_state(CharacterId character) cons
     }
     const JPH::CharacterVirtual& jolt = *found->jolt;
     CharacterState state;
-    state.position = from_jolt(JPH::Vec3(jolt.GetPosition()));
+    state.position = from_jolt_position(jolt.GetPosition());
     state.velocity = from_jolt(jolt.GetLinearVelocity());
     state.ground = from_jolt(jolt.GetGroundState());
     state.ground_body = impl_->body_handle(jolt.GetGroundBodyID());
@@ -679,13 +702,13 @@ bool World::step(float seconds)
     return impl.system.Update(seconds, 1, &impl.temp_allocator, &impl.jobs) == JPH::EPhysicsUpdateError::None;
 }
 
-std::optional<RayHit> World::cast_ray(Vec3 origin, Vec3 direction) const
+std::optional<RayHit> World::cast_ray(DVec3 origin, Vec3 direction) const
 {
     const JPH::Vec3 jolt_direction = to_jolt(direction);
     if (!finite(origin) || jolt_direction.IsNaN() || jolt_direction.LengthSq() <= 0.F) {
         return std::nullopt;
     }
-    const JPH::RRayCast ray{JPH::RVec3(to_jolt(origin)), jolt_direction};
+    const JPH::RRayCast ray{to_jolt_position(origin), jolt_direction};
     JPH::RayCastResult hit;
     if (!impl_->system.GetNarrowPhaseQuery().CastRay(ray, hit)) {
         return std::nullopt;
@@ -694,7 +717,7 @@ std::optional<RayHit> World::cast_ray(Vec3 origin, Vec3 direction) const
     if (!body) {
         return std::nullopt;
     }
-    return RayHit{*body, hit.mFraction, from_jolt(JPH::Vec3(ray.GetPointOnRay(hit.mFraction)))};
+    return RayHit{*body, hit.mFraction, from_jolt_position(ray.GetPointOnRay(hit.mFraction))};
 }
 
 std::uint64_t World::state_hash() const

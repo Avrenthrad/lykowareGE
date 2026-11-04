@@ -13,6 +13,10 @@
 //
 // Units and axes: metres, kilograms, seconds, radians; +Y is up; right-handed. Gravity is a
 // world setting (default 9.81 m/s^2 down).
+//
+// Positions are double precision (DVec3) so they stay accurate to far below a millimetre
+// anywhere in a world of 16 km or more (ADR 0021, ADR 0022). Velocities, directions, sizes
+// and rotations are single precision.
 
 namespace lykoware::physics {
 
@@ -21,6 +25,13 @@ struct Vec3 {
     float x = 0.F;
     float y = 0.F;
     float z = 0.F;
+};
+
+// A position in the world, in double precision.
+struct DVec3 {
+    double x = 0.0;
+    double y = 0.0;
+    double z = 0.0;
 };
 
 // Unit quaternion (x, y, z, w); the default is no rotation.
@@ -76,7 +87,7 @@ using Shape = std::variant<BoxShape, SphereShape, CapsuleShape, HeightFieldShape
 struct BodyDesc {
     Shape shape = BoxShape{};
     MotionType motion = MotionType::Dynamic;
-    Vec3 position;
+    DVec3 position;
     Quat rotation;
     Vec3 linear_velocity;
     Vec3 angular_velocity;
@@ -85,7 +96,7 @@ struct BodyDesc {
 };
 
 struct BodyState {
-    Vec3 position;
+    DVec3 position;
     Quat rotation;
     Vec3 linear_velocity;
     Vec3 angular_velocity;
@@ -105,7 +116,7 @@ struct CharacterDesc {
     float radius = 0.3F;
     // Half the length of the capsule's straight part; standing height is 2 * (cylinder_half_height + radius).
     float cylinder_half_height = 0.6F;
-    Vec3 position;
+    DVec3 position;
     // Steepest ground it can walk up, in radians (0, pi/2). Steeper ground is OnSteepGround.
     float max_slope = 0.87266463F; // 50 degrees
     // Tallest step or ledge it walks up without jumping, in metres (>= 0).
@@ -122,7 +133,7 @@ enum class GroundState {
 };
 
 struct CharacterState {
-    Vec3 position; // feet
+    DVec3 position; // feet
     Vec3 velocity;
     GroundState ground = GroundState::InAir;
     // The body it stands on or touches, if any.
@@ -134,7 +145,7 @@ struct RayHit {
     BodyId body;
     // Fraction of the ray's length at which it hits, in [0, 1].
     float fraction = 0.F;
-    Vec3 point;
+    DVec3 point;
 };
 
 struct WorldConfig {
@@ -177,7 +188,8 @@ public:
 
     // Creates a body and adds it to the simulation. Fails (nullopt, error filled) for a shape
     // with a non-positive size, an invalid height field or a height field that is not static,
-    // a zero rotation, or when max_bodies are alive. The rotation is normalised.
+    // a non-finite position or velocity, a zero rotation, or when max_bodies are alive. The
+    // rotation is normalised.
     [[nodiscard]] std::optional<BodyId> create_body(const BodyDesc& desc, std::string& error);
     // Removes and destroys a body. False if the handle is not valid.
     bool destroy_body(BodyId body);
@@ -207,7 +219,7 @@ public:
 
     // The closest body hit by the ray from `origin` along `direction`, whose length is the
     // ray's length; nullopt if nothing is hit.
-    [[nodiscard]] std::optional<RayHit> cast_ray(Vec3 origin, Vec3 direction) const;
+    [[nodiscard]] std::optional<RayHit> cast_ray(DVec3 origin, Vec3 direction) const;
 
     // FNV-1a hash of every live body's and character's exact state in handle order: equal
     // hashes mean bit-identical simulations.

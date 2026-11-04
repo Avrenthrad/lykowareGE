@@ -9,6 +9,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
@@ -29,7 +30,8 @@ void expect(bool condition, std::string_view message)
     }
 }
 
-bool close_to(float a, float b, float tolerance)
+// Positions are double (ADR 0022); float arguments widen exactly.
+bool close_to(double a, double b, double tolerance)
 {
     return std::fabs(a - b) <= tolerance;
 }
@@ -146,6 +148,17 @@ void test_rest_and_rays()
     const auto moved = world->state(kinematic);
     expect(moved && close_to(moved->position.x, -9.F, 1e-3F) && close_to(moved->position.y, 5.F, 1e-5F),
            "a kinematic body moves one metre in one second at 1 m/s, ignoring gravity");
+
+    // A slow kinematic body keeps moving: Jolt would otherwise put it to sleep after half a
+    // second, and a sleeping body stops.
+    physics::BodyDesc creeper;
+    creeper.motion = physics::MotionType::Kinematic;
+    creeper.position = {10.0, 5.0, 0.0};
+    creeper.linear_velocity = {0.01F, 0.F, 0.F};
+    const physics::BodyId slow = add(*world, creeper);
+    steps(*world, 180);
+    const auto crept = world->state(slow);
+    expect(crept && close_to(crept->position.x, 10.03, 1e-6), "a 1 cm/s kinematic body moves 3 cm in 3 s");
 }
 
 void test_invalid_handles()
@@ -189,6 +202,17 @@ void test_invalid_handles()
     bad.shape = physics::BoxShape{};
     bad.rotation = {0.F, 0.F, 0.F, 0.F};
     expect(!world->create_body(bad, error) && !error.empty(), "a zero rotation is refused");
+    bad.rotation = {};
+    bad.position = {std::nan(""), 0.0, 0.0};
+    expect(!world->create_body(bad, error) && !error.empty(), "a NaN position is refused");
+    bad.position = {0.0, std::numeric_limits<double>::infinity(), 0.0};
+    expect(!world->create_body(bad, error) && !error.empty(), "an infinite position is refused");
+    bad.position = {};
+    bad.linear_velocity = {std::nanf(""), 0.F, 0.F};
+    expect(!world->create_body(bad, error) && !error.empty(), "a NaN velocity is refused");
+    bad.linear_velocity = {};
+    bad.angular_velocity = {0.F, std::numeric_limits<float>::infinity(), 0.F};
+    expect(!world->create_body(bad, error) && !error.empty(), "an infinite angular velocity is refused");
     expect(world->body_count() == 2, "refused bodies are not created");
 }
 

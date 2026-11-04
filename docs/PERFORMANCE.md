@@ -42,6 +42,7 @@ The check fails when elapsed microseconds are greater than the millisecond limit
 | --- | --- | --- | --- |
 | perf.physics_bodies_256 | LYKOWARE_PROVISIONAL_PHYSICS_TICKS and LYKOWARE_PROVISIONAL_PHYSICS_MEAN_STEP_MS | 300 ticks, 250 ms mean per step | 256 boxes |
 | perf.physics_bodies_1024 | the same | the same | 1024 boxes |
+| perf.physics_bodies_1024_far | the same | the same | 1024 boxes 16 km from the origin (ADR 0022) |
 
 The 250 ms limit catches large regressions in Debug and sanitizer builds on a busy shared runner. It is not a frame budget. Local results on 4 hardware threads with GCC 13.3, 300 ticks, ms per step:
 

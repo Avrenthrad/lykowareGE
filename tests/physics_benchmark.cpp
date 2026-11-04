@@ -6,7 +6,9 @@
 // result, and the ceiling is deliberately wide: it catches large regressions, it is not a
 // frame budget.
 //
-// Usage: lykoware_physics_benchmark BODIES TICKS MEAN_STEP_LIMIT_MS
+// Usage: lykoware_physics_benchmark BODIES TICKS MEAN_STEP_LIMIT_MS [OFFSET_M]
+//   OFFSET_M moves the whole scene that many metres along +X and -Z (default 0), to measure the
+//   cost far from the origin with double-precision positions (ADR 0022).
 
 #include <lykoware/clock.hpp>
 #include <lykoware/physics.hpp>
@@ -32,14 +34,15 @@ namespace physics = lykoware::physics;
 constexpr std::string_view scope =
     "provisional CPU-only; pinned hosted runners windows-2022 and ubuntu-24.04";
 
-bool parse(std::string_view text, std::int64_t& value)
+bool parse(std::string_view text, std::int64_t& value, std::int64_t minimum = 1)
 {
     const auto result = std::from_chars(text.data(), text.data() + text.size(), value);
-    return result.ec == std::errc{} && result.ptr == text.data() + text.size() && value > 0;
+    return result.ec == std::errc{} && result.ptr == text.data() + text.size() && value >= minimum;
 }
 
-int run(std::int64_t body_count, std::int64_t ticks, std::int64_t limit_ms)
+int run(std::int64_t body_count, std::int64_t ticks, std::int64_t limit_ms, std::int64_t offset_m)
 {
+    const auto offset = static_cast<double>(offset_m);
     physics::WorldConfig config;
     config.max_bodies = static_cast<std::uint32_t>(body_count) + 16;
     config.max_body_pairs = static_cast<std::uint32_t>(body_count) * 16;
@@ -54,7 +57,7 @@ int run(std::int64_t body_count, std::int64_t ticks, std::int64_t limit_ms)
     physics::BodyDesc ground;
     ground.shape = physics::BoxShape{{40.F, 0.5F, 40.F}};
     ground.motion = physics::MotionType::Static;
-    ground.position = {0.F, -0.5F, 0.F};
+    ground.position = {offset, -0.5, -offset};
     if (!world->create_body(ground, error)) {
         std::cerr << "ground: " << error << '\n';
         return EXIT_FAILURE;
@@ -68,7 +71,8 @@ int run(std::int64_t body_count, std::int64_t ticks, std::int64_t limit_ms)
         const auto layer = static_cast<float>(i / 256);
         physics::BodyDesc box;
         box.shape = physics::BoxShape{{0.25F, 0.25F, 0.25F}};
-        box.position = {(column - 7.5F) * 0.6F, 1.F + layer * 0.6F, (row - 7.5F) * 0.6F};
+        box.position = {offset + static_cast<double>((column - 7.5F) * 0.6F), 1.0 + static_cast<double>(layer * 0.6F),
+                        -offset + static_cast<double>((row - 7.5F) * 0.6F)};
         const float turn = 0.05F * static_cast<float>(i % 7);
         box.rotation = {0.F, turn, 0.F, std::sqrt(1.F - turn * turn)};
         box.angular_velocity = {0.1F * static_cast<float>(i % 3), 0.F, 0.1F * static_cast<float>(i % 5)};
@@ -115,9 +119,11 @@ int run(std::int64_t body_count, std::int64_t ticks, std::int64_t limit_ms)
 
     char line[512];
     std::snprintf(line, sizeof(line),
-                  "physics-bodies: %lld boxes, %lld ticks at 60 Hz, %u hardware threads: mean %.3f ms, p95 %.3f ms, "
-                  "max %.3f ms per step, %zu still moving at the end; %.*s; %s (limit %lld ms mean per step)",
-                  static_cast<long long>(body_count), static_cast<long long>(ticks), std::thread::hardware_concurrency(),
+                  "physics-bodies: %lld boxes %lld m from the origin, %lld ticks at 60 Hz, %u hardware threads: mean "
+                  "%.3f ms, p95 %.3f ms, max %.3f ms per step, %zu still moving at the end; %.*s; %s (limit %lld ms "
+                  "mean per step)",
+                  static_cast<long long>(body_count), static_cast<long long>(offset_m), static_cast<long long>(ticks),
+                  std::thread::hardware_concurrency(),
                   mean, p95, worst, moving, static_cast<int>(scope.size()), scope.data(), within ? "within" : "over",
                   static_cast<long long>(limit_ms));
     std::cout << line << '\n';
@@ -139,10 +145,12 @@ int main(int argc, char* argv[])
     std::int64_t bodies = 0;
     std::int64_t ticks = 0;
     std::int64_t limit_ms = 0;
-    if (argc != 4 || !parse(argv[1], bodies) || !parse(argv[2], ticks) || !parse(argv[3], limit_ms)
-        || bodies > 1'000'000) {
-        std::cerr << "usage: lykoware_physics_benchmark BODIES TICKS MEAN_STEP_LIMIT_MS (all positive)\n";
+    std::int64_t offset_m = 0;
+    if ((argc != 4 && argc != 5) || !parse(argv[1], bodies) || !parse(argv[2], ticks) || !parse(argv[3], limit_ms)
+        || (argc == 5 && !parse(argv[4], offset_m, 0)) || bodies > 1'000'000 || offset_m > 1'000'000) {
+        std::cerr << "usage: lykoware_physics_benchmark BODIES TICKS MEAN_STEP_LIMIT_MS [OFFSET_M]\n"
+                     "  BODIES, TICKS and MEAN_STEP_LIMIT_MS positive; OFFSET_M from 0 to 1000000\n";
         return EXIT_FAILURE;
     }
-    return run(bodies, ticks, limit_ms);
+    return run(bodies, ticks, limit_ms, offset_m);
 }
