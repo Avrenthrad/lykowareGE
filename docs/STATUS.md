@@ -8,7 +8,7 @@ Records what is implemented and verified on `main`. Plans live in [ROADMAP.md](R
 | --- | --- | --- |
 | [0001](adr/0001-language.md) | Accepted | C++20 and CMake 3.25+ |
 | [0002](adr/0002-graphics.md) | Accepted | Vulkan 1.3 from C++ behind a Lykoware-owned RHI. Vulkan-Headers, volk and VMA are vendored (ADRs 0009–0011). |
-| [0003](adr/0003-physics.md) | Proposed | Jolt, called natively from C++ if adopted. Owner has not decided. |
+| [0003](adr/0003-physics.md) | Proposed; licence and fit review done 2026-11-04, **owner decision required** | Jolt Physics v5.6.0 (MIT) recommended, natively from C++ behind a Lykoware API. Two files adapted from *Numerical Recipes*, cross-platform determinism and float or double precision need owner decisions. |
 | [0004](adr/0004-data-formats.md) | Accepted | Canonical JSON for machine data, TOML for hand-edited config, glTF 2.0 meshes. No parser vendored yet. |
 | [0005](adr/0005-native-cli.md)–[0007](adr/0007-image-harness.md) | Accepted implementation | CLI, CPU trace, GPU-free image harness |
 | [0008](adr/0008-window-input.md) | Proposed | SDL 3.4.18 behind the window and input API. Merged and working; owner has not accepted it. |
@@ -78,7 +78,7 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 
 1. Vulkan RHI bring-up: done (#11–#18). Instance, device, offscreen render target read back into the image harness, swapchain, build-time Slang shaders, graphics pipelines, and the triangle offscreen and in the sandbox window.
 2. Phase 1 clocks and fixed-step update loop: in review (`claude/clocks`, ADR 0017).
-3. Decide Jolt (ADR 0003) before any physics.
+3. Decide Jolt (ADR 0003) before any physics. The review is written (`claude/jolt-review`); the owner decides on Jolt, the *Numerical Recipes*-derived files, cross-platform determinism and precision. Then a build spike vendors and wraps it.
 4. Agree hardware profiles (RTX 4070 desktop, MSI Claw), multiplayer intent, world scope and budgets. Owner's current leaning on multiplayer: co-op later or MMO, undecided. This is not a commitment.
 
 ## Known issues and limitations
@@ -100,7 +100,7 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 
 - State: `main` at 16101ec contains PRs #2, #4–#18, green on all five jobs ([run 41758233376](https://github.com/Avrenthrad/lykowareGE/actions/runs/41758233376)). The Vulkan RHI bring-up is complete.
 - Open decisions for the owner: ADR 0003 (Jolt); accepting or rejecting ADRs 0008–0012 and 0014–0017 (merging did not accept them); hardware profiles, multiplayer, world scope and budgets.
-- In review: Phase 1 clocks (`claude/clocks`), the fixed-step simulation clock and ADR 0017. Next concrete action, per the owner's order: the Jolt licence and fit review for ADR 0003, for the owner to decide before any physics.
+- In review: Phase 1 clocks (`claude/clocks`), the fixed-step simulation clock and ADR 0017. The Jolt licence and fit review (ADR 0003, `claude/jolt-review`) is written and waits on the owner's four decisions listed there; the physics spike follows them.
 - Owner check wanted: run `lykoware_sandbox --window --vulkan` on the RTX 4070 desktop and the MSI Claw. With 5c, a red, green and blue triangle over a slowly changing background is expected.
 - Checklist: no box ticked by this update. Phase 1 and the image/performance gate stay open.
 

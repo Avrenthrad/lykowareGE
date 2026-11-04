@@ -79,4 +79,4 @@ Use in the task/PR when pausing, completing, or transferring work:
 
 ## Suggested next task
 
-Owner order, set 2026-11-02: (1) Vulkan RHI bring-up, now done; (2) Phase 1 clocks and fixed-step update, the active task above; (3) decide Jolt in ADR 0003 before any physics; (4) agree hardware profiles (RTX 4070 desktop, MSI Claw), multiplayer intent, world scope and budgets. Leave ADR 0008 Proposed until the owner accepts it. No full editor or content suite work before the roadmap gates.
+Owner order, set 2026-11-02: (1) Vulkan RHI bring-up, now done; (2) Phase 1 clocks and fixed-step update, the active task above; (3) decide Jolt in ADR 0003 before any physics (review written on `claude/jolt-review`, waiting on the owner's decisions); (4) agree hardware profiles (RTX 4070 desktop, MSI Claw), multiplayer intent, world scope and budgets. Leave ADR 0008 Proposed until the owner accepts it. No full editor or content suite work before the roadmap gates.
