@@ -5,7 +5,7 @@
 Canonical implementation status: [STATUS.md](STATUS.md).
 Canonical plan: [ROADMAP.md](ROADMAP.md).
 
-`main` at f50b9dd contains PRs #2, #4–#21 and #23–#28. Details and CI evidence: [STATUS.md](STATUS.md). Earlier per-task entries on this board were removed once merged; they remain in the pull requests and git history.
+`main` at f80b909 contains PRs #2, #4–#21 and #23–#29. Details and CI evidence: [STATUS.md](STATUS.md). Earlier per-task entries on this board were removed once merged; they remain in the pull requests and git history.
 Owner-supplied vision is captured in [ENGINE_VISION.md](ENGINE_VISION.md).
 
 Owner rules for every task: small stacked PRs; commit small and often; keep all five CI jobs green; record each decision as an ADR; keep STATUS handoff-ready after every task; Joshua merges; no regenerable generated files in commits; artifact upload stays opt-in and no storage or service is bought; no roadmap box ticked unless truly done.
@@ -14,12 +14,12 @@ Check latest main and open PRs before starting. Documents do not automatically s
 
 ## Active task
 
-ECS (Phase 1; ADR 0023). Owner: Claude. Status: PR 1 in review on `claude/ecs-core`, based on `main` at f50b9dd.
+ECS (Phase 1; ADR 0023). Owner: Claude. Status: PR 1 merged (#29); PR 2 in review on `claude/ecs-physics`, based on `main` at f80b909.
 
 - Objective: Lykoware's own entity-component system with stable, generation-checked IDs and deterministic iteration, as the base for scenes, the command bus, replays, saves and later co-op (ADR 0021).
 - Planned PRs, in order:
-  1. (In review.) `lykoware::ecs::World`: entities, components in packed arrays, `each` iteration; tests and a 100,000-entity benchmark.
-  2. Physics bodies and characters attached to entities, and a deferred-change buffer so systems can create and destroy during iteration.
+  1. (Merged, #29.) `lykoware::ecs::World`: entities, components in packed arrays, `each` iteration; tests and a 100,000-entity benchmark.
+  2. (In review.) Removal hooks; a `ChangeBuffer` so systems can create and destroy during iteration; physics bodies and characters on entities (`lykoware/physics_ecs.hpp`).
 - Shared interfaces/formats affected: new public header `lykoware/ecs.hpp`.
 - Acceptance checks: all five CI jobs green; determinism test identical across runs; benchmark within its limit.
 - Assumptions and decisions needed: the owner chose "write our own" on 2026-11-04; ADR 0023's design is Proposed.

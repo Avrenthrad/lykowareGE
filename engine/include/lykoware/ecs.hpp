@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <tuple>
 #include <type_traits>
@@ -53,8 +54,8 @@ public:
     PoolBase(PoolBase&&) = delete;
     PoolBase& operator=(PoolBase&&) = delete;
     virtual ~PoolBase() = default;
-    // Removes the component of the entity in slot `index`, if it has one.
-    virtual bool remove(std::uint32_t index) = 0;
+    // Removes the entity's component, if it has one, after calling the removal hook.
+    virtual bool remove(Entity entity) = 0;
 };
 
 // Components of one type: `values_[i]` belongs to the entity in slot `dense_[i]`, and
@@ -86,10 +87,14 @@ public:
         return values_.back();
     }
 
-    bool remove(std::uint32_t index) override
+    bool remove(Entity entity) override
     {
+        const std::uint32_t index = entity.index;
         if (index >= sparse_.size() || sparse_[index] == absent) {
             return false;
+        }
+        if (on_remove_) {
+            on_remove_(entity, values_[sparse_[index]]);
         }
         const std::uint32_t position = sparse_[index];
         const std::uint32_t last = static_cast<std::uint32_t>(dense_.size() - 1);
@@ -107,8 +112,10 @@ public:
     [[nodiscard]] std::size_t size() const { return dense_.size(); }
     [[nodiscard]] std::uint32_t slot_at(std::size_t position) const { return dense_[position]; }
     [[nodiscard]] T& value_at(std::size_t position) { return values_[position]; }
+    void set_on_remove(std::function<void(Entity, T&)> hook) { on_remove_ = std::move(hook); }
 
 private:
+    std::function<void(Entity, T&)> on_remove_;
     std::vector<std::uint32_t> sparse_;
     std::vector<std::uint32_t> dense_;
     std::vector<T> values_;
@@ -127,6 +134,12 @@ private:
 // Iteration: each<A, B...>(fn) visits every entity that has all the listed components, in the
 // order its A component sits in storage. While any each() is running, structural changes
 // (create, destroy, add, remove) are refused; reading and changing component values is fine.
+// Record changes in a ChangeBuffer and apply it afterwards instead.
+//
+// Removal hooks: on_remove<T>(hook) calls hook(entity, component) just before a T is removed,
+// whether by remove<T>(), by destroy() or by the world's destruction or move-assignment. For
+// one entity, hooks run in the order the component types were first used in the process. A
+// hook may not make structural changes to this world (they are refused) and must not throw.
 //
 // Threading: one thread at a time. Ownership: the world owns all components; destroying the
 // world destroys them. Copy is not provided; move is.
@@ -194,8 +207,27 @@ public:
     bool remove(Entity entity)
     {
         detail::Pool<T>* pool = existing_pool<T>();
-        return iterating_ == 0 && pool != nullptr && alive(entity) && pool->remove(entity.index);
+        if (iterating_ != 0 || pool == nullptr || !alive(entity)) {
+            return false;
+        }
+        const IterationGuard guard(iterating_);
+        return pool->remove(entity);
     }
+
+    // Sets the hook called before each removal of a T (see the class comment); an empty
+    // function clears it. False during each() or a hook.
+    template <class T>
+    bool on_remove(std::function<void(Entity, T&)> hook)
+    {
+        if (iterating_ != 0) {
+            return false;
+        }
+        pool_for<T>().set_on_remove(std::move(hook));
+        return true;
+    }
+
+    // True while each() or a removal hook runs: structural changes are refused.
+    [[nodiscard]] bool locked() const { return iterating_ != 0; }
 
     // Number of entities with a T.
     template <class T>
@@ -271,6 +303,9 @@ private:
         return id < pools_.size() && pools_[id] ? static_cast<detail::Pool<T>*>(pools_[id].get()) : nullptr;
     }
 
+    // Destroys every live entity in slot order, running removal hooks.
+    void destroy_all();
+
     // generations_[slot] is the slot's current generation; a slot is alive when alive_[slot].
     std::vector<std::uint32_t> generations_;
     std::vector<std::uint8_t> alive_;
@@ -278,6 +313,84 @@ private:
     std::vector<std::unique_ptr<detail::PoolBase>> pools_;
     std::size_t live_ = 0;
     std::uint32_t iterating_ = 0;
+};
+
+
+// Changes recorded now and applied later, typically while iterating: each() refuses structural
+// changes, so a system records them here and the caller applies the buffer after each()
+// returns. Changes apply in the order recorded, so the result is deterministic.
+class ChangeBuffer {
+public:
+    // Creates an entity, then calls setup(world, entity) to give it components.
+    template <class Setup>
+    void create(Setup setup)
+    {
+        push([setup = std::move(setup)](World& world) mutable {
+            const Entity entity = world.create();
+            if (!world.alive(entity)) {
+                return false;
+            }
+            setup(world, entity);
+            return true;
+        });
+    }
+    void destroy(Entity entity)
+    {
+        push([entity](World& world) { return world.destroy(entity); });
+    }
+    template <class T>
+    void add(Entity entity, T value)
+    {
+        push([entity, value = std::move(value)](World& world) mutable {
+            return world.add<T>(entity, std::move(value)) != nullptr;
+        });
+    }
+    template <class T>
+    void remove(Entity entity)
+    {
+        push([entity](World& world) { return world.remove<T>(entity); });
+    }
+
+    // Applies every change in order and empties the buffer. Returns how many took effect: a
+    // change does nothing if, when its turn comes, the world refuses it (for example the
+    // entity was destroyed by an earlier change). If the world is locked (inside each() or a
+    // hook), nothing is applied, the buffer is kept and the result is 0.
+    std::size_t apply(World& world);
+
+    [[nodiscard]] std::size_t size() const { return changes_.size(); }
+    [[nodiscard]] bool empty() const { return changes_.empty(); }
+    void clear() { changes_.clear(); }
+
+private:
+    class Change {
+    public:
+        Change() = default;
+        Change(const Change&) = delete;
+        Change& operator=(const Change&) = delete;
+        Change(Change&&) = delete;
+        Change& operator=(Change&&) = delete;
+        virtual ~Change() = default;
+        virtual bool apply(World& world) = 0;
+    };
+
+    template <class Fn>
+    class Recorded final : public Change {
+    public:
+        explicit Recorded(Fn fn) : fn_(std::move(fn)) {}
+        bool apply(World& world) override { return fn_(world); }
+
+    private:
+        Fn fn_;
+    };
+
+    template <class Fn>
+    void push(Fn fn)
+    {
+        changes_.push_back(std::make_unique<Recorded<Fn>>(std::move(fn)));
+    }
+
+    // Move-only callables (components may be move-only, so std::function cannot hold them).
+    std::vector<std::unique_ptr<Change>> changes_;
 };
 
 }

@@ -187,6 +187,13 @@ if(BUILD_TESTING)
     add_test(NAME ecs.world COMMAND lykoware_ecs_test)
     set_tests_properties(ecs.world PROPERTIES TIMEOUT 120)
 
+    # Physics bodies and characters on ECS entities (ADR 0023). Links only the engine.
+    add_executable(lykoware_physics_ecs_test tests/physics_ecs.cpp)
+    target_link_libraries(lykoware_physics_ecs_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_physics_ecs_test)
+    add_test(NAME physics.ecs_link COMMAND lykoware_physics_ecs_test)
+    set_tests_properties(physics.ecs_link PROPERTIES TIMEOUT 120)
+
     # Characters on height-field terrain (physics spike 3). Links only the engine.
     add_executable(lykoware_physics_character_test tests/physics_character.cpp)
     target_link_libraries(lykoware_physics_character_test PRIVATE lykoware::engine)
