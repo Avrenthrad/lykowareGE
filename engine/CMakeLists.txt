@@ -7,6 +7,7 @@ add_library(lykoware_engine STATIC
     src/clock.cpp
     src/log.cpp
     src/paths.cpp
+    src/physics.cpp
     src/trace.cpp
     src/image.cpp
     src/input.cpp
@@ -23,6 +24,6 @@ target_compile_features(lykoware_engine PUBLIC cxx_std_20)
 target_include_directories(lykoware_engine PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
     "${CMAKE_CURRENT_BINARY_DIR}/generated")
-target_link_libraries(lykoware_engine PRIVATE SDL3-static lykoware_volk lykoware_vma)
+target_link_libraries(lykoware_engine PRIVATE SDL3-static lykoware_volk lykoware_vma Jolt)
 
 lykoware_configure_target(lykoware_engine)
