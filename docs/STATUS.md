@@ -25,7 +25,7 @@ Records what is implemented and verified on `main`. Plans live in [ROADMAP.md](R
 | [0020](adr/0020-physics-api.md) | **Accepted by owner 2026-11-04** | `lykoware::physics::World`: stable generation-checked body and character handles, box/sphere/capsule/height-field bodies, walking characters, per-tick stepping, ray casts, step memory that overflows to the heap, defined failure for misuse; no Jolt types in public headers. |
 | [0021](adr/0021-product-targets.md) | **Accepted by owner 2026-11-04** | Desktop PC only; the MSI Claw is no longer a target. RTX 4070 recommended at 1440p and 60 FPS, with a weaker minimum (about RTX 3060 / RX 6600, set by measurement). 16 GB RAM minimum. Single-player first, built co-op-ready (deterministic, command-driven). One seamless world of 16 km or more; positions in double precision now. |
 | [0022](adr/0022-double-precision-positions.md) | Proposed (merged; owner chose the direction in ADR 0021) | Jolt built with `DOUBLE_PRECISION` on; public physics positions are `double` (`DVec3`); kinematic bodies never sleep; the same scene 16 km and 64 km out matches the origin. |
-| [0023](adr/0023-ecs.md) | Proposed (owner chose "write our own") | `lykoware::ecs::World`: generation-checked entities, packed per-type component storage, deterministic `each` iteration, structural changes refused during iteration. |
+| [0023](adr/0023-ecs.md) | Proposed (PR 1 merged; owner chose "write our own") | `lykoware::ecs::World`: generation-checked entities, packed per-type component storage, deterministic `each` iteration, structural changes refused during iteration; PR 2 adds removal hooks, a change buffer and physics on entities. |
 
 ## Verified on main
 
@@ -60,24 +60,29 @@ The five CI jobs are Windows x64 Debug and Release, Linux Debug, Linux ASan/UBSa
 | Product targets (ADR 0021, owner's answers) and owner acceptance of ADR 0020 (docs) | [PR #26](https://github.com/Avrenthrad/lykowareGE/pull/26), merge 8132130 | PR run [41785710544](https://github.com/Avrenthrad/lykowareGE/actions/runs/41785710544) passed all five jobs |
 | Double-precision spike 1: Jolt built with double-precision positions; new determinism hashes identical on MSVC, GCC and Clang | [PR #27](https://github.com/Avrenthrad/lykowareGE/pull/27), merge 28b2592 | PR run [41786685034](https://github.com/Avrenthrad/lykowareGE/actions/runs/41786685034) passed all five jobs |
 | Double-precision spike 2: `double` positions in the physics API; kinematic bodies never sleep; `physics.far_from_origin` and `perf.physics_bodies_1024_far` | [PR #28](https://github.com/Avrenthrad/lykowareGE/pull/28), merge f50b9dd | PR run [41812549670](https://github.com/Avrenthrad/lykowareGE/actions/runs/41812549670) passed all five jobs |
+| ECS 1: Lykoware's own entity-component system (generation-checked entities, packed component storage, deterministic iteration); `ecs.world`, `perf.ecs_iterate_100k` | [PR #29](https://github.com/Avrenthrad/lykowareGE/pull/29), merge f80b909 | PR run [41815974698](https://github.com/Avrenthrad/lykowareGE/actions/runs/41815974698) passed all five jobs |
 
-CTest on `main` (32 tests): `trace.api`, `clock.fixed_step`, `physics.jolt_math`, `physics.jolt_determinism`, `physics.world`, `physics.character`, `physics.far_from_origin`, `image.harness.api`, `image.harness.golden_pass`, `image.harness.golden_fail`, `input.mapping`, `window.lifecycle`, `perf.sandbox_startup`, `perf.cpu_fixture`, `perf.budget_rejects_overrun`, `perf.budget_accepts_within`, `perf.physics_bodies_256`, `perf.physics_bodies_1024`, `perf.physics_bodies_1024_far`, `foundation.smoke`, `cli.commands`, `cli.integration`, `rhi.instance`, `rhi.instance.no_driver`, `rhi.device`, `rhi.render_target`, `rhi.swapchain`, `sandbox.vulkan_window`, `shaders.spirv_valid`, `shaders.spirv_valid_fragment`, `rhi.pipeline`, `sandbox.missing_shaders`. The `rhi.*` and `sandbox.vulkan_window` tests run on lavapipe in Linux CI and report Skipped on the Windows runners, which have no Vulkan.
+CTest on `main` (34 tests): `trace.api`, `clock.fixed_step`, `ecs.world`, `physics.jolt_math`, `physics.jolt_determinism`, `physics.world`, `physics.character`, `physics.far_from_origin`, `image.harness.api`, `image.harness.golden_pass`, `image.harness.golden_fail`, `input.mapping`, `window.lifecycle`, `perf.sandbox_startup`, `perf.cpu_fixture`, `perf.budget_rejects_overrun`, `perf.budget_accepts_within`, `perf.physics_bodies_256`, `perf.physics_bodies_1024`, `perf.physics_bodies_1024_far`, `perf.ecs_iterate_100k`, `foundation.smoke`, `cli.commands`, `cli.integration`, `rhi.instance`, `rhi.instance.no_driver`, `rhi.device`, `rhi.render_target`, `rhi.swapchain`, `sandbox.vulkan_window`, `shaders.spirv_valid`, `shaders.spirv_valid_fragment`, `rhi.pipeline`, `sandbox.missing_shaders`. The `rhi.*` and `sandbox.vulkan_window` tests run on lavapipe in Linux CI and report Skipped on the Windows runners, which have no Vulkan.
 
 Per-PR detail (local checks, failures found and fixed, mutation checks) is in each pull request and in ADRs 0009–0018.
 
 ## Current development task
 
-### ECS, PR 1: entities, components and iteration
+### ECS, PR 2: removal hooks, change buffer and physics on entities
 
-Owner: Claude. Branch `claude/ecs-core`, based on `main` at f50b9dd. In review.
+Owner: Claude. Branch `claude/ecs-physics`, based on `main` at f80b909. In review.
 
-- The owner chose on 2026-11-04 to write Lykoware's own ECS rather than use EnTT or flecs. [ADR 0023](adr/0023-ecs.md) records the design (Proposed).
-- `lykoware::ecs::World`: generation-checked `Entity` handles (like physics), components of any movable type stored in packed arrays, and `each<A, B, ...>` iteration in a deterministic order. Create, destroy, add and remove are refused while an `each` runs.
-- **New test `ecs.world`:** handles, components, lifetimes, packed storage, iteration with one to three component types, changes during iteration, determinism (5000 scripted operations run twice), and scale.
-- **New benchmark `perf.ecs_iterate_100k`:** a movement system over 100,000 entities.
-- **Deliberate breaks:** six, each caught. One first slipped through and led to a new three-component test.
-- **Local checks:** 34/34 pass in Debug, ASan/UBSan and clang-tidy. Release benchmark: about 4 ns per entity per frame (100,000 entities: 0.39 ms per frame).
-- **CI:** [run 41815974698](https://github.com/Avrenthrad/lykowareGE/actions/runs/41815974698) on 2b38af7 passed all five jobs.
+- **Removal hooks** (`on_remove<T>`): code runs just before a component is removed, including when its entity or the whole world is destroyed. The world is locked during a hook.
+- **`ChangeBuffer`:** systems record create, destroy, add and remove inside `each` and apply them afterwards, in order.
+- **Physics on entities** (`lykoware/physics_ecs.hpp`): `RigidBody`, `Character` and `Transform` components.
+  - A `Link` makes each entity own its physics objects: removing the component or destroying the entity destroys them.
+  - `step()` copies physics positions into `Transform`s.
+  - The physics world must outlive the ECS world.
+- **Tests:** `ecs.world` gains hook and change-buffer cases. New `physics.ecs_link` includes a game-style despawn loop whose physics hash `0x7d263e8cb7f180db` is the same with 1 and 4 threads.
+- **Deliberate breaks:** five, each caught.
+- **A design flaw found by writing the test:** my first `Link` removed its hooks when destroyed, which would touch freed memory if it outlived its ECS world. The hooks now stay in the ECS world.
+- **Local checks:** 35/35 pass in Debug, ASan/UBSan and clang-tidy; GCC 13 Debug and Release and Clang 18 Release give the same despawn hash.
+- **CI:** pending.
 
 ## Next
 
@@ -107,9 +112,9 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 
 ## Handoff
 
-- State: `main` at f50b9dd contains PRs #2, #4–#21 and #23–#28. The Vulkan RHI bring-up, Phase 1 clocks, the physics spike and double-precision positions are complete; Jolt is vendored behind the `lykoware::physics` API, with cross-platform determinism verified on MSVC, GCC and Clang.
+- State: `main` at f80b909 contains PRs #2, #4–#21 and #23–#29. The Vulkan RHI bring-up, Phase 1 clocks, the physics spike and double-precision positions are complete, and the ECS core is merged (#29); Jolt is vendored behind the `lykoware::physics` API, with cross-platform determinism verified on MSVC, GCC and Clang.
 - Open decisions for the owner: accepting or rejecting ADRs 0008–0012, 0014–0017, 0022 and 0023 (merging did not accept them); the working assumptions in ADR 0021 (2–4 player co-op, 6-core CPU, 8 GB VRAM at minimum settings, camera-relative rendering); Cursor's #22 (ADR 0019).
-- In review: `claude/ecs-core` (ECS PR 1, ADR 0023). Next concrete action: ECS PR 2 (connecting physics bodies and characters to entities, and a deferred-change buffer), then 3D rendering, scene loading, screenshots, command bus and replay, audio.
+- In review: `claude/ecs-physics` (ECS PR 2, ADR 0023). Next concrete action: 3D rendering (vertex buffers, depth, a camera, meshes drawn from ECS `Transform`s), then scene loading, screenshots, command bus and replay, audio.
 - Owner check wanted: run `lykoware_sandbox --window --vulkan` on the RTX 4070 desktop. With 5c, a red, green and blue triangle over a slowly changing background is expected.
 - Checklist: no box ticked by this update. Phase 1 and the image/performance gate stay open.
 
