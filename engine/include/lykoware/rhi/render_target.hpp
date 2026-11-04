@@ -33,16 +33,6 @@ struct RenderTargetDesc {
     bool depth = false;
 };
 
-// One indexed mesh to draw: a VertexLayout::PositionNormal vertex buffer,
-// a buffer of 32-bit triangle indices, and the bytes the pipeline's push
-// constants hold for this mesh.
-struct MeshDraw {
-    const Buffer* vertices = nullptr;
-    const Buffer* indices = nullptr;
-    // Indices to draw from the start of the index buffer; 0 means all.
-    std::uint32_t index_count = 0;
-    std::span<const std::byte> push_constants;
-};
 
 // An offscreen colour target: an 8-bit RGBA UNORM image the RHI renders
 // into with dynamic rendering, plus a host-visible buffer for read-back.

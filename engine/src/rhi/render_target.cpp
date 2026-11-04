@@ -229,45 +229,9 @@ bool RenderTarget::draw_meshes(const ClearColor& clear, const GraphicsPipeline& 
                                std::span<const MeshDraw> meshes, RhiError& error)
 {
     error = {};
-    if (pipeline.color_format() != color_format()) {
-        return fail(error, RhiFailure::InvalidArgument,
-                    "the pipeline targets a different colour format than this render target");
-    }
-    if (pipeline.vertex_layout() != VertexLayout::PositionNormal) {
-        return fail(error, RhiFailure::InvalidArgument, "drawing meshes needs a pipeline with a PositionNormal vertex layout");
-    }
-    if (pipeline.depth() && !has_depth()) {
-        return fail(error, RhiFailure::InvalidArgument, "the pipeline uses depth but this render target has none");
-    }
     std::vector<detail::PreparedDraw> draws;
-    draws.reserve(meshes.size());
-    for (std::size_t index = 0; index < meshes.size(); ++index) {
-        const MeshDraw& mesh = meshes[index];
-        const std::string which = "mesh " + std::to_string(index) + ": ";
-        if (mesh.vertices == nullptr || mesh.vertices->usage() != BufferUsage::Vertex) {
-            return fail(error, RhiFailure::InvalidArgument, which + "needs a vertex buffer");
-        }
-        if (mesh.indices == nullptr || mesh.indices->usage() != BufferUsage::Index) {
-            return fail(error, RhiFailure::InvalidArgument, which + "needs an index buffer");
-        }
-        const std::size_t available = mesh.indices->size_bytes() / sizeof(std::uint32_t);
-        const std::size_t count = mesh.index_count == 0 ? available : mesh.index_count;
-        if (count == 0 || count % 3 != 0 || count > available) {
-            return fail(error, RhiFailure::InvalidArgument,
-                        which + "the index count must be a non-zero multiple of 3 within the index buffer");
-        }
-        const std::size_t vertex_count = mesh.vertices->size_bytes() / position_normal_stride;
-        if (mesh.indices->max_index() >= vertex_count) {
-            return fail(error, RhiFailure::InvalidArgument, which + "an index reaches past the last vertex");
-        }
-        if (mesh.push_constants.size() != pipeline.push_constant_bytes()) {
-            return fail(error, RhiFailure::InvalidArgument,
-                        which + "push constants must be exactly " + std::to_string(pipeline.push_constant_bytes())
-                            + " bytes for this pipeline");
-        }
-        draws.push_back({static_cast<VkBuffer>(mesh.vertices->native_handle()),
-                         static_cast<VkBuffer>(mesh.indices->native_handle()), static_cast<std::uint32_t>(count),
-                         mesh.push_constants.data(), static_cast<std::uint32_t>(mesh.push_constants.size())});
+    if (!detail::prepare_mesh_draws(pipeline, color_format(), has_depth(), meshes, draws, error)) {
+        return false;
     }
 
     Impl& impl = *impl_;

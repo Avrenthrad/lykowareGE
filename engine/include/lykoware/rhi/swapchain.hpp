@@ -2,6 +2,7 @@
 
 #include <lykoware/rhi/device.hpp>
 #include <lykoware/rhi/instance.hpp>
+#include <lykoware/rhi/buffer.hpp>
 #include <lykoware/rhi/pipeline.hpp>
 #include <lykoware/rhi/render_target.hpp>
 #include <lykoware/window.hpp>
@@ -21,6 +22,9 @@ struct SwapchainConfig {
     // true: FIFO (always available, no tearing). false: mailbox if offered,
     // then immediate, then FIFO.
     bool vsync = true;
+    // Also keep a 32-bit float depth buffer the size of the swapchain, for
+    // pipelines with depth (ADR 0025). Rebuilt with the swapchain.
+    bool depth = false;
 };
 
 // The interactive path: presents dynamic-rendering passes to a Window's
@@ -88,6 +92,16 @@ public:
     // before destroying the pipeline.
     [[nodiscard]] bool render_draw(const ClearColor& clear, const GraphicsPipeline& pipeline,
                                    std::uint32_t vertex_count, RhiError& error);
+
+    [[nodiscard]] bool has_depth() const;
+
+    // As render_clear(), then draws `meshes` with `pipeline` in the same pass,
+    // depth-tested when the pipeline uses depth. The same checks as
+    // RenderTarget::draw_meshes refuse misuse with InvalidArgument before
+    // anything is acquired. The pipeline and every buffer must stay alive
+    // until the GPU is done with them (see render_draw).
+    [[nodiscard]] bool render_meshes(const ClearColor& clear, const GraphicsPipeline& pipeline,
+                                     std::span<const MeshDraw> meshes, RhiError& error);
 
     // Frames actually presented, and how many times the swapchain was rebuilt.
     [[nodiscard]] std::uint64_t frames_presented() const;

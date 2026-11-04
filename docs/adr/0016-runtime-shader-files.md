@@ -27,7 +27,7 @@ Proposed, not accepted by the owner:
   - installs them to `<dir>/shaders`.
   - It uses `copy_if_different`, so unchanged files are untouched. CMake cannot name a target's output folder in a custom-command output, so the copy step runs on every build; it costs one small copy and also restores a deleted folder.
 - **Reading before the GPU.** `rhi::read_spirv_file()` reads and checks a `.spv` file without a `Device`. The sandbox reads its shaders before it opens a window or touches Vulkan, so a missing or damaged install fails with exit 1 and a message naming the file, even on a machine with no Vulkan driver.
-- **Names.** Shader file names are unique per program. The sandbox's are prefixed `sandbox_`, and they come from its own source, `samples/sandbox/shaders/triangle.slang`. The test fixture `tests/shaders/triangle.slang` stays separate, so the sample can change without changing what tests check.
+- **Names.** Shader file names are unique per program. The sandbox's are prefixed `sandbox_`. They first came from its own source, `samples/sandbox/shaders/triangle.slang`; since [ADR 0026](0026-renderer.md) they are the engine's lit shader, `engine/shaders/lit.slang`, deployed as `sandbox_lit.*`. The test fixture `tests/shaders/triangle.slang` stays separate, so the sample can change without changing what tests check.
 - **Later.** When the asset system arrives, it may move shaders into its content root or a package. That change will get its own ADR.
 
 ## Contracts and compatibility

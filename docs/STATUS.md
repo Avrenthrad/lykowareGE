@@ -28,6 +28,7 @@ Records what is implemented and verified on `main`. Plans live in [ROADMAP.md](R
 | [0023](adr/0023-ecs.md) | Proposed (merged in #29 and #31; owner chose "write our own") | `lykoware::ecs::World`: generation-checked entities, packed per-type component storage, deterministic `each` iteration, structural changes refused during iteration; removal hooks, `ChangeBuffer`, physics bodies and characters on entities. |
 | [0024](adr/0024-math.md) | Proposed (owner chose "write our own") | `lykoware::math`: vectors, quaternions, column-major matrices, right-handed +Y up, Vulkan reversed infinite-depth projection, camera-relative `relative_to`; physics value types are now its aliases. |
 | [0025](adr/0025-rhi-meshes.md) | Proposed | RHI meshes: `rhi::Buffer` (vertex and 32-bit index data), pipelines with a position-normal vertex layout, reversed-depth test, back-face culling (counter-clockwise front faces) and up to 128 bytes of push constants; render targets with depth and `draw_meshes`. |
+| [0026](adr/0026-renderer.md) | Proposed | The first renderer: `lykoware::Transform`, `render::MeshRenderer` and `render::Camera`; `render::Renderer` draws every ECS entity with both, camera-relative; swapchains gain depth and `render_meshes`; the sandbox window shows falling crates. |
 
 ## Verified on main
 
@@ -83,7 +84,7 @@ Owner: Claude. Branch `claude/math`, based on `main` at 5b46f08. In review.
   - `physics::Vec3`, `DVec3` and `Quat` are now aliases of these, with every physics hash unchanged.
 - **New test `math.types`.** Ten deliberate breaks, each caught; two first slipped through and led to stronger tests.
 - **Local checks:** 36/36 pass in Debug, ASan/UBSan and clang-tidy; every physics hash unchanged.
-- **CI:** pending.
+- **CI:** [run 41820018128](https://github.com/Avrenthrad/lykowareGE/actions/runs/41820018128) on dd00780 passed all five jobs.
 
 ### 3D rendering, PR 2: meshes in the RHI
 
@@ -94,7 +95,26 @@ Owner: Claude. Branch `claude/rhi-mesh`, stacked on PR 1 (`claude/math`). In rev
 - Render targets with a depth buffer, and `draw_meshes` for a list of indexed meshes. Every misuse is refused before anything reaches the GPU. [ADR 0025](adr/0025-rhi-meshes.md) (Proposed).
 - **New test `rhi.mesh`** (lavapipe): a lit cube with lighting per face, depth order regardless of draw order, the winding convention, repeatable bytes, identical bytes 16 km out, and every misuse. Six deliberate breaks, each caught.
 - **Local checks:** 37/37 pass in Debug, ASan/UBSan and clang-tidy, with no Vulkan validation errors. Under ASan, `rhi.mesh` joined the GPU tests that keep Vulkan drivers loaded, which avoids lavapipe's known false leak report; a deliberate leak in our own code is still caught.
-- **CI:** pending.
+- **CI:** [run 41820726840](https://github.com/Avrenthrad/lykowareGE/actions/runs/41820726840) on 507a269 passed all five jobs.
+
+### 3D rendering, PR 3: falling crates drawn from the ECS
+
+Owner: Claude. Branch `claude/render-scene`, stacked on PR 2 (`claude/rhi-mesh`). In review.
+
+- **`lykoware::Transform`:** the position and rotation physics writes and the renderer reads.
+- **`render::Renderer`:** draws every entity with a `Transform` and a `MeshRenderer` (a lit, coloured, scaled cube for now), camera-relative, into an offscreen target or a window.
+- **Window path:** swapchains gain a depth buffer and mesh drawing.
+- **The sandbox's `--window --vulkan`** now shows a 5 × 5 grid of coloured crates tumbling onto a grey ground, replaced every 8 seconds. [ADR 0026](adr/0026-renderer.md) (Proposed).
+- **New test `render.scene`:**
+  - physics drops three crates in front of a wall;
+  - colours, depth, ground and sky are checked at the right pixels;
+  - two runs give identical bytes;
+  - the scene 16 km out gives exactly the same image.
+
+  It writes the frame under the build directory to look at.
+- **Deliberate breaks:** four caught. Culling off is not caught here, as expected; `rhi.mesh` covers it. A weakness found and fixed: depth off first went unnoticed until the wall was added.
+- **Local checks:** 38/38 pass in Debug, ASan/UBSan and clang-tidy, with no Vulkan validation errors.
+- **CI:** [run 41823030117](https://github.com/Avrenthrad/lykowareGE/actions/runs/41823030117) on eb3716a passed all five jobs, after a fix for MSVC's C4458 (a local hid a member) that failed the first run's Windows jobs.
 
 ## Next
 
@@ -109,7 +129,7 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 
 ## Known issues and limitations
 
-- No renderer, ECS, scene loader, physics, audio, animation, world streaming or inference. The RHI on `main` creates a Vulkan instance, a device with one queue, an offscreen render target it can clear, draw into and read back, a swapchain, and graphics pipelines from Slang shaders compiled at build time; the sandbox window draws a test triangle. There are no vertex buffers, textures, depth or camera yet, and no swapchain read-back, so window pixels are not checked automatically.
+- No scene loader, audio, animation, world streaming or inference yet. With 3D rendering PRs 1–3: the renderer draws lit, coloured cubes from ECS entities with depth, camera-relative, offscreen and in the sandbox window. There are no meshes from files, textures, materials, shadows, more than one light, interpolation between ticks or window read-back, so window pixels are not checked automatically (offscreen renders are).
 - GPU tests skip (exit 77, CTest "Skipped") where no Vulkan loader or driver is installed. Hosted Windows runners may skip them; a skip is not a pass.
 - `lyko run` launches the console sandbox. `lyko screenshot` and `lyko run --scene` print `unsupported: no renderer` and exit 3. `lyko trace --frames N` is a CPU trace of the sandbox loop, not a GPU capture.
 - The image harness compares a software test pattern with committed PPM fixtures, and Vulkan clears read back from a render target. Neither is a scene screenshot or the image/performance gate; `lyko screenshot` still exits 3.
@@ -126,8 +146,8 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 
 - State: `main` at 5b46f08 contains PRs #2, #4–#21, #23–#29 and #31. The Vulkan RHI bring-up, Phase 1 clocks, the physics spike, double-precision positions and the ECS (with physics on entities) are complete; Jolt is vendored behind the `lykoware::physics` API, with cross-platform determinism verified on MSVC, GCC and Clang.
 - Open decisions for the owner: accepting or rejecting ADRs 0008–0012, 0014–0017 and 0022–0024 (merging did not accept them); the working assumptions in ADR 0021 (2–4 player co-op, 6-core CPU, 8 GB VRAM at minimum settings, camera-relative rendering); Cursor's #22 (ADR 0019).
-- In review: `claude/math` (#32, 3D rendering PR 1, ADR 0024) and `claude/rhi-mesh` (PR 2, ADR 0025, stacked on it). Also open: #30 (physics handle slots retire instead of wrapping, from a separate session) and Cursor's #22. Next concrete action: 3D rendering PR 3 (depth on the swapchain, a renderer drawing ECS entities camera-relative, and falling crates in the sandbox window with a golden-image test).
-- Owner check wanted: run `lykoware_sandbox --window --vulkan` on the RTX 4070 desktop. With 5c, a red, green and blue triangle over a slowly changing background is expected.
+- In review: `claude/math` (#32, 3D rendering PR 1, ADR 0024), `claude/rhi-mesh` (#33, PR 2, ADR 0025) and `claude/render-scene` (PR 3, ADR 0026), stacked in that order. Also open: #30 (physics handle slots retire instead of wrapping, from a separate session) and Cursor's #22. Next concrete action: the next Phase 1 items: scene loading (text-authored scenes through the CLI), real screenshots (`lyko screenshot`, a golden-image gate), command bus and replay, audio.
+- Owner check wanted: run `lykoware_sandbox --window --vulkan` on the RTX 4070 desktop. With 3D rendering PR 3, a 5 × 5 grid of coloured crates should tumble onto a grey ground under a blue sky and drop again every 8 seconds.
 - Checklist: no box ticked by this update. Phase 1 and the image/performance gate stay open.
 
 Read [WORK_BOARD.md](WORK_BOARD.md), [CLI.md](CLI.md), [ROADMAP.md](ROADMAP.md) and the [ADRs](adr/README.md). Check latest `main` and open PRs before starting. Update this file with exact commits, checks, failures and next actions.

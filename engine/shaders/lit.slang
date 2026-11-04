@@ -1,4 +1,4 @@
-// Test shader for lit meshes (ADR 0025): a position and a normal per vertex
+// The engine's lit mesh shader (ADR 0025, ADR 0026): a position and a normal per vertex
 // (VertexLayout::PositionNormal) and one 128-byte push-constant block per mesh.
 // Matrices arrive as float4 columns and are applied by hand, so there is no
 // row-major or column-major ambiguity between C++ and Slang.

@@ -2,8 +2,11 @@
 
 #include "common.hpp"
 #include "device_access.hpp"
+#include "pipeline_access.hpp"
 
 #include <volk.h>
+
+#include <vk_mem_alloc.h>
 
 #include <algorithm>
 #include <array>
@@ -114,6 +117,15 @@ struct Swapchain::Impl {
 
     void destroy_images()
     {
+        if (depth_view != VK_NULL_HANDLE) {
+            vkDestroyImageView(device, depth_view, nullptr);
+            depth_view = VK_NULL_HANDLE;
+        }
+        if (depth_image != VK_NULL_HANDLE) {
+            vmaDestroyImage(allocator, depth_image, depth_allocation);
+            depth_image = VK_NULL_HANDLE;
+            depth_allocation = VK_NULL_HANDLE;
+        }
         for (VkSemaphore semaphore : render_finished) {
             vkDestroySemaphore(device, semaphore, nullptr);
         }
@@ -243,7 +255,50 @@ struct Swapchain::Impl {
             }
             render_finished.push_back(semaphore);
         }
+        if (want_depth && !build_depth(error)) {
+            return false;
+        }
         needs_rebuild = false;
+        return true;
+    }
+
+    // One depth image for the whole swapchain. Each frame's depth barrier
+    // waits for the previous frame's depth writes, so frames in flight never
+    // use it at the same time.
+    bool build_depth(RhiError& error)
+    {
+        VkImageCreateInfo info{};
+        info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+        info.imageType = VK_IMAGE_TYPE_2D;
+        info.format = detail::depth_format;
+        info.extent = {extent.width, extent.height, 1};
+        info.mipLevels = 1;
+        info.arrayLayers = 1;
+        info.samples = VK_SAMPLE_COUNT_1_BIT;
+        info.tiling = VK_IMAGE_TILING_OPTIMAL;
+        info.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+        info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        VmaAllocationCreateInfo allocation_info{};
+        allocation_info.usage = VMA_MEMORY_USAGE_AUTO;
+        VkResult result = vmaCreateImage(allocator, &info, &allocation_info, &depth_image, &depth_allocation, nullptr);
+        if (result != VK_SUCCESS) {
+            depth_image = VK_NULL_HANDLE;
+            return fail(error, RhiFailure::DriverError, driver_failure("vmaCreateImage (depth)", result));
+        }
+        VkImageViewCreateInfo view_info{};
+        view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        view_info.image = depth_image;
+        view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        view_info.format = detail::depth_format;
+        view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+        view_info.subresourceRange.levelCount = 1;
+        view_info.subresourceRange.layerCount = 1;
+        result = vkCreateImageView(device, &view_info, nullptr, &depth_view);
+        if (result != VK_SUCCESS) {
+            depth_view = VK_NULL_HANDLE;
+            return fail(error, RhiFailure::DriverError, driver_failure("vkCreateImageView (depth)", result));
+        }
         return true;
     }
 
@@ -253,11 +308,20 @@ struct Swapchain::Impl {
         return build(error);
     }
 
-    // One acquire, clear (and draw when pipeline is not null), present cycle.
-    bool render_frame(const ClearColor& color, VkPipeline pipeline, std::uint32_t vertex_count, RhiError& error);
+    // One acquire, clear, draw, present cycle. With `meshes` null, draws
+    // vertex_count vertices with `pipeline` (when not null); otherwise draws
+    // the meshes, with depth when `depth` is set.
+    bool render_frame(const ClearColor& color, VkPipeline pipeline, std::uint32_t vertex_count, RhiError& error,
+                      const std::vector<detail::PreparedDraw>* meshes = nullptr, VkPipelineLayout layout = VK_NULL_HANDLE,
+                      bool depth = false);
 
     const Instance* instance = nullptr;
     Window* window = nullptr;
+    VmaAllocator allocator = VK_NULL_HANDLE;
+    bool want_depth = false;
+    VkImage depth_image = VK_NULL_HANDLE;
+    VmaAllocation depth_allocation = VK_NULL_HANDLE;
+    VkImageView depth_view = VK_NULL_HANDLE;
     VkPhysicalDevice physical = VK_NULL_HANDLE;
     VkDevice device = VK_NULL_HANDLE;
     VkQueue queue = VK_NULL_HANDLE;
@@ -298,6 +362,16 @@ std::unique_ptr<Swapchain> Swapchain::create(
     impl->window = &window;
     impl->physical = static_cast<VkPhysicalDevice>(device.native_physical_device());
     impl->device = DeviceAccess::device(device);
+    impl->allocator = DeviceAccess::allocator(device);
+    impl->want_depth = config.depth;
+    if (config.depth) {
+        VkFormatProperties format_properties{};
+        vkGetPhysicalDeviceFormatProperties(impl->physical, detail::depth_format, &format_properties);
+        if ((format_properties.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) == 0) {
+            fail(error, RhiFailure::NoSuitableDevice, "the device cannot render 32-bit float depth");
+            return nullptr;
+        }
+    }
     impl->queue = DeviceAccess::queue(device);
 
     void* surface = nullptr;
@@ -443,8 +517,26 @@ bool Swapchain::render_draw(const ClearColor& clear, const GraphicsPipeline& pip
     return impl_->render_frame(clear, static_cast<VkPipeline>(pipeline.native_handle()), vertex_count, error);
 }
 
+bool Swapchain::has_depth() const
+{
+    return impl_->want_depth;
+}
+
+bool Swapchain::render_meshes(const ClearColor& clear, const GraphicsPipeline& pipeline,
+                              std::span<const MeshDraw> meshes, RhiError& error)
+{
+    error = {};
+    std::vector<detail::PreparedDraw> draws;
+    if (!detail::prepare_mesh_draws(pipeline, color_format(), has_depth(), meshes, draws, error)) {
+        return false;
+    }
+    return impl_->render_frame(clear, static_cast<VkPipeline>(pipeline.native_handle()), 0, error, &draws,
+                               static_cast<VkPipelineLayout>(pipeline.native_layout()), pipeline.depth());
+}
+
 bool Swapchain::Impl::render_frame(const ClearColor& color, VkPipeline pipeline, std::uint32_t vertex_count,
-                                   RhiError& error)
+                                   RhiError& error, const std::vector<detail::PreparedDraw>* meshes,
+                                   VkPipelineLayout layout, bool depth)
 {
     Impl& impl = *this;
 
@@ -502,7 +594,16 @@ bool Swapchain::Impl::render_frame(const ClearColor& color, VkPipeline pipeline,
                           VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_NONE,
                           VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT);
     const float rgba[4] = {color.r, color.g, color.b, color.a};
-    detail::record_draw_pass(frame.commands, impl.views[image_index], impl.extent, rgba, pipeline, vertex_count);
+    if (meshes != nullptr) {
+        const VkImageView pass_depth = depth ? impl.depth_view : VK_NULL_HANDLE;
+        if (pass_depth != VK_NULL_HANDLE) {
+            detail::depth_barrier(frame.commands, impl.depth_image);
+        }
+        detail::record_mesh_pass(frame.commands, impl.views[image_index], pass_depth, impl.extent, rgba, pipeline,
+                                 layout, meshes->data(), meshes->size());
+    } else {
+        detail::record_draw_pass(frame.commands, impl.views[image_index], impl.extent, rgba, pipeline, vertex_count);
+    }
     detail::image_barrier(frame.commands, image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
                           VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
                           VK_PIPELINE_STAGE_2_NONE, VK_ACCESS_2_NONE);
