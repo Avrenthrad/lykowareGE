@@ -180,6 +180,13 @@ if(BUILD_TESTING)
     add_test(NAME physics.world COMMAND lykoware_physics_world_test)
     set_tests_properties(physics.world PROPERTIES TIMEOUT 120)
 
+    # The maths module (ADR 0024). Links only the engine.
+    add_executable(lykoware_math_test tests/math.cpp)
+    target_link_libraries(lykoware_math_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_math_test)
+    add_test(NAME math.types COMMAND lykoware_math_test)
+    set_tests_properties(math.types PROPERTIES TIMEOUT 60)
+
     # The entity-component system (ADR 0023). Links only the engine.
     add_executable(lykoware_ecs_test tests/ecs.cpp)
     target_link_libraries(lykoware_ecs_test PRIVATE lykoware::engine)

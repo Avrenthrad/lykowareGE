@@ -5,7 +5,7 @@
 Canonical implementation status: [STATUS.md](STATUS.md).
 Canonical plan: [ROADMAP.md](ROADMAP.md).
 
-`main` at f80b909 contains PRs #2, #4–#21 and #23–#29. Details and CI evidence: [STATUS.md](STATUS.md). Earlier per-task entries on this board were removed once merged; they remain in the pull requests and git history.
+`main` at 5b46f08 contains PRs #2, #4–#21, #23–#29 and #31. Details and CI evidence: [STATUS.md](STATUS.md). Earlier per-task entries on this board were removed once merged; they remain in the pull requests and git history.
 Owner-supplied vision is captured in [ENGINE_VISION.md](ENGINE_VISION.md).
 
 Owner rules for every task: small stacked PRs; commit small and often; keep all five CI jobs green; record each decision as an ADR; keep STATUS handoff-ready after every task; Joshua merges; no regenerable generated files in commits; artifact upload stays opt-in and no storage or service is bought; no roadmap box ticked unless truly done.
@@ -14,15 +14,20 @@ Check latest main and open PRs before starting. Documents do not automatically s
 
 ## Active task
 
-ECS (Phase 1; ADR 0023). Owner: Claude. Status: PR 1 merged (#29); PR 2 in review on `claude/ecs-physics`, based on `main` at f80b909.
+3D rendering (Phase 1). Owner: Claude. Status: PR 1 in review on `claude/math`, based on `main` at 5b46f08.
 
-- Objective: Lykoware's own entity-component system with stable, generation-checked IDs and deterministic iteration, as the base for scenes, the command bus, replays, saves and later co-op (ADR 0021).
+- Objective: lit 3D objects drawn from the ECS through the Lykoware RHI. First milestone, chosen by the owner on 2026-11-04: the physics demo's falling crates, drawn with a camera and depth, pixel-checked in CI.
 - Planned PRs, in order:
-  1. (Merged, #29.) `lykoware::ecs::World`: entities, components in packed arrays, `each` iteration; tests and a 100,000-entity benchmark.
-  2. (In review.) Removal hooks; a `ChangeBuffer` so systems can create and destroy during iteration; physics bodies and characters on entities (`lykoware/physics_ecs.hpp`).
-- Shared interfaces/formats affected: new public header `lykoware/ecs.hpp`.
-- Acceptance checks: all five CI jobs green; determinism test identical across runs; benchmark within its limit.
-- Assumptions and decisions needed: the owner chose "write our own" on 2026-11-04; ADR 0023's design is Proposed.
+  1. (In review, ADR 0024.) Lykoware's own maths module; physics value types become its aliases.
+  2. RHI: GPU vertex and index buffers, a depth buffer, pipelines with vertex input, depth test and push constants; a lit cube drawn offscreen and pixel-checked on lavapipe.
+  3. Renderer: mesh and camera components, camera-relative drawing from ECS `Transform`s, falling crates in the sandbox window and a golden-image test.
+- Shared interfaces/formats affected: new `lykoware/math.hpp`; RHI additions in PR 2; a renderer API in PR 3.
+- Acceptance checks: all five CI jobs green; pixel checks on lavapipe (Windows runners have no Vulkan, so they skip).
+- Assumptions and decisions needed: the owner chose our own maths and the falling-crates milestone; ADR 0024 is Proposed.
+
+## Completed task: ECS
+
+Owner: Claude. Done: #29 and #31 merged (ADR 0023, Proposed; the owner chose to write our own). Generation-checked entities, packed component storage, deterministic iteration, removal hooks, a change buffer, and physics bodies and characters on entities. Details and CI runs are in [STATUS.md](STATUS.md).
 
 ## Completed task: double-precision positions
 
