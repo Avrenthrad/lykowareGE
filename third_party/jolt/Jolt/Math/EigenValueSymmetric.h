@@ -1,6 +1,8 @@
-// Jolt Physics Library (https://github.com/jrouwe/JoltPhysics)
-// SPDX-FileCopyrightText: 2021 Jorrit Rouwe
-// SPDX-License-Identifier: MIT
+// Lykoware replacement for Jolt's upstream Jolt/Math/EigenValueSymmetric.h (Jolt v5.6.0).
+// The upstream file was adapted from Numerical Recipes; this one is written from the
+// textbook algorithm instead (ADR 0003, third_party/jolt/PROVENANCE.md).
+// Copyright (c) 2026 Joshua Kingsworth. All rights reserved; see the repository LICENSE.
+// The rest of third_party/jolt remains under Jolt's MIT licence.
 
 #pragma once
 
@@ -8,169 +10,106 @@
 
 JPH_NAMESPACE_BEGIN
 
-/// Function to determine the eigen vectors and values of a N x N real symmetric matrix
-/// by Jacobi transformations. This method is most suitable for N < 10.
+/// Computes the eigenvalues and eigenvectors of a real symmetric N x N matrix (best for small N)
+/// with the cyclic Jacobi method: repeated sweeps that zero each off-diagonal pair with a plane
+/// rotation until the off-diagonal part is negligible. See Golub and Van Loan, Matrix Computations,
+/// section 8.5 (the 2-by-2 symmetric Schur decomposition and the cyclic Jacobi algorithm).
 ///
-/// Taken and adapted from Numerical Recipes paragraph 11.1
-///
-/// An eigen vector is a vector v for which \f$A \: v = \lambda \: v\f$
-///
-/// Where:
-/// A: A square matrix.
-/// \f$\lambda\f$: a non-zero constant value.
-///
-/// @see https://en.wikipedia.org/wiki/Eigenvalues_and_eigenvectors
-///
-/// Matrix is a matrix type, which has dimensions N x N.
-/// @param inMatrix is the matrix of which to return the eigenvalues and vectors
-/// @param outEigVec will contain a matrix whose columns contain the normalized eigenvectors (must be identity before call)
-/// @param outEigVal will contain the eigenvalues
+/// Matrix is an N x N matrix type and Vector an N vector type, both indexed with float elements.
+/// @param inMatrix is the symmetric matrix of which to return the eigenvalues and vectors
+/// @param outEigVec must be the identity on entry; on return its columns are the normalized eigenvectors
+/// @param outEigVal on return holds the eigenvalue belonging to each column of outEigVec (unsorted)
+/// @return false if the method did not converge
 template <class Vector, class Matrix>
 bool EigenValueSymmetric(const Matrix &inMatrix, Matrix &outEigVec, Vector &outEigVal)
 {
-	// This algorithm can generate infinite values, see comment below
+	// Rotations are computed in double precision so that tiny off-diagonal values cannot overflow
+	// the intermediate ratio; every step is plain IEEE arithmetic and sqrt, so results are the same
+	// on every platform that runs Jolt deterministically
 	FPExceptionDisableInvalid disable_invalid;
 	JPH_UNUSED(disable_invalid);
 
-	// Maximum number of sweeps to make
-	const int cMaxSweeps = 50;
-
-	// Get problem dimension
 	const uint n = inMatrix.GetRows();
-
-	// Make sure the dimensions are right
-	JPH_ASSERT(inMatrix.GetRows() == n);
 	JPH_ASSERT(inMatrix.GetCols() == n);
-	JPH_ASSERT(outEigVec.GetRows() == n);
-	JPH_ASSERT(outEigVec.GetCols() == n);
-	JPH_ASSERT(outEigVal.GetRows() == n);
-	JPH_ASSERT(outEigVec.IsIdentity());
+	JPH_ASSERT(outEigVec.GetRows() == n && outEigVec.GetCols() == n);
 
-	// Get the matrix in a so we can mess with it
+	// Work on a copy that converges to a diagonal matrix
 	Matrix a = inMatrix;
 
-	Vector b, z;
+	// Stop when the off-diagonal part is negligible relative to the whole matrix:
+	// off(A)^2 <= eps^2 * |A|_F^2, sums kept in double so large entries cannot overflow
+	double frobenius_sq = 0.0;
+	for (uint row = 0; row < n; ++row)
+		for (uint col = 0; col < n; ++col)
+			frobenius_sq += double(a(row, col)) * double(a(row, col));
+	const double tolerance_sq = double(FLT_EPSILON) * double(FLT_EPSILON) * frobenius_sq;
 
-	for (uint ip = 0; ip < n; ++ip)
-	{
-		// Initialize b to diagonal of a
-		b[ip] = a(ip, ip);
-
-		// Initialize output to diagonal of a
-		outEigVal[ip] = a(ip, ip);
-
-		// Reset z
-		z[ip] = 0.0f;
-	}
-
+	constexpr int cMaxSweeps = 50;
 	for (int sweep = 0; sweep < cMaxSweeps; ++sweep)
 	{
-		// Get the sum of the off-diagonal elements of a
-		float sm = 0.0f;
-		for (uint ip = 0; ip < n - 1; ++ip)
-			for (uint iq = ip + 1; iq < n; ++iq)
-				sm += abs(a(ip, iq));
-		float avg_sm = sm / Square(n);
+		double off_diagonal_sq = 0.0;
+		for (uint row = 0; row < n; ++row)
+			for (uint col = row + 1; col < n; ++col)
+				off_diagonal_sq += 2.0 * double(a(row, col)) * double(a(row, col));
 
-		// Normal return, convergence to machine underflow
-		if (avg_sm < FLT_MIN) // Original code: sm == 0.0f, when the average is denormal, we also consider it machine underflow
+		if (off_diagonal_sq <= tolerance_sq)
 		{
-			// Sanity checks
-			#ifdef JPH_ENABLE_ASSERTS
-				for (uint c = 0; c < n; ++c)
-				{
-					// Check if the eigenvector is normalized
-					JPH_ASSERT(outEigVec.GetColumn(c).IsNormalized());
-
-					// Check if inMatrix * eigen_vector = eigen_value * eigen_vector
-					Vector mat_eigvec = inMatrix * outEigVec.GetColumn(c);
-					Vector eigval_eigvec = outEigVal[c] * outEigVec.GetColumn(c);
-					JPH_ASSERT(mat_eigvec.IsClose(eigval_eigvec, max(mat_eigvec.LengthSq(), eigval_eigvec.LengthSq()) * 1.0e-6f));
-				}
-			#endif
-
-			// Success
+			for (uint i = 0; i < n; ++i)
+				outEigVal[i] = a(i, i);
 			return true;
 		}
 
-		// On the first three sweeps use a fraction of the sum of the off diagonal elements as threshold
-		// Note that we pick a minimum threshold of FLT_MIN because dividing by a denormalized number is likely to result in infinity.
-		float thresh = sweep < 4? 0.2f * avg_sm : FLT_MIN; // Original code: 0.0f instead of FLT_MIN
-
-		for (uint ip = 0; ip < n - 1; ++ip)
-			for (uint iq = ip + 1; iq < n; ++iq)
+		// One cyclic sweep over every pair (p, q) above the diagonal
+		for (uint p = 0; p + 1 < n; ++p)
+			for (uint q = p + 1; q < n; ++q)
 			{
-				float &a_pq = a(ip, iq);
-				float &eigval_p = outEigVal[ip];
-				float &eigval_q = outEigVal[iq];
+				const double a_pq = a(p, q);
+				if (a_pq == 0.0)
+					continue;
 
-				float abs_a_pq = abs(a_pq);
-				float g = 100.0f * abs_a_pq;
+				// 2-by-2 symmetric Schur decomposition: cosine c and sine s of the rotation J that
+				// makes element (p, q) of J^T A J zero, choosing the smaller angle for stability
+				const double tau = (double(a(q, q)) - double(a(p, p))) / (2.0 * a_pq);
+				const double root = std::sqrt(1.0 + tau * tau);
+				const double t = tau >= 0.0? 1.0 / (tau + root) : -1.0 / (root - tau);
+				const double c_d = 1.0 / std::sqrt(1.0 + t * t);
+				const float c = float(c_d);
+				const float s = float(t * c_d);
 
-				// After four sweeps, skip the rotation if the off-diagonal element is small
-				if (sweep > 4
-					&& abs(eigval_p) + g == abs(eigval_p)
-					&& abs(eigval_q) + g == abs(eigval_q))
+				// A := A J (columns p and q)
+				for (uint k = 0; k < n; ++k)
 				{
-					a_pq = 0.0f;
+					const float a_kp = a(k, p);
+					const float a_kq = a(k, q);
+					a(k, p) = c * a_kp - s * a_kq;
+					a(k, q) = s * a_kp + c * a_kq;
 				}
-				else if (abs_a_pq > thresh)
+
+				// A := J^T A (rows p and q)
+				for (uint k = 0; k < n; ++k)
 				{
-					float h = eigval_q - eigval_p;
-					float abs_h = abs(h);
+					const float a_pk = a(p, k);
+					const float a_qk = a(q, k);
+					a(p, k) = c * a_pk - s * a_qk;
+					a(q, k) = s * a_pk + c * a_qk;
+				}
 
-					float t;
-					if (abs_h + g == abs_h)
-					{
-						t = a_pq / h;
-					}
-					else
-					{
-						float theta = 0.5f * h / a_pq; // Warning: Can become infinite if a(ip, iq) is very small which may trigger an invalid float exception
-						t = 1.0f / (abs(theta) + Sqrt(1.0f + theta * theta)); // If theta becomes inf, t will be 0 so the infinite is not a problem for the algorithm
-						if (theta < 0.0f) t = -t;
-					}
+				// The rotation zeroes this pair; remove rounding residue
+				a(p, q) = 0.0f;
+				a(q, p) = 0.0f;
 
-					float c = 1.0f / Sqrt(1.0f + t * t);
-					float s = t * c;
-					float tau = s / (1.0f + c);
-					h = t * a_pq;
-
-					a_pq = 0.0f;
-
-					z[ip] -= h;
-					z[iq] += h;
-
-					eigval_p -= h;
-					eigval_q += h;
-
-					#define JPH_EVS_ROTATE(a, i, j, k, l)		\
-						g = a(i, j),							\
-						h = a(k, l),							\
-						a(i, j) = g - s * (h + g * tau),		\
-						a(k, l) = h + s * (g - h * tau)
-
-					uint j;
-					for (j = 0; j < ip; ++j)		JPH_EVS_ROTATE(a, j, ip, j, iq);
-					for (j = ip + 1; j < iq; ++j)	JPH_EVS_ROTATE(a, ip, j, j, iq);
-					for (j = iq + 1; j < n; ++j)	JPH_EVS_ROTATE(a, ip, j, iq, j);
-					for (j = 0; j < n; ++j)			JPH_EVS_ROTATE(outEigVec, j, ip, j, iq);
-
-					#undef JPH_EVS_ROTATE
+				// Accumulate the eigenvectors: V := V J
+				for (uint k = 0; k < n; ++k)
+				{
+					const float v_kp = outEigVec(k, p);
+					const float v_kq = outEigVec(k, q);
+					outEigVec(k, p) = c * v_kp - s * v_kq;
+					outEigVec(k, q) = s * v_kp + c * v_kq;
 				}
 			}
-
-		// Update eigenvalues with the sum of ta_pq and reinitialize z
-		for (uint ip = 0; ip < n; ++ip)
-		{
-			b[ip] += z[ip];
-			outEigVal[ip] = b[ip];
-			z[ip] = 0.0f;
-		}
 	}
 
-	// Failure
-	JPH_ASSERT(false, "Too many iterations");
+	JPH_ASSERT(false, "EigenValueSymmetric did not converge");
 	return false;
 }
 

@@ -1,101 +1,81 @@
-// Jolt Physics Library (https://github.com/jrouwe/JoltPhysics)
-// SPDX-FileCopyrightText: 2021 Jorrit Rouwe
-// SPDX-License-Identifier: MIT
+// Lykoware replacement for Jolt's upstream Jolt/Math/GaussianElimination.h (Jolt v5.6.0).
+// The upstream file was adapted from Numerical Recipes; this one is written from the
+// textbook algorithm instead (ADR 0003, third_party/jolt/PROVENANCE.md).
+// Copyright (c) 2026 Joshua Kingsworth. All rights reserved; see the repository LICENSE.
+// The rest of third_party/jolt remains under Jolt's MIT licence.
 
 #pragma once
 
 JPH_NAMESPACE_BEGIN
 
-/// This function performs Gauss-Jordan elimination to solve a matrix equation.
-/// A must be an NxN matrix and B must be an NxM matrix forming the equation A * x = B
-/// on output B will contain x and A will be destroyed.
+/// Solves A * X = B in place by Gauss-Jordan elimination with partial (row) pivoting: for each
+/// column, the row with the largest remaining entry is swapped in as the pivot row, scaled so the
+/// pivot is one, and subtracted from every other row. A is N x N and B is N x M; on return B holds
+/// X and A has been reduced to the identity (its contents are destroyed either way).
 ///
-/// This code can be used for example to compute the inverse of a matrix.
-/// Set A to the matrix to invert, set B to identity and let GaussianElimination solve
-/// the equation, on return B will be the inverse of A. And A is destroyed.
+/// To invert a matrix, pass it as A and the identity as B; B then holds the inverse.
 ///
-/// Taken and adapted from Numerical Recipes in C paragraph 2.1
+/// @param ioA the N x N coefficient matrix (destroyed)
+/// @param ioB the N x M right-hand sides; replaced by the solution
+/// @param inTolerance a pivot with a smaller magnitude than this means the matrix is treated as singular
+/// @return false if A is singular (B is then left partially modified)
 template <class MatrixA, class MatrixB>
 bool GaussianElimination(MatrixA &ioA, MatrixB &ioB, float inTolerance = 1.0e-16f)
 {
-	// Get problem dimensions
 	const uint n = ioA.GetCols();
 	const uint m = ioB.GetCols();
-
-	// Check matrix requirement
 	JPH_ASSERT(ioA.GetRows() == n);
 	JPH_ASSERT(ioB.GetRows() == n);
 
-	// Create array for bookkeeping on pivoting
-	int *ipiv = (int *)JPH_STACK_ALLOC(n * sizeof(int));
-	memset(ipiv, 0, n * sizeof(int));
-
-	for (uint i = 0; i < n; ++i)
+	for (uint col = 0; col < n; ++col)
 	{
-		// Initialize pivot element as the diagonal
-		uint pivot_row = i, pivot_col = i;
-
-		// Determine pivot element
-		float largest_element = 0.0f;
-		for (uint j = 0; j < n; ++j)
-			if (ipiv[j] != 1)
-				for (uint k = 0; k < n; ++k)
-				{
-					if (ipiv[k] == 0)
-					{
-						float element = abs(ioA(j, k));
-						if (element >= largest_element)
-						{
-							largest_element = element;
-							pivot_row = j;
-							pivot_col = k;
-						}
-					}
-					else if (ipiv[k] > 1)
-					{
-						return false;
-					}
-				}
-
-		// Mark this column as used
-		++ipiv[pivot_col];
-
-		// Exchange rows when needed so that the pivot element is at ioA(pivot_col, pivot_col) instead of at ioA(pivot_row, pivot_col)
-		if (pivot_row != pivot_col)
+		// Partial pivoting: the remaining row with the largest magnitude in this column
+		uint pivot_row = col;
+		float pivot_abs = abs(ioA(col, col));
+		for (uint row = col + 1; row < n; ++row)
 		{
-			for (uint j = 0; j < n; ++j)
-				std::swap(ioA(pivot_row, j), ioA(pivot_col, j));
-			for (uint j = 0; j < m; ++j)
-				std::swap(ioB(pivot_row, j), ioB(pivot_col, j));
+			const float candidate = abs(ioA(row, col));
+			if (candidate > pivot_abs)
+			{
+				pivot_abs = candidate;
+				pivot_row = row;
+			}
 		}
-
-		// Get diagonal element that we are about to set to 1
-		float diagonal_element = ioA(pivot_col, pivot_col);
-		if (abs(diagonal_element) < inTolerance)
+		if (pivot_abs < inTolerance)
 			return false;
 
-		// Divide the whole row by the pivot element, making ioA(pivot_col, pivot_col) = 1
-		for (uint j = 0; j < n; ++j)
-			ioA(pivot_col, j) /= diagonal_element;
-		for (uint j = 0; j < m; ++j)
-			ioB(pivot_col, j) /= diagonal_element;
-		ioA(pivot_col, pivot_col) = 1.0f;
+		if (pivot_row != col)
+		{
+			for (uint j = 0; j < n; ++j)
+				std::swap(ioA(pivot_row, j), ioA(col, j));
+			for (uint j = 0; j < m; ++j)
+				std::swap(ioB(pivot_row, j), ioB(col, j));
+		}
 
-		// Next reduce the rows, except for the pivot one,
-		// after this step the pivot_col column is zero except for the pivot element which is 1
+		// Scale the pivot row so the pivot becomes one
+		const float inv_pivot = 1.0f / ioA(col, col);
 		for (uint j = 0; j < n; ++j)
-			if (j != pivot_col)
-			{
-				float element = ioA(j, pivot_col);
-				for (uint k = 0; k < n; ++k)
-					ioA(j, k) -= ioA(pivot_col, k) * element;
-				for (uint k = 0; k < m; ++k)
-					ioB(j, k) -= ioB(pivot_col, k) * element;
-				ioA(j, pivot_col) = 0.0f;
-			}
+			ioA(col, j) *= inv_pivot;
+		for (uint j = 0; j < m; ++j)
+			ioB(col, j) *= inv_pivot;
+		ioA(col, col) = 1.0f;
+
+		// Eliminate this column from every other row
+		for (uint row = 0; row < n; ++row)
+		{
+			if (row == col)
+				continue;
+			const float factor = ioA(row, col);
+			if (factor == 0.0f)
+				continue;
+			for (uint j = 0; j < n; ++j)
+				ioA(row, j) -= factor * ioA(col, j);
+			for (uint j = 0; j < m; ++j)
+				ioB(row, j) -= factor * ioB(col, j);
+			ioA(row, col) = 0.0f;
+		}
 	}
 
-	// Success
 	return true;
 }
 
