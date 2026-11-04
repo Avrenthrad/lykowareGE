@@ -2,7 +2,9 @@
 
 // Internal to engine/src/rhi. Not installed and not included by public headers.
 
+#include <lykoware/rhi/buffer.hpp>
 #include <lykoware/rhi/instance.hpp>
+#include <lykoware/rhi/pipeline.hpp>
 
 #include <volk.h>
 
@@ -10,6 +12,8 @@
 #include <cstdint>
 #include <string>
 #include <string_view>
+#include <span>
+#include <vector>
 
 namespace lykoware::rhi::detail {
 
@@ -44,6 +48,12 @@ struct PreparedDraw {
     const void* push_constants = nullptr;
     std::uint32_t push_constant_bytes = 0;
 };
+
+// Checks `meshes` against the pipeline and the target being drawn to (the
+// rules on RenderTarget::draw_meshes) and fills `draws`. On a refusal, fills
+// error with InvalidArgument and returns false.
+bool prepare_mesh_draws(const GraphicsPipeline& pipeline, ColorFormat target_format, bool target_has_depth,
+                        std::span<const MeshDraw> meshes, std::vector<PreparedDraw>& draws, RhiError& error);
 
 // Records a layout transition of a whole depth image, discarding its
 // contents, into DEPTH_ATTACHMENT_OPTIMAL.
