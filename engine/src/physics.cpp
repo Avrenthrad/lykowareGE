@@ -213,6 +213,11 @@ private:
     std::uint64_t hash_ = 0xcbf29ce484222325ULL;
 };
 
+// Stateless and shared by every world; they outlive all of them.
+const BroadPhaseLayers g_broad_phase_layers;
+const ObjectVsBroadPhase g_object_vs_broad_phase;
+const ObjectPairs g_object_pairs;
+
 JPH::uint worker_count(std::uint32_t requested)
 {
     if (requested != 0) {
@@ -226,14 +231,16 @@ JPH::uint worker_count(std::uint32_t requested)
 
 // --- World -------------------------------------------------------------------------------
 
-struct World::Impl {
+// Runtime is a base class so it is constructed before, and destroyed after, every member:
+// they all use Jolt's allocator.
+struct World::Impl : private Runtime {
     explicit Impl(const WorldConfig& config)
-        : temp_allocator(config.step_memory_bytes)
-        , jobs(JPH::cMaxPhysicsJobs, JPH::cMaxPhysicsBarriers, static_cast<int>(worker_count(config.worker_threads)))
+        : jobs(JPH::cMaxPhysicsJobs, JPH::cMaxPhysicsBarriers, static_cast<int>(worker_count(config.worker_threads)))
+        , temp_allocator(config.step_memory_bytes)
         , max_bodies(config.max_bodies)
     {
-        system.Init(config.max_bodies, 0, config.max_body_pairs, config.max_contact_constraints, broad_phase_layers,
-                    object_vs_broad_phase, object_pairs);
+        system.Init(config.max_bodies, 0, config.max_body_pairs, config.max_contact_constraints, g_broad_phase_layers,
+                    g_object_vs_broad_phase, g_object_pairs);
         system.SetGravity(to_jolt(config.gravity));
     }
 
@@ -266,20 +273,14 @@ struct World::Impl {
         return slot.alive && slot.generation == id.generation ? &slot : nullptr;
     }
 
-    // Declared first so it is destroyed last: everything below uses Jolt's allocator.
-    Runtime runtime;
-    JPH::TempAllocatorImpl temp_allocator;
     JPH::JobSystemThreadPool jobs;
-    BroadPhaseLayers broad_phase_layers;
-    ObjectVsBroadPhase object_vs_broad_phase;
-    ObjectPairs object_pairs;
     JPH::PhysicsSystem system;
-
-    std::uint32_t max_bodies;
     std::vector<Slot> slots;
     // Freed slot indices, reused last-in first-out so the order is deterministic.
     std::vector<std::uint32_t> free_slots;
     std::size_t live = 0;
+    JPH::TempAllocatorImpl temp_allocator;
+    std::uint32_t max_bodies;
 };
 
 World::World(std::unique_ptr<Impl> impl)
