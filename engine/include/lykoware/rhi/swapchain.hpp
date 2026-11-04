@@ -2,6 +2,7 @@
 
 #include <lykoware/rhi/device.hpp>
 #include <lykoware/rhi/instance.hpp>
+#include <lykoware/rhi/pipeline.hpp>
 #include <lykoware/rhi/render_target.hpp>
 #include <lykoware/window.hpp>
 
@@ -24,7 +25,9 @@ struct SwapchainConfig {
 
 // The interactive path: presents dynamic-rendering passes to a Window's
 // Vulkan surface, using the same attachment and barrier pattern as
-// RenderTarget (ADR 0011). Images are 8-bit UNORM, like RenderTarget.
+// RenderTarget (ADR 0011). Images are 8-bit UNORM, like RenderTarget: BGRA
+// or RGBA, chosen once at create() and kept across rebuilds, so a pipeline
+// built for color_format() stays usable for the swapchain's lifetime.
 //
 // Prerequisites: the Window was opened with WindowConfig::vulkan, the
 // Instance enables the Window's vulkan_instance_extensions(), and the Device
@@ -47,9 +50,10 @@ struct SwapchainConfig {
 // window skips presentation until it has an area again.
 //
 // Failure: create() returns nullptr and fills error. A device without the
-// extension is InvalidArgument; a queue that cannot present is
-// NoSuitableDevice; surface creation and driver refusals are DriverError.
-// Nothing throws for those; std::bad_alloc can propagate.
+// extension is InvalidArgument; a queue that cannot present, or a surface
+// that offers no 8-bit UNORM BGRA or RGBA format, is NoSuitableDevice;
+// surface creation and driver refusals are DriverError. Nothing throws for
+// those; std::bad_alloc can propagate.
 class Swapchain {
 public:
     [[nodiscard]] static std::unique_ptr<Swapchain> create(
@@ -67,10 +71,23 @@ public:
     [[nodiscard]] std::uint32_t height() const;
     [[nodiscard]] std::uint32_t image_count() const;
 
+    // Format pipelines must target to draw into this swapchain.
+    [[nodiscard]] ColorFormat color_format() const;
+
     // Acquires an image, clears it through a dynamic-rendering pass and
     // presents it. Returns false only on a failure it cannot recover from
     // by rebuilding the swapchain.
     [[nodiscard]] bool render_clear(const ClearColor& color, RhiError& error);
+
+    // As render_clear(), then draws `vertex_count` vertices with `pipeline`
+    // (no vertex buffers) in the same pass, with a full-extent viewport and
+    // scissor. A pipeline built for another colour format is InvalidArgument
+    // and nothing is acquired or submitted. Up to frames_in_flight frames
+    // may still use the pipeline after this returns: destroy the Swapchain
+    // (its destructor waits for the device), or call Device::wait_idle(),
+    // before destroying the pipeline.
+    [[nodiscard]] bool render_draw(const ClearColor& clear, const GraphicsPipeline& pipeline,
+                                   std::uint32_t vertex_count, RhiError& error);
 
     // Frames actually presented, and how many times the swapchain was rebuilt.
     [[nodiscard]] std::uint64_t frames_presented() const;

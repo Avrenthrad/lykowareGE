@@ -84,23 +84,36 @@ std::unique_ptr<Shader> Shader::load(
     return std::unique_ptr<Shader>(new Shader(std::move(impl)));
 }
 
-std::unique_ptr<Shader> Shader::load_file(
-    const Device& device, const std::filesystem::path& path, ShaderStage stage, RhiError& error)
+bool read_spirv_file(const std::filesystem::path& path, std::vector<std::uint32_t>& words, RhiError& error)
 {
     error = {};
+    words.clear();
     std::ifstream input{path, std::ios::binary};
     if (!input) {
-        fail(error, RhiFailure::InvalidArgument, "cannot open shader file " + path.string());
-        return nullptr;
+        return fail(error, RhiFailure::InvalidArgument, "cannot open shader file " + path.string());
     }
     const std::vector<char> bytes{std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
     if (bytes.empty() || bytes.size() % sizeof(std::uint32_t) != 0) {
-        fail(error, RhiFailure::InvalidArgument,
-             "shader file " + path.string() + " is not a whole number of 32-bit SPIR-V words");
+        return fail(error, RhiFailure::InvalidArgument,
+                    "shader file " + path.string() + " is not a whole number of 32-bit SPIR-V words");
+    }
+    std::vector<std::uint32_t> read(bytes.size() / sizeof(std::uint32_t));
+    std::memcpy(read.data(), bytes.data(), bytes.size());
+    if (read.front() != spirv_magic) {
+        return fail(error, RhiFailure::InvalidArgument,
+                    "shader file " + path.string() + " is not SPIR-V (missing magic number)");
+    }
+    words = std::move(read);
+    return true;
+}
+
+std::unique_ptr<Shader> Shader::load_file(
+    const Device& device, const std::filesystem::path& path, ShaderStage stage, RhiError& error)
+{
+    std::vector<std::uint32_t> words;
+    if (!read_spirv_file(path, words, error)) {
         return nullptr;
     }
-    std::vector<std::uint32_t> words(bytes.size() / sizeof(std::uint32_t));
-    std::memcpy(words.data(), bytes.data(), bytes.size());
     auto shader = load(device, words, stage, error);
     if (!shader) {
         error.message += " (" + path.string() + ")";

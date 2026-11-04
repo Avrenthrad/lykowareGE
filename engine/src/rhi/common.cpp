@@ -69,11 +69,6 @@ void image_barrier(VkCommandBuffer commands, VkImage image, VkImageLayout from, 
     vkCmdPipelineBarrier2(commands, &dependency);
 }
 
-void record_clear_pass(VkCommandBuffer commands, VkImageView view, VkExtent2D extent, const float (&rgba)[4])
-{
-    record_draw_pass(commands, view, extent, rgba, VK_NULL_HANDLE, 0);
-}
-
 void record_draw_pass(VkCommandBuffer commands, VkImageView view, VkExtent2D extent, const float (&rgba)[4],
                       VkPipeline pipeline, std::uint32_t vertex_count)
 {

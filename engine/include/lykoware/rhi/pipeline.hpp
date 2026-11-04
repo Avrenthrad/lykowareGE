@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <memory>
 #include <span>
+#include <vector>
 
 namespace lykoware::rhi {
 
@@ -27,6 +28,14 @@ enum class ColorFormat {
 // single-entry-point SPIR-V module "main" (cmake/Shaders.cmake compiles one
 // entry point per module, ADR 0014).
 inline constexpr const char* shader_entry_point = "main";
+
+// Reads a compiled .spv file into 32-bit words. Needs no Device, so a
+// program can report a missing or damaged shader before it touches the GPU.
+// Fails with InvalidArgument naming the path when the file cannot be opened,
+// is empty or not a whole number of words, or lacks the SPIR-V magic number;
+// `words` is then left empty.
+[[nodiscard]] bool read_spirv_file(const std::filesystem::path& path, std::vector<std::uint32_t>& words,
+                                   RhiError& error);
 
 // One compiled SPIR-V shader stage (VkShaderModule).
 //
