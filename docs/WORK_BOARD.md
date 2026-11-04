@@ -5,7 +5,7 @@
 Canonical implementation status: [STATUS.md](STATUS.md).
 Canonical plan: [ROADMAP.md](ROADMAP.md).
 
-`main` at 8089b22 contains PRs #2 and #4–#20. Details and CI evidence: [STATUS.md](STATUS.md). Earlier per-task entries on this board were removed once merged; they remain in the pull requests and git history.
+`main` at b5a19a6 contains PRs #2 and #4–#21. Details and CI evidence: [STATUS.md](STATUS.md). Earlier per-task entries on this board were removed once merged; they remain in the pull requests and git history.
 Owner-supplied vision is captured in [ENGINE_VISION.md](ENGINE_VISION.md).
 
 Owner rules for every task: small stacked PRs; commit small and often; keep all five CI jobs green; record each decision as an ADR; keep STATUS handoff-ready after every task; Joshua merges; no regenerable generated files in commits; artifact upload stays opt-in and no storage or service is bought; no roadmap box ticked unless truly done.
@@ -14,11 +14,11 @@ Check latest main and open PRs before starting. Documents do not automatically s
 
 ## Active task
 
-Physics spike (ADR 0003 accepted 2026-11-04; build in ADR 0018). Owner: Claude. Status: PR 1 in review on `claude/physics-spike`, based on `main` at 8089b22.
+Physics spike (ADR 0003 accepted 2026-11-04; build in ADR 0018). Owner: Claude. Status: PR 1 merged as #21 (`b5a19a6`). The wrapper PR is next and remains Claude's. The Remaster proposal on this board does not take it.
 
 - Objective: Jolt Physics running deterministically inside the engine, behind a Lykoware API, with the evidence ADR 0003 asks for.
 - Planned PRs, in order:
-  1. (In review.) Vendor Jolt v5.6.0 with the two *Numerical Recipes*-derived headers replaced; build it in all five jobs with options forced; tests for the replacements and a cross-platform determinism hash.
+  1. (Merged, #21.) Vendor Jolt v5.6.0 with the two *Numerical Recipes*-derived headers replaced; build it in all five jobs with options forced; tests for the replacements and a cross-platform determinism hash.
   2. `lykoware::physics` wrapper: Jolt setup, stable body handles, create/destroy, stepping once per `FixedStep` tick, ray casts, invalid-handle and repeated-cleanup tests; no Jolt types in public headers.
   3. A character capsule on a height field, and a first active-body benchmark on the hosted runners, labelled as not a hardware profile.
 - Shared interfaces/formats affected: PR 2 adds the public physics API. PR 1 adds none (tests use Jolt directly).
@@ -86,6 +86,29 @@ Use in the task/PR when pausing, completing, or transferring work:
 - Open decisions and blockers: ADR 0003 physics; multiplayer and hardware profiles; shader-compiler licence; lavapipe (or another software Vulkan driver) as a CI follow-up; exact parser choice at first use.
 - Next concrete action (at the time): Phase 1 window/input/timing. Superseded by the owner order under "Suggested next task". Graphics dependencies are vendored with their first caller in the Vulkan RHI task. ADR 0003 stays open.
 - Checklist/documentation updates: graphics and data-format acceptance is checked. Physics acceptance stays open. STATUS next steps match this handoff.
+
+## Recorded task: Lykoware Remaster proposal (docs)
+
+- Task/module: Lykoware Remaster, a future personal-use import and rebuild pipeline. Documentation only.
+- Owner and status: proposal in review. Implementation is not active and has no owner. The active implementation task remains Claude's physics spike.
+- Base commit and branch: `b5a19a61f85a700eb62903d612a70416b465cb75` on `main`; branch `cursor/lykoware-remaster-docs-567c`.
+- Objective: Record the module without starting it and without ticking a roadmap box.
+- Scope and affected paths: ADR 0019 and the ADR index, `docs/REMASTER_SCOPE.md`, `docs/ROADMAP.md`, a cross-link in `docs/ENGINE_VISION.md`, the dependency line in `docs/ARCHITECTURE.md`, `.gitignore` (`/personal-library/`), STATUS, and this board.
+- Shared interfaces/formats affected: none implemented. Rebuilt text would use ADR 0004, and the tool would call the future editor command bus. No schema is frozen.
+- Related tasks/PRs and dependencies: starts only after Track E1 and an editor MCP server exist. Does not change ADR 0018 or the physics work.
+- Acceptance checks: ADR 0019 stays Proposed; the scope doc carries the legal guardrails; the library default path is gitignored; no dump or derived asset is added; no checklist box is ticked; relative links resolve.
+- Assumptions and decisions needed: the owner has not accepted ADR 0019. Howler branding for this tool is open. The text is not legal advice. Importer code is not published by this proposal.
+
+### Handoff
+
+- Task, branch, commit, PR: Lykoware Remaster proposal; branch `cursor/lykoware-remaster-docs-567c`; commits through the STATUS and board update; PR against `main` (URL recorded when the pull request is open).
+- Completed behavior: the pipeline is described as a separate personal-use tool. It is sequenced after the editor command bus and an MCP server. The Personal Asset Library default path is gitignored. Nothing is implemented.
+- Files/interfaces changed: documentation and `.gitignore` only. No public API and no on-disk schema in the repository.
+- Checks run and actual results: relative links in the edited Markdown resolve. No engine behavior changed, so no new runtime test was added. CI on the pull request is the build check.
+- Unverified behavior/platforms: no importer, dump, upscale, or command-bus rebuild exists to run.
+- Open decisions and blockers: owner acceptance of ADR 0019; E1 and the MCP server do not exist; legal and security review before any publication of importer code.
+- Next concrete action: leave Remaster unimplemented. The active implementation next step remains the `lykoware::physics` wrapper.
+- Checklist/documentation updates: no box ticked. STATUS and this board record the proposal.
 
 ## Suggested next task
 
