@@ -50,7 +50,7 @@ The 250 ms limit catches large regressions in Debug and sanitizer builds on a bu
 | Debug | 1024 | 6.26 | 22.91 | 35.89 |
 | ASan/UBSan | 1024 | 14.6 | 53.8 | 74.3 |
 
-For scale, a 60 Hz frame is 16.67 ms. In Release, 1024 colliding boxes use about 4% of it on average and a quarter of it in the worst step. The worst steps come early, while the pile is falling and most contacts are new. These are numbers from one local machine, not a hardware profile; the hosted-runner numbers are in the CI logs.
+For scale, a 60 Hz frame is 16.67 ms. In Release, 1024 colliding boxes use about 4% of it on average and a quarter of it in the worst step. The worst steps come early, while the pile is falling and most contacts are new. These are numbers from one local machine, not a hardware profile. CTest does not print a passing test's output, so the hosted runners' per-step numbers are not in the CI logs, but each test's total time (setup plus 300 steps) bounds them. In [run 41771495786](https://github.com/Avrenthrad/lykowareGE/actions/runs/41771495786) the 1024-box test took 0.27 s on Windows Release (under 0.9 ms per step), 7.9 s on Windows Debug (under 27 ms) and 12.4 s under Linux ASan/UBSan (under 42 ms).
 
 ## Testing layers
 
