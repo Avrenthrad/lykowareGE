@@ -90,6 +90,7 @@ Owner: Claude. Branch `claude/physics-double-api`, stacked on PR 1. In review.
 - `create_body` refuses non-finite positions and velocities.
 - **Bug fixed:** Jolt put kinematic bodies slower than about 6 cm/s to sleep after half a second, which stopped them. Kinematic bodies now never sleep.
 - **New test `physics.far_from_origin`:** the same scene at the origin, 16 km and 64 km ends within a micrometre of the origin scene (measured: identical at 16 km). A 1 mm/s box moves exactly 2 mm in 2 s at every distance, which `float` could not do at 16 km. Hash at 16 km: `0x93590957722d8131`.
+- **Benchmark 16 km out** (`perf.physics_bodies_1024_far`): the same speed as at the origin (1024 boxes, GCC Release, back to back: 1.08 ms at the origin, 1.07 ms at 16 km).
 - **Local checks:** 31/31 pass in Debug, ASan/UBSan and clang-tidy; GCC 13 and Clang 18 Release give the same 16 km hash. Passing positions through `float` in the API, or letting kinematic bodies sleep, were each caught.
 - **CI:** [run 41787184894](https://github.com/Avrenthrad/lykowareGE/actions/runs/41787184894) on ab42ce2 passed all five jobs, so MSVC reproduces the 16 km hash.
 
