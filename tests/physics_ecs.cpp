@@ -118,7 +118,8 @@ void test_world_and_link_contracts()
     } catch (const std::logic_error&) {
         refused = true;
     }
-    expect(refused && entities.alive(crate), // NOLINT(bugprone-use-after-move) -- the move must throw before transfer. "linked world move is refused without damaging ownership");
+    // NOLINTNEXTLINE(bugprone-use-after-move) -- a refused move preserves the source.
+    expect(refused && entities.alive(crate), "linked world move is refused without damaging ownership");
     ecs::World locked;
     const auto e = locked.create();
     locked.add<int>(e, 1);
