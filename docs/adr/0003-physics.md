@@ -1,6 +1,7 @@
 # ADR 0003 — Physics integration
 
 Status: Proposed. The licence and fit review was done on 2026-11-04 (below), and **owner decisions are required**. Recommendation: Jolt Physics v5.6.0, used natively from C++ behind a Lykoware physics API, then a build spike. Not yet vendored or integrated.
+Related task/PR: physics decision; review on branch `claude/jolt-review`. Nothing is vendored until the owner decides.
 
 ## Options and boundary
 

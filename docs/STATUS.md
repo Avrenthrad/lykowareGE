@@ -20,7 +20,7 @@ Records what is implemented and verified on `main`. Plans live in [ROADMAP.md](R
 | [0014](adr/0014-shader-build.md) | Proposed (merged; owner has not accepted) | Host tools built once from vendored source into a cache; `slangc` → `spirv-opt` → `spirv-val` at build time; CI Actions cache. |
 | [0015](adr/0015-graphics-pipeline.md) | Proposed (merged; owner has not accepted) | `rhi::Shader`, `rhi::GraphicsPipeline`, `RenderTarget::draw`, `shaderDrawParameters`; sanitizer builds keep Vulkan drivers loaded. |
 | [0016](adr/0016-runtime-shader-files.md) | Proposed (merged; owner has not accepted) | Programs load their compiled shaders from a `shaders` folder beside the executable; the build and `cmake --install` deploy them there. |
-| [0017](adr/0017-clocks-fixed-step.md) | Proposed (in review) | Fixed-step simulation clock: 60 ticks a second by default, exact integer accumulator, interpolation alpha for drawing, 250 ms and 8 ticks per frame limits. |
+| [0017](adr/0017-clocks-fixed-step.md) | Proposed (merged; owner has not accepted) | Fixed-step simulation clock: 60 ticks a second by default, exact integer accumulator, interpolation alpha for drawing, 250 ms and 8 ticks per frame limits. |
 
 ## Verified on main
 
@@ -46,38 +46,42 @@ The five CI jobs are Windows x64 Debug and Release, Linux Debug, Linux ASan/UBSa
 | RHI 5a: vendored Slang v2026.18.3, SPIRV-Tools v2026.4 and SPIRV-Headers; host tools built once into `.lykoware-tools/` and cached in CI; every shader compiled, optimised and validated at build time | [PR #16](https://github.com/Avrenthrad/lykowareGE/pull/16), merge c60264d | PR run [41626480873](https://github.com/Avrenthrad/lykowareGE/actions/runs/41626480873); `main` run [41735089452](https://github.com/Avrenthrad/lykowareGE/actions/runs/41735089452) passed all five jobs (cold tool cache, now saved for `main`) |
 | RHI 5b: `rhi::Shader`, `rhi::GraphicsPipeline`, `RenderTarget::draw`; devices enable `shaderDrawParameters`; the first triangle drawn offscreen and checked by the image harness | [PR #17](https://github.com/Avrenthrad/lykowareGE/pull/17), merge 5ffb8ac | PR run [41735418191](https://github.com/Avrenthrad/lykowareGE/actions/runs/41735418191); `main` run [41740344136](https://github.com/Avrenthrad/lykowareGE/actions/runs/41740344136) passed all five jobs |
 | RHI 5c: the triangle drawn in the sandbox window; programs load shaders from a `shaders` folder beside the executable, deployed by the build and install | [PR #18](https://github.com/Avrenthrad/lykowareGE/pull/18), merge 16101ec | PR run [41747802339](https://github.com/Avrenthrad/lykowareGE/actions/runs/41747802339); `main` run [41758233376](https://github.com/Avrenthrad/lykowareGE/actions/runs/41758233376) passed all five jobs |
+| Phase 1 clocks: `FixedStep` simulation clock (60 Hz default, exact integer accumulator, interpolation alpha, per-frame limits) and `FrameClock`; the sandbox animates per tick | [PR #19](https://github.com/Avrenthrad/lykowareGE/pull/19), merge ff2a1ea | PR run [41758959579](https://github.com/Avrenthrad/lykowareGE/actions/runs/41758959579) passed all five jobs (`clock.fixed_step` on MSVC, GCC, Clang-tidy and sanitizers); `main` run [41759429068](https://github.com/Avrenthrad/lykowareGE/actions/runs/41759429068) in progress at the time of writing |
 
-CTest on `main` (23 tests): `trace.api`, `image.harness.api`, `image.harness.golden_pass`, `image.harness.golden_fail`, `input.mapping`, `window.lifecycle`, `perf.sandbox_startup`, `perf.cpu_fixture`, `perf.budget_rejects_overrun`, `perf.budget_accepts_within`, `foundation.smoke`, `cli.commands`, `cli.integration`, `rhi.instance`, `rhi.instance.no_driver`, `rhi.device`, `rhi.render_target`, `rhi.swapchain`, `sandbox.vulkan_window`, `shaders.spirv_valid`, `shaders.spirv_valid_fragment`, `rhi.pipeline`, `sandbox.missing_shaders`. The `rhi.*` and `sandbox.vulkan_window` tests run on lavapipe in Linux CI and report Skipped on the Windows runners, which have no Vulkan.
+CTest on `main` (24 tests): `trace.api`, `clock.fixed_step`, `image.harness.api`, `image.harness.golden_pass`, `image.harness.golden_fail`, `input.mapping`, `window.lifecycle`, `perf.sandbox_startup`, `perf.cpu_fixture`, `perf.budget_rejects_overrun`, `perf.budget_accepts_within`, `foundation.smoke`, `cli.commands`, `cli.integration`, `rhi.instance`, `rhi.instance.no_driver`, `rhi.device`, `rhi.render_target`, `rhi.swapchain`, `sandbox.vulkan_window`, `shaders.spirv_valid`, `shaders.spirv_valid_fragment`, `rhi.pipeline`, `sandbox.missing_shaders`. The `rhi.*` and `sandbox.vulkan_window` tests run on lavapipe in Linux CI and report Skipped on the Windows runners, which have no Vulkan.
 
-Per-PR detail (local checks, failures found and fixed, mutation checks) is in each pull request and in ADRs 0009–0016.
+Per-PR detail (local checks, failures found and fixed, mutation checks) is in each pull request and in ADRs 0009–0017.
 
 ## Current development task
 
-### Phase 1 clocks and fixed-step update
+### ADR 0003: Jolt licence and fit review
 
-Owner: Claude. Branch `claude/clocks`, based on `main` at 16101ec. In review.
+Owner: Claude. Branch `claude/jolt-review`, based on `main` at ff2a1ea. Documentation only; in review.
 
-- `lykoware::FixedStep` (`engine/include/lykoware/clock.hpp`) turns variable frame times into whole fixed ticks, plus an interpolation `alpha` for drawing. ADR 0017, Proposed.
-  - Leftover time is an exact integer fraction, so any integer rate runs exactly that many ticks per second with no drift.
-  - Tick counts depend only on total time, not frame rate.
-  - Defaults: 60 ticks a second; at most 250 ms of real time and 8 ticks per frame; dropped time is reported.
-- `lykoware::FrameClock` measures real time between frames (steady clock).
-- The sandbox's Vulkan window now advances its background colour per tick and draws an interpolated blend, so it changes at the same speed at any frame rate. It logs ticks run and any dropped time.
-- New test `clock.fixed_step`, using exact frame times:
-  - **Exact counts:** 1 s in 1 ms frames, an hour at 60 FPS, and 1000 hours in 10 s frames;
-  - **Frame-rate independence:** identical tick counts and bit-identical stand-in physics at 30, 60, 144 and 240 FPS and two irregular paces;
-  - **Interpolation:** `alpha` values;
-  - **Limits:** clamping, dropping and invalid limits.
-- Local checks (Linux, GCC 13): 24/24 in the Debug, ASan/UBSan and clang-tidy presets. The headless sandbox ran 5 ticks for 120 frames presented in about 80 ms, following real time, not frame count.
-  - Deliberately using a whole-nanosecond accumulator (the classic drift bug) failed 3 assertions, as did keeping a backlog instead of dropping it.
-- CI: pending.
+- Jolt Physics v5.6.0 (MIT, 2026-07-11) is recommended over PhysX, Bullet and writing our own. It would be used natively from C++ behind a Lykoware physics API.
+- Licence inventory of `Jolt/`: 556 of 559 files MIT-tagged, and the rest covered by the repository's MIT licence. The only Apache-2.0 files are Android Gradle wrappers, which would not be vendored. Its GPU compute backends need DXC and serve only hair simulation, so they would be switched off.
+- Two core files are adapted from *Numerical Recipes*, whose code is not permissively licensed. They need an owner decision: accept them, or replace them with our own implementations as a recorded local patch.
+- Fit covers:
+  - fixed-step stepping per ADR 0017 tick;
+  - deterministic replay, with an optional cross-platform mode (about 8% slower);
+  - save and restore state for replay and rollback;
+  - float or double precision for world size;
+  - characters, ragdoll motors and skeleton mapping;
+  - the structural-physics gap that Lykoware must fill itself.
+- Owner decisions:
+  1. Jolt;
+  2. the *Numerical Recipes* files;
+  3. cross-platform determinism;
+  4. precision.
+  
+  The build spike follows them.
 
 ## Next
 
 Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 
 1. Vulkan RHI bring-up: done (#11–#18). Instance, device, offscreen render target read back into the image harness, swapchain, build-time Slang shaders, graphics pipelines, and the triangle offscreen and in the sandbox window.
-2. Phase 1 clocks and fixed-step update loop: in review (`claude/clocks`, ADR 0017).
+2. Phase 1 clocks and fixed-step update loop: done (#19, ADR 0017).
 3. Decide Jolt (ADR 0003) before any physics. The review is written (`claude/jolt-review`); the owner decides on Jolt, the *Numerical Recipes*-derived files, cross-platform determinism and precision. Then a build spike vendors and wraps it.
 4. Agree hardware profiles (RTX 4070 desktop, MSI Claw), multiplayer intent, world scope and budgets. Owner's current leaning on multiplayer: co-op later or MMO, undecided. This is not a commitment.
 
@@ -98,9 +102,9 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 
 ## Handoff
 
-- State: `main` at 16101ec contains PRs #2, #4–#18, green on all five jobs ([run 41758233376](https://github.com/Avrenthrad/lykowareGE/actions/runs/41758233376)). The Vulkan RHI bring-up is complete.
+- State: `main` at ff2a1ea contains PRs #2, #4–#19. The Vulkan RHI bring-up and Phase 1 clocks are complete. The previous `main` run ([41758233376](https://github.com/Avrenthrad/lykowareGE/actions/runs/41758233376)) passed all five jobs; the run for #19 was in progress when this was written.
 - Open decisions for the owner: ADR 0003 (Jolt); accepting or rejecting ADRs 0008–0012 and 0014–0017 (merging did not accept them); hardware profiles, multiplayer, world scope and budgets.
-- In review: Phase 1 clocks (`claude/clocks`), the fixed-step simulation clock and ADR 0017. The Jolt licence and fit review (ADR 0003, `claude/jolt-review`) is written and waits on the owner's four decisions listed there; the physics spike follows them.
+- In review: the Jolt licence and fit review (ADR 0003, `claude/jolt-review`). It waits on the owner's four decisions listed there; the physics spike follows them.
 - Owner check wanted: run `lykoware_sandbox --window --vulkan` on the RTX 4070 desktop and the MSI Claw. With 5c, a red, green and blue triangle over a slowly changing background is expected.
 - Checklist: no box ticked by this update. Phase 1 and the image/performance gate stay open.
 

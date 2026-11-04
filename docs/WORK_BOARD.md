@@ -5,7 +5,7 @@
 Canonical implementation status: [STATUS.md](STATUS.md).
 Canonical plan: [ROADMAP.md](ROADMAP.md).
 
-`main` at 16101ec contains PRs #2 and #4–#18. Details and CI evidence: [STATUS.md](STATUS.md). Earlier per-task entries on this board were removed once merged; they remain in the pull requests and git history.
+`main` at ff2a1ea contains PRs #2 and #4–#19. Details and CI evidence: [STATUS.md](STATUS.md). Earlier per-task entries on this board were removed once merged; they remain in the pull requests and git history.
 Owner-supplied vision is captured in [ENGINE_VISION.md](ENGINE_VISION.md).
 
 Owner rules for every task: small stacked PRs; commit small and often; keep all five CI jobs green; record each decision as an ADR; keep STATUS handoff-ready after every task; Joshua merges; no regenerable generated files in commits; artifact upload stays opt-in and no storage or service is bought; no roadmap box ticked unless truly done.
@@ -14,14 +14,18 @@ Check latest main and open PRs before starting. Documents do not automatically s
 
 ## Active task
 
-Phase 1 clocks and fixed-step update. Owner: Claude. Status: active; in review on `claude/clocks`, based on `main` at 16101ec.
+Decide physics (ADR 0003). Owner: Claude for the review; the owner decides. Status: review written, waiting on the owner's decisions. Branch `claude/jolt-review`, based on `main` at ff2a1ea.
 
-- Objective: a simulation clock that advances in fixed ticks independent of frame rate, so later replay, physics, combat fixtures and networking share one deterministic timeline.
-- Scope and affected paths: `engine/include/lykoware/clock.hpp`, `engine/src/clock.cpp`, `tests/clock.cpp`, the sandbox's Vulkan loop, CMake, docs and ADR 0017.
-- Shared interfaces/formats affected: new public `FixedStep`, `FixedStepConfig`, `FrameSteps` and `FrameClock`. No file format.
-- Related tasks/PRs and dependencies: follows the merged Vulkan RHI bring-up (#11–#18). Independent of ADR 0003 (Jolt). Command replay and pause/time scale come later with the command bus.
-- Acceptance checks: all five CI jobs green; exact tick counts with no drift; identical results at 30, 60, 144 and 240 FPS and irregular frame pacing; stalls and slow machines drop time instead of spiralling.
-- Assumptions and decisions needed: 60 ticks a second, 250 ms and 8 ticks per frame are proposed defaults (ADR 0017), per program; the owner may choose others.
+- Objective: choose the physics library before any physics code, under ADR 0000's licence rules, and record what the spike must prove.
+- Scope and affected paths: documentation only (ADR 0003, ADR index, STATUS, this board). Nothing is vendored until the owner decides.
+- Shared interfaces/formats affected: none yet. The spike will add a `lykoware::physics` API with no Jolt types in public headers.
+- Related tasks/PRs and dependencies: uses the ADR 0017 tick for stepping. Precision depends on the open world-scope decision.
+- Acceptance checks: the owner answers the four decisions in ADR 0003 (Jolt; the *Numerical Recipes*-derived files; cross-platform determinism; precision).
+- Assumptions and decisions needed: the review is not legal advice; licence questions outside ADR 0000's list are the owner's call.
+
+## Completed task: Phase 1 clocks and fixed-step update
+
+Owner: Claude. Done: #19 merged (ADR 0017, Proposed). `FixedStep` gives numbered fixed ticks (60 Hz default) with no drift and identical results at any frame rate; `FrameClock` measures real frame time; the sandbox animates per tick. The owner has not accepted ADR 0017 or its 60 Hz default.
 
 ## Completed task: Vulkan RHI bring-up
 
@@ -79,4 +83,4 @@ Use in the task/PR when pausing, completing, or transferring work:
 
 ## Suggested next task
 
-Owner order, set 2026-11-02: (1) Vulkan RHI bring-up, now done; (2) Phase 1 clocks and fixed-step update, the active task above; (3) decide Jolt in ADR 0003 before any physics (review written on `claude/jolt-review`, waiting on the owner's decisions); (4) agree hardware profiles (RTX 4070 desktop, MSI Claw), multiplayer intent, world scope and budgets. Leave ADR 0008 Proposed until the owner accepts it. No full editor or content suite work before the roadmap gates.
+Owner order, set 2026-11-02: (1) Vulkan RHI bring-up, now done; (2) Phase 1 clocks and fixed-step update, now done; (3) decide Jolt in ADR 0003 before any physics, the active task above; (4) agree hardware profiles (RTX 4070 desktop, MSI Claw), multiplayer intent, world scope and budgets. Leave ADR 0008 Proposed until the owner accepts it. No full editor or content suite work before the roadmap gates.
