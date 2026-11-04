@@ -2,6 +2,7 @@
 
 #include <lykoware/ecs.hpp>
 #include <lykoware/physics.hpp>
+#include <lykoware/transform.hpp>
 
 #include <string>
 #include <utility>
@@ -13,12 +14,9 @@
 
 namespace lykoware::physics_ecs {
 
-// Where an entity is. Filled from physics by Link::sync(). It moves to a general scene module
-// when the renderer needs it. A character's rotation is always the identity (it stays upright).
-struct Transform {
-    physics::DVec3 position;
-    physics::Quat rotation;
-};
+// Where an entity is (lykoware/transform.hpp). Filled from physics by Link::sync(); a
+// character's rotation is always the identity (it stays upright).
+using Transform = lykoware::Transform;
 
 // Unique ownership components: created by Link, inspected through id(). Do not move a
 // component out of ECS storage; moves are for packed-pool relocation only.

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <lykoware/math.hpp>
+
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -20,27 +22,11 @@
 
 namespace lykoware::physics {
 
-// Minimal value types until the engine has a maths module.
-struct Vec3 {
-    float x = 0.F;
-    float y = 0.F;
-    float z = 0.F;
-};
-
-// A position in the world, in double precision.
-struct DVec3 {
-    double x = 0.0;
-    double y = 0.0;
-    double z = 0.0;
-};
-
-// Unit quaternion (x, y, z, w); the default is no rotation.
-struct Quat {
-    float x = 0.F;
-    float y = 0.F;
-    float z = 0.F;
-    float w = 1.F;
-};
+// Value types from the engine's maths module (ADR 0024). The aliases keep physics code and
+// its callers unchanged.
+using Vec3 = math::Vec3;
+using DVec3 = math::DVec3;
+using Quat = math::Quat;
 
 // Stable handle to a body. A destroyed body's handle stays invalid for the rest of the world's
 // life: its slot can be reused, but with a new generation, so an old handle never reaches a

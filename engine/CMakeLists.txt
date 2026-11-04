@@ -11,11 +11,13 @@ add_library(lykoware_engine STATIC
     src/paths.cpp
     src/physics.cpp
     src/physics_ecs.cpp
+    src/render.cpp
     src/trace.cpp
     src/image.cpp
     src/input.cpp
     src/platform_map.cpp
     src/window.cpp
+    src/rhi/buffer.cpp
     src/rhi/common.cpp
     src/rhi/instance.cpp
     src/rhi/device.cpp

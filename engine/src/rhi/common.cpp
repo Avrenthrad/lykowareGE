@@ -103,6 +103,126 @@ void record_draw_pass(VkCommandBuffer commands, VkImageView view, VkExtent2D ext
     vkCmdEndRendering(commands);
 }
 
+bool prepare_mesh_draws(const GraphicsPipeline& pipeline, ColorFormat target_format, bool target_has_depth,
+                        std::span<const MeshDraw> meshes, std::vector<PreparedDraw>& draws, RhiError& error)
+{
+    draws.clear();
+    if (pipeline.color_format() != target_format) {
+        return fail(error, RhiFailure::InvalidArgument, "the pipeline targets a different colour format");
+    }
+    if (pipeline.vertex_layout() != VertexLayout::PositionNormal) {
+        return fail(error, RhiFailure::InvalidArgument, "drawing meshes needs a pipeline with a PositionNormal vertex layout");
+    }
+    if (pipeline.depth() && !target_has_depth) {
+        return fail(error, RhiFailure::InvalidArgument, "the pipeline uses depth but the target has none");
+    }
+    draws.reserve(meshes.size());
+    for (std::size_t index = 0; index < meshes.size(); ++index) {
+        const MeshDraw& mesh = meshes[index];
+        const std::string which = "mesh " + std::to_string(index) + ": ";
+        if (mesh.vertices == nullptr || mesh.vertices->usage() != BufferUsage::Vertex) {
+            return fail(error, RhiFailure::InvalidArgument, which + "needs a vertex buffer");
+        }
+        if (mesh.indices == nullptr || mesh.indices->usage() != BufferUsage::Index) {
+            return fail(error, RhiFailure::InvalidArgument, which + "needs an index buffer");
+        }
+        const std::size_t available = mesh.indices->size_bytes() / sizeof(std::uint32_t);
+        const std::size_t count = mesh.index_count == 0 ? available : mesh.index_count;
+        if (count == 0 || count % 3 != 0 || count > available) {
+            return fail(error, RhiFailure::InvalidArgument,
+                        which + "the index count must be a non-zero multiple of 3 within the index buffer");
+        }
+        const std::size_t vertex_count = mesh.vertices->size_bytes() / position_normal_stride;
+        if (mesh.indices->max_index() >= vertex_count) {
+            return fail(error, RhiFailure::InvalidArgument, which + "an index reaches past the last vertex");
+        }
+        if (mesh.push_constants.size() != pipeline.push_constant_bytes()) {
+            return fail(error, RhiFailure::InvalidArgument,
+                        which + "push constants must be exactly " + std::to_string(pipeline.push_constant_bytes())
+                            + " bytes for this pipeline");
+        }
+        draws.push_back({static_cast<VkBuffer>(mesh.vertices->native_handle()),
+                         static_cast<VkBuffer>(mesh.indices->native_handle()), static_cast<std::uint32_t>(count),
+                         mesh.push_constants.data(), static_cast<std::uint32_t>(mesh.push_constants.size())});
+    }
+    return true;
+}
+
+void depth_barrier(VkCommandBuffer commands, VkImage image)
+{
+    VkImageMemoryBarrier2 barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+    barrier.srcStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
+    barrier.srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    barrier.dstStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
+    barrier.dstAccessMask =
+        VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    barrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = image;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.layerCount = 1;
+    VkDependencyInfo dependency{};
+    dependency.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+    dependency.imageMemoryBarrierCount = 1;
+    dependency.pImageMemoryBarriers = &barrier;
+    vkCmdPipelineBarrier2(commands, &dependency);
+}
+
+void record_mesh_pass(VkCommandBuffer commands, VkImageView colour_view, VkImageView depth_view, VkExtent2D extent,
+                      const float (&rgba)[4], VkPipeline pipeline, VkPipelineLayout layout,
+                      const PreparedDraw* draws, std::size_t draw_count)
+{
+    VkRenderingAttachmentInfo colour{};
+    colour.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    colour.imageView = colour_view;
+    colour.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    colour.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    colour.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    for (int channel = 0; channel < 4; ++channel) {
+        colour.clearValue.color.float32[channel] = rgba[channel];
+    }
+    VkRenderingAttachmentInfo depth{};
+    depth.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    depth.imageView = depth_view;
+    depth.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+    depth.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depth.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depth.clearValue.depthStencil.depth = 0.0F; // reversed depth: 0 is infinitely far
+    VkRenderingInfo rendering{};
+    rendering.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+    rendering.renderArea.extent = extent;
+    rendering.layerCount = 1;
+    rendering.colorAttachmentCount = 1;
+    rendering.pColorAttachments = &colour;
+    rendering.pDepthAttachment = depth_view != VK_NULL_HANDLE ? &depth : nullptr;
+    vkCmdBeginRendering(commands, &rendering);
+    vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+    VkViewport viewport{};
+    viewport.width = static_cast<float>(extent.width);
+    viewport.height = static_cast<float>(extent.height);
+    viewport.maxDepth = 1.0F;
+    vkCmdSetViewport(commands, 0, 1, &viewport);
+    VkRect2D scissor{};
+    scissor.extent = extent;
+    vkCmdSetScissor(commands, 0, 1, &scissor);
+    for (std::size_t index = 0; index < draw_count; ++index) {
+        const PreparedDraw& draw = draws[index];
+        if (draw.push_constant_bytes > 0) {
+            vkCmdPushConstants(commands, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                               draw.push_constant_bytes, draw.push_constants);
+        }
+        const VkDeviceSize offset = 0;
+        vkCmdBindVertexBuffers(commands, 0, 1, &draw.vertices, &offset);
+        vkCmdBindIndexBuffer(commands, draw.indices, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdDrawIndexed(commands, draw.index_count, 1, 0, 0, 0);
+    }
+    vkCmdEndRendering(commands);
+}
+
 bool fail(RhiError& error, RhiFailure failure, std::string message)
 {
     error.failure = failure;
