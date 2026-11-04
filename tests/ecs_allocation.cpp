@@ -9,6 +9,10 @@
 #include <stdexcept>
 #include <string>
 
+#ifdef _MSC_VER
+#include <crtdbg.h>
+#endif
+
 namespace {
 thread_local int fail_after = -1;
 }
@@ -101,6 +105,7 @@ void attachment_failures()
         for (bool existing : {false, true}) {
             bool completed = false;
             for (int failure = 0; failure < 48 && !completed; ++failure) {
+                std::cerr << "attach character=" << character << " existing=" << existing << " fail=" << failure << std::endl;
                 ecs::World world;
                 linked::Link link(world, *physical);
                 const auto entity = world.create();
@@ -130,7 +135,14 @@ void attachment_failures()
 
 int main()
 {
+#if defined(_MSC_VER) && defined(_DEBUG)
+    // Debug CRT assertions must report into CI logs rather than open an invisible dialog.
+    _CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
+    _CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDERR);
+#endif
+    std::cerr << "entity allocation failures" << std::endl;
     entity_and_component_failures();
+    std::cerr << "physics attachment allocation failures" << std::endl;
     attachment_failures();
     std::cout << "allocation failure recovery passed\n";
 }

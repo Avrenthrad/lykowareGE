@@ -527,22 +527,23 @@ std::optional<BodyId> World::create_body(const BodyDesc& desc, std::string& erro
         error = "a height field must be static";
         return std::nullopt;
     }
-    JPH::Ref<JPH::ShapeSettings> shape = make_shape_settings(desc.shape, error);
+    JPH::ShapeSettings* shape = make_shape_settings(desc.shape, error);
     if (shape == nullptr) {
         return std::nullopt;
     }
 
     // Reserve the slot first; its index is stored in the Jolt body so queries map back to it.
-    const std::uint32_t index = impl.bodies.reserve();
     const bool is_static = desc.motion == MotionType::Static;
     // The creation settings take the only reference to the shape settings.
-    JPH::BodyCreationSettings settings{shape.GetPtr(), to_jolt_position(desc.position), rotation.Normalized(),
+    JPH::BodyCreationSettings settings{shape, to_jolt_position(desc.position), rotation.Normalized(),
                                        to_jolt(desc.motion), is_static ? layer::static_bodies : layer::moving_bodies};
     settings.mFriction = desc.friction;
     settings.mRestitution = desc.restitution;
     // A kinematic body moves only by its velocity. Jolt would put one moving slower than about
     // 6 cm/s to sleep after half a second, and a sleeping body stops: a slow door would freeze.
     settings.mAllowSleeping = desc.motion != MotionType::Kinematic;
+    // Settings own the shape before reserve can throw. Keep a single intrusive reference.
+    const std::uint32_t index = impl.bodies.reserve();
     settings.mUserData = index;
     if (!is_static) {
         settings.mLinearVelocity = to_jolt(desc.linear_velocity);
