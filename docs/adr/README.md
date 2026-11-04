@@ -26,6 +26,7 @@ Canonical directory: docs/adr. Decisions remain Proposed until resolved; disting
 | [0020](0020-physics-api.md) | Accepted by owner 2026-11-04 | `lykoware::physics::World`: generation-checked body and character handles, basic shapes, height fields, characters, per-tick stepping, ray casts, defined misuse behaviour, no Jolt types in public headers |
 | [0021](0021-product-targets.md) | Accepted by owner 2026-11-04 | Desktop PC only (no handheld); RTX 4070 recommended at 1440p60, weaker minimum; 16 GB RAM; single-player built co-op-ready; one 16 km+ world; double-precision positions |
 | [0022](0022-double-precision-positions.md) | Proposed (owner chose the direction in ADR 0021) | Jolt built with `DOUBLE_PRECISION` on; 64-bit positions in state hashes; public positions become `double` |
+| [0023](0023-ecs.md) | Proposed (owner chose "write our own") | Lykoware's own ECS: generation-checked entities, packed per-type component storage, deterministic iteration |
 
 Use [the template](TEMPLATE.md). Record context, options, decision/status, contracts, consequences and verification. Use a new ADR to supersede an accepted choice; do not silently rewrite its history.
 

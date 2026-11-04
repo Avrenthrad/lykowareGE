@@ -180,6 +180,13 @@ if(BUILD_TESTING)
     add_test(NAME physics.world COMMAND lykoware_physics_world_test)
     set_tests_properties(physics.world PROPERTIES TIMEOUT 120)
 
+    # The entity-component system (ADR 0023). Links only the engine.
+    add_executable(lykoware_ecs_test tests/ecs.cpp)
+    target_link_libraries(lykoware_ecs_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_ecs_test)
+    add_test(NAME ecs.world COMMAND lykoware_ecs_test)
+    set_tests_properties(ecs.world PROPERTIES TIMEOUT 120)
+
     # Characters on height-field terrain (physics spike 3). Links only the engine.
     add_executable(lykoware_physics_character_test tests/physics_character.cpp)
     target_link_libraries(lykoware_physics_character_test PRIVATE lykoware::engine)
@@ -242,6 +249,16 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION "provisional CPU-only; pinned hosted runners windows-2022 and ubuntu-24.04; within"
             TIMEOUT 300)
     endforeach()
+    # ECS iteration benchmark (ADR 0023): a movement system over 100,000 entities. Provisional and
+    # CPU-only like the checks above; the limit is slack for Debug and sanitizer builds.
+    add_executable(lykoware_ecs_benchmark tests/ecs_benchmark.cpp)
+    target_link_libraries(lykoware_ecs_benchmark PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_ecs_benchmark)
+    add_test(NAME perf.ecs_iterate_100k COMMAND lykoware_ecs_benchmark 100000 300 250)
+    set_tests_properties(perf.ecs_iterate_100k PROPERTIES
+        PASS_REGULAR_EXPRESSION "provisional CPU-only; pinned hosted runners windows-2022 and ubuntu-24.04; within"
+        TIMEOUT 300)
+
     # The same 1024 boxes 16 km from the origin (ADR 0021, ADR 0022).
     add_test(NAME perf.physics_bodies_1024_far
         COMMAND lykoware_physics_benchmark 1024

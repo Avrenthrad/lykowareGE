@@ -1,0 +1,283 @@
+#pragma once
+
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <tuple>
+#include <type_traits>
+#include <utility>
+#include <vector>
+
+// The Lykoware entity-component system (ADR 0023). Lykoware's own code, no third-party library.
+//
+// An entity is a generation-checked handle. Components are plain C++ types stored per type in
+// packed arrays (sparse sets), so iterating one component type walks contiguous memory.
+//
+// Determinism: the same calls in the same order give the same handles and the same iteration
+// order, on every compiler and platform. Nothing depends on addresses, hashing or time. This is
+// what replays, saves and later co-op build on (ADR 0021).
+
+namespace lykoware::ecs {
+
+// Handle to an entity. A destroyed entity's handle stays invalid for the rest of the world's
+// life: its slot can be reused, but with a new generation, so an old handle never reaches a new
+// entity. The default handle is never valid.
+struct Entity {
+    std::uint32_t index = 0;
+    std::uint32_t generation = 0;
+
+    friend bool operator==(const Entity&, const Entity&) = default;
+};
+
+namespace detail {
+
+using TypeId = std::uint32_t;
+
+// A small number for each component type, given in order of first use in the process. Used
+// only to find a type's storage, never for ordering results.
+TypeId next_type_id();
+
+template <class T>
+TypeId type_id()
+{
+    static_assert(std::is_same_v<T, std::remove_cvref_t<T>>, "use the plain component type, not const or a reference");
+    static const TypeId id = next_type_id();
+    return id;
+}
+
+class PoolBase {
+public:
+    PoolBase() = default;
+    PoolBase(const PoolBase&) = delete;
+    PoolBase& operator=(const PoolBase&) = delete;
+    PoolBase(PoolBase&&) = delete;
+    PoolBase& operator=(PoolBase&&) = delete;
+    virtual ~PoolBase() = default;
+    // Removes the component of the entity in slot `index`, if it has one.
+    virtual bool remove(std::uint32_t index) = 0;
+};
+
+// Components of one type: `values_[i]` belongs to the entity in slot `dense_[i]`, and
+// `sparse_[slot]` is that position (or `absent`). Removal moves the last component into the
+// hole, so positions change only on removal, and identically for identical calls.
+template <class T>
+class Pool final : public PoolBase {
+public:
+    static constexpr std::uint32_t absent = UINT32_MAX;
+
+    [[nodiscard]] T* find(std::uint32_t index)
+    {
+        return index < sparse_.size() && sparse_[index] != absent ? &values_[sparse_[index]] : nullptr;
+    }
+    [[nodiscard]] const T* find(std::uint32_t index) const
+    {
+        return index < sparse_.size() && sparse_[index] != absent ? &values_[sparse_[index]] : nullptr;
+    }
+
+    template <class... Args>
+    T& emplace(std::uint32_t index, Args&&... args)
+    {
+        if (index >= sparse_.size()) {
+            sparse_.resize(static_cast<std::size_t>(index) + 1, absent);
+        }
+        values_.emplace_back(std::forward<Args>(args)...);
+        sparse_[index] = static_cast<std::uint32_t>(dense_.size());
+        dense_.push_back(index);
+        return values_.back();
+    }
+
+    bool remove(std::uint32_t index) override
+    {
+        if (index >= sparse_.size() || sparse_[index] == absent) {
+            return false;
+        }
+        const std::uint32_t position = sparse_[index];
+        const std::uint32_t last = static_cast<std::uint32_t>(dense_.size() - 1);
+        if (position != last) {
+            values_[position] = std::move(values_[last]);
+            dense_[position] = dense_[last];
+            sparse_[dense_[position]] = position;
+        }
+        values_.pop_back();
+        dense_.pop_back();
+        sparse_[index] = absent;
+        return true;
+    }
+
+    [[nodiscard]] std::size_t size() const { return dense_.size(); }
+    [[nodiscard]] std::uint32_t slot_at(std::size_t position) const { return dense_[position]; }
+    [[nodiscard]] T& value_at(std::size_t position) { return values_[position]; }
+
+private:
+    std::vector<std::uint32_t> sparse_;
+    std::vector<std::uint32_t> dense_;
+    std::vector<T> values_;
+};
+
+}
+
+// One set of entities and their components.
+//
+// Components: any type that can be moved (move-constructible and move-assignable), with no
+// const or reference members. An entity has at most one component of each type.
+//
+// Pointers returned by add() and get() stay valid until the next add() or remove() of that
+// component type, or the entity's destruction.
+//
+// Iteration: each<A, B...>(fn) visits every entity that has all the listed components, in the
+// order its A component sits in storage. While any each() is running, structural changes
+// (create, destroy, add, remove) are refused; reading and changing component values is fine.
+//
+// Threading: one thread at a time. Ownership: the world owns all components; destroying the
+// world destroys them. Copy is not provided; move is.
+//
+// Failure: functions that take an Entity return false or nullptr for an invalid, destroyed or
+// foreign handle, and for refused structural changes. Nothing throws for those; std::bad_alloc
+// and exceptions from component constructors can propagate.
+class World {
+public:
+    World();
+    ~World();
+    World(const World&) = delete;
+    World& operator=(const World&) = delete;
+    World(World&&) noexcept;
+    World& operator=(World&&) noexcept;
+
+    // A new entity with no components. Default (invalid) handle if refused during each(), or
+    // if every one of 2^32 - 1 slots is in use or retired.
+    [[nodiscard]] Entity create();
+    // Destroys an entity and all its components. False if the handle is not valid or during
+    // each().
+    bool destroy(Entity entity);
+    [[nodiscard]] bool alive(Entity entity) const;
+    // Number of live entities.
+    [[nodiscard]] std::size_t size() const { return live_; }
+
+    // Adds a T built from args. Nullptr if the entity is not alive, already has a T, or
+    // during each().
+    template <class T, class... Args>
+    T* add(Entity entity, Args&&... args)
+    {
+        static_assert(std::is_move_constructible_v<T> && std::is_move_assignable_v<T>,
+                      "ECS components must be movable");
+        if (iterating_ != 0 || !alive(entity)) {
+            return nullptr;
+        }
+        detail::Pool<T>& pool = pool_for<T>();
+        if (pool.find(entity.index) != nullptr) {
+            return nullptr;
+        }
+        return &pool.emplace(entity.index, std::forward<Args>(args)...);
+    }
+
+    // The entity's T, or nullptr if it has none or the handle is not valid.
+    template <class T>
+    [[nodiscard]] T* get(Entity entity)
+    {
+        detail::Pool<T>* pool = existing_pool<T>();
+        return pool != nullptr && alive(entity) ? pool->find(entity.index) : nullptr;
+    }
+    template <class T>
+    [[nodiscard]] const T* get(Entity entity) const
+    {
+        const detail::Pool<T>* pool = existing_pool<T>();
+        return pool != nullptr && alive(entity) ? pool->find(entity.index) : nullptr;
+    }
+    template <class T>
+    [[nodiscard]] bool has(Entity entity) const
+    {
+        return get<T>(entity) != nullptr;
+    }
+
+    // Removes the entity's T. False if it has none, the handle is not valid, or during each().
+    template <class T>
+    bool remove(Entity entity)
+    {
+        detail::Pool<T>* pool = existing_pool<T>();
+        return iterating_ == 0 && pool != nullptr && alive(entity) && pool->remove(entity.index);
+    }
+
+    // Number of entities with a T.
+    template <class T>
+    [[nodiscard]] std::size_t count() const
+    {
+        const detail::Pool<T>* pool = existing_pool<T>();
+        return pool != nullptr ? pool->size() : 0;
+    }
+
+    // Calls fn(Entity, First&, Rest&...) for every entity that has all the components, in the
+    // order the First components sit in storage. See the class comment for what fn may do.
+    template <class First, class... Rest, class Fn>
+    void each(Fn&& fn)
+    {
+        detail::Pool<First>* first = existing_pool<First>();
+        if (first == nullptr || ((existing_pool<Rest>() == nullptr) || ...)) {
+            return;
+        }
+        const IterationGuard guard(iterating_);
+        for (std::size_t position = 0; position < first->size(); ++position) {
+            const std::uint32_t index = first->slot_at(position);
+            visit<Rest...>(fn, Entity{index, generations_[index]}, first->value_at(position));
+        }
+    }
+
+private:
+    struct IterationGuard {
+        explicit IterationGuard(std::uint32_t& counter) : counter_(counter) { ++counter_; }
+        IterationGuard(const IterationGuard&) = delete;
+        IterationGuard& operator=(const IterationGuard&) = delete;
+        IterationGuard(IterationGuard&&) = delete;
+        IterationGuard& operator=(IterationGuard&&) = delete;
+        ~IterationGuard() { --counter_; }
+
+    private:
+        std::uint32_t& counter_;
+    };
+
+    template <class... Rest, class Fn, class First>
+    void visit(Fn& fn, Entity entity, First& value)
+    {
+        if constexpr (sizeof...(Rest) == 0) {
+            fn(entity, value);
+        } else {
+            const std::tuple<Rest*...> others{existing_pool<Rest>()->find(entity.index)...};
+            std::apply(
+                [&](Rest*... other) {
+                    if (((other != nullptr) && ...)) {
+                        fn(entity, value, *other...);
+                    }
+                },
+                others);
+        }
+    }
+
+    template <class T>
+    detail::Pool<T>& pool_for()
+    {
+        const detail::TypeId id = detail::type_id<T>();
+        if (id >= pools_.size()) {
+            pools_.resize(static_cast<std::size_t>(id) + 1);
+        }
+        if (!pools_[id]) {
+            pools_[id] = std::make_unique<detail::Pool<T>>();
+        }
+        return static_cast<detail::Pool<T>&>(*pools_[id]);
+    }
+
+    template <class T>
+    [[nodiscard]] detail::Pool<T>* existing_pool() const
+    {
+        const detail::TypeId id = detail::type_id<T>();
+        return id < pools_.size() && pools_[id] ? static_cast<detail::Pool<T>*>(pools_[id].get()) : nullptr;
+    }
+
+    // generations_[slot] is the slot's current generation; a slot is alive when alive_[slot].
+    std::vector<std::uint32_t> generations_;
+    std::vector<std::uint8_t> alive_;
+    std::vector<std::uint32_t> free_;
+    std::vector<std::unique_ptr<detail::PoolBase>> pools_;
+    std::size_t live_ = 0;
+    std::uint32_t iterating_ = 0;
+};
+
+}
