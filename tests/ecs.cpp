@@ -468,7 +468,9 @@ void test_world_isolation_and_failures()
     changes.create([&](ecs::World& world, ecs::Entity e) {
         world.add<Position>(e);
         changes.add<Position>(first, Position{3, 0, 0});
-        throw std::runtime_error("setup failed");
+        if (world.has<Position>(e)) {
+            throw std::runtime_error("setup failed");
+        }
     });
     changes.add<Health>(first, Health{22});
     try {
