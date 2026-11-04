@@ -1,6 +1,6 @@
 # Lykoware roadmap
 
-Engine first. Phases 0–6 define the engine core milestone; "finished" means their agreed exit tests pass, not that the engine will never change. Track E begins after Phase 6. Track C begins after E2. Phases 8–10 and relevant editor tools may then develop together.
+Engine first. Phases 0–6 define the engine core milestone; "finished" means their agreed exit tests pass, not that the engine will never change. Track E begins after Phase 6. Track C begins after E2. Phases 8–10 and relevant editor tools may then develop together. Lykoware Remaster is a later personal-use tool. It starts only after the Track E1 command bus and an editor MCP server exist, and it is outside the core milestone.
 
 This roadmap supersedes the original module ordering. [CHECKLIST.md](../CHECKLIST.md) retains verified history. Phase 0 is in progress; later phases are planned. See STATUS for implemented components. Numeric budgets below reference [PERFORMANCE.md](PERFORMANCE.md) and remain proposals until hardware/profiles are agreed.
 
@@ -88,6 +88,8 @@ All stages use engine rendering/runtime and the existing shared commands; no ext
 
 Design and implement minimal command dispatch in Phases 0–1. E1 extends it; do not wait until the editor to make runtime tooling promptable.
 
+An editor MCP server that exposes the E1 command bus to agents is a later editor surface. It is not an E1 exit and it is not started. [Lykoware Remaster](#later-lykoware-remaster-personal-use-only) does not begin until that server and the E1 bus both exist.
+
 ## Track C — Built-in content suite
 
 Starts after E2. Each stage is usable and verified before the next.
@@ -101,6 +103,26 @@ Starts after E2. Each stage is usable and verified before the next.
 | C5 | VFX graph, terrain sculpt/paint/scatter, audio waveform/edit/mix | Each operation is scriptable/serializable; VFX/terrain captures and audio reference tests pass |
 
 Binary source media is retained with text project/operation descriptions; do not pretend arbitrary meshes/images/audio are always compact text. Native tools focus first on flagship needs. No Blender/Maya/Substance dependency is introduced.
+
+## Later: Lykoware Remaster (personal use only)
+
+Not a Phase 0–11 deliverable and not part of Track E or Track C. Proposed in [ADR 0019](adr/0019-remaster-pipeline.md). Scope, legal guardrails, library design, and milestones: [REMASTER_SCOPE.md](REMASTER_SCOPE.md).
+
+It starts only after both of these exist and their own exit checks have passed:
+
+1. The Track E1 editor command bus (serialization, replay, and undo).
+2. An MCP server that exposes that command bus to agents.
+
+Those are editor-track prerequisites. This item does not implement them and does not mark them done. The current `lyko` CLI is not that bus. No row below is done, and this roadmap has no completed box for Remaster.
+
+Goal: a separate `tools/remaster/` pipeline. It imports a dump the user made from a game he owns, maps logic, data tables, and events into ADR 0004 text, upscales and remodels assets, rebuilds through the command bus (faithful, or with a prompt the owner wrote), and stores the result in a local Personal Asset Library with provenance (source game and a personal-only flag). Public work stays original IP. The default library path `personal-library/` is gitignored and stays out of the repository.
+
+| Stage | Planned deliverables | Exit, when eventually attempted |
+| --- | --- | --- |
+| R0 | Proposal only: ADR 0019 and the scope doc | The owner may accept the ADR later. No tool, importer, dump, or library is in the repository. Writing R0 is not a completed product exit. |
+| R1–R7 | Tool skeleton, one importer, understand, upscale/remodel, faithful rebuild, prompted rebuild, library index | Defined in the scope doc. Blocked until E1 and the MCP server exist. None of this is started. |
+
+The first importer example is Nintendo DS, using community-documented format names (NARC archives, NSBMD/NSBTX models and textures, SDAT audio, text and scripts). Those names are not copyrighted game data, and this roadmap does not include any.
 
 ## Phase exit evidence
 
