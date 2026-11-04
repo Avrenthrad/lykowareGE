@@ -1,6 +1,8 @@
 #include <lykoware/log.hpp>
+#include <lykoware/paths.hpp>
 #include <lykoware/rhi/device.hpp>
 #include <lykoware/rhi/instance.hpp>
+#include <lykoware/rhi/pipeline.hpp>
 #include <lykoware/rhi/swapchain.hpp>
 #include <lykoware/trace.hpp>
 #include <lykoware/version.hpp>
@@ -130,6 +132,36 @@ struct WindowOptions {
     std::uint64_t frames = 0;
 };
 
+// The sandbox's SPIR-V, deployed by the build and by cmake --install into
+// the "shaders" folder beside the executable (ADR 0016).
+constexpr const char* vertex_shader_file = "sandbox_triangle.vert.spv";
+constexpr const char* fragment_shader_file = "sandbox_triangle.frag.spv";
+
+struct ShaderWords {
+    std::vector<std::uint32_t> vertex;
+    std::vector<std::uint32_t> fragment;
+};
+
+// Reads the shader files before any window or GPU work, so a broken install
+// fails clearly even on a machine without Vulkan.
+bool read_shaders(ShaderWords& shaders)
+{
+    const std::filesystem::path directory = lykoware::shader_directory();
+    if (directory.empty()) {
+        lykoware::log(lykoware::LogLevel::error, "Cannot find the executable's directory to load shaders from.");
+        return false;
+    }
+    lykoware::rhi::RhiError error;
+    if (!lykoware::rhi::read_spirv_file(directory / vertex_shader_file, shaders.vertex, error)
+        || !lykoware::rhi::read_spirv_file(directory / fragment_shader_file, shaders.fragment, error)) {
+        lykoware::log(lykoware::LogLevel::error,
+                      "Sandbox shaders: " + error.message
+                          + ". The build and cmake --install put them in the shaders folder beside the executable.");
+        return false;
+    }
+    return true;
+}
+
 bool unavailable(lykoware::rhi::RhiFailure failure)
 {
     using lykoware::rhi::RhiFailure;
@@ -138,8 +170,9 @@ bool unavailable(lykoware::rhi::RhiFailure failure)
         || failure == RhiFailure::NoSuitableDevice;
 }
 
-// Presents a slowly cycling clear colour through the RHI swapchain.
-int present_loop(lykoware::Window& window, const WindowOptions& options)
+// Draws the sandbox triangle over a slowly cycling clear colour through the
+// RHI swapchain.
+int present_loop(lykoware::Window& window, const WindowOptions& options, const ShaderWords& shaders)
 {
     lykoware::rhi::InstanceConfig instance_config;
     instance_config.application_name = "lykoware sandbox";
@@ -165,16 +198,40 @@ int present_loop(lykoware::Window& window, const WindowOptions& options)
         lykoware::log(lykoware::LogLevel::error, "Vulkan swapchain: " + error.message);
         return unavailable(error.failure) ? exit_unsupported : EXIT_FAILURE;
     }
-    lykoware::log(lykoware::LogLevel::info, "Presenting with Vulkan on " + device->info().name + ".");
 
+    std::unique_ptr<lykoware::rhi::GraphicsPipeline> pipeline;
+    {
+        // Shader modules are needed only while the pipeline is created.
+        using lykoware::rhi::Shader;
+        using lykoware::rhi::ShaderStage;
+        const auto vertex = Shader::load(*device, shaders.vertex, ShaderStage::Vertex, error);
+        const auto fragment = vertex ? Shader::load(*device, shaders.fragment, ShaderStage::Fragment, error) : nullptr;
+        if (!vertex || !fragment) {
+            lykoware::log(lykoware::LogLevel::error, "Vulkan shader: " + error.message);
+            return EXIT_FAILURE;
+        }
+        lykoware::rhi::GraphicsPipelineDesc desc;
+        desc.vertex = vertex.get();
+        desc.fragment = fragment.get();
+        desc.color_format = swapchain->color_format();
+        pipeline = lykoware::rhi::GraphicsPipeline::create(*device, desc, error);
+        if (!pipeline) {
+            lykoware::log(lykoware::LogLevel::error, "Vulkan pipeline: " + error.message);
+            return EXIT_FAILURE;
+        }
+    }
+    lykoware::log(lykoware::LogLevel::info, "Drawing with Vulkan on " + device->info().name + ".");
+
+    bool ok = true;
     std::uint64_t frame = 0;
     while (window.pump()) {
         const float phase = static_cast<float>(frame) * 0.02F;
         const lykoware::rhi::ClearColor color{0.5F + 0.5F * std::sin(phase), 0.5F + 0.5F * std::sin(phase + 2.1F),
                                               0.5F + 0.5F * std::sin(phase + 4.2F), 1.F};
-        if (!swapchain->render_clear(color, error)) {
+        if (!swapchain->render_draw(color, *pipeline, 3, error)) {
             lykoware::log(lykoware::LogLevel::error, "Vulkan frame: " + error.message);
-            return EXIT_FAILURE;
+            ok = false;
+            break;
         }
         ++frame;
         if (options.has_frames && frame >= options.frames) {
@@ -182,8 +239,14 @@ int present_loop(lykoware::Window& window, const WindowOptions& options)
         }
     }
     const std::uint64_t presented = swapchain->frames_presented();
+    // The swapchain destructor waits for the GPU, so the pipeline is idle
+    // when it is destroyed next.
     swapchain.reset();
+    pipeline.reset();
     device.reset();
+    if (!ok) {
+        return EXIT_FAILURE;
+    }
     lykoware::log(lykoware::LogLevel::info, "Presented " + std::to_string(presented) + " frames.");
     if (instance->validation_error_count() != 0) {
         lykoware::log(lykoware::LogLevel::error,
@@ -239,6 +302,11 @@ int run_window(const std::vector<std::string>& args)
         throw std::invalid_argument("--window --dummy or --offscreen requires --frames N so it can exit without a display.");
     }
 
+    ShaderWords shaders;
+    if (options.vulkan && !read_shaders(shaders)) {
+        return EXIT_FAILURE;
+    }
+
     lykoware::WindowConfig config;
     config.title = "lykoware sandbox";
     config.width = 960;
@@ -258,7 +326,7 @@ int run_window(const std::vector<std::string>& args)
     }
     lykoware::log(lykoware::LogLevel::info, "Opened sandbox window.");
     if (options.vulkan) {
-        const int status = present_loop(*window, options);
+        const int status = present_loop(*window, options, shaders);
         lykoware::log(lykoware::LogLevel::info, "Closed sandbox window.");
         return status;
     }
@@ -303,8 +371,9 @@ int run(const std::vector<std::string>& args)
                          "--window opens a window and pumps input until it closes.\n"
                          "--dummy selects the headless video driver and requires --frames.\n"
                          "--offscreen is headless too, can host Vulkan, and requires --frames.\n"
-                         "--vulkan presents a cycling clear colour through the Vulkan RHI;\n"
-                         "  exit 3 when no usable Vulkan device exists.\n";
+                         "--vulkan draws a triangle over a cycling clear colour through the\n"
+                         "  Vulkan RHI, with shaders from the shaders folder beside the executable;\n"
+                         "  exit 3 when no usable Vulkan device exists, 1 when shaders are missing.\n";
             return EXIT_SUCCESS;
         }
         throw std::invalid_argument("Unknown option: " + std::string{option}

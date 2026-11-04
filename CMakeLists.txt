@@ -86,11 +86,7 @@ if(BUILD_TESTING)
     # Mismatch artefacts (actual and diff PPM) go under the build directory only.
     add_test(NAME rhi.render_target
         COMMAND lykoware_rhi_render_target_test "${CMAKE_CURRENT_BINARY_DIR}/rhi-render-target")
-    add_executable(lykoware_rhi_swapchain_test tests/rhi_swapchain.cpp)
-    target_link_libraries(lykoware_rhi_swapchain_test PRIVATE lykoware::engine)
-    lykoware_configure_target(lykoware_rhi_swapchain_test)
-    add_test(NAME rhi.swapchain COMMAND lykoware_rhi_swapchain_test)
-    set_tests_properties(rhi.instance rhi.instance.no_driver rhi.device rhi.render_target rhi.swapchain
+    set_tests_properties(rhi.instance rhi.instance.no_driver rhi.device rhi.render_target
         PROPERTIES TIMEOUT 60 SKIP_RETURN_CODE 77)
 
     # Test shaders, compiled ahead of time from Slang and validated at build
@@ -101,6 +97,16 @@ if(BUILD_TESTING)
     lykoware_compile_shader(triangle_frag_spv SOURCE tests/shaders/triangle.slang
         ENTRY fragmentMain STAGE fragment NAME triangle.frag)
     add_custom_target(lykoware_test_shaders ALL DEPENDS "${triangle_vert_spv}" "${triangle_frag_spv}")
+
+    # The interactive path: present, resize, and the test triangle drawn
+    # through the swapchain. Exit 77 is Skipped.
+    add_executable(lykoware_rhi_swapchain_test tests/rhi_swapchain.cpp)
+    target_link_libraries(lykoware_rhi_swapchain_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_rhi_swapchain_test)
+    add_dependencies(lykoware_rhi_swapchain_test lykoware_test_shaders)
+    add_test(NAME rhi.swapchain
+        COMMAND lykoware_rhi_swapchain_test "${triangle_vert_spv}" "${triangle_frag_spv}")
+    set_tests_properties(rhi.swapchain PROPERTIES TIMEOUT 60 SKIP_RETURN_CODE 77)
     add_test(NAME shaders.spirv_valid
         COMMAND "${LYKOWARE_SPIRV_VAL}" --target-env vulkan1.3 "${triangle_vert_spv}")
     add_test(NAME shaders.spirv_valid_fragment
@@ -118,12 +124,22 @@ if(BUILD_TESTING)
             "${CMAKE_CURRENT_BINARY_DIR}/rhi-pipeline")
     set_tests_properties(rhi.pipeline PROPERTIES TIMEOUT 60 SKIP_RETURN_CODE 77)
 
-    # The sandbox's Vulkan window on the headless offscreen driver. The
-    # sandbox exits 3 ("unsupported") without a usable Vulkan device, which
-    # CTest reports as Skipped; it exits 1 on any validation error.
+    # The sandbox's Vulkan window on the headless offscreen driver: it loads
+    # its deployed shaders and draws the triangle. The sandbox exits 3
+    # ("unsupported") without a usable Vulkan device, which CTest reports as
+    # Skipped; it exits 1 on any validation error.
     add_test(NAME sandbox.vulkan_window
         COMMAND lykoware_sandbox --window --offscreen --vulkan --frames 3)
     set_tests_properties(sandbox.vulkan_window PROPERTIES TIMEOUT 60 SKIP_RETURN_CODE 3)
+    # A copy of the sandbox with no shaders folder beside it must fail with a
+    # message naming the missing file, before any Vulkan work, so this runs
+    # (and is not skipped) on machines without Vulkan too (ADR 0016).
+    add_test(NAME sandbox.missing_shaders
+        COMMAND "${CMAKE_COMMAND}"
+            "-DSAMPLE=$<TARGET_FILE:lykoware_sandbox>"
+            "-DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/sandbox-missing-shaders/$<CONFIG>"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/sandbox_missing_shaders.cmake")
+    set_tests_properties(sandbox.missing_shaders PROPERTIES TIMEOUT 60)
 
     if(LYKOWARE_SANITIZERS)
         # The Vulkan loader unloads drivers at vkDestroyInstance. Memory a

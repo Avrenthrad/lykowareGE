@@ -44,3 +44,34 @@ function(lykoware_compile_shader out_var)
         VERBATIM)
     set(${out_var} "${output}" PARENT_SCOPE)
 endfunction()
+
+# Runtime shader deployment (ADR 0016). A program loads its SPIR-V from
+# lykoware::shader_directory(), the "shaders" folder beside its executable.
+# This copies validated .spv files there in the build tree (per
+# configuration with multi-config generators) and installs them beside the
+# installed executable.
+#
+# lykoware_deploy_shaders(<target> INSTALL_DESTINATION <dir> SHADERS <spv>...)
+# INSTALL_DESTINATION is the install directory of <target>'s executable;
+# the shaders go to <dir>/shaders. File names are kept, so they must be
+# unique per target.
+function(lykoware_deploy_shaders target)
+    cmake_parse_arguments(PARSE_ARGV 1 DEPLOY "" "INSTALL_DESTINATION" "SHADERS")
+    if(NOT DEPLOY_INSTALL_DESTINATION OR NOT DEPLOY_SHADERS)
+        message(FATAL_ERROR "lykoware_deploy_shaders: INSTALL_DESTINATION and SHADERS are required")
+    endif()
+    # The executable's folder is only known per configuration at build time,
+    # and custom-command outputs cannot name it, so this step runs on every
+    # build. copy_if_different leaves unchanged files untouched, and a deleted
+    # shaders folder is restored by the next build.
+    set(dir "$<TARGET_FILE_DIR:${target}>/shaders")
+    add_custom_target(${target}_shaders ALL
+        COMMAND "${CMAKE_COMMAND}" -E make_directory "${dir}"
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different ${DEPLOY_SHADERS} "${dir}"
+        DEPENDS ${DEPLOY_SHADERS}
+        COMMENT "Deploy shaders beside ${target}"
+        VERBATIM)
+    # Building the program alone also deploys its shaders.
+    add_dependencies(${target} ${target}_shaders)
+    install(FILES ${DEPLOY_SHADERS} DESTINATION "${DEPLOY_INSTALL_DESTINATION}/shaders")
+endfunction()
