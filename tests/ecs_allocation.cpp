@@ -109,6 +109,14 @@ void attachment_failures()
                 ecs::World world;
                 linked::Link link(world, *physical);
                 const auto entity = world.create();
+#if defined(_MSC_VER) && defined(_DEBUG)
+                // MSVC Debug vector default constructors allocate iterator proxies despite
+                // noexcept. Construct the empty pool before injecting failure; Release and
+                // Linux still cover cold pool creation. Growth/attachment failures remain
+                // exercised here without terminating inside CRT debug bookkeeping.
+                world.add<linked::Transform>(entity, linked::Transform{});
+                world.remove<linked::Transform>(entity);
+#endif
                 if (existing) {
                     world.add<linked::Transform>(entity, linked::Transform{{10, 20, 30}, {}});
                 }
