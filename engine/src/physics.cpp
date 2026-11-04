@@ -234,6 +234,19 @@ public:
         }
     }
     void add(float value) { add(std::bit_cast<std::uint32_t>(value)); }
+    void add(double value)
+    {
+        const auto bits = std::bit_cast<std::uint64_t>(value);
+        add(static_cast<std::uint32_t>(bits));
+        add(static_cast<std::uint32_t>(bits >> 32U));
+    }
+    // Positions are double precision (ADR 0022); every bit is hashed.
+    void add(JPH::RVec3Arg v)
+    {
+        add(static_cast<double>(v.GetX()));
+        add(static_cast<double>(v.GetY()));
+        add(static_cast<double>(v.GetZ()));
+    }
     void add(Vec3 v)
     {
         add(v.x);
@@ -692,7 +705,7 @@ std::uint64_t World::state_hash() const
             continue;
         }
         const std::optional<BodyState> body = state(BodyId{index, impl_->bodies.generation(index)});
-        hash.add(body->position);
+        hash.add(impl_->system.GetBodyInterface().GetPosition(impl_->bodies.payload(index)));
         hash.add(body->rotation.x);
         hash.add(body->rotation.y);
         hash.add(body->rotation.z);
@@ -705,7 +718,7 @@ std::uint64_t World::state_hash() const
             continue;
         }
         const std::optional<CharacterState> character = character_state(CharacterId{index, impl_->characters.generation(index)});
-        hash.add(character->position);
+        hash.add(impl_->characters.payload(index).jolt->GetPosition());
         hash.add(character->velocity);
         hash.add(static_cast<std::uint32_t>(character->ground));
     }
