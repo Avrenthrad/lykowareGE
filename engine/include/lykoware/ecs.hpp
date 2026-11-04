@@ -159,7 +159,7 @@ private:
 //
 // Removal hooks: on_remove<T>(hook) calls hook(entity, component) just before a T is removed,
 // whether by remove<T>(), by destroy() or by the world's destruction or move-assignment. For
-// one entity, hooks run in the order the component types were first used in the process. A
+// one entity, hooks run in pool-registration order within this world. A
 // hook may not make structural changes to this world (they are refused) and must not throw.
 //
 // Threading: one thread at a time. Ownership: the world owns all components; destroying the
@@ -338,7 +338,9 @@ private:
             pools_.resize(static_cast<std::size_t>(id) + 1);
         }
         if (!pools_[id]) {
-            pools_[id] = std::make_unique<detail::Pool<T>>();
+            auto pool = std::make_unique<detail::Pool<T>>();
+            removal_order_.push_back(pool.get());
+            pools_[id] = std::move(pool);
         }
         return static_cast<detail::Pool<T>&>(*pools_[id]);
     }
@@ -360,6 +362,7 @@ private:
     std::vector<std::uint8_t> alive_;
     std::vector<std::uint32_t> free_;
     std::vector<std::unique_ptr<detail::PoolBase>> pools_;
+    std::vector<detail::PoolBase*> removal_order_;
     std::size_t live_ = 0;
     std::uint32_t iterating_ = 0;
 };

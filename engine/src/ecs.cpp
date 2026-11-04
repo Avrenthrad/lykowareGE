@@ -46,10 +46,18 @@ World& World::operator=(World&& other)
         }
         destroy_all();
         owner_ = std::exchange(other.owner_, 0);
-        generations_ = std::exchange(other.generations_, {});
-        alive_ = std::exchange(other.alive_, {});
-        free_ = std::exchange(other.free_, {});
-        pools_ = std::exchange(other.pools_, {});
+        generations_.clear();
+        alive_.clear();
+        free_.clear();
+        removal_order_.clear();
+        pools_.clear();
+        // Swap empty storage rather than constructing vector temporaries. No allocation,
+        // including MSVC Debug iterator proxies, can interrupt the ownership transfer.
+        generations_.swap(other.generations_);
+        alive_.swap(other.alive_);
+        free_.swap(other.free_);
+        pools_.swap(other.pools_);
+        removal_order_.swap(other.removal_order_);
         live_ = std::exchange(other.live_, 0);
     }
     return *this;
@@ -112,10 +120,8 @@ bool World::destroy(Entity entity)
     {
         // Hooks run with the world locked, so they cannot change it under this loop.
         const IterationGuard guard(iterating_);
-        for (const std::unique_ptr<detail::PoolBase>& pool : pools_) {
-            if (pool) {
-                pool->remove(entity);
-            }
+        for (detail::PoolBase* pool : removal_order_) {
+            pool->remove(entity);
         }
     }
     alive_[entity.index] = 0;

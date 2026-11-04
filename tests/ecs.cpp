@@ -451,13 +451,14 @@ void test_world_isolation_and_failures()
                && a.get<Health>(foreign) == nullptr && a.add<Position>(foreign) == nullptr,
            "all entity entry points reject foreign handles");
     ecs::World moved(std::move(a));
-    const auto replacement = a.create();
+    const auto replacement = a.create(); // NOLINT(bugprone-use-after-move,clang-analyzer-cplusplus.Move) -- moved-from reuse is the contract under test.
     expect(moved.alive(first) && !a.alive(first) && !moved.alive(replacement),
            "move transfers identity and moved-from reuse gets fresh identity");
     bool refused = false;
     moved.each<Health>([&](ecs::Entity, Health&) {
         try {
             ecs::World invalid(std::move(moved));
+            throw std::runtime_error("locked move unexpectedly succeeded");
         } catch (const std::logic_error&) {
             refused = true;
         }
@@ -483,6 +484,25 @@ void test_world_isolation_and_failures()
     expect(changes.apply(moved) == 2 && moved.get<Health>(first)->value == 22
                && moved.get<Position>(first)->x == 3,
            "preserved commands apply in order on retry");
+}
+
+void test_local_hook_order()
+{
+    struct First { int value = 0; };
+    struct Second { int value = 0; };
+    ecs::World unrelated;
+    const auto other = unrelated.create();
+    unrelated.add<Second>(other);
+    unrelated.add<First>(other);
+    ecs::World world;
+    std::vector<int> order;
+    world.on_remove<First>([&](ecs::Entity, First&) { order.push_back(1); });
+    world.on_remove<Second>([&](ecs::Entity, Second&) { order.push_back(2); });
+    const auto entity = world.create();
+    world.add<Second>(entity);
+    world.add<First>(entity);
+    world.destroy(entity);
+    expect(order == std::vector<int>{1, 2}, "unrelated worlds cannot change this world's cleanup ordering");
 }
 
 void test_many()
@@ -518,6 +538,7 @@ int main()
     test_remove_hooks();
     test_change_buffer();
     test_many();
+    test_local_hook_order();
     test_world_isolation_and_failures();
     if (g_failures != 0) {
         std::cerr << g_failures << " ECS assertion(s) failed\n";
