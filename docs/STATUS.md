@@ -22,6 +22,7 @@ Records what is implemented and verified on `main`. Plans live in [ROADMAP.md](R
 | [0016](adr/0016-runtime-shader-files.md) | Proposed (merged; owner has not accepted) | Programs load their compiled shaders from a `shaders` folder beside the executable; the build and `cmake --install` deploy them there. |
 | [0017](adr/0017-clocks-fixed-step.md) | Proposed (merged; owner has not accepted) | Fixed-step simulation clock: 60 ticks a second by default, exact integer accumulator, interpolation alpha for drawing, 250 ms and 8 ticks per frame limits. |
 | [0018](adr/0018-jolt-integration.md) | **Accepted by owner 2026-11-04** (including the AVX2 CPU requirement) | Jolt built from vendored source with options forced; cross-platform determinism verified by a recorded state hash in every CI job; requires an AVX2 CPU. |
+| [0020](adr/0020-physics-api.md) | Proposed (in review) | `lykoware::physics::World`: stable generation-checked body handles, box/sphere/capsule bodies, per-tick stepping, ray casts, defined failure for misuse; no Jolt types in public headers. |
 
 ## Verified on main
 
@@ -49,31 +50,31 @@ The five CI jobs are Windows x64 Debug and Release, Linux Debug, Linux ASan/UBSa
 | RHI 5c: the triangle drawn in the sandbox window; programs load shaders from a `shaders` folder beside the executable, deployed by the build and install | [PR #18](https://github.com/Avrenthrad/lykowareGE/pull/18), merge 16101ec | PR run [41747802339](https://github.com/Avrenthrad/lykowareGE/actions/runs/41747802339); `main` run [41758233376](https://github.com/Avrenthrad/lykowareGE/actions/runs/41758233376) passed all five jobs |
 | Phase 1 clocks: `FixedStep` simulation clock (60 Hz default, exact integer accumulator, interpolation alpha, per-frame limits) and `FrameClock`; the sandbox animates per tick | [PR #19](https://github.com/Avrenthrad/lykowareGE/pull/19), merge ff2a1ea | PR run [41758959579](https://github.com/Avrenthrad/lykowareGE/actions/runs/41758959579) passed all five jobs (`clock.fixed_step` on MSVC, GCC, Clang-tidy and sanitizers); `main` run [41759429068](https://github.com/Avrenthrad/lykowareGE/actions/runs/41759429068) passed all five jobs |
 | Jolt licence and fit review; owner accepted ADR 0003 (docs) | [PR #20](https://github.com/Avrenthrad/lykowareGE/pull/20), merge 8089b22 | `main` run [41760436240](https://github.com/Avrenthrad/lykowareGE/actions/runs/41760436240) passed all five jobs |
+| Physics spike 1: vendored Jolt v5.6.0 with the two *Numerical Recipes*-derived functions replaced; built with cross-platform determinism; determinism hash identical on MSVC, GCC and Clang | [PR #21](https://github.com/Avrenthrad/lykowareGE/pull/21), merge b5a19a6 | PR run [41762141044](https://github.com/Avrenthrad/lykowareGE/actions/runs/41762141044); `main` run [41763671709](https://github.com/Avrenthrad/lykowareGE/actions/runs/41763671709) passed all five jobs |
 
-CTest on `main` (24 tests): `trace.api`, `clock.fixed_step`, `image.harness.api`, `image.harness.golden_pass`, `image.harness.golden_fail`, `input.mapping`, `window.lifecycle`, `perf.sandbox_startup`, `perf.cpu_fixture`, `perf.budget_rejects_overrun`, `perf.budget_accepts_within`, `foundation.smoke`, `cli.commands`, `cli.integration`, `rhi.instance`, `rhi.instance.no_driver`, `rhi.device`, `rhi.render_target`, `rhi.swapchain`, `sandbox.vulkan_window`, `shaders.spirv_valid`, `shaders.spirv_valid_fragment`, `rhi.pipeline`, `sandbox.missing_shaders`. The `rhi.*` and `sandbox.vulkan_window` tests run on lavapipe in Linux CI and report Skipped on the Windows runners, which have no Vulkan.
+CTest on `main` (26 tests): `trace.api`, `clock.fixed_step`, `physics.jolt_math`, `physics.jolt_determinism`, `image.harness.api`, `image.harness.golden_pass`, `image.harness.golden_fail`, `input.mapping`, `window.lifecycle`, `perf.sandbox_startup`, `perf.cpu_fixture`, `perf.budget_rejects_overrun`, `perf.budget_accepts_within`, `foundation.smoke`, `cli.commands`, `cli.integration`, `rhi.instance`, `rhi.instance.no_driver`, `rhi.device`, `rhi.render_target`, `rhi.swapchain`, `sandbox.vulkan_window`, `shaders.spirv_valid`, `shaders.spirv_valid_fragment`, `rhi.pipeline`, `sandbox.missing_shaders`. The `rhi.*` and `sandbox.vulkan_window` tests run on lavapipe in Linux CI and report Skipped on the Windows runners, which have no Vulkan.
 
-Per-PR detail (local checks, failures found and fixed, mutation checks) is in each pull request and in ADRs 0009–0017.
+Per-PR detail (local checks, failures found and fixed, mutation checks) is in each pull request and in ADRs 0009–0018.
 
 ## Current development task
 
-### Physics spike, PR 1: vendored Jolt, local patch, determinism check
+### Physics spike, PR 2: the Lykoware physics API
 
-Owner: Claude. Branch `claude/physics-spike`, based on `main` at 8089b22. In review.
+Owner: Claude. Branch `claude/physics-api`, based on `main` at b5a19a6. In review.
 
-- **Vendored:** Jolt Physics v5.6.0 under `third_party/jolt` (5.7 MB), with provenance and hashes. The two *Numerical Recipes*-derived headers are replaced by Lykoware implementations (cyclic Jacobi eigenvalues; Gauss–Jordan with row pivoting), as the owner chose.
-- **Build:** `cmake/VendorJolt.cmake` adds upstream's CMake as a system subdirectory with options forced (ADR 0018, Proposed):
-  - cross-platform determinism on, float precision;
-  - a static library with the engine's MSVC runtime, no link-time optimisation, RTTI on;
-  - vendored warnings not treated as errors;
-  - no debug renderer, profiler, object streams or GPU compute;
-  - sanitizer builds compile Jolt with ASan/UBSan.
-- **Hardware:** Jolt's AVX2 instruction-set flags are kept, so the engine now needs an AVX2 CPU. The MSI Claw and current desktops qualify (owner attention, ADR 0018).
-- **New tests** (call Jolt directly; the `lykoware::physics` wrapper is the next PR):
-  - `physics.jolt_math`: both replacement functions against known answers, and inertia decomposition;
-  - `physics.jolt_determinism`: a 64-body scene for 300 ticks at 60 Hz. Two runs match, save and restore reproduces the state, and the final state hash must equal `0x17e8264fc6fa9cd7` in every build.
-- **Local checks:** GCC 13 and Clang 18, Debug and Release, all produce that hash. 26/26 tests pass in the Debug, ASan/UBSan (with Jolt itself instrumented) and clang-tidy presets.
-- **Deliberate breaks,** each caught: turning determinism off (different hash), a sign error in the eigen solver, removing row swaps from Gauss–Jordan.
-- **CI:** [run 41762141044](https://github.com/Avrenthrad/lykowareGE/actions/runs/41762141044) on a443f2a passed all five jobs. **`physics.jolt_determinism` reproduced `0x17e8264fc6fa9cd7` on Windows MSVC Debug and Release** as well as on Linux GCC (Debug, ASan/UBSan, clang-tidy build). Cross-platform determinism holds for this scene across compilers, operating systems and build types.
+- `lykoware::physics::World` (`engine/include/lykoware/physics.hpp`) is the engine's physics API. Jolt is linked privately and included only by `engine/src/physics.cpp`. ADR 0020, Proposed.
+  - **Handles:** stable `BodyId` handles (`{index, generation}`). A destroyed body's handle never reaches a later one.
+  - **Bodies:** box, sphere and capsule shapes; static, dynamic or kinematic.
+  - **Operations:** `step(seconds)` once per `FixedStep` tick; `cast_ray`; `set_velocity`; `state`; `state_hash`.
+  - **Misuse:** returns false or nullopt (invalid handles, bad shapes, limits), never a crash.
+  - **Shared setup:** Jolt's process-wide state is shared by all worlds (first sets up, last tears down). Jolt's traces and asserts go to the engine log.
+- New test `physics.world`, which links only the engine. It covers:
+  - resting contact, ray casts and kinematic motion;
+  - every invalid-handle case and bad bodies;
+  - limits and repeated cleanup;
+  - a determinism hash `0x84f90a3cbf37a28b` that must match in every build, with 1 and 4 worker threads giving the same state.
+- Local checks: GCC and Clang, Debug and Release, all produce the hash. 27/27 pass in the Debug, ASan/UBSan and clang-tidy presets. Deliberately ignoring handle generations, and losing the generation in ray hits, were each caught.
+- CI: [run 41765080887](https://github.com/Avrenthrad/lykowareGE/actions/runs/41765080887) on 9204b58 passed all five jobs. `physics.world` reproduced `0x84f90a3cbf37a28b` on Windows MSVC Debug and Release and on Linux GCC (Debug, ASan/UBSan, clang-tidy build).
 
 ## Next
 
@@ -81,7 +82,7 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 
 1. Vulkan RHI bring-up: done (#11–#18). Instance, device, offscreen render target read back into the image harness, swapchain, build-time Slang shaders, graphics pipelines, and the triangle offscreen and in the sandbox window.
 2. Phase 1 clocks and fixed-step update loop: done (#19, ADR 0017).
-3. Physics: Jolt accepted (ADR 0003, 2026-11-04). Spike PR 1 (vendor, patch, build, determinism hash) is in review. Next: the `lykoware::physics` wrapper with stable body handles, per-tick stepping, ray casts and invalid-handle checks; then a character on a height field and a first body-count benchmark.
+3. Physics: Jolt accepted (ADR 0003) and vendored (#21, ADR 0018). Spike PR 2, the `lykoware::physics` API, is in review. Next: spike PR 3, a character on a height field and a first body-count benchmark.
 4. Agree hardware profiles (RTX 4070 desktop, MSI Claw), multiplayer intent, world scope and budgets. Owner's current leaning on multiplayer: co-op later or MMO, undecided. This is not a commitment.
 
 ## Known issues and limitations
@@ -101,9 +102,9 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 
 ## Handoff
 
-- State: `main` at 8089b22 contains PRs #2, #4–#20, green on all five jobs ([run 41760436240](https://github.com/Avrenthrad/lykowareGE/actions/runs/41760436240)). The Vulkan RHI bring-up and Phase 1 clocks are complete, and Jolt is accepted.
-- Open decisions for the owner: ADR 0003 (Jolt); accepting or rejecting ADRs 0008–0012 and 0014–0017 (merging did not accept them); hardware profiles, multiplayer, world scope and budgets.
-- In review: physics spike PR 1 (`claude/physics-spike`, ADR 0018): vendored Jolt v5.6.0 with the owner's local patch, built in all five jobs, with a cross-platform determinism hash. Next concrete action after it merges: the `lykoware::physics` wrapper.
+- State: `main` at b5a19a6 contains PRs #2, #4–#21, green on all five jobs ([run 41763671709](https://github.com/Avrenthrad/lykowareGE/actions/runs/41763671709)). The Vulkan RHI bring-up and Phase 1 clocks are complete; Jolt is vendored with cross-platform determinism verified on MSVC, GCC and Clang.
+- Open decisions for the owner: ADR 0003 (Jolt); accepting or rejecting ADRs 0008–0012, 0014–0017 and 0020 (merging did not accept them); hardware profiles, multiplayer, world scope and budgets.
+- In review: physics spike PR 2 (`claude/physics-api`, ADR 0020), the `lykoware::physics` API. Next concrete action after it merges: spike PR 3, a character capsule on a height field and a first body-count benchmark.
 - Owner check wanted: run `lykoware_sandbox --window --vulkan` on the RTX 4070 desktop and the MSI Claw. With 5c, a red, green and blue triangle over a slowly changing background is expected.
 - Checklist: no box ticked by this update. Phase 1 and the image/performance gate stay open.
 
