@@ -279,7 +279,8 @@ private:
 
 // Handles for one kind of object: {index, generation} into a table of slots. A freed slot is
 // reused last-in first-out (a deterministic order) with a new generation, so a handle to a
-// destroyed object never reaches a later one.
+// destroyed object never reaches a later one. A slot whose generation has reached UINT32_MAX is
+// retired when freed instead of reused, so generations never wrap round (as in the ECS).
 template <class Payload>
 class Slots {
 public:
@@ -310,12 +311,13 @@ public:
     // Gives a reserved index back after a failed creation.
     void unreserve(std::uint32_t index) { free_.push_back(index); }
     // Makes a reserved slot live; returns its new generation (never 0, which marks no object).
+    // A reserved slot is new or came off the free list, so its generation is below UINT32_MAX.
     std::uint32_t activate(std::uint32_t index, Payload payload)
     {
         Slot& slot = slots_[index];
         slot.payload = std::move(payload);
         slot.alive = true;
-        slot.generation = slot.generation == UINT32_MAX ? 1 : slot.generation + 1;
+        ++slot.generation;
         ++live_;
         return slot.generation;
     }
@@ -331,12 +333,16 @@ public:
         const Slot& slot = slots_[index];
         return slot.alive && slot.generation == generation ? &slot.payload : nullptr;
     }
+    // Frees a live slot. A slot at generation UINT32_MAX is retired: it never goes back on the
+    // free list, so no later object can be given a generation that an old handle still holds.
     void release(std::uint32_t index)
     {
         Slot& slot = slots_[index];
         slot.alive = false;
         slot.payload = Payload{};
-        free_.push_back(index);
+        if (slot.generation != UINT32_MAX) {
+            free_.push_back(index);
+        }
         --live_;
     }
     [[nodiscard]] std::uint64_t owner() const { return owner_; }
