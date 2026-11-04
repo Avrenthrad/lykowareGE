@@ -88,7 +88,7 @@ Owner: Claude. Branch `claude/math`, based on `main` at 5b46f08. In review.
   - `physics::Vec3`, `DVec3` and `Quat` are now aliases of these, with every physics hash unchanged.
 - **New test `math.types`.** Ten deliberate breaks, each caught; two first slipped through and led to stronger tests.
 - **Local checks:** 36/36 pass in Debug, ASan/UBSan and clang-tidy; every physics hash unchanged.
-- **CI:** pending.
+- **CI:** [run 41820018128](https://github.com/Avrenthrad/lykowareGE/actions/runs/41820018128) on dd00780 passed all five jobs.
 
 ### 3D rendering, PR 2: meshes in the RHI
 
@@ -99,7 +99,7 @@ Owner: Claude. Branch `claude/rhi-mesh`, stacked on PR 1 (`claude/math`). In rev
 - Render targets with a depth buffer, and `draw_meshes` for a list of indexed meshes. Every misuse is refused before anything reaches the GPU. [ADR 0025](adr/0025-rhi-meshes.md) (Proposed).
 - **New test `rhi.mesh`** (lavapipe): a lit cube with lighting per face, depth order regardless of draw order, the winding convention, repeatable bytes, identical bytes 16 km out, and every misuse. Six deliberate breaks, each caught.
 - **Local checks:** 37/37 pass in Debug, ASan/UBSan and clang-tidy, with no Vulkan validation errors. Under ASan, `rhi.mesh` joined the GPU tests that keep Vulkan drivers loaded, which avoids lavapipe's known false leak report; a deliberate leak in our own code is still caught.
-- **CI:** pending.
+- **CI:** [run 41820726840](https://github.com/Avrenthrad/lykowareGE/actions/runs/41820726840) on 507a269 passed all five jobs.
 
 ### 3D rendering, PR 3: falling crates drawn from the ECS
 
@@ -118,7 +118,7 @@ Owner: Claude. Branch `claude/render-scene`, stacked on PR 2 (`claude/rhi-mesh`)
   It writes the frame under the build directory to look at.
 - **Deliberate breaks:** four caught. Culling off is not caught here, as expected; `rhi.mesh` covers it. A weakness found and fixed: depth off first went unnoticed until the wall was added.
 - **Local checks:** 38/38 pass in Debug, ASan/UBSan and clang-tidy, with no Vulkan validation errors.
-- **CI:** pending.
+- **CI:** [run 41823030117](https://github.com/Avrenthrad/lykowareGE/actions/runs/41823030117) on eb3716a passed all five jobs, after a fix for MSVC's C4458 (a local hid a member) that failed the first run's Windows jobs.
 
 ### Physics handles: retire a slot instead of wrapping its generation
 
