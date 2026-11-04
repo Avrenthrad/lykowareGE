@@ -359,7 +359,7 @@ JPH::uint worker_count(std::uint32_t requested)
 struct World::Impl : private Runtime {
     explicit Impl(const WorldConfig& config)
         : jobs(JPH::cMaxPhysicsJobs, JPH::cMaxPhysicsBarriers, static_cast<int>(worker_count(config.worker_threads)))
-        , temp_allocator(config.step_memory_bytes)
+        , temp_allocator(static_cast<JPH::uint>(config.step_memory_bytes))
         , max_bodies(config.max_bodies)
     {
         system.Init(config.max_bodies, 0, config.max_body_pairs, config.max_contact_constraints, g_broad_phase_layers,
@@ -431,7 +431,9 @@ struct World::Impl : private Runtime {
     JPH::PhysicsSystem system;
     Slots<JPH::BodyID> bodies;
     Slots<Character> characters;
-    JPH::TempAllocatorImpl temp_allocator;
+    // Falls back to the heap when a step needs more than step_memory_bytes; Jolt's plain
+    // TempAllocatorImpl aborts the process instead (found by the body-count benchmark).
+    JPH::TempAllocatorImplWithMallocFallback temp_allocator;
     std::uint32_t max_bodies;
 };
 
@@ -453,8 +455,8 @@ std::unique_ptr<World> World::create(const WorldConfig& config, std::string& err
         error = "max_body_pairs and max_contact_constraints must be at least 1";
         return nullptr;
     }
-    if (config.step_memory_bytes < 64U * 1024U) {
-        error = "step_memory_bytes must be at least 64 KiB";
+    if (config.step_memory_bytes < 64U * 1024U || config.step_memory_bytes > 1024U * 1024U * 1024U) {
+        error = "step_memory_bytes must be from 64 KiB to 1 GiB";
         return nullptr;
     }
     if (!finite(config.gravity)) {

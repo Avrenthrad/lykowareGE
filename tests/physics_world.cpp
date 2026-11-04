@@ -227,6 +227,25 @@ void test_limits_and_cleanup()
     }
     expect(big->is_valid(ground), "the ground survives the rounds");
 
+    // A world with the minimum fast step memory still steps a busy scene: the extra comes from
+    // the heap. (Jolt's plain allocator aborted the process here; the benchmark found it.)
+    physics::WorldConfig tight;
+    tight.step_memory_bytes = 64U * 1024U;
+    auto squeezed = make_world(tight);
+    add_ground(*squeezed);
+    for (int i = 0; i < 300; ++i) {
+        physics::BodyDesc box;
+        box.shape = physics::BoxShape{{0.25F, 0.25F, 0.25F}};
+        box.position = {static_cast<float>(i % 10) * 0.6F - 3.F, 0.5F + static_cast<float>(i / 100) * 0.6F,
+                        static_cast<float>((i / 10) % 10) * 0.6F - 3.F};
+        add(*squeezed, box);
+    }
+    steps(*squeezed, 60);
+    std::string limit_error;
+    physics::WorldConfig huge;
+    huge.step_memory_bytes = 2048ULL * 1024U * 1024U;
+    expect(!physics::World::create(huge, limit_error) && !limit_error.empty(), "more than 1 GiB of step memory is refused");
+
     // Worlds can be created and destroyed repeatedly, and several can be alive at once.
     for (int i = 0; i < 3; ++i) {
         auto again = make_world();
