@@ -529,6 +529,9 @@ std::optional<BodyId> World::create_body(const BodyDesc& desc, std::string& erro
                                        to_jolt(desc.motion), is_static ? layer::static_bodies : layer::moving_bodies};
     settings.mFriction = desc.friction;
     settings.mRestitution = desc.restitution;
+    // A kinematic body moves only by its velocity. Jolt would put one moving slower than about
+    // 6 cm/s to sleep after half a second, and a sleeping body stops: a slow door would freeze.
+    settings.mAllowSleeping = desc.motion != MotionType::Kinematic;
     settings.mUserData = index;
     if (!is_static) {
         settings.mLinearVelocity = to_jolt(desc.linear_velocity);

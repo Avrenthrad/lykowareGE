@@ -148,6 +148,17 @@ void test_rest_and_rays()
     const auto moved = world->state(kinematic);
     expect(moved && close_to(moved->position.x, -9.F, 1e-3F) && close_to(moved->position.y, 5.F, 1e-5F),
            "a kinematic body moves one metre in one second at 1 m/s, ignoring gravity");
+
+    // A slow kinematic body keeps moving: Jolt would otherwise put it to sleep after half a
+    // second, and a sleeping body stops.
+    physics::BodyDesc creeper;
+    creeper.motion = physics::MotionType::Kinematic;
+    creeper.position = {10.0, 5.0, 0.0};
+    creeper.linear_velocity = {0.01F, 0.F, 0.F};
+    const physics::BodyId slow = add(*world, creeper);
+    steps(*world, 180);
+    const auto crept = world->state(slow);
+    expect(crept && close_to(crept->position.x, 10.03, 1e-6), "a 1 cm/s kinematic body moves 3 cm in 3 s");
 }
 
 void test_invalid_handles()
