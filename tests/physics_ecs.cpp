@@ -87,7 +87,7 @@ void test_world_and_link_contracts()
     const auto foreign = b->create_body(crate_desc(0, 2), error);
     expect(first && foreign && first->index == foreign->index && first->generation == foreign->generation,
            "two worlds exercise matching slots and generations");
-    expect(!a->is_valid(*foreign) && !a->state(*foreign) && !a->set_velocity(*foreign, {})
+    expect(!a->is_valid(*foreign) && !a->state(*foreign) && !a->set_velocity(*foreign, {}, {})
                && !a->destroy_body(*foreign) && a->is_valid(*first), "all body operations reject foreign owners");
     const auto walker_a = a->create_character({}, error);
     const auto walker_b = b->create_character({}, error);
