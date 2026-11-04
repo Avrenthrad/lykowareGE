@@ -5,7 +5,8 @@
 Canonical implementation status: [STATUS.md](STATUS.md).
 Canonical plan: [ROADMAP.md](ROADMAP.md).
 
-`main` at 5b46f08 contains PRs #2, #4–#21, #23–#29 and #31. Details and CI evidence: [STATUS.md](STATUS.md). Earlier per-task entries on this board were removed once merged; they remain in the pull requests and git history.
+`main` at `855e01e` includes Claude's #32–#34 math/mesh/renderer stack (alongside #31 ECS/physics). Review follow-ups #35 and #36 remain separate owner-merge PRs. Earlier per-task entries remain in pull requests/git history. Details: [STATUS](STATUS.md).
+
 Owner-supplied vision is captured in [ENGINE_VISION.md](ENGINE_VISION.md).
 
 Owner rules for every task: small stacked PRs; commit small and often; keep all five CI jobs green; record each decision as an ADR; keep STATUS handoff-ready after every task; Joshua merges; no regenerable generated files in commits; artifact upload stays opt-in and no storage or service is bought; no roadmap box ticked unless truly done.
@@ -19,7 +20,7 @@ Check latest main and open PRs before starting. Documents do not automatically s
 - Affected interfaces: ECS Entity, physics handles, ECS movement/hook claims, physics component accessors.
 - Checks: cross-world rejection; move/locked/rebind tests; injected allocation failures; unchanged deterministic physics hashes; full five-job CI.
 - Related work: Claude's `claude/math`, `claude/rhi-mesh`, and `claude/render-scene` supply camera-relative rendering. Keep their ownership and changes intact.
-- Remaining follow-ups: stable persisted scene/schema IDs and fixed-tick command replay; render/simulation separation tests; integrated capture/measurement runner; documentation reconciliation.
+- Implemented on #36, verification in progress: stable scene/schema IDs, fixed-tick replay, render/simulation separation, capture/measurement runner and documentation reconciliation.
 - Hardware gate: actual Windows GPU timing and memory on the recommended desktop require that machine. A software Vulkan run is not that evidence.
 - Integration: Joshua merges, per the owner rules above. Stacked follow-up PRs may be built/tested together locally before owner merge.
 

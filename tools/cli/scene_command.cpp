@@ -158,8 +158,13 @@ int scene_command(std::span<const std::string> arguments, bool screenshot)
         auto instance = rhi::Instance::create({}, failure);
         auto device = instance ? rhi::Device::create(*instance, {}, failure) : nullptr;
         if (!device) {
-            std::cerr << "lyko: GPU capture unavailable: " << failure.message << '\n';
-            return 77;
+            if (failure.failure == rhi::RhiFailure::NoLoader || failure.failure == rhi::RhiFailure::NoDriver
+                || failure.failure == rhi::RhiFailure::VersionTooOld
+                || failure.failure == rhi::RhiFailure::NoSuitableDevice) {
+                std::cerr << "lyko: GPU capture unavailable: " << failure.message << '\n';
+                return 77;
+            }
+            throw std::runtime_error("GPU initialization failed: " + failure.message);
         }
         const auto directory = shader_directory();
         std::vector<std::uint32_t> vertex, fragment;

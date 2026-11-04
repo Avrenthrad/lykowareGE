@@ -5,7 +5,7 @@ Records what is implemented and verified on `main`. Plans live in [ROADMAP.md](R
 ## Review follow-ups in progress
 
 - Runtime contract PR [#35](https://github.com/Avrenthrad/lykowareGE/pull/35), `codex/core-contract-hardening`, based on `5b46f08` (#31 merged): foreign-handle rejection, exclusive physics links, rollback-safe attachment/storage and fault-injection tests; [ADR 0030](adr/0030-runtime-contract-hardening.md). Linux Debug and ASan/UBSan passed on `ac35f79`; Windows/static-analysis issues are being resolved, so this PR remains draft.
-- Integration branch `codex/scene-command-replay` preserves Claude's #30 and #32–#34, then adds versioned scene IDs/commands, per-tick replay tests, read-only interpolated snapshots, CLI run/capture/report and a local Windows runner; [ADR 0031](adr/0031-scenes-and-command-replay.md). Native source compilation is checked; full integrated tests/CI pending. No target-PC result is claimed.
+- Integration PR [#36](https://github.com/Avrenthrad/lykowareGE/pull/36), `codex/scene-command-replay`, preserves Claude's #30 and merged #32–#34, then adds versioned scene IDs/commands, per-tick replay tests, read-only interpolated snapshots, CLI run/capture/report and a local Windows runner; [ADR 0031](adr/0031-scenes-and-command-replay.md). Local replay (180 hashes at 30/60/144 Hz and irregular frames), render read-only/far-origin tests and repeated real CLI captures have passed; the full refreshed suite/CI is being checked. No target-PC result is claimed.
 - Follow-up checklist: [REVIEW_FOLLOWUP](REVIEW_FOLLOWUP.md). Owner merges after review/green CI; no Phase 1 completion box checked.
 
 ## Decisions

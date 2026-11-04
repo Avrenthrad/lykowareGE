@@ -1,6 +1,6 @@
 # Core review follow-ups
 
-Owner: Codex. Runtime fixes: PR #35, `codex/core-contract-hardening`. Scene/replay integration: `codex/scene-command-replay`, built on #35 and Claude's #30/#32–#34. Joshua merges. Checkboxes reflect completed verification, not just authored code.
+Owner: Codex. Runtime fixes: PR #35, `codex/core-contract-hardening`. Scene/replay integration: PR #36, `codex/scene-command-replay`, built on #35 and Claude's #30/#32–#34. Joshua merges. Checkboxes reflect completed verification, not just authored code.
 
 - [ ] World isolation: every ECS/body/character handle lookup/mutation rejects foreign owners; moved-from ECS reuse gets a new token; runtime tokens excluded from physics hashes.
 - [ ] Link ownership: duplicate/locked links fail; cleanup hooks cannot be replaced; body/character ownership excludes the other; linked worlds cannot move; helper destruction retains cleanup.
