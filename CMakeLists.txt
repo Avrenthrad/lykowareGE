@@ -219,6 +219,23 @@ if(BUILD_TESTING)
     set_tests_properties(perf.budget_rejects_overrun perf.budget_accepts_within
         PROPERTIES TIMEOUT 20)
 
+    # Physics body-count benchmark (physics spike 4). Provisional and CPU-only like the
+    # checks above: the mean step limit is slack for unoptimised and sanitizer builds on a
+    # busy shared runner, not a frame budget. See docs/PERFORMANCE.md.
+    set(LYKOWARE_PROVISIONAL_PHYSICS_TICKS 300)
+    set(LYKOWARE_PROVISIONAL_PHYSICS_MEAN_STEP_MS 250)
+    add_executable(lykoware_physics_benchmark tests/physics_benchmark.cpp)
+    target_link_libraries(lykoware_physics_benchmark PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_physics_benchmark)
+    foreach(bodies IN ITEMS 256 1024)
+        add_test(NAME perf.physics_bodies_${bodies}
+            COMMAND lykoware_physics_benchmark ${bodies}
+                "${LYKOWARE_PROVISIONAL_PHYSICS_TICKS}" "${LYKOWARE_PROVISIONAL_PHYSICS_MEAN_STEP_MS}")
+        set_tests_properties(perf.physics_bodies_${bodies} PROPERTIES
+            PASS_REGULAR_EXPRESSION "provisional CPU-only; pinned hosted runners windows-2022 and ubuntu-24.04; within"
+            TIMEOUT 300)
+    endforeach()
+
     add_test(NAME foundation.smoke
         COMMAND "${CMAKE_COMMAND}"
             "-DSAMPLE=$<TARGET_FILE:lykoware_sandbox>"

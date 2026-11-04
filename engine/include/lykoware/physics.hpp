@@ -145,7 +145,8 @@ struct WorldConfig {
     // Worker threads for the physics step; 0 picks a number from the CPU. Results do not depend
     // on this number.
     std::uint32_t worker_threads = 0;
-    // Scratch memory for one step.
+    // Fast scratch memory reserved for one step, from 64 KiB to 1 GiB. A step that needs more
+    // takes it from the heap (slower) rather than failing.
     std::size_t step_memory_bytes = 16U * 1024U * 1024U;
 };
 
@@ -200,8 +201,8 @@ public:
     [[nodiscard]] std::optional<CharacterState> character_state(CharacterId character) const;
 
     // Advances the world by one fixed step of `seconds` (> 0): characters move first, in handle
-    // order, then bodies. False if the step failed, for example because it ran out of step
-    // memory or contact space; the world stays usable.
+    // order, then bodies. False if the step failed because it ran out of body-pair or contact
+    // space (raise max_body_pairs or max_contact_constraints); the world stays usable.
     bool step(float seconds);
 
     // The closest body hit by the ray from `origin` along `direction`, whose length is the
