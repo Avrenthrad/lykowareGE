@@ -5,7 +5,7 @@
 Canonical implementation status: [STATUS.md](STATUS.md).
 Canonical plan: [ROADMAP.md](ROADMAP.md).
 
-`main` at c60264d contains PRs #2 and #4–#16. Details and CI evidence: [STATUS.md](STATUS.md). Earlier per-task entries on this board were removed once merged; they remain in the pull requests and git history.
+`main` at 5ffb8ac contains PRs #2 and #4–#17. Details and CI evidence: [STATUS.md](STATUS.md). Earlier per-task entries on this board were removed once merged; they remain in the pull requests and git history.
 Owner-supplied vision is captured in [ENGINE_VISION.md](ENGINE_VISION.md).
 
 Owner rules for every task: small stacked PRs; commit small and often; keep all five CI jobs green; record each decision as an ADR; keep STATUS handoff-ready after every task; Joshua merges; no regenerable generated files in commits; artifact upload stays opt-in and no storage or service is bought; no roadmap box ticked unless truly done.
@@ -14,7 +14,7 @@ Check latest main and open PRs before starting. Documents do not automatically s
 
 ## Active task
 
-Vulkan RHI bring-up. Owner: Claude. Status: active. PRs 1–4 and 5a are merged (#11–#14, #16; ADR 0013 in #15). 5b is in review on `claude/vulkan-rhi-5b`, based on `main` at c60264d. Delivered as small PRs; each PR states its own base.
+Vulkan RHI bring-up. Owner: Claude. Status: active. PRs 1–4, 5a and 5b are merged (#11–#14, #16, #17; ADR 0013 in #15). 5c is in review on `claude/vulkan-rhi-5c`, based on `main` at 5ffb8ac. Delivered as small PRs; each PR states its own base.
 
 - Objective: first pixels through a Lykoware-owned Vulkan 1.3 RHI (ADR 0002), on the SDL window and headless, with headless output checked by the image harness.
 - Planned PRs, in order:
@@ -24,13 +24,13 @@ Vulkan RHI bring-up. Owner: Claude. Status: active. PRs 1–4 and 5a are merged 
   4. (Merged, #14.) Swapchain on the SDL window presenting the same clear (interactive path through the same RHI), two frames in flight, resize rebuilds; headless offscreen Vulkan window so CI runs the present path. ADR 0012.
   5. Shader compiler: owner chose **Slang** (ADR 0013, merged in #15); spike passed on Linux; owner approved the CI Actions cache.
      - 5a (merged, #16): vendor Slang, SPIRV-Tools and SPIRV-Headers; host tools built once into a cache; build-time `slangc -O0` → `spirv-opt` → `spirv-val`; test shader compiled every build. ADR 0014.
-     - 5b (in review, branch `claude/vulkan-rhi-5b`): `rhi::Shader`, `rhi::GraphicsPipeline`, `RenderTarget::draw`; device enables `shaderDrawParameters`; triangle drawn and checked by the image harness. ADR 0015.
-     - 5c (next): the sandbox window draws the triangle; decide how the runtime finds shader files.
+     - 5b (merged, #17): `rhi::Shader`, `rhi::GraphicsPipeline`, `RenderTarget::draw`; device enables `shaderDrawParameters`; triangle drawn and checked by the image harness. ADR 0015.
+     - 5c (in review, branch `claude/vulkan-rhi-5c`): the sandbox window draws the triangle; programs load shaders from a `shaders` folder beside the executable, deployed by the build and install. ADR 0016.
 - Scope and affected paths: `third_party/`, `engine/include/lykoware/rhi/`, `engine/src/rhi/`, tests, CMake, CI workflow, docs and ADRs.
 - Shared interfaces/formats affected: new public RHI API; each PR documents ownership, lifetime, threading and failure on its declarations.
 - Related tasks/PRs and dependencies: ADR 0002 (accepted), ADR 0007 image harness, ADR 0008 window surface hook. Independent of ADR 0003.
 - Acceptance checks: all five CI jobs green on every PR; no Vulkan link-time dependency on machines without a driver; headless golden compare passes wherever a Vulkan driver is available, and is reported as skipped (not passed) where it is not.
-- Assumptions and decisions needed: lavapipe on GitHub-hosted Ubuntu runners comes from free distribution packages and has run every GPU test since PR 1. Windows-hosted runners have no GPU, so Windows graphics tests report Skipped until there is a driver. The shader compiler was decided in ADR 0013 (Slang). The owner has not accepted ADRs 0009–0012, 0014 or 0015; merging them did not accept them.
+- Assumptions and decisions needed: lavapipe on GitHub-hosted Ubuntu runners comes from free distribution packages and has run every GPU test since PR 1. Windows-hosted runners have no GPU, so Windows graphics tests report Skipped until there is a driver. The shader compiler was decided in ADR 0013 (Slang). The owner has not accepted ADRs 0009–0012 or 0014–0016; merging them did not accept them.
 
 ## Task template
 
