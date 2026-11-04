@@ -82,6 +82,17 @@ Owner: Claude. Branch `claude/physics-double`, stacked on `claude/product-target
 - **Cost:** the benchmark is about 10–15% slower with many contacts (1024 boxes in Release: 0.72 → about 0.82 ms per step). Details in ADR 0022.
 - **CI:** pending. MSVC is the cross-platform check.
 
+### Double-precision spike, PR 2: `double` positions in the API
+
+Owner: Claude. Branch `claude/physics-double-api`, stacked on PR 1. In review.
+
+- Public positions are `lykoware::physics::DVec3` (three `double`s): body and character positions, ray origins and hit points. Velocities, directions, sizes and rotations stay `float`.
+- `create_body` refuses non-finite positions and velocities.
+- **Bug fixed:** Jolt put kinematic bodies slower than about 6 cm/s to sleep after half a second, which stopped them. Kinematic bodies now never sleep.
+- **New test `physics.far_from_origin`:** the same scene at the origin, 16 km and 64 km ends within a micrometre of the origin scene (measured: identical at 16 km). A 1 mm/s box moves exactly 2 mm in 2 s at every distance, which `float` could not do at 16 km. Hash at 16 km: `0x93590957722d8131`.
+- **Local checks:** 31/31 pass in Debug, ASan/UBSan and clang-tidy; GCC 13 and Clang 18 Release give the same 16 km hash. Passing positions through `float` in the API, or letting kinematic bodies sleep, were each caught.
+- **CI:** pending.
+
 ## Next
 
 Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
