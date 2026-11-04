@@ -74,7 +74,9 @@ Owner: Claude. Branch `claude/vulkan-rhi-5c`, based on `main` at 5ffb8ac. In rev
 - Local checks (Linux, GCC 13, lavapipe, validation on): 23/23 in Debug. The installed sandbox drew 3 frames when run from `/`, and exited 1 naming the file once its shaders were removed.
   - Deliberately removing the format check, and destroying the pipeline before the swapchain, were each caught by validation errors.
 - Not verified: the triangle's pixels in a real window (no swapchain read-back yet), and a desktop window on a real GPU.
-- CI: pending.
+- CI: [run 41747802339](https://github.com/Avrenthrad/lykowareGE/actions/runs/41747802339) on e9fc338 passed all five jobs, about 3 minutes each with the tool cache.
+  - Linux: 23/23 in Debug, ASan/UBSan and clang-tidy. The installed sandbox drew 3 frames on lavapipe.
+  - Windows Debug and Release: 23/23, with `sandbox.missing_shaders` passing and the Vulkan tests Skipped. The install contained `bin/shaders/`, and the installed sandbox exited 3 ("Failed to load Vulkan Portability library"), meaning it found its shaders and stopped only for lack of Vulkan.
 
 ## Next
 

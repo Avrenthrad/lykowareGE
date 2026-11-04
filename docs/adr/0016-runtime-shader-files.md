@@ -70,4 +70,7 @@ Proposed, not accepted by the owner:
 - Deliberate breaks, each caught:
   - removing the format check in `render_draw` made `rhi.swapchain` fail, with VUID-vkCmdDraw-dynamicRenderingUnusedAttachments-08910;
   - destroying the pipeline before the swapchain made `sandbox.vulkan_window` fail, with VUID-vkDestroyPipeline-pipeline-00765.
+- CI: [run 41747802339](https://github.com/Avrenthrad/lykowareGE/actions/runs/41747802339) on e9fc338 passed all five jobs.
+  - Linux: 23/23 in each preset, and the installed sandbox drew 3 frames on lavapipe (also in the sanitizer build).
+  - Windows Debug and Release: `sandbox.missing_shaders` passed; the install contained `bin/shaders/`; the installed sandbox exited 3 for lack of Vulkan, after finding its shaders.
 - Not verified: a visible desktop window on a real GPU. Owner check: run `lykoware_sandbox --window --vulkan` on the RTX 4070 and the MSI Claw. A red, green and blue triangle should sit over a slowly changing background.
