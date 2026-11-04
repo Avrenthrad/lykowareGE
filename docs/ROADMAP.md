@@ -88,7 +88,7 @@ All stages use engine rendering/runtime and the existing shared commands; no ext
 
 Design and implement minimal command dispatch in Phases 0–1. E1 extends it; do not wait until the editor to make runtime tooling promptable.
 
-An editor MCP server that exposes the E1 command bus to agents is a later editor surface. It is not an E1 exit and it is not started. [Lykoware Remaster](#later-lykoware-remaster-personal-use-only) does not begin until that server and the E1 bus both exist.
+An editor MCP server that exposes the E1 command bus to agents is a later editor surface. It is not an E1 exit and it is not started. Lykoware Remaster, in [the later section](#later-lykoware-remaster-personal-use-only), does not begin until that server and the E1 bus both exist.
 
 ## Track C — Built-in content suite
 
