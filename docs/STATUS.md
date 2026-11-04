@@ -85,8 +85,8 @@ Owner: Claude. Branch `claude/nice-mendel-lm4mb0`, stacked on `claude/ecs-core`.
 
 - **Bug:** after 2^32 - 1 reuses of one slot, a physics body or character generation wrapped back to 1. A handle kept from the slot's first use could then match a later object, against ADR 0020's promise.
 - **Fix:** such a slot is retired when freed, not reused, as in the ECS. Nothing changes below that count, so the recorded physics hashes stay the same.
-- **Local checks:** pending.
-- **CI:** pending.
+- **Local checks:** 34/34 pass in GCC 13 Debug. A temporary build whose slots start two generations short of the limit showed the fix retiring the full slot for bodies and characters; the old code handed the slot out again at generation 1. No permanent test: reaching the limit through the API would take hours.
+- **CI:** [run 41817249456](https://github.com/Avrenthrad/lykowareGE/actions/runs/41817249456) on 7126cec passed all five jobs with the recorded physics hashes.
 
 ## Next
 
