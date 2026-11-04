@@ -78,7 +78,7 @@ Owner: Claude. Branch `claude/physics-character`, based on `main` at 346ee0d. In
   - a determinism hash `0xbe1264481a8a8720` (three characters and six crates on rolling terrain; 1 and 4 threads match).
 - **Local checks:** GCC and Clang, Debug and Release, all produce the hash. 28/28 pass in Debug, ASan/UBSan and clang-tidy, and a `-Wshadow` sweep is clean. Ignoring the step height, the slope limit, or using a jump forever were each caught.
 - **Not yet:** bodies pushing characters, character-to-character collision, and a body-count benchmark (spike PR 4, next).
-- **CI:** pending.
+- **CI:** [run 41770820818](https://github.com/Avrenthrad/lykowareGE/actions/runs/41770820818) on 3d40d91 passed all five jobs. `physics.character` reproduced `0xbe1264481a8a8720` on Windows MSVC Debug and Release and on Linux GCC Debug, ASan/UBSan and the clang-tidy build.
 
 ## Next
 
