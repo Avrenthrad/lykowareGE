@@ -21,7 +21,7 @@ Records what is implemented and verified on `main`. Plans live in [ROADMAP.md](R
 | [0015](adr/0015-graphics-pipeline.md) | Proposed (merged; owner has not accepted) | `rhi::Shader`, `rhi::GraphicsPipeline`, `RenderTarget::draw`, `shaderDrawParameters`; sanitizer builds keep Vulkan drivers loaded. |
 | [0016](adr/0016-runtime-shader-files.md) | Proposed (merged; owner has not accepted) | Programs load their compiled shaders from a `shaders` folder beside the executable; the build and `cmake --install` deploy them there. |
 | [0017](adr/0017-clocks-fixed-step.md) | Proposed (merged; owner has not accepted) | Fixed-step simulation clock: 60 ticks a second by default, exact integer accumulator, interpolation alpha for drawing, 250 ms and 8 ticks per frame limits. |
-| [0018](adr/0018-jolt-integration.md) | Proposed (in review) | Jolt built from vendored source with options forced; cross-platform determinism verified by a recorded state hash in every CI job; requires an AVX2 CPU. |
+| [0018](adr/0018-jolt-integration.md) | **Accepted by owner 2026-11-04** (including the AVX2 CPU requirement) | Jolt built from vendored source with options forced; cross-platform determinism verified by a recorded state hash in every CI job; requires an AVX2 CPU. |
 
 ## Verified on main
 
@@ -102,7 +102,7 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 ## Handoff
 
 - State: `main` at 8089b22 contains PRs #2, #4–#20, green on all five jobs ([run 41760436240](https://github.com/Avrenthrad/lykowareGE/actions/runs/41760436240)). The Vulkan RHI bring-up and Phase 1 clocks are complete, and Jolt is accepted.
-- Open decisions for the owner: ADR 0003 (Jolt); accepting or rejecting ADRs 0008–0012 and 0014–0018 (merging did not accept them), including ADR 0018's AVX2 CPU requirement; hardware profiles, multiplayer, world scope and budgets.
+- Open decisions for the owner: ADR 0003 (Jolt); accepting or rejecting ADRs 0008–0012 and 0014–0017 (merging did not accept them); hardware profiles, multiplayer, world scope and budgets.
 - In review: physics spike PR 1 (`claude/physics-spike`, ADR 0018): vendored Jolt v5.6.0 with the owner's local patch, built in all five jobs, with a cross-platform determinism hash. Next concrete action after it merges: the `lykoware::physics` wrapper.
 - Owner check wanted: run `lykoware_sandbox --window --vulkan` on the RTX 4070 desktop and the MSI Claw. With 5c, a red, green and blue triangle over a slowly changing background is expected.
 - Checklist: no box ticked by this update. Phase 1 and the image/performance gate stay open.

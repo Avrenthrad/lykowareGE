@@ -1,6 +1,6 @@
 # ADR 0018 — Building and linking Jolt Physics
 
-Status: Proposed
+Status: **Accepted by owner 2026-11-04**, including the AVX2 CPU requirement.
 Related task/PR: physics spike, PR 1 (branch `claude/physics-spike`), after [ADR 0003](0003-physics.md) was accepted on 2026-11-04.
 Supersedes / superseded by: none. Implements the build side of ADR 0003.
 
@@ -16,7 +16,7 @@ The owner accepted Jolt Physics v5.6.0 with cross-platform determinism, float pr
 
 ## Decision
 
-Proposed, not accepted by the owner:
+Accepted by the owner on 2026-11-04:
 
 - **Vendoring.**
   - Jolt v5.6.0's `Jolt/`, `Build/CMakeLists.txt`, `Build/README.md`, `LICENSE` and `README.md` are vendored under `third_party/jolt`, with provenance and hashes.
