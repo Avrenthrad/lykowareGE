@@ -79,6 +79,15 @@ Owner: Claude. Branch `claude/ecs-core`, based on `main` at f50b9dd. In review.
 - **Local checks:** 34/34 pass in Debug, ASan/UBSan and clang-tidy. Release benchmark: about 4 ns per entity per frame (100,000 entities: 0.39 ms per frame).
 - **CI:** pending.
 
+### Physics handles: retire a slot instead of wrapping its generation
+
+Owner: Claude. Branch `claude/nice-mendel-lm4mb0`, stacked on `claude/ecs-core`. In review.
+
+- **Bug:** after 2^32 - 1 reuses of one slot, a physics body or character generation wrapped back to 1. A handle kept from the slot's first use could then match a later object, against ADR 0020's promise.
+- **Fix:** such a slot is retired when freed, not reused, as in the ECS. Nothing changes below that count, so the recorded physics hashes stay the same.
+- **Local checks:** pending.
+- **CI:** pending.
+
 ## Next
 
 Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
