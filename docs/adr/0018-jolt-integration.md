@@ -78,4 +78,6 @@ Proposed, not accepted by the owner:
   - removing the row swap from Gauss–Jordan failed the permutation and reversed-row checks.
   
   An earlier version of the test used 2×2 matrices for the swap and singular cases. Jolt inverts 2×2 with a closed formula, so those cases never reached Gauss–Jordan; the third break exposed this, and the cases are now 3×3 and 4×4.
-- **CI:** pending. The MSVC jobs are the first Windows check of the recorded hash.
+- **CI:** [run 41762141044](https://github.com/Avrenthrad/lykowareGE/actions/runs/41762141044) on a443f2a passed all five jobs.
+  - `physics.jolt_determinism` reproduced `0x17e8264fc6fa9cd7` on **Windows MSVC Debug and Release**, and on Linux GCC Debug, ASan/UBSan and the clang-tidy build.
+  - With the local GCC and Clang results, the scene is bit-identical across three compilers, two operating systems and Debug and Release builds.
