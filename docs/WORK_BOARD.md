@@ -104,7 +104,7 @@ Use in the task/PR when pausing, completing, or transferring work:
 - Task, branch, commit, PR: Lykoware Remaster proposal; branch `cursor/lykoware-remaster-docs-567c`; pull request https://github.com/Avrenthrad/lykowareGE/pull/22.
 - Completed behavior: the pipeline is described as a separate personal-use tool. It is sequenced after the editor command bus and an MCP server. The Personal Asset Library default path is gitignored. Nothing is implemented.
 - Files/interfaces changed: documentation and `.gitignore` only. No public API and no on-disk schema in the repository.
-- Checks run and actual results: relative links in the edited Markdown resolve. No engine behavior changed, so no new runtime test was added. CI on the pull request is the build check.
+- Checks run and actual results: relative links in the edited Markdown resolve. No engine behavior changed, so no new runtime test was added. Pull-request CI [run 41764809669](https://github.com/Avrenthrad/lykowareGE/actions/runs/41764809669) on `eacdcf6` passed all five jobs (Windows Debug, Windows Release, Linux Debug, Linux ASan/UBSan, Linux clang-tidy). No artifacts were uploaded.
 - Unverified behavior/platforms: no importer, dump, upscale, or command-bus rebuild exists to run.
 - Open decisions and blockers: owner acceptance of ADR 0019; E1 and the MCP server do not exist; legal and security review before any publication of importer code.
 - Next concrete action: leave Remaster unimplemented. The active implementation next step remains the `lykoware::physics` wrapper.
