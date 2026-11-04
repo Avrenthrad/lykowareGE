@@ -125,6 +125,7 @@ public:
     [[nodiscard]] std::size_t size() const { return dense_.size(); }
     [[nodiscard]] std::uint32_t slot_at(std::size_t position) const { return dense_[position]; }
     [[nodiscard]] T& value_at(std::size_t position) { return values_[position]; }
+    [[nodiscard]] const T& value_at(std::size_t position) const { return values_[position]; }
     [[nodiscard]] bool owned_hook() const override { return static_cast<bool>(hook_owner_); }
     [[nodiscard]] bool has_hook() const { return static_cast<bool>(on_remove_); }
     void set_on_remove(std::function<void(Entity, T&)> hook) { on_remove_ = std::move(hook); }
@@ -300,6 +301,26 @@ public:
         }
     }
 
+    // Read-only iteration for render snapshots/inspection; structural changes remain locked.
+    template <class First, class... Rest, class Fn>
+    void each(Fn&& fn) const
+    {
+        const detail::Pool<First>* first = existing_pool<First>();
+        if (first == nullptr || ((existing_pool<Rest>() == nullptr) || ...)) {
+            return;
+        }
+        const IterationGuard guard(iterating_);
+        for (std::size_t position = 0; position < first->size(); ++position) {
+            const std::uint32_t index = first->slot_at(position);
+            const std::tuple<const Rest*...> others{existing_pool<Rest>()->find(index)...};
+            std::apply([&](const Rest*... other) {
+                if (((other != nullptr) && ...)) {
+                    fn(Entity{index, generations_[index], owner_}, first->value_at(position), *other...);
+                }
+            }, others);
+        }
+    }
+
 private:
     struct IterationGuard {
         explicit IterationGuard(std::uint32_t& counter) : counter_(counter) { ++counter_; }
@@ -361,7 +382,7 @@ private:
     std::vector<std::uint32_t> free_;
     std::vector<std::unique_ptr<detail::PoolBase>> pools_;
     std::size_t live_ = 0;
-    std::uint32_t iterating_ = 0;
+    mutable std::uint32_t iterating_ = 0;
 };
 
 

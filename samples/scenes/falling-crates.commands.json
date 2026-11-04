@@ -1,0 +1,53 @@
+{
+  "format": "lykoware.commands",
+  "version": 1,
+  "commands": [
+    {
+      "tick": 10,
+      "sequence": 1,
+      "type": "lykoware.set-velocity@1",
+      "id": "red",
+      "linear": [
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "tick": 30,
+      "sequence": 2,
+      "type": "lykoware.spawn-box@1",
+      "entity": {
+        "id": "gold",
+        "components": {
+          "lykoware.box-body@1": {
+            "position": [
+              0,
+              7,
+              1
+            ],
+            "half_extents": [
+              0.5,
+              0.5,
+              0.5
+            ],
+            "motion": "dynamic"
+          },
+          "lykoware.mesh-renderer@1": {
+            "colour": [
+              0.9,
+              0.65,
+              0.1
+            ]
+          }
+        }
+      }
+    },
+    {
+      "tick": 90,
+      "sequence": 3,
+      "type": "lykoware.destroy@1",
+      "id": "blue"
+    }
+  ]
+}

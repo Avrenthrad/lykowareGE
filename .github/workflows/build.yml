@@ -60,7 +60,7 @@ jobs:
           ./out/windows-${{ matrix.configuration }}/bin/lyko.exe run
           Assert-Exit 0
           ./out/windows-${{ matrix.configuration }}/bin/lyko.exe screenshot
-          Assert-Exit 3
+          Assert-Exit 2
           ./out/windows-${{ matrix.configuration }}/bin/lyko.exe trace
           Assert-Exit 2
           $trace = Join-Path $env:RUNNER_TEMP "lykoware-cpu-trace.json"
@@ -73,7 +73,11 @@ jobs:
           }
           Remove-Item $trace
           ./out/windows-${{ matrix.configuration }}/bin/lyko.exe run --scene
-          Assert-Exit 3
+          Assert-Exit 2
+          ./out/windows-${{ matrix.configuration }}/bin/lyko.exe run --scene samples/scenes/falling-crates.scene.json --commands samples/scenes/falling-crates.commands.json --ticks 120
+          Assert-Exit 0
+          # Parse the Windows-only local measurement runner without executing hardware checks.
+          [scriptblock]::Create((Get-Content -Raw tools/validation/measure-scene.ps1)) | Out-Null
           # The installed sandbox reads its shaders from bin/shaders before any
           # Vulkan work (ADR 0016): exit 1 would mean they were not installed.
           # Hosted Windows runners have no Vulkan, so 3 ("unsupported") is the
@@ -148,9 +152,10 @@ jobs:
               exit 1
             fi
           }
-          expect_exit 3 "$bin" screenshot
+          expect_exit 2 "$bin" screenshot
           expect_exit 2 "$bin" trace
-          expect_exit 3 "$bin" run --scene
+          expect_exit 2 "$bin" run --scene
+          "$bin" run --scene samples/scenes/falling-crates.scene.json --commands samples/scenes/falling-crates.commands.json --ticks 120
           trace="$(mktemp)"
           expect_exit 0 "$bin" trace --frames 2 --output "$trace"
           if ! grep -F -q '"name":"sandbox.frame"' "$trace"; then

@@ -212,6 +212,19 @@ if(BUILD_TESTING)
     set_tests_properties(math.types PROPERTIES TIMEOUT 60)
 
     # The entity-component system (ADR 0023). Links only the engine.
+    add_test(NAME scene.cli_capture COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_SOURCE_DIR}/tests/scene_capture.py" "$<TARGET_FILE:lyko>"
+        "${CMAKE_SOURCE_DIR}/samples/scenes" "${CMAKE_BINARY_DIR}/test-output/scene-cli")
+    set_tests_properties(scene.cli_capture PROPERTIES TIMEOUT 240 SKIP_RETURN_CODE 77)
+
+    add_executable(lykoware_scene_replay_test tests/scene_replay.cpp)
+    target_link_libraries(lykoware_scene_replay_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_scene_replay_test)
+    add_test(NAME scene.replay COMMAND lykoware_scene_replay_test
+        "${CMAKE_SOURCE_DIR}/samples/scenes/falling-crates.scene.json"
+        "${CMAKE_SOURCE_DIR}/samples/scenes/falling-crates.commands.json")
+    set_tests_properties(scene.replay PROPERTIES TIMEOUT 120)
+
     add_executable(lykoware_ecs_test tests/ecs.cpp)
     target_link_libraries(lykoware_ecs_test PRIVATE lykoware::engine)
     lykoware_configure_target(lykoware_ecs_test)

@@ -1,4 +1,5 @@
 #include "commands.hpp"
+#include "scene_command.hpp"
 
 #include "lyko_sandbox_path.hpp"
 #include "process.hpp"
@@ -59,7 +60,9 @@ void usage()
                  "run launches lykoware_sandbox.\n"
                  "trace --frames N records that many sandbox CPU-loop iterations.\n"
                  "The default trace file is lykoware-cpu-trace.json in the current directory.\n"
-                 "run --scene and screenshot are unsupported: no renderer.\n";
+                 "run --scene FILE [--commands FILE] [--ticks N] [--capture FILE] [--report FILE]\n"
+                 "screenshot --scene FILE --output FILE [--ticks N]\n"
+                 "Scene options: --measure-frames N --warmup N --width N --height N.\n";
 }
 
 std::uint64_t parse_frames(std::string_view text)
@@ -78,12 +81,6 @@ std::uint64_t parse_frames(std::string_view text)
             + std::to_string(lykoware::cpu_trace_frame_limit) + ".");
     }
     return value;
-}
-
-int unsupported(std::string_view command)
-{
-    std::cerr << "lyko: unsupported: no renderer (" << command << ").\n";
-    return lykoware::cli::exit_unsupported;
 }
 
 std::string tool_path(const std::string& value)
@@ -224,7 +221,7 @@ int run_command(std::string_view program, std::span<const std::string> arguments
     }
     for (const std::string& argument : arguments) {
         if (argument == "--scene" || argument.starts_with("--scene=")) {
-            return unsupported("run --scene");
+            return lykoware::cli::scene_command(arguments, false);
         }
     }
     if (!arguments.empty()) {
@@ -239,9 +236,9 @@ int run_command(std::string_view program, std::span<const std::string> arguments
     return lykoware::cli::run_process(path_to_utf8(sandbox), {}, std::filesystem::current_path());
 }
 
-int screenshot_command(std::string_view, std::span<const std::string>)
+int screenshot_command(std::string_view, std::span<const std::string> arguments)
 {
-    return unsupported("screenshot");
+    return lykoware::cli::scene_command(arguments, true);
 }
 
 int trace_command(std::string_view program, std::span<const std::string> arguments)

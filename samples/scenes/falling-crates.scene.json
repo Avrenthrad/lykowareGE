@@ -1,0 +1,125 @@
+{
+  "format": "lykoware.scene",
+  "version": 1,
+  "camera": {
+    "eye": [
+      0,
+      4,
+      10
+    ],
+    "target": [
+      0,
+      1,
+      0
+    ],
+    "up": [
+      0,
+      1,
+      0
+    ],
+    "vertical_fov": 1.0471976,
+    "near": 0.1
+  },
+  "entities": [
+    {
+      "id": "ground",
+      "components": {
+        "lykoware.box-body@1": {
+          "position": [
+            0,
+            -0.5,
+            0
+          ],
+          "half_extents": [
+            10,
+            0.5,
+            10
+          ],
+          "motion": "static"
+        },
+        "lykoware.mesh-renderer@1": {
+          "colour": [
+            0.45,
+            0.45,
+            0.45
+          ]
+        }
+      }
+    },
+    {
+      "id": "red",
+      "components": {
+        "lykoware.box-body@1": {
+          "position": [
+            -2,
+            3,
+            0
+          ],
+          "half_extents": [
+            0.5,
+            0.5,
+            0.5
+          ],
+          "motion": "dynamic"
+        },
+        "lykoware.mesh-renderer@1": {
+          "colour": [
+            0.9,
+            0.1,
+            0.1
+          ]
+        }
+      }
+    },
+    {
+      "id": "green",
+      "components": {
+        "lykoware.box-body@1": {
+          "position": [
+            0,
+            4,
+            0
+          ],
+          "half_extents": [
+            0.5,
+            0.5,
+            0.5
+          ],
+          "motion": "dynamic"
+        },
+        "lykoware.mesh-renderer@1": {
+          "colour": [
+            0.1,
+            0.8,
+            0.1
+          ]
+        }
+      }
+    },
+    {
+      "id": "blue",
+      "components": {
+        "lykoware.box-body@1": {
+          "position": [
+            2,
+            5,
+            0
+          ],
+          "half_extents": [
+            0.5,
+            0.5,
+            0.5
+          ],
+          "motion": "dynamic"
+        },
+        "lykoware.mesh-renderer@1": {
+          "colour": [
+            0.1,
+            0.2,
+            0.9
+          ]
+        }
+      }
+    }
+  ]
+}

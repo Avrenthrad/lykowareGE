@@ -25,7 +25,7 @@ private:
 };
 
 // Limits for FixedStep. The defaults suit a game on the proposed desktop
-// (60 FPS) and handheld (30 FPS) targets: 60 simulation ticks a second
+// targets: 60 simulation ticks a second
 // whatever the frame rate (ADR 0017).
 struct FixedStepConfig {
     // Simulation ticks per second: 1 to max_ticks_per_second.
