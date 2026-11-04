@@ -10,6 +10,7 @@ add_library(lykoware_engine STATIC
     src/paths.cpp
     src/physics.cpp
     src/physics_ecs.cpp
+    src/render.cpp
     src/trace.cpp
     src/image.cpp
     src/input.cpp

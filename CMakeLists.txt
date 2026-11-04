@@ -106,9 +106,9 @@ if(BUILD_TESTING)
         ENTRY vertexMain STAGE vertex NAME triangle.vert)
     lykoware_compile_shader(triangle_frag_spv SOURCE tests/shaders/triangle.slang
         ENTRY fragmentMain STAGE fragment NAME triangle.frag)
-    lykoware_compile_shader(lit_vert_spv SOURCE tests/shaders/lit.slang
+    lykoware_compile_shader(lit_vert_spv SOURCE engine/shaders/lit.slang
         ENTRY vertexMain STAGE vertex NAME lit.vert)
-    lykoware_compile_shader(lit_frag_spv SOURCE tests/shaders/lit.slang
+    lykoware_compile_shader(lit_frag_spv SOURCE engine/shaders/lit.slang
         ENTRY fragmentMain STAGE fragment NAME lit.frag)
     add_custom_target(lykoware_test_shaders ALL DEPENDS "${triangle_vert_spv}" "${triangle_frag_spv}"
         "${lit_vert_spv}" "${lit_frag_spv}")
@@ -149,6 +149,15 @@ if(BUILD_TESTING)
             "${CMAKE_CURRENT_BINARY_DIR}/rhi-mesh")
     set_tests_properties(rhi.mesh PROPERTIES TIMEOUT 60 SKIP_RETURN_CODE 77)
 
+    # The falling-crates milestone: physics, ECS and the renderer together (ADR 0026).
+    add_executable(lykoware_render_scene_test tests/render_scene.cpp)
+    target_link_libraries(lykoware_render_scene_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_render_scene_test)
+    add_dependencies(lykoware_render_scene_test lykoware_test_shaders)
+    add_test(NAME render.scene
+        COMMAND lykoware_render_scene_test "${lit_vert_spv}" "${lit_frag_spv}" "${CMAKE_CURRENT_BINARY_DIR}/render-scene")
+    set_tests_properties(render.scene PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
+
     # The sandbox's Vulkan window on the headless offscreen driver: it loads
     # its deployed shaders and draws the triangle. The sandbox exits 3
     # ("unsupported") without a usable Vulkan device, which CTest reports as
@@ -174,7 +183,7 @@ if(BUILD_TESTING)
         # reports; leaks in Lykoware code are still caught (ADR 0015 records the
         # deliberate-leak check).
         set_property(TEST rhi.instance rhi.instance.no_driver rhi.device rhi.render_target rhi.swapchain
-                          sandbox.vulkan_window rhi.pipeline rhi.mesh
+                          sandbox.vulkan_window rhi.pipeline rhi.mesh render.scene
             APPEND PROPERTY ENVIRONMENT "VK_LOADER_DISABLE_DYNAMIC_LIBRARY_UNLOADING=1")
     endif()
 
