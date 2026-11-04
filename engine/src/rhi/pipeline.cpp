@@ -147,6 +147,9 @@ struct GraphicsPipeline::Impl {
     VkPipelineLayout layout = VK_NULL_HANDLE;
     VkPipeline pipeline = VK_NULL_HANDLE;
     ColorFormat format = ColorFormat::Rgba8Unorm;
+    VertexLayout vertex_layout = VertexLayout::None;
+    bool depth = false;
+    std::uint32_t push_constant_bytes = 0;
 };
 
 GraphicsPipeline::GraphicsPipeline(std::unique_ptr<Impl> impl)
@@ -174,13 +177,30 @@ std::unique_ptr<GraphicsPipeline> GraphicsPipeline::create(
         }
     }
 
+    if (desc.push_constant_bytes > push_constant_max_bytes || desc.push_constant_bytes % 4 != 0) {
+        fail(error, RhiFailure::InvalidArgument,
+             "push_constant_bytes must be a multiple of 4 from 0 to " + std::to_string(push_constant_max_bytes));
+        return nullptr;
+    }
+
     auto impl = std::make_unique<Impl>();
     impl->device = &device;
     impl->format = desc.color_format;
+    impl->vertex_layout = desc.vertex_layout;
+    impl->depth = desc.depth;
+    impl->push_constant_bytes = desc.push_constant_bytes;
     const VkDevice vk_device = DeviceAccess::device(device);
 
+    VkPushConstantRange push_range{};
+    push_range.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+    push_range.offset = 0;
+    push_range.size = desc.push_constant_bytes;
     VkPipelineLayoutCreateInfo layout_info{};
     layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    if (desc.push_constant_bytes > 0) {
+        layout_info.pushConstantRangeCount = 1;
+        layout_info.pPushConstantRanges = &push_range;
+    }
     VkResult result = vkCreatePipelineLayout(vk_device, &layout_info, nullptr, &impl->layout);
     if (result != VK_SUCCESS) {
         impl->layout = VK_NULL_HANDLE;
@@ -197,8 +217,27 @@ std::unique_ptr<GraphicsPipeline> GraphicsPipeline::create(
         stages[index].pName = shader_entry_point;
     }
 
+    VkVertexInputBindingDescription binding{};
+    binding.binding = 0;
+    binding.stride = position_normal_stride;
+    binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    VkVertexInputAttributeDescription attributes[2]{};
+    attributes[0].location = 0;
+    attributes[0].binding = 0;
+    attributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+    attributes[0].offset = 0;
+    attributes[1].location = 1;
+    attributes[1].binding = 0;
+    attributes[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+    attributes[1].offset = 12;
     VkPipelineVertexInputStateCreateInfo vertex_input{};
     vertex_input.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    if (desc.vertex_layout == VertexLayout::PositionNormal) {
+        vertex_input.vertexBindingDescriptionCount = 1;
+        vertex_input.pVertexBindingDescriptions = &binding;
+        vertex_input.vertexAttributeDescriptionCount = 2;
+        vertex_input.pVertexAttributeDescriptions = attributes;
+    }
     VkPipelineInputAssemblyStateCreateInfo assembly{};
     assembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
     assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
@@ -209,7 +248,11 @@ std::unique_ptr<GraphicsPipeline> GraphicsPipeline::create(
     VkPipelineRasterizationStateCreateInfo raster{};
     raster.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
     raster.polygonMode = VK_POLYGON_MODE_FILL;
-    raster.cullMode = VK_CULL_MODE_NONE;
+    raster.cullMode = desc.cull_back_faces ? VK_CULL_MODE_BACK_BIT : VK_CULL_MODE_NONE;
+    // Vulkan judges winding in framebuffer space (Y down) as the image is seen.
+    // math::perspective flips Y so the image is upright, not mirrored, so a
+    // triangle counter-clockwise as seen by the camera stays counter-clockwise.
+    // rhi.mesh checks this with culling on.
     raster.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     raster.lineWidth = 1.0F;
     VkPipelineMultisampleStateCreateInfo multisample{};
@@ -228,11 +271,18 @@ std::unique_ptr<GraphicsPipeline> GraphicsPipeline::create(
     dynamic.dynamicStateCount = 2;
     dynamic.pDynamicStates = dynamic_states;
 
+    VkPipelineDepthStencilStateCreateInfo depth{};
+    depth.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    depth.depthTestEnable = desc.depth ? VK_TRUE : VK_FALSE;
+    depth.depthWriteEnable = desc.depth ? VK_TRUE : VK_FALSE;
+    depth.depthCompareOp = VK_COMPARE_OP_GREATER; // reversed depth: nearer is larger
+
     const VkFormat format = detail::vk_format(desc.color_format);
     VkPipelineRenderingCreateInfo rendering{};
     rendering.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
     rendering.colorAttachmentCount = 1;
     rendering.pColorAttachmentFormats = &format;
+    rendering.depthAttachmentFormat = desc.depth ? detail::depth_format : VK_FORMAT_UNDEFINED;
 
     VkGraphicsPipelineCreateInfo info{};
     info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -245,6 +295,7 @@ std::unique_ptr<GraphicsPipeline> GraphicsPipeline::create(
     info.pRasterizationState = &raster;
     info.pMultisampleState = &multisample;
     info.pColorBlendState = &blend;
+    info.pDepthStencilState = &depth;
     info.pDynamicState = &dynamic;
     info.layout = impl->layout;
     result = vkCreateGraphicsPipelines(vk_device, VK_NULL_HANDLE, 1, &info, nullptr, &impl->pipeline);
@@ -261,9 +312,29 @@ ColorFormat GraphicsPipeline::color_format() const
     return impl_->format;
 }
 
+VertexLayout GraphicsPipeline::vertex_layout() const
+{
+    return impl_->vertex_layout;
+}
+
+bool GraphicsPipeline::depth() const
+{
+    return impl_->depth;
+}
+
+std::uint32_t GraphicsPipeline::push_constant_bytes() const
+{
+    return impl_->push_constant_bytes;
+}
+
 void* GraphicsPipeline::native_handle() const
 {
     return static_cast<void*>(impl_->pipeline);
+}
+
+void* GraphicsPipeline::native_layout() const
+{
+    return static_cast<void*>(impl_->layout);
 }
 
 }

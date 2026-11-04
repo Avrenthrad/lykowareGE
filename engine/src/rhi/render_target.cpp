@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace lykoware::rhi {
 namespace {
@@ -35,6 +36,12 @@ struct RenderTarget::Impl {
         if (view != VK_NULL_HANDLE) {
             vkDestroyImageView(DeviceAccess::device(*device), view, nullptr);
         }
+        if (depth_view != VK_NULL_HANDLE) {
+            vkDestroyImageView(DeviceAccess::device(*device), depth_view, nullptr);
+        }
+        if (depth_image != VK_NULL_HANDLE) {
+            vmaDestroyImage(DeviceAccess::allocator(*device), depth_image, depth_allocation);
+        }
         if (image != VK_NULL_HANDLE) {
             vmaDestroyImage(DeviceAccess::allocator(*device), image, image_allocation);
         }
@@ -49,6 +56,9 @@ struct RenderTarget::Impl {
     VkImage image = VK_NULL_HANDLE;
     VmaAllocation image_allocation = VK_NULL_HANDLE;
     VkImageView view = VK_NULL_HANDLE;
+    VkImage depth_image = VK_NULL_HANDLE;
+    VmaAllocation depth_allocation = VK_NULL_HANDLE;
+    VkImageView depth_view = VK_NULL_HANDLE;
     VkBuffer buffer = VK_NULL_HANDLE;
     VmaAllocation buffer_allocation = VK_NULL_HANDLE;
     void* mapped = nullptr;
@@ -123,6 +133,36 @@ std::unique_ptr<RenderTarget> RenderTarget::create(const Device& device, const R
         return nullptr;
     }
 
+    if (desc.depth) {
+        VkFormatProperties format_properties{};
+        vkGetPhysicalDeviceFormatProperties(static_cast<VkPhysicalDevice>(device.native_physical_device()),
+                                            detail::depth_format, &format_properties);
+        if ((format_properties.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) == 0) {
+            fail(error, RhiFailure::DriverError, "the device cannot render 32-bit float depth");
+            return nullptr;
+        }
+        VkImageCreateInfo depth_info = image_info;
+        depth_info.format = detail::depth_format;
+        depth_info.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+        result = vmaCreateImage(allocator, &depth_info, &image_allocation_info, &impl->depth_image,
+                                &impl->depth_allocation, nullptr);
+        if (result != VK_SUCCESS) {
+            impl->depth_image = VK_NULL_HANDLE;
+            fail(error, RhiFailure::DriverError, driver_failure("vmaCreateImage (depth)", result));
+            return nullptr;
+        }
+        VkImageViewCreateInfo depth_view_info = view_info;
+        depth_view_info.image = impl->depth_image;
+        depth_view_info.format = detail::depth_format;
+        depth_view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+        result = vkCreateImageView(DeviceAccess::device(device), &depth_view_info, nullptr, &impl->depth_view);
+        if (result != VK_SUCCESS) {
+            impl->depth_view = VK_NULL_HANDLE;
+            fail(error, RhiFailure::DriverError, driver_failure("vkCreateImageView (depth)", result));
+            return nullptr;
+        }
+    }
+
     VkBufferCreateInfo buffer_info{};
     buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     buffer_info.size = static_cast<VkDeviceSize>(desc.width) * desc.height * bytes_per_texel;
@@ -178,6 +218,81 @@ bool RenderTarget::draw(const ClearColor& clear, const GraphicsPipeline& pipelin
                     "the pipeline targets a different colour format than this render target");
     }
     return render(clear, static_cast<VkPipeline>(pipeline.native_handle()), vertex_count, error);
+}
+
+bool RenderTarget::has_depth() const
+{
+    return impl_->depth_view != VK_NULL_HANDLE;
+}
+
+bool RenderTarget::draw_meshes(const ClearColor& clear, const GraphicsPipeline& pipeline,
+                               std::span<const MeshDraw> meshes, RhiError& error)
+{
+    error = {};
+    if (pipeline.color_format() != color_format()) {
+        return fail(error, RhiFailure::InvalidArgument,
+                    "the pipeline targets a different colour format than this render target");
+    }
+    if (pipeline.vertex_layout() != VertexLayout::PositionNormal) {
+        return fail(error, RhiFailure::InvalidArgument, "drawing meshes needs a pipeline with a PositionNormal vertex layout");
+    }
+    if (pipeline.depth() && !has_depth()) {
+        return fail(error, RhiFailure::InvalidArgument, "the pipeline uses depth but this render target has none");
+    }
+    std::vector<detail::PreparedDraw> draws;
+    draws.reserve(meshes.size());
+    for (std::size_t index = 0; index < meshes.size(); ++index) {
+        const MeshDraw& mesh = meshes[index];
+        const std::string which = "mesh " + std::to_string(index) + ": ";
+        if (mesh.vertices == nullptr || mesh.vertices->usage() != BufferUsage::Vertex) {
+            return fail(error, RhiFailure::InvalidArgument, which + "needs a vertex buffer");
+        }
+        if (mesh.indices == nullptr || mesh.indices->usage() != BufferUsage::Index) {
+            return fail(error, RhiFailure::InvalidArgument, which + "needs an index buffer");
+        }
+        const std::size_t available = mesh.indices->size_bytes() / sizeof(std::uint32_t);
+        const std::size_t count = mesh.index_count == 0 ? available : mesh.index_count;
+        if (count == 0 || count % 3 != 0 || count > available) {
+            return fail(error, RhiFailure::InvalidArgument,
+                        which + "the index count must be a non-zero multiple of 3 within the index buffer");
+        }
+        const std::size_t vertex_count = mesh.vertices->size_bytes() / position_normal_stride;
+        if (mesh.indices->max_index() >= vertex_count) {
+            return fail(error, RhiFailure::InvalidArgument, which + "an index reaches past the last vertex");
+        }
+        if (mesh.push_constants.size() != pipeline.push_constant_bytes()) {
+            return fail(error, RhiFailure::InvalidArgument,
+                        which + "push constants must be exactly " + std::to_string(pipeline.push_constant_bytes())
+                            + " bytes for this pipeline");
+        }
+        draws.push_back({static_cast<VkBuffer>(mesh.vertices->native_handle()),
+                         static_cast<VkBuffer>(mesh.indices->native_handle()), static_cast<std::uint32_t>(count),
+                         mesh.push_constants.data(), static_cast<std::uint32_t>(mesh.push_constants.size())});
+    }
+
+    Impl& impl = *impl_;
+    const VkImageView depth_view = pipeline.depth() ? impl.depth_view : VK_NULL_HANDLE;
+    const auto vk_pipeline = static_cast<VkPipeline>(pipeline.native_handle());
+    const auto vk_layout = static_cast<VkPipelineLayout>(pipeline.native_layout());
+    const bool ok = DeviceAccess::submit_and_wait(*impl.device, [&](VkCommandBuffer commands) {
+        image_barrier(commands, impl.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                      VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_ACCESS_2_NONE,
+                      VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT);
+        if (depth_view != VK_NULL_HANDLE) {
+            detail::depth_barrier(commands, impl.depth_image);
+        }
+        const float rgba[4] = {clear.r, clear.g, clear.b, clear.a};
+        detail::record_mesh_pass(commands, impl.view, depth_view, {impl.width, impl.height}, rgba, vk_pipeline,
+                                 vk_layout, draws.data(), draws.size());
+    }, error);
+    if (!ok) {
+        impl.rendered = false;
+        impl.layout = VK_IMAGE_LAYOUT_UNDEFINED;
+        return false;
+    }
+    impl.rendered = true;
+    impl.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    return true;
 }
 
 bool RenderTarget::render(const ClearColor& color, void* pipeline_handle, std::uint32_t vertex_count,
