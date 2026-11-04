@@ -22,7 +22,8 @@ Records what is implemented and verified on `main`. Plans live in [ROADMAP.md](R
 | [0016](adr/0016-runtime-shader-files.md) | Proposed (merged; owner has not accepted) | Programs load their compiled shaders from a `shaders` folder beside the executable; the build and `cmake --install` deploy them there. |
 | [0017](adr/0017-clocks-fixed-step.md) | Proposed (merged; owner has not accepted) | Fixed-step simulation clock: 60 ticks a second by default, exact integer accumulator, interpolation alpha for drawing, 250 ms and 8 ticks per frame limits. |
 | [0018](adr/0018-jolt-integration.md) | **Accepted by owner 2026-11-04** (including the AVX2 CPU requirement) | Jolt built from vendored source with options forced; cross-platform determinism verified by a recorded state hash in every CI job; requires an AVX2 CPU. |
-| [0020](adr/0020-physics-api.md) | Proposed (merged; owner has not accepted; spike PR 3 extends it) | `lykoware::physics::World`: stable generation-checked body handles, box/sphere/capsule bodies, per-tick stepping, ray casts, defined failure for misuse; no Jolt types in public headers. |
+| [0020](adr/0020-physics-api.md) | **Accepted by owner 2026-11-04** | `lykoware::physics::World`: stable generation-checked body and character handles, box/sphere/capsule/height-field bodies, walking characters, per-tick stepping, ray casts, step memory that overflows to the heap, defined failure for misuse; no Jolt types in public headers. |
+| [0021](adr/0021-product-targets.md) | **Accepted by owner 2026-11-04** | Desktop PC only; the MSI Claw is no longer a target. RTX 4070 recommended at 1440p and 60 FPS, with a weaker minimum (about RTX 3060 / RX 6600, set by measurement). 16 GB RAM minimum. Single-player first, built co-op-ready (deterministic, command-driven). One seamless world of 16 km or more; positions in double precision now. |
 
 ## Verified on main
 
@@ -52,24 +53,23 @@ The five CI jobs are Windows x64 Debug and Release, Linux Debug, Linux ASan/UBSa
 | Jolt licence and fit review; owner accepted ADR 0003 (docs) | [PR #20](https://github.com/Avrenthrad/lykowareGE/pull/20), merge 8089b22 | `main` run [41760436240](https://github.com/Avrenthrad/lykowareGE/actions/runs/41760436240) passed all five jobs |
 | Physics spike 1: vendored Jolt v5.6.0 with the two *Numerical Recipes*-derived functions replaced; built with cross-platform determinism; determinism hash identical on MSVC, GCC and Clang | [PR #21](https://github.com/Avrenthrad/lykowareGE/pull/21), merge b5a19a6 | PR run [41762141044](https://github.com/Avrenthrad/lykowareGE/actions/runs/41762141044); `main` run [41763671709](https://github.com/Avrenthrad/lykowareGE/actions/runs/41763671709) passed all five jobs |
 | Physics spike 2: `lykoware::physics::World`, generation-checked handles, basic shapes, per-tick stepping, ray casts, defined misuse behaviour | [PR #23](https://github.com/Avrenthrad/lykowareGE/pull/23), merge 346ee0d | PR run [41765080887](https://github.com/Avrenthrad/lykowareGE/actions/runs/41765080887) |
-| Physics spike 3: height-field terrain; walking characters that jump, step up ledges and are held back by steep slopes; determinism hash identical on MSVC, GCC and Clang | [PR #24](https://github.com/Avrenthrad/lykowareGE/pull/24), merge 6a955c6 | PR run [41770820818](https://github.com/Avrenthrad/lykowareGE/actions/runs/41770820818) passed all five jobs |
+| Physics spike 3: height-field terrain; walking characters that jump, step up ledges and are held back by steep slopes; determinism hash identical on MSVC, GCC and Clang | [PR #24](https://github.com/Avrenthrad/lykowareGE/pull/24), merge 6a955c6 | PR run [41770820818](https://github.com/Avrenthrad/lykowareGE/actions/runs/41770820818) passed all five jobs; `main` run [41776019225](https://github.com/Avrenthrad/lykowareGE/actions/runs/41776019225) passed all five jobs |
+| Physics spike 4: body-count benchmark (`perf.physics_bodies_256`, `perf.physics_bodies_1024`); step memory overflows to the heap instead of aborting | [PR #25](https://github.com/Avrenthrad/lykowareGE/pull/25), merge b5c75ed | PR run [41771495786](https://github.com/Avrenthrad/lykowareGE/actions/runs/41771495786); `main` run [41776131190](https://github.com/Avrenthrad/lykowareGE/actions/runs/41776131190) passed all five jobs |
 
-CTest on `main` (28 tests): `trace.api`, `clock.fixed_step`, `physics.jolt_math`, `physics.jolt_determinism`, `physics.world`, `physics.character`, `image.harness.api`, `image.harness.golden_pass`, `image.harness.golden_fail`, `input.mapping`, `window.lifecycle`, `perf.sandbox_startup`, `perf.cpu_fixture`, `perf.budget_rejects_overrun`, `perf.budget_accepts_within`, `foundation.smoke`, `cli.commands`, `cli.integration`, `rhi.instance`, `rhi.instance.no_driver`, `rhi.device`, `rhi.render_target`, `rhi.swapchain`, `sandbox.vulkan_window`, `shaders.spirv_valid`, `shaders.spirv_valid_fragment`, `rhi.pipeline`, `sandbox.missing_shaders`. The `rhi.*` and `sandbox.vulkan_window` tests run on lavapipe in Linux CI and report Skipped on the Windows runners, which have no Vulkan.
+CTest on `main` (30 tests): `trace.api`, `clock.fixed_step`, `physics.jolt_math`, `physics.jolt_determinism`, `physics.world`, `physics.character`, `image.harness.api`, `image.harness.golden_pass`, `image.harness.golden_fail`, `input.mapping`, `window.lifecycle`, `perf.sandbox_startup`, `perf.cpu_fixture`, `perf.budget_rejects_overrun`, `perf.budget_accepts_within`, `perf.physics_bodies_256`, `perf.physics_bodies_1024`, `foundation.smoke`, `cli.commands`, `cli.integration`, `rhi.instance`, `rhi.instance.no_driver`, `rhi.device`, `rhi.render_target`, `rhi.swapchain`, `sandbox.vulkan_window`, `shaders.spirv_valid`, `shaders.spirv_valid_fragment`, `rhi.pipeline`, `sandbox.missing_shaders`. The `rhi.*` and `sandbox.vulkan_window` tests run on lavapipe in Linux CI and report Skipped on the Windows runners, which have no Vulkan.
 
 Per-PR detail (local checks, failures found and fixed, mutation checks) is in each pull request and in ADRs 0009–0018.
 
 ## Current development task
 
-### Physics spike, PR 4: body-count benchmark and step-memory fix
+### Product targets (owner's step 4) and accepting ADR 0020
 
-Owner: Claude. Branch `claude/physics-benchmark`, now based on `main` after #24. In review as [#25](https://github.com/Avrenthrad/lykowareGE/pull/25).
+Owner: Claude (documentation of the owner's answers). Branch `claude/product-targets`. In review.
 
-- **Bug fixed:** Jolt's plain step allocator called `std::abort()` when a step needed more scratch memory than reserved (4096 colliding boxes need more than the default 16 MiB). The world now uses Jolt's heap-fallback allocator: a big scene is slower, not fatal. `step_memory_bytes` must be from 64 KiB to 1 GiB.
-- **Regression test** in `physics.world`: 300 boxes with only 64 KiB reserved step 60 ticks. The old allocator aborted here (exit 134).
-- **Benchmark:** `lykoware_physics_benchmark`, run by CTest as `perf.physics_bodies_256` and `perf.physics_bodies_1024` (300 ticks; fails over 250 ms mean per step, if a step fails, or if a box falls through the ground). Provisional and CPU-only; not a hardware profile.
-- **Local numbers** (4 threads, GCC 13 Release, ms per step): 1024 boxes mean 0.72, worst 4.06; 4096 boxes mean 9.86, worst 27.84. Full table in [PERFORMANCE.md](PERFORMANCE.md).
-- **Local checks:** 30/30 pass in Debug, ASan/UBSan and clang-tidy; physics hashes unchanged; `-Wshadow` sweep clean. Putting the old allocator back aborted the regression test.
-- **CI:** [run 41771495786](https://github.com/Avrenthrad/lykowareGE/actions/runs/41771495786) on d58e187 passed all five jobs. CTest does not print a passing test's output, so the runners' per-step numbers are not in the logs; each test's total time (setup plus 300 steps) bounds them. For 1024 boxes: Windows Release 0.27 s (under 0.9 ms per step), Windows Debug 7.9 s (under 27 ms), Linux ASan/UBSan 12.4 s (under 42 ms).
+- [ADR 0021](adr/0021-product-targets.md) records the owner's answers of 2026-11-04: desktop PC only; RTX 4070 recommended at 1440p and 60 FPS with a weaker minimum; 16 GB RAM; single-player built co-op-ready; one seamless world of 16 km or more; double-precision positions now.
+- The owner accepted ADR 0020 (the physics API).
+- PERFORMANCE.md, ROADMAP, ENGINE_VISION and the brief no longer name the MSI Claw.
+- Next: the double-precision spike (ADR 0022).
 
 ## Next
 
@@ -77,8 +77,9 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 
 1. Vulkan RHI bring-up: done (#11–#18). Instance, device, offscreen render target read back into the image harness, swapchain, build-time Slang shaders, graphics pipelines, and the triangle offscreen and in the sandbox window.
 2. Phase 1 clocks and fixed-step update loop: done (#19, ADR 0017).
-3. Physics: Jolt accepted (ADR 0003) and vendored (#21, ADR 0018). The `lykoware::physics` API is merged (#23). Spike PR 3 (terrain and characters) is merged (#24). Spike PR 4 (body-count benchmark and step-memory fix, #25) is in review; it finishes the spike.
-4. Agree hardware profiles (RTX 4070 desktop, MSI Claw), multiplayer intent, world scope and budgets. Owner's current leaning on multiplayer: co-op later or MMO, undecided. This is not a commitment.
+3. Physics: Jolt accepted (ADR 0003) and vendored (#21, ADR 0018). The `lykoware::physics` API is merged (#23). Terrain and characters (#24) and the body-count benchmark (#25) are merged; the spike is done. The owner accepted ADR 0020 on 2026-11-04.
+4. Hardware profiles, multiplayer intent, world scope and budgets: decided on 2026-11-04 (ADR 0021). Desktop PC only, RTX 4070 recommended at 1440p60, 16 GB RAM, single-player built co-op-ready, a 16 km+ world, double-precision positions.
+5. Physics positions in double precision (ADR 0022 spike), then the rest of Phase 1: ECS, 3D rendering, scene loading, screenshots, command bus and replay, audio.
 
 ## Known issues and limitations
 
@@ -86,7 +87,7 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 - GPU tests skip (exit 77, CTest "Skipped") where no Vulkan loader or driver is installed. Hosted Windows runners may skip them; a skip is not a pass.
 - `lyko run` launches the console sandbox. `lyko screenshot` and `lyko run --scene` print `unsupported: no renderer` and exit 3. `lyko trace --frames N` is a CPU trace of the sandbox loop, not a GPU capture.
 - The image harness compares a software test pattern with committed PPM fixtures, and Vulkan clears read back from a render target. Neither is a scene screenshot or the image/performance gate; `lyko screenshot` still exits 3.
-- Provisional CPU budgets apply only to the hosted windows-2022 and ubuntu-24.04 runners. They are not an RTX 4070 or MSI Claw gate.
+- Provisional CPU budgets apply only to the hosted windows-2022 and ubuntu-24.04 runners. They are not an RTX 4070 gate.
 - Window: a real Win32/X11/Wayland desktop window, focus changes and a real Vulkan surface are untested in CI. A Linux desktop window needs X11 or Wayland headers at configure time. A newly adopted gamepad starts with released buttons and centred axes until it reports a change.
 - Vendored runtime sources: SDL 3.4.18 (HIDAPI inside it under the BSD-style licence, not GPL), Vulkan-Headers C headers (MIT option), volk (MIT) and Vulkan Memory Allocator 3.4.0 (MIT). Vendored build-time tools, not shipped: Slang (Apache-2.0 WITH LLVM-exception, one owner-accepted Unlicense file), SPIRV-Tools and SPIRV-Headers. See [third_party/README.md](../third_party/README.md).
 - The first configure on a machine builds the shader tools, which takes about 15 extra minutes once per tool version. CI keeps them in the free Actions cache.
@@ -97,10 +98,10 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 
 ## Handoff
 
-- State: `main` at 6a955c6 contains PRs #2, #4–#21, #23 and #24. The Vulkan RHI bring-up and Phase 1 clocks are complete; Jolt is vendored behind the `lykoware::physics` API, with cross-platform determinism verified on MSVC, GCC and Clang.
-- Open decisions for the owner: ADR 0003 (Jolt); accepting or rejecting ADRs 0008–0012, 0014–0017 and 0020 (merging did not accept them); hardware profiles, multiplayer, world scope and budgets.
-- In review: physics spike PR 4 ([#25](https://github.com/Avrenthrad/lykowareGE/pull/25), `claude/physics-benchmark`): body-count benchmark and the step-memory fix. Next concrete action: the owner's step 4 (hardware profiles, multiplayer, world scope and budgets), then the rest of Phase 1 (ECS, 3D rendering, scene loading, screenshots, command bus and replay, audio).
-- Owner check wanted: run `lykoware_sandbox --window --vulkan` on the RTX 4070 desktop and the MSI Claw. With 5c, a red, green and blue triangle over a slowly changing background is expected.
+- State: `main` at b5c75ed contains PRs #2, #4–#21 and #23–#25. The Vulkan RHI bring-up, Phase 1 clocks and the physics spike are complete; Jolt is vendored behind the `lykoware::physics` API, with cross-platform determinism verified on MSVC, GCC and Clang.
+- Open decisions for the owner: accepting or rejecting ADRs 0008–0012 and 0014–0017 (merging did not accept them); the working assumptions in ADR 0021 (2–4 player co-op, 6-core CPU, 8 GB VRAM at minimum settings, camera-relative rendering); Cursor's #22 (ADR 0019).
+- In review: `claude/product-targets` (ADR 0021 and accepting ADR 0020). Next concrete action: the double-precision spike (ADR 0022): Jolt with `DOUBLE_PRECISION` on, new determinism hashes in all five jobs, then `double` positions in the physics API with a 16 km test. Then the rest of Phase 1 (ECS, 3D rendering, scene loading, screenshots, command bus and replay, audio).
+- Owner check wanted: run `lykoware_sandbox --window --vulkan` on the RTX 4070 desktop. With 5c, a red, green and blue triangle over a slowly changing background is expected.
 - Checklist: no box ticked by this update. Phase 1 and the image/performance gate stay open.
 
 Read [WORK_BOARD.md](WORK_BOARD.md), [CLI.md](CLI.md), [ROADMAP.md](ROADMAP.md) and the [ADRs](adr/README.md). Check latest `main` and open PRs before starting. Update this file with exact commits, checks, failures and next actions.

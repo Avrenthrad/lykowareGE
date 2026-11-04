@@ -1,17 +1,21 @@
 # Performance and validation contract
 
-Status: desktop and handheld budgets below remain proposals for owner review, not measured device guarantees. Provisional CPU-only CTest checks, including a physics body-count benchmark, are active for the pinned hosted runners windows-2022 and ubuntu-24.04. They are not a hardware profile, not a frame-time or memory gate, and they do not satisfy the image/performance-gate checklist item.
+Status: the desktop budgets below remain proposals for owner review, not measured device guarantees. Provisional CPU-only CTest checks, including a physics body-count benchmark, are active for the pinned hosted runners windows-2022 and ubuntu-24.04. They are not a hardware profile, not a frame-time or memory gate, and they do not satisfy the image/performance-gate checklist item.
 
 ## Proposed profiles
 
-| Metric | RTX 4070 desktop proposal | MSI Claw proposal |
-| --- | --- | --- |
-| Sustained gameplay target | 60 FPS (16.67 ms/frame) | 30 FPS (33.33 ms/frame) |
-| p99 frame time | At most 1.5 times target frame interval | At most 1.5 times target frame interval |
-| Traversal stalls | No frame over 100 ms in a warmed 10-minute fixture | Same fixture with handheld quality tier |
-| Unit test scenario | 256 active simulated units | Same rules; quality/AI update tiers may differ |
+Owner decisions ([ADR 0021](adr/0021-product-targets.md), 2026-11-04): desktop PC only; the MSI Claw is no longer a target. The RTX 4070 is the recommended PC at 1440p and 60 FPS. A weaker minimum PC (about RTX 3060 / RX 6600 class, set by measurement) runs with lower settings. 16 GB of system RAM is the minimum.
 
-Exact MSI Claw model, CPU/RAM/VRAM/shared-memory limits, TDP, OS/driver, resolution, quality tiers, world/traversal workload and story-state size remain unconfirmed. GPU memory, streaming bandwidth and inference budgets must be selected before their phase gates can pass. Desktop and handheld parity means coherent gameplay, not identical settings or local LLM throughput.
+| Metric | Recommended: RTX 4070, 1440p | Minimum: about RTX 3060 / RX 6600 |
+| --- | --- | --- |
+| Sustained gameplay target | 60 FPS (16.67 ms/frame) | 60 FPS at lower settings (proposal) |
+| p99 frame time | At most 1.5 times target frame interval | Same |
+| Traversal stalls | No frame over 100 ms in a warmed 10-minute fixture | Same fixture at minimum settings |
+| Unit test scenario | 256 active simulated units | Same rules; quality and AI update tiers may differ |
+| System RAM | Game and local AI within about 10–12 GB of a 16 GB machine | Same |
+| VRAM | 12 GB card | Minimum settings within 8 GB (proposal) |
+
+Desktop CPU (proposed: 6 cores, 12 threads, AVX2), the exact minimum GPU, OS and driver versions, world and traversal workload, and story-state size remain unconfirmed. GPU memory, streaming bandwidth and inference budgets must be selected before their phase gates can pass. Desktop and handheld parity means coherent gameplay, not identical settings or local LLM throughput.
 
 ## Measurement method
 

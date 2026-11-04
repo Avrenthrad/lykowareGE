@@ -56,7 +56,7 @@ Inspired by GTA/RAGE + Euphoria: physics-driven animation, foot IK on uneven ter
 ## 8. Performance
 - Aim for zero stutter: shaders compiled ahead of time to SPIR-V, plus device/driver-keyed pipeline caches (ADR 0002), asynchronous loading and bounded workloads. Use measured hardware-specific frame/hitch budgets in [PERFORMANCE.md](PERFORMANCE.md), not a universal guarantee.
 - Strict frame pacing.
-- Scale from MSI Claw handheld (Intel Arc) to RTX 4070 desktop.
+- Desktop PC: RTX 4070 recommended at 1440p60, with a weaker minimum. The MSI Claw handheld was dropped as a target on 2026-11-04 ([ADR 0021](adr/0021-product-targets.md)).
 - Seamless world streaming, no loading screens.
 - ECS data-driven core handling hundreds of units.
 - Seamless first/third-person/RTS camera switching.

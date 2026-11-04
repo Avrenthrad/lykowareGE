@@ -1,6 +1,6 @@
 # ADR 0020 — The Lykoware physics API
 
-Status: Proposed
+Status: **Accepted by owner 2026-11-04**, as merged in #23–#25. Positions move to double precision in a follow-up spike (ADR 0022, planned), as [ADR 0021](0021-product-targets.md) decides.
 Related task/PR: physics spike, PR 2 (merged as [#23](https://github.com/Avrenthrad/lykowareGE/pull/23)); extended by spike PR 3 (branch `claude/physics-character`) with terrain and characters, and by spike PR 4 (branch `claude/physics-benchmark`) with step memory that overflows to the heap and a body-count benchmark.
 Numbered 0020 because a concurrent documentation proposal ([#22](https://github.com/Avrenthrad/lykowareGE/pull/22)) claimed 0019 first.
 Supersedes / superseded by: none. Builds on [ADR 0003](0003-physics.md), [ADR 0017](0017-clocks-fixed-step.md) and [ADR 0018](0018-jolt-integration.md).
@@ -17,7 +17,7 @@ ADR 0003 requires that no third-party physics type crosses into game or tool cod
 
 ## Decision
 
-Proposed, not accepted by the owner:
+Accepted by the owner on 2026-11-04:
 
 - **`lykoware::physics::World`** (`engine/include/lykoware/physics.hpp`) owns one Jolt physics system and all its bodies. Jolt is linked privately into the engine, and only `engine/src/physics.cpp` includes it.
 - **Stable handles.** `BodyId` is `{index, generation}` into a Lykoware slot table.

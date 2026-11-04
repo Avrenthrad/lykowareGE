@@ -5,7 +5,7 @@
 Canonical implementation status: [STATUS.md](STATUS.md).
 Canonical plan: [ROADMAP.md](ROADMAP.md).
 
-`main` at 346ee0d contains PRs #2, #4–#21 and #23. Details and CI evidence: [STATUS.md](STATUS.md). Earlier per-task entries on this board were removed once merged; they remain in the pull requests and git history.
+`main` at b5c75ed contains PRs #2, #4–#21 and #23–#25. Details and CI evidence: [STATUS.md](STATUS.md). Earlier per-task entries on this board were removed once merged; they remain in the pull requests and git history.
 Owner-supplied vision is captured in [ENGINE_VISION.md](ENGINE_VISION.md).
 
 Owner rules for every task: small stacked PRs; commit small and often; keep all five CI jobs green; record each decision as an ADR; keep STATUS handoff-ready after every task; Joshua merges; no regenerable generated files in commits; artifact upload stays opt-in and no storage or service is bought; no roadmap box ticked unless truly done.
@@ -14,17 +14,19 @@ Check latest main and open PRs before starting. Documents do not automatically s
 
 ## Active task
 
-Physics spike (ADR 0003 accepted 2026-11-04; build in ADR 0018). Owner: Claude. Status: PRs 1 and 2 merged (#21, #23); PR 3 merged (#24); PR 4 in review as #25 on `claude/physics-benchmark`.
+Double-precision positions (ADR 0021 decided; ADR 0022 to record the build). Owner: Claude. Status: starting after the ADR 0021 docs PR.
 
-- Objective: Jolt Physics running deterministically inside the engine, behind a Lykoware API, with the evidence ADR 0003 asks for.
+- Objective: physics positions accurate to well under a millimetre anywhere in a 16 km+ world, still bit-identical across MSVC, GCC and Clang.
 - Planned PRs, in order:
-  1. (Merged, #21.) Vendor Jolt v5.6.0 with the two *Numerical Recipes*-derived headers replaced; build it in all five jobs with options forced; tests for the replacements and a cross-platform determinism hash.
-  2. (Merged, #23, ADR 0020.) `lykoware::physics` wrapper: Jolt setup, stable body handles, create/destroy, stepping once per `FixedStep` tick, ray casts, invalid-handle and repeated-cleanup tests; no Jolt types in public headers.
-  3. (Merged, #24.) Height-field terrain and a character capsule that walks, jumps, steps up ledges and is held back by steep slopes.
-  4. (In review, #25.) A first body-count benchmark on the hosted runners (`perf.physics_bodies_256` and `_1024`), labelled as not a hardware profile. It found that Jolt's plain step allocator aborts when a step needs more memory than reserved; the world now falls back to the heap.
-- Shared interfaces/formats affected: PR 2 adds the public physics API. PR 1 adds none (tests use Jolt directly).
-- Acceptance checks: all five CI jobs green; the same state hash in every job; no vendored warnings promoted; nothing downloaded.
-- Assumptions and decisions needed: ADR 0018 (including AVX2) was accepted on 2026-11-04. ADR 0020 (the API shape) is Proposed.
+  1. Build Jolt with `DOUBLE_PRECISION` on; convert inside `physics.cpp`; the public API is unchanged. New determinism hashes must match in all five jobs; the benchmark is re-run.
+  2. Public positions become `double` (bodies, characters, ray origins and hit points); a test shows bodies and characters 16 km from the origin behave like ones at the origin.
+- Shared interfaces/formats affected: PR 2 changes `lykoware::physics` position types.
+- Acceptance checks: all five CI jobs green; the same hashes in every job; the benchmark stays within its limit.
+- Assumptions and decisions needed: ADR 0022 starts Proposed; the owner accepted the direction in ADR 0021.
+
+## Completed task: physics spike
+
+Owner: Claude. Done: #21, #23, #24 and #25 merged. Jolt v5.6.0 vendored with cross-platform determinism (ADR 0018); the `lykoware::physics` API (ADR 0020, accepted by the owner on 2026-11-04) with bodies, height-field terrain and walking characters; a body-count benchmark that also found and fixed a step-memory abort. Details and CI runs are in [STATUS.md](STATUS.md).
 
 ## Completed task: physics decision (ADR 0003)
 
@@ -90,4 +92,4 @@ Use in the task/PR when pausing, completing, or transferring work:
 
 ## Suggested next task
 
-Owner order, set 2026-11-02: (1) Vulkan RHI bring-up, now done; (2) Phase 1 clocks and fixed-step update, now done; (3) decide Jolt in ADR 0003 before any physics, now decided, with the spike as the active task above; (4) agree hardware profiles (RTX 4070 desktop, MSI Claw), multiplayer intent, world scope and budgets. Leave ADR 0008 Proposed until the owner accepts it. No full editor or content suite work before the roadmap gates.
+Owner order, set 2026-11-02: (1) Vulkan RHI bring-up, now done; (2) Phase 1 clocks and fixed-step update, now done; (3) decide Jolt in ADR 0003 before any physics, now decided, with the spike as the active task above; (4) agree hardware profiles, multiplayer intent, world scope and budgets, now decided in ADR 0021 (desktop only, RTX 4070 recommended at 1440p60, 16 GB RAM, single-player built co-op-ready, 16 km+ world, double precision). Leave ADR 0008 Proposed until the owner accepts it. No full editor or content suite work before the roadmap gates.
