@@ -2,7 +2,7 @@
 
 Status: **Accepted by owner 2026-11-04**, including the AVX2 CPU requirement.
 Related task/PR: physics spike, PR 1 (branch `claude/physics-spike`), after [ADR 0003](0003-physics.md) was accepted on 2026-11-04.
-Supersedes / superseded by: none. Implements the build side of ADR 0003.
+Supersedes / superseded by: superseded in part by [ADR 0022](0022-double-precision-positions.md), which turns on `DOUBLE_PRECISION` (owner decision in [ADR 0021](0021-product-targets.md)). Implements the build side of ADR 0003.
 
 ## Context
 

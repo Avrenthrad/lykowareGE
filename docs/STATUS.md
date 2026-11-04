@@ -24,6 +24,7 @@ Records what is implemented and verified on `main`. Plans live in [ROADMAP.md](R
 | [0018](adr/0018-jolt-integration.md) | **Accepted by owner 2026-11-04** (including the AVX2 CPU requirement) | Jolt built from vendored source with options forced; cross-platform determinism verified by a recorded state hash in every CI job; requires an AVX2 CPU. |
 | [0020](adr/0020-physics-api.md) | **Accepted by owner 2026-11-04** | `lykoware::physics::World`: stable generation-checked body and character handles, box/sphere/capsule/height-field bodies, walking characters, per-tick stepping, ray casts, step memory that overflows to the heap, defined failure for misuse; no Jolt types in public headers. |
 | [0021](adr/0021-product-targets.md) | **Accepted by owner 2026-11-04** | Desktop PC only; the MSI Claw is no longer a target. RTX 4070 recommended at 1440p and 60 FPS, with a weaker minimum (about RTX 3060 / RX 6600, set by measurement). 16 GB RAM minimum. Single-player first, built co-op-ready (deterministic, command-driven). One seamless world of 16 km or more; positions in double precision now. |
+| [0022](adr/0022-double-precision-positions.md) | Proposed (owner chose the direction in ADR 0021) | Jolt built with `DOUBLE_PRECISION` on; physics state hashes cover all 64 bits of every position; public positions become `double` in the spike's second PR. |
 
 ## Verified on main
 
@@ -70,6 +71,16 @@ Owner: Claude (documentation of the owner's answers). Branch `claude/product-tar
 - The owner accepted ADR 0020 (the physics API).
 - PERFORMANCE.md, ROADMAP, ENGINE_VISION and the brief no longer name the MSI Claw.
 - Next: the double-precision spike (ADR 0022).
+
+### Double-precision spike, PR 1: Jolt in double precision
+
+Owner: Claude. Branch `claude/physics-double`, stacked on `claude/product-targets`. In review.
+
+- `cmake/VendorJolt.cmake` forces `DOUBLE_PRECISION ON`. Only `engine/src/physics.cpp` changes; the public API keeps `float` positions until PR 2.
+- The physics state hashes now cover all 64 bits of every position. New recorded hashes: `physics.jolt_determinism` `0x3ae5ee6746df5bad`, `physics.world` `0x38077780cc770c57`, `physics.character` `0x4879cae68e652c53`.
+- **Local checks:** GCC 13 Debug and Release and Clang 18 Debug and Release all produce the three new hashes. 30/30 pass in Debug, ASan/UBSan and clang-tidy.
+- **Cost:** the benchmark is about 10–15% slower with many contacts (1024 boxes in Release: 0.72 → about 0.82 ms per step). Details in ADR 0022.
+- **CI:** [run 41786685034](https://github.com/Avrenthrad/lykowareGE/actions/runs/41786685034) on a5230ab passed all five jobs, so MSVC Debug and Release reproduce the three new hashes.
 
 ## Next
 

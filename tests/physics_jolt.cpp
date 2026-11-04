@@ -335,7 +335,7 @@ public:
     }
 };
 
-// FNV-1a over the exact bits of every float.
+// FNV-1a over the exact bits of every float and double.
 class StateHash {
 public:
     void add(float value)
@@ -345,14 +345,22 @@ public:
             hash_ = (hash_ ^ ((bits >> shift) & 0xFFU)) * 0x100000001b3ULL;
         }
     }
+    void add(double value)
+    {
+        const auto bits = std::bit_cast<std::uint64_t>(value);
+        for (int shift = 0; shift < 64; shift += 8) {
+            hash_ = (hash_ ^ ((bits >> shift) & 0xFFU)) * 0x100000001b3ULL;
+        }
+    }
     [[nodiscard]] std::uint64_t value() const { return hash_; }
 
 private:
     std::uint64_t hash_ = 0xcbf29ce484222325ULL;
 };
 
-// The value every build must produce (cross-platform determinism, ADR 0003).
-constexpr std::uint64_t expected_hash = 0x17e8264fc6fa9cd7ULL;
+// The value every build must produce (cross-platform determinism, ADR 0003). Changed from
+// 0x17e8264fc6fa9cd7 when positions became double precision (ADR 0022).
+constexpr std::uint64_t expected_hash = 0x3ae5ee6746df5badULL;
 
 constexpr int total_ticks = 300;
 constexpr int save_tick = 150;
@@ -420,7 +428,7 @@ public:
             const JPH::Vec3 linear = bodies.GetLinearVelocity(id);
             const JPH::Vec3 angular = bodies.GetAngularVelocity(id);
             for (int i = 0; i < 3; ++i) {
-                hash.add(static_cast<float>(position[i]));
+                hash.add(static_cast<double>(position[i])); // all 64 bits (ADR 0022)
                 hash.add(linear[i]);
                 hash.add(angular[i]);
             }

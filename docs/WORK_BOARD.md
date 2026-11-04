@@ -14,7 +14,7 @@ Check latest main and open PRs before starting. Documents do not automatically s
 
 ## Active task
 
-Double-precision positions (ADR 0021 decided; ADR 0022 to record the build). Owner: Claude. Status: starting after the ADR 0021 docs PR.
+Double-precision positions (ADR 0021 decided; ADR 0022 to record the build). Owner: Claude. Status: PR 1 in review on `claude/physics-double`, stacked on `claude/product-targets` (#26).
 
 - Objective: physics positions accurate to well under a millimetre anywhere in a 16 km+ world, still bit-identical across MSVC, GCC and Clang.
 - Planned PRs, in order:

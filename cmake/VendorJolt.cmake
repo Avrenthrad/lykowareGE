@@ -4,9 +4,10 @@
 # are not promoted to errors (it is vendored code, like SDL).
 
 function(lykoware_add_jolt)
-    # Owner decisions in ADR 0003: cross-platform determinism on, float precision.
+    # Owner decisions: cross-platform determinism on (ADR 0003); positions in double precision
+    # for a world of 16 km or more (ADR 0021, ADR 0022).
     set(CROSS_PLATFORM_DETERMINISTIC ON CACHE BOOL "Same physics results on every compiler, OS and CPU" FORCE)
-    set(DOUBLE_PRECISION OFF CACHE BOOL "Float precision until the world-scope decision" FORCE)
+    set(DOUBLE_PRECISION ON CACHE BOOL "Double-precision positions for a 16 km+ world" FORCE)
 
     # Build integration: a static library compiled with the same runtime as the engine.
     set(JPH_BUILD_SHARED_LIBS OFF CACHE BOOL "Lykoware links Jolt statically" FORCE)

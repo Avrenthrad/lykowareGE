@@ -256,7 +256,8 @@ void test_limits_and_cleanup()
 
 // --- determinism --------------------------------------------------------------------------
 
-constexpr std::uint64_t expected_hash = 0x84f90a3cbf37a28bULL;
+// Changed from 0x84f90a3cbf37a28b when positions became double precision (ADR 0022).
+constexpr std::uint64_t expected_hash = 0x38077780cc770c57ULL;
 
 void build_scene(physics::World& world)
 {

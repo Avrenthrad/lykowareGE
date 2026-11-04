@@ -296,7 +296,8 @@ void test_misuse()
 
 // --- determinism --------------------------------------------------------------------------
 
-constexpr std::uint64_t expected_hash = 0xbe1264481a8a8720ULL;
+// Changed from 0xbe1264481a8a8720 when positions became double precision (ADR 0022).
+constexpr std::uint64_t expected_hash = 0x4879cae68e652c53ULL;
 
 std::uint64_t run_scene(std::uint32_t workers)
 {
