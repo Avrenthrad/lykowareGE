@@ -78,17 +78,44 @@ private:
     std::unique_ptr<Impl> impl_;
 };
 
+// How vertices reach the vertex shader.
+enum class VertexLayout {
+    // No vertex buffer: the vertex shader makes its own vertices.
+    None,
+    // One vertex buffer of 24-byte vertices: float3 position at location 0,
+    // float3 normal at location 1 (ADR 0025).
+    PositionNormal,
+};
+
+// Size in bytes of one VertexLayout::PositionNormal vertex.
+inline constexpr std::uint32_t position_normal_stride = 24;
+
+// Largest push-constant block, the size every Vulkan device guarantees.
+inline constexpr std::uint32_t push_constant_max_bytes = 128;
+
 struct GraphicsPipelineDesc {
     const Shader* vertex = nullptr;
     const Shader* fragment = nullptr;
     // Format of the single colour attachment the pipeline renders into.
     ColorFormat color_format = ColorFormat::Rgba8Unorm;
+    VertexLayout vertex_layout = VertexLayout::None;
+    // Depth test and write against a 32-bit float depth buffer with reversed
+    // depth (math::perspective): nearer is larger, the buffer clears to 0
+    // and a fragment passes when its depth is greater. The target must have
+    // a depth buffer.
+    bool depth = false;
+    // Discard triangles facing away from the camera. Front faces wind
+    // counter-clockwise as seen by the camera (right-handed, ADR 0024).
+    bool cull_back_faces = false;
+    // Bytes of push constants the shaders read, 0..push_constant_max_bytes,
+    // a multiple of 4; visible to both stages.
+    std::uint32_t push_constant_bytes = 0;
 };
 
 // A graphics pipeline for dynamic rendering: one colour attachment, triangle
-// lists, no vertex buffers (vertices come from the vertex shader), no
-// culling, no blending, no depth, dynamic viewport and scissor. Later RHI
-// changes add vertex input, descriptors, depth and blending.
+// lists, no blending, dynamic viewport and scissor; vertex input, depth,
+// culling and push constants as the desc says. Later RHI changes add
+// descriptors (textures) and blending.
 //
 // Ownership: create() returns the sole owner of the pipeline and its
 // (empty) pipeline layout. Copy and move are not provided.
@@ -99,7 +126,8 @@ struct GraphicsPipelineDesc {
 // Threading: create and destroy on the Device's thread.
 //
 // Failure: returns nullptr and fills error. A missing shader or a shader of
-// the wrong stage is InvalidArgument; driver refusals are DriverError.
+// the wrong stage, or push_constant_bytes out of range or not a multiple of
+// 4, is InvalidArgument; driver refusals are DriverError.
 class GraphicsPipeline {
 public:
     [[nodiscard]] static std::unique_ptr<GraphicsPipeline> create(
@@ -112,8 +140,13 @@ public:
     GraphicsPipeline& operator=(GraphicsPipeline&&) = delete;
 
     [[nodiscard]] ColorFormat color_format() const;
+    [[nodiscard]] VertexLayout vertex_layout() const;
+    [[nodiscard]] bool depth() const;
+    [[nodiscard]] std::uint32_t push_constant_bytes() const;
     // VkPipeline as an opaque pointer for other RHI code.
     [[nodiscard]] void* native_handle() const;
+    // VkPipelineLayout as an opaque pointer for other RHI code.
+    [[nodiscard]] void* native_layout() const;
 
 private:
     struct Impl;

@@ -1,6 +1,11 @@
 #include <lykoware/clock.hpp>
+#include <lykoware/ecs.hpp>
 #include <lykoware/log.hpp>
+#include <lykoware/math.hpp>
 #include <lykoware/paths.hpp>
+#include <lykoware/physics.hpp>
+#include <lykoware/physics_ecs.hpp>
+#include <lykoware/render.hpp>
 #include <lykoware/rhi/device.hpp>
 #include <lykoware/rhi/instance.hpp>
 #include <lykoware/rhi/pipeline.hpp>
@@ -134,10 +139,10 @@ struct WindowOptions {
     std::uint64_t frames = 0;
 };
 
-// The sandbox's SPIR-V, deployed by the build and by cmake --install into
-// the "shaders" folder beside the executable (ADR 0016).
-constexpr const char* vertex_shader_file = "sandbox_triangle.vert.spv";
-constexpr const char* fragment_shader_file = "sandbox_triangle.frag.spv";
+// The engine's lit shader compiled for the sandbox, deployed by the build and
+// by cmake --install into the "shaders" folder beside the executable (ADR 0016).
+constexpr const char* vertex_shader_file = "sandbox_lit.vert.spv";
+constexpr const char* fragment_shader_file = "sandbox_lit.frag.spv";
 
 struct ShaderWords {
     std::vector<std::uint32_t> vertex;
@@ -172,8 +177,79 @@ bool unavailable(lykoware::rhi::RhiFailure failure)
         || failure == RhiFailure::NoSuitableDevice;
 }
 
-// Draws the sandbox triangle over a slowly cycling clear colour through the
-// RHI swapchain.
+// The falling-crates scene (ADR 0026): a grey ground and a grid of coloured crates. Physics
+// moves the crate entities and the renderer draws every entity with a Transform and a
+// MeshRenderer.
+class CrateScene {
+public:
+    static constexpr int grid = 5;
+    // Seconds between drops: then every crate is removed and a new set falls.
+    static constexpr double seconds_per_drop = 8.0;
+
+    explicit CrateScene(lykoware::physics::World& physics)
+        : link_(entities_, physics)
+    {
+        lykoware::physics::BodyDesc ground;
+        ground.shape = lykoware::physics::BoxShape{{12.F, 0.5F, 12.F}};
+        ground.motion = lykoware::physics::MotionType::Static;
+        ground.position = {0.0, -0.5, 0.0};
+        const lykoware::ecs::Entity entity = entities_.create();
+        std::string error;
+        link_.add_body(entity, ground, error);
+        entities_.add<lykoware::render::MeshRenderer>(
+            entity, lykoware::render::MeshRenderer{lykoware::render::MeshShape::Cube, {24.F, 1.F, 24.F}, {0.45F, 0.45F, 0.45F}});
+        drop();
+    }
+
+    // Advances one fixed tick; every seconds_per_drop the crates are replaced.
+    void tick(float seconds)
+    {
+        link_.step(seconds);
+        elapsed_ += seconds;
+        if (elapsed_ >= seconds_per_drop) {
+            elapsed_ = 0.0;
+            for (const lykoware::ecs::Entity crate : crates_) {
+                entities_.destroy(crate); // the link destroys each crate's physics body too
+            }
+            crates_.clear();
+            drop();
+        }
+    }
+
+    lykoware::ecs::World& entities() { return entities_; }
+
+private:
+    void drop()
+    {
+        constexpr lykoware::math::Vec3 palette[] = {
+            {0.85F, 0.25F, 0.2F}, {0.2F, 0.7F, 0.3F}, {0.2F, 0.4F, 0.85F}, {0.9F, 0.75F, 0.2F}, {0.7F, 0.3F, 0.8F}};
+        std::string error;
+        for (int row = 0; row < grid; ++row) {
+            for (int column = 0; column < grid; ++column) {
+                lykoware::physics::BodyDesc crate;
+                crate.shape = lykoware::physics::BoxShape{{0.5F, 0.5F, 0.5F}};
+                crate.position = {(column - grid / 2) * 1.6, 4.0 + 1.3 * row + 0.4 * column, (row - grid / 2) * 1.6};
+                // A small turn about a tilted axis so the crates tumble as they land.
+                crate.rotation = lykoware::math::from_axis_angle({1.F, 0.F, 1.F}, 0.15F * static_cast<float>(row - column));
+                const lykoware::ecs::Entity entity = entities_.create();
+                if (link_.add_body(entity, crate, error)) {
+                    entities_.add<lykoware::render::MeshRenderer>(
+                        entity, lykoware::render::MeshRenderer{lykoware::render::MeshShape::Cube, {1.F, 1.F, 1.F},
+                                                               palette[(row + column) % 5]});
+                    crates_.push_back(entity);
+                }
+            }
+        }
+    }
+
+    // The ECS world before the link; the physics world outlives both (ADR 0023).
+    lykoware::ecs::World entities_;
+    lykoware::physics_ecs::Link link_;
+    std::vector<lykoware::ecs::Entity> crates_;
+    double elapsed_ = 0.0;
+};
+
+// Draws the falling-crates scene through the RHI swapchain.
 int present_loop(lykoware::Window& window, const WindowOptions& options, const ShaderWords& shaders)
 {
     lykoware::rhi::InstanceConfig instance_config;
@@ -195,47 +271,40 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
         lykoware::log(lykoware::LogLevel::error, "Vulkan device: " + error.message);
         return unavailable(error.failure) ? exit_unsupported : EXIT_FAILURE;
     }
-    auto swapchain = lykoware::rhi::Swapchain::create(*instance, *device, window, {}, error);
+    lykoware::rhi::SwapchainConfig swapchain_config;
+    swapchain_config.depth = true;
+    auto swapchain = lykoware::rhi::Swapchain::create(*instance, *device, window, swapchain_config, error);
     if (!swapchain) {
         lykoware::log(lykoware::LogLevel::error, "Vulkan swapchain: " + error.message);
         return unavailable(error.failure) ? exit_unsupported : EXIT_FAILURE;
     }
-
-    std::unique_ptr<lykoware::rhi::GraphicsPipeline> pipeline;
-    {
-        // Shader modules are needed only while the pipeline is created.
-        using lykoware::rhi::Shader;
-        using lykoware::rhi::ShaderStage;
-        const auto vertex = Shader::load(*device, shaders.vertex, ShaderStage::Vertex, error);
-        const auto fragment = vertex ? Shader::load(*device, shaders.fragment, ShaderStage::Fragment, error) : nullptr;
-        if (!vertex || !fragment) {
-            lykoware::log(lykoware::LogLevel::error, "Vulkan shader: " + error.message);
-            return EXIT_FAILURE;
-        }
-        lykoware::rhi::GraphicsPipelineDesc desc;
-        desc.vertex = vertex.get();
-        desc.fragment = fragment.get();
-        desc.color_format = swapchain->color_format();
-        pipeline = lykoware::rhi::GraphicsPipeline::create(*device, desc, error);
-        if (!pipeline) {
-            lykoware::log(lykoware::LogLevel::error, "Vulkan pipeline: " + error.message);
-            return EXIT_FAILURE;
-        }
+    auto renderer = lykoware::render::Renderer::create(*device, swapchain->color_format(), shaders.vertex,
+                                                       shaders.fragment, error);
+    if (!renderer) {
+        lykoware::log(lykoware::LogLevel::error, "Renderer: " + error.message);
+        return EXIT_FAILURE;
     }
     lykoware::log(lykoware::LogLevel::info, "Drawing with Vulkan on " + device->info().name + ".");
 
-    // The sample simulation: the background colour's phase, advanced only in
-    // fixed 60 Hz ticks (ADR 0017), so it changes at the same speed at any
-    // frame rate. Each frame draws a blend of the last two ticks' states.
+    std::string physics_error;
+    auto physics = lykoware::physics::World::create({}, physics_error);
+    if (!physics) {
+        lykoware::log(lykoware::LogLevel::error, "Physics: " + physics_error);
+        return EXIT_FAILURE;
+    }
+    auto scene = std::make_unique<CrateScene>(*physics);
+    const lykoware::render::Camera camera{{0.0, 7.0, 15.0}, {0.0, 1.5, 0.0}};
+    const lykoware::rhi::ClearColor sky{0.45F, 0.6F, 0.8F, 1.F};
+
+    // The simulation advances only in fixed 60 Hz ticks (ADR 0017), so the crates fall at the
+    // same speed at any frame rate. Frames show the latest tick; smoothing between ticks
+    // (interpolation) comes later.
     std::string clock_error;
     std::optional<lykoware::FixedStep> simulation = lykoware::FixedStep::create({}, clock_error);
     if (!simulation) {
         lykoware::log(lykoware::LogLevel::error, "Simulation clock: " + clock_error);
         return EXIT_FAILURE;
     }
-    constexpr double phase_per_second = 1.2;
-    double previous_phase = 0.0;
-    double phase = 0.0;
     lykoware::FrameClock frame_clock;
 
     bool ok = true;
@@ -243,13 +312,9 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
     while (window.pump()) {
         const lykoware::FrameSteps steps = simulation->advance(frame_clock.lap());
         for (std::uint32_t tick = 0; tick < steps.ticks; ++tick) {
-            previous_phase = phase;
-            phase += phase_per_second * simulation->tick_seconds();
+            scene->tick(static_cast<float>(simulation->tick_seconds()));
         }
-        const auto shown = static_cast<float>(previous_phase + (phase - previous_phase) * steps.alpha);
-        const lykoware::rhi::ClearColor color{0.5F + 0.5F * std::sin(shown), 0.5F + 0.5F * std::sin(shown + 2.1F),
-                                              0.5F + 0.5F * std::sin(shown + 4.2F), 1.F};
-        if (!swapchain->render_draw(color, *pipeline, 3, error)) {
+        if (!renderer->draw(scene->entities(), camera, *swapchain, sky, error)) {
             lykoware::log(lykoware::LogLevel::error, "Vulkan frame: " + error.message);
             ok = false;
             break;
@@ -260,17 +325,20 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
         }
     }
     const std::uint64_t presented = swapchain->frames_presented();
-    // The swapchain destructor waits for the GPU, so the pipeline is idle
-    // when it is destroyed next.
+    const std::size_t drawn = renderer->last_draw_count();
+    // The swapchain destructor waits for the GPU, so the renderer's pipeline
+    // and buffers are idle when they are destroyed next.
     swapchain.reset();
-    pipeline.reset();
+    renderer.reset();
+    scene.reset();
     device.reset();
     if (!ok) {
         return EXIT_FAILURE;
     }
     lykoware::log(lykoware::LogLevel::info,
-                  "Presented " + std::to_string(presented) + " frames; ran " + std::to_string(simulation->tick())
-                      + " simulation ticks at " + std::to_string(simulation->ticks_per_second()) + " Hz.");
+                  "Presented " + std::to_string(presented) + " frames of " + std::to_string(drawn)
+                      + " objects; ran " + std::to_string(simulation->tick()) + " simulation ticks at "
+                      + std::to_string(simulation->ticks_per_second()) + " Hz.");
     if (simulation->total_dropped_ns() > 0) {
         lykoware::log(lykoware::LogLevel::warning,
                       "The simulation fell behind and dropped "

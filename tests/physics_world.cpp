@@ -36,11 +36,6 @@ bool close_to(double a, double b, double tolerance)
     return std::fabs(a - b) <= tolerance;
 }
 
-float length(physics::Vec3 v)
-{
-    return std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
-}
-
 std::string hex(std::uint64_t value)
 {
     char text[19];
@@ -124,7 +119,7 @@ void test_rest_and_rays()
     expect(rest.has_value(), "the sphere has a state");
     if (rest) {
         expect(close_to(rest->position.y, 0.5F, 0.05F), "the sphere comes to rest on the ground");
-        expect(length(rest->linear_velocity) < 0.05F, "the resting sphere is still");
+        expect(lykoware::math::length(rest->linear_velocity) < 0.05F, "the resting sphere is still");
     }
 
     const auto down = world->cast_ray({0.F, 10.F, 0.F}, {0.F, -20.F, 0.F});
