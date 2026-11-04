@@ -22,6 +22,7 @@ Records what is implemented and verified on `main`. Plans live in [ROADMAP.md](R
 | [0016](adr/0016-runtime-shader-files.md) | Proposed (merged; owner has not accepted) | Programs load their compiled shaders from a `shaders` folder beside the executable; the build and `cmake --install` deploy them there. |
 | [0017](adr/0017-clocks-fixed-step.md) | Proposed (merged; owner has not accepted) | Fixed-step simulation clock: 60 ticks a second by default, exact integer accumulator, interpolation alpha for drawing, 250 ms and 8 ticks per frame limits. |
 | [0018](adr/0018-jolt-integration.md) | **Accepted by owner 2026-11-04** (including the AVX2 CPU requirement) | Jolt built from vendored source with options forced; cross-platform determinism verified by a recorded state hash in every CI job; requires an AVX2 CPU. |
+| [0019](adr/0019-remaster-pipeline.md) | Proposed | Lykoware Remaster: personal-use import and rebuild tool at `tools/remaster/`, outside the engine. Waits on the Track E1 command bus and an editor MCP server. Not started. |
 
 ## Verified on main
 
@@ -49,19 +50,20 @@ The five CI jobs are Windows x64 Debug and Release, Linux Debug, Linux ASan/UBSa
 | RHI 5c: the triangle drawn in the sandbox window; programs load shaders from a `shaders` folder beside the executable, deployed by the build and install | [PR #18](https://github.com/Avrenthrad/lykowareGE/pull/18), merge 16101ec | PR run [41747802339](https://github.com/Avrenthrad/lykowareGE/actions/runs/41747802339); `main` run [41758233376](https://github.com/Avrenthrad/lykowareGE/actions/runs/41758233376) passed all five jobs |
 | Phase 1 clocks: `FixedStep` simulation clock (60 Hz default, exact integer accumulator, interpolation alpha, per-frame limits) and `FrameClock`; the sandbox animates per tick | [PR #19](https://github.com/Avrenthrad/lykowareGE/pull/19), merge ff2a1ea | PR run [41758959579](https://github.com/Avrenthrad/lykowareGE/actions/runs/41758959579) passed all five jobs (`clock.fixed_step` on MSVC, GCC, Clang-tidy and sanitizers); `main` run [41759429068](https://github.com/Avrenthrad/lykowareGE/actions/runs/41759429068) passed all five jobs |
 | Jolt licence and fit review; owner accepted ADR 0003 (docs) | [PR #20](https://github.com/Avrenthrad/lykowareGE/pull/20), merge 8089b22 | `main` run [41760436240](https://github.com/Avrenthrad/lykowareGE/actions/runs/41760436240) passed all five jobs |
+| Physics spike 1: vendored Jolt v5.6.0, *Numerical Recipes* replacements, cross-platform determinism hash | [PR #21](https://github.com/Avrenthrad/lykowareGE/pull/21), merge b5a19a6 | PR run [41762141044](https://github.com/Avrenthrad/lykowareGE/actions/runs/41762141044); `main` run [41763671709](https://github.com/Avrenthrad/lykowareGE/actions/runs/41763671709) passed all five jobs |
 
-CTest on `main` (24 tests): `trace.api`, `clock.fixed_step`, `image.harness.api`, `image.harness.golden_pass`, `image.harness.golden_fail`, `input.mapping`, `window.lifecycle`, `perf.sandbox_startup`, `perf.cpu_fixture`, `perf.budget_rejects_overrun`, `perf.budget_accepts_within`, `foundation.smoke`, `cli.commands`, `cli.integration`, `rhi.instance`, `rhi.instance.no_driver`, `rhi.device`, `rhi.render_target`, `rhi.swapchain`, `sandbox.vulkan_window`, `shaders.spirv_valid`, `shaders.spirv_valid_fragment`, `rhi.pipeline`, `sandbox.missing_shaders`. The `rhi.*` and `sandbox.vulkan_window` tests run on lavapipe in Linux CI and report Skipped on the Windows runners, which have no Vulkan.
+CTest on `main` (26 tests): `trace.api`, `clock.fixed_step`, `image.harness.api`, `image.harness.golden_pass`, `image.harness.golden_fail`, `input.mapping`, `window.lifecycle`, `perf.sandbox_startup`, `perf.cpu_fixture`, `perf.budget_rejects_overrun`, `perf.budget_accepts_within`, `foundation.smoke`, `cli.commands`, `cli.integration`, `rhi.instance`, `rhi.instance.no_driver`, `rhi.device`, `rhi.render_target`, `rhi.swapchain`, `sandbox.vulkan_window`, `shaders.spirv_valid`, `shaders.spirv_valid_fragment`, `rhi.pipeline`, `sandbox.missing_shaders`, `physics.jolt_math`, `physics.jolt_determinism`. The `rhi.*` and `sandbox.vulkan_window` tests run on lavapipe in Linux CI and report Skipped on the Windows runners, which have no Vulkan.
 
-Per-PR detail (local checks, failures found and fixed, mutation checks) is in each pull request and in ADRs 0009–0017.
+Per-PR detail (local checks, failures found and fixed, mutation checks) is in each pull request and in ADRs 0009–0018. ADR 0019 is a proposal only.
 
 ## Current development task
 
 ### Physics spike, PR 1: vendored Jolt, local patch, determinism check
 
-Owner: Claude. Branch `claude/physics-spike`, based on `main` at 8089b22. In review.
+Owner: Claude. Merged as #21 (`b5a19a6`) from `claude/physics-spike`. The `lykoware::physics` wrapper is the next physics PR. The Remaster proposal below does not take this task.
 
 - **Vendored:** Jolt Physics v5.6.0 under `third_party/jolt` (5.7 MB), with provenance and hashes. The two *Numerical Recipes*-derived headers are replaced by Lykoware implementations (cyclic Jacobi eigenvalues; Gauss–Jordan with row pivoting), as the owner chose.
-- **Build:** `cmake/VendorJolt.cmake` adds upstream's CMake as a system subdirectory with options forced (ADR 0018, Proposed):
+- **Build:** `cmake/VendorJolt.cmake` adds upstream's CMake as a system subdirectory with options forced (ADR 0018, accepted by the owner):
   - cross-platform determinism on, float precision;
   - a static library with the engine's MSVC runtime, no link-time optimisation, RTTI on;
   - vendored warnings not treated as errors;
@@ -81,30 +83,36 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 
 1. Vulkan RHI bring-up: done (#11–#18). Instance, device, offscreen render target read back into the image harness, swapchain, build-time Slang shaders, graphics pipelines, and the triangle offscreen and in the sandbox window.
 2. Phase 1 clocks and fixed-step update loop: done (#19, ADR 0017).
-3. Physics: Jolt accepted (ADR 0003, 2026-11-04). Spike PR 1 (vendor, patch, build, determinism hash) is in review. Next: the `lykoware::physics` wrapper with stable body handles, per-tick stepping, ray casts and invalid-handle checks; then a character on a height field and a first body-count benchmark.
+3. Physics: Jolt accepted (ADR 0003, 2026-11-04). Spike PR 1 (vendor, patch, build, determinism hash) is merged (#21, ADR 0018). Next: the `lykoware::physics` wrapper with stable body handles, per-tick stepping, ray casts and invalid-handle checks; then a character on a height field and a first body-count benchmark.
 4. Agree hardware profiles (RTX 4070 desktop, MSI Claw), multiplayer intent, world scope and budgets. Owner's current leaning on multiplayer: co-op later or MMO, undecided. This is not a commitment.
+
+## Proposed later: Lykoware Remaster
+
+Not the next task, and not started. [ADR 0019](adr/0019-remaster-pipeline.md) (Proposed) and [REMASTER_SCOPE.md](REMASTER_SCOPE.md) describe a personal-use import and rebuild pipeline in `tools/remaster/`. It starts only after the Track E1 editor command bus and an editor MCP server exist. Neither exists. The default Personal Asset Library path `personal-library/` is gitignored. No code, importer, dump, or derived asset was added. No checklist box was ticked. The active implementation task remains physics.
 
 ## Known issues and limitations
 
-- No renderer, ECS, scene loader, physics, audio, animation, world streaming or inference. The RHI on `main` creates a Vulkan instance, a device with one queue, an offscreen render target it can clear, draw into and read back, a swapchain, and graphics pipelines from Slang shaders compiled at build time; the sandbox window draws a test triangle. There are no vertex buffers, textures, depth or camera yet, and no swapchain read-back, so window pixels are not checked automatically.
+- No renderer, ECS, scene loader, audio, animation, world streaming or inference. Jolt is vendored and covered by direct tests (ADR 0018, #21); there is no `lykoware::physics` API yet. The RHI on `main` creates a Vulkan instance, a device with one queue, an offscreen render target it can clear, draw into and read back, a swapchain, and graphics pipelines from Slang shaders compiled at build time; the sandbox window draws a test triangle. There are no vertex buffers, textures, depth or camera yet, and no swapchain read-back, so window pixels are not checked automatically.
 - GPU tests skip (exit 77, CTest "Skipped") where no Vulkan loader or driver is installed. Hosted Windows runners may skip them; a skip is not a pass.
 - `lyko run` launches the console sandbox. `lyko screenshot` and `lyko run --scene` print `unsupported: no renderer` and exit 3. `lyko trace --frames N` is a CPU trace of the sandbox loop, not a GPU capture.
 - The image harness compares a software test pattern with committed PPM fixtures, and Vulkan clears read back from a render target. Neither is a scene screenshot or the image/performance gate; `lyko screenshot` still exits 3.
 - Provisional CPU budgets apply only to the hosted windows-2022 and ubuntu-24.04 runners. They are not an RTX 4070 or MSI Claw gate.
 - Window: a real Win32/X11/Wayland desktop window, focus changes and a real Vulkan surface are untested in CI. A Linux desktop window needs X11 or Wayland headers at configure time. A newly adopted gamepad starts with released buttons and centred axes until it reports a change.
-- Vendored runtime sources: SDL 3.4.18 (HIDAPI inside it under the BSD-style licence, not GPL), Vulkan-Headers C headers (MIT option), volk (MIT) and Vulkan Memory Allocator 3.4.0 (MIT). Vendored build-time tools, not shipped: Slang (Apache-2.0 WITH LLVM-exception, one owner-accepted Unlicense file), SPIRV-Tools and SPIRV-Headers. See [third_party/README.md](../third_party/README.md).
+- Vendored runtime sources: SDL 3.4.18 (HIDAPI inside it under the BSD-style licence, not GPL), Vulkan-Headers C headers (MIT option), volk (MIT), Vulkan Memory Allocator 3.4.0 (MIT), and Jolt Physics v5.6.0 (MIT, ADR 0018). Vendored build-time tools, not shipped: Slang (Apache-2.0 WITH LLVM-exception, one owner-accepted Unlicense file), SPIRV-Tools and SPIRV-Headers. See [third_party/README.md](../third_party/README.md).
 - The first configure on a machine builds the shader tools, which takes about 15 extra minutes once per tool version. CI keeps them in the free Actions cache.
 - Sanitizers are Linux-only. ThreadSanitizer is deferred until there are concurrent engine systems.
 - The CLI is a developer process wrapper, not the future command bus. See [CLI.md](CLI.md).
+- Lykoware Remaster is proposed only ([ADR 0019](adr/0019-remaster-pipeline.md), [REMASTER_SCOPE.md](REMASTER_SCOPE.md)). It is personal use only, it is not implemented, and it waits on the Track E1 editor command bus and an editor MCP server. `personal-library/` is gitignored. No dump, extracted asset, or derived asset is in the repository.
 - Pax review, patent review (including US 10,926,179 for Living Memory) and legal clearance remain required before anything is public. None has been done.
 - GitHub artifact storage is exhausted. Uploads stay opt-in; builds and tests do not depend on them. No storage was bought and no paid operation was run.
 
 ## Handoff
 
-- State: `main` at 8089b22 contains PRs #2, #4–#20, green on all five jobs ([run 41760436240](https://github.com/Avrenthrad/lykowareGE/actions/runs/41760436240)). The Vulkan RHI bring-up and Phase 1 clocks are complete, and Jolt is accepted.
-- Open decisions for the owner: ADR 0003 (Jolt); accepting or rejecting ADRs 0008–0012 and 0014–0017 (merging did not accept them); hardware profiles, multiplayer, world scope and budgets.
-- In review: physics spike PR 1 (`claude/physics-spike`, ADR 0018): vendored Jolt v5.6.0 with the owner's local patch, built in all five jobs, with a cross-platform determinism hash. Next concrete action after it merges: the `lykoware::physics` wrapper.
+- State: `main` at b5a19a6 contains PRs #2 and #4–#21. The #21 merge is green on all five jobs ([run 41763671709](https://github.com/Avrenthrad/lykowareGE/actions/runs/41763671709)). The Vulkan RHI bring-up and Phase 1 clocks are complete. Jolt is vendored (ADR 0018). There is no `lykoware::physics` wrapper yet.
+- Open decisions for the owner: accepting or rejecting ADRs 0008–0012 and 0014–0017 (merging did not accept them); hardware profiles, multiplayer, world scope and budgets; ADR 0019 (Remaster) is Proposed and unaccepted.
+- Next concrete action for the active implementation task: the `lykoware::physics` wrapper (Claude's physics spike, PR 2). This docs update does not take that task.
+- Docs proposal, not active implementation: Lykoware Remaster, ADR 0019, [PR #22](https://github.com/Avrenthrad/lykowareGE/pull/22) on `cursor/lykoware-remaster-docs-567c`. Personal use only. Sequenced after the E1 command bus and an editor MCP server. `personal-library/` is gitignored. No box ticked. PR CI [run 41764809669](https://github.com/Avrenthrad/lykowareGE/actions/runs/41764809669) on `eacdcf6` passed all five jobs.
 - Owner check wanted: run `lykoware_sandbox --window --vulkan` on the RTX 4070 desktop and the MSI Claw. With 5c, a red, green and blue triangle over a slowly changing background is expected.
-- Checklist: no box ticked by this update. Phase 1 and the image/performance gate stay open.
+- Checklist: no box ticked by this update. Phase 1 and the image/performance gate stay open. Remaster milestones stay open.
 
 Read [WORK_BOARD.md](WORK_BOARD.md), [CLI.md](CLI.md), [ROADMAP.md](ROADMAP.md) and the [ADRs](adr/README.md). Check latest `main` and open PRs before starting. Update this file with exact commits, checks, failures and next actions.

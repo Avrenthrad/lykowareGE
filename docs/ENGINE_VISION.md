@@ -42,7 +42,7 @@ GitHub is the only repository host. Keep work private. Do not publish without Pa
 
 ## Content and reference direction
 
-Build for the flagship first and generalize through modular boundaries. Private classic-game remaster/port workflows are a future capability; public work is original IP. No third-party game assets or extracted content are included in this repository.
+Build for the flagship first and generalize through modular boundaries. Private classic-game remaster/port workflows are a future capability; public work is original IP. The proposed personal-use pipeline is [Lykoware Remaster](REMASTER_SCOPE.md) ([ADR 0019](adr/0019-remaster-pipeline.md)): a separate tool, not started, sequenced after the editor command bus and an MCP server. No third-party game assets or extracted content are included in this repository.
 
 Study Godot, Bevy, UE5, id Tech, RAGE/Euphoria, Jolt and PhysX as references; do not copy incompatible code or assume their features exist here.
 

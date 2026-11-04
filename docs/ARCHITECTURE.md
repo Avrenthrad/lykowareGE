@@ -19,8 +19,9 @@ The root CMake project builds these targets and stages the sample executable. SD
 Game applications -> Lykoware runtime
 Howler editor/play mode -> Lykoware runtime
 Content build/import tools -> shared asset definitions and processing libraries as needed
+Lykoware Remaster (`tools/remaster/`, proposed in [ADR 0019](adr/0019-remaster-pipeline.md)) -> the editor command bus, and only after that bus and an editor MCP server exist
 
-The runtime must not require Howler to be installed or link editor UI code. Engine code must not reference the sample game. Avoid circular dependencies.
+The runtime must not require Howler to be installed or link editor UI code. Engine code must not reference the sample game. The engine must not depend on `tools/remaster/` or link it. Avoid circular dependencies.
 
 ## Planned responsibility boundaries
 

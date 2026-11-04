@@ -6,3 +6,5 @@
 *.suo
 # Host tools built from third_party (cmake/HostTools.cmake)
 /.lykoware-tools/
+# Personal Asset Library (Lykoware Remaster, ADR 0019). Local only; never commit.
+/personal-library/
