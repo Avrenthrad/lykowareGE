@@ -187,6 +187,13 @@ if(BUILD_TESTING)
     add_test(NAME physics.character COMMAND lykoware_physics_character_test)
     set_tests_properties(physics.character PROPERTIES TIMEOUT 120)
 
+    # The same scene 16 km and 64 km from the origin (ADR 0021, ADR 0022). Links only the engine.
+    add_executable(lykoware_physics_far_test tests/physics_far.cpp)
+    target_link_libraries(lykoware_physics_far_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_physics_far_test)
+    add_test(NAME physics.far_from_origin COMMAND lykoware_physics_far_test)
+    set_tests_properties(physics.far_from_origin PROPERTIES TIMEOUT 120)
+
     add_executable(lykoware_cpu_budget tests/cpu_budget.cpp tools/cli/process.cpp)
     target_link_libraries(lykoware_cpu_budget PRIVATE lykoware::engine)
     lykoware_configure_target(lykoware_cpu_budget)
