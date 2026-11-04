@@ -67,4 +67,4 @@ Proposed:
 | 4096 | 9.86 / 27.8 | 10.9–11.3 / 29.2–35.3 |
 
   About 10–15% slower with many contacts. 1024 colliding boxes still use about 5% of a 60 FPS frame on average.
-- **CI (PR 1):** pending. MSVC is the cross-platform check.
+- **CI (PR 1):** [run 41786685034](https://github.com/Avrenthrad/lykowareGE/actions/runs/41786685034) on a5230ab passed all five jobs: Windows MSVC Debug and Release and Linux GCC Debug, ASan/UBSan and clang-tidy all reproduce the three new hashes.

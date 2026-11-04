@@ -80,7 +80,7 @@ Owner: Claude. Branch `claude/physics-double`, stacked on `claude/product-target
 - The physics state hashes now cover all 64 bits of every position. New recorded hashes: `physics.jolt_determinism` `0x3ae5ee6746df5bad`, `physics.world` `0x38077780cc770c57`, `physics.character` `0x4879cae68e652c53`.
 - **Local checks:** GCC 13 Debug and Release and Clang 18 Debug and Release all produce the three new hashes. 30/30 pass in Debug, ASan/UBSan and clang-tidy.
 - **Cost:** the benchmark is about 10–15% slower with many contacts (1024 boxes in Release: 0.72 → about 0.82 ms per step). Details in ADR 0022.
-- **CI:** pending. MSVC is the cross-platform check.
+- **CI:** [run 41786685034](https://github.com/Avrenthrad/lykowareGE/actions/runs/41786685034) on a5230ab passed all five jobs, so MSVC Debug and Release reproduce the three new hashes.
 
 ## Next
 
