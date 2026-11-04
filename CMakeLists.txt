@@ -11,6 +11,8 @@ include(cmake/VendorSdl3.cmake)
 lykoware_add_sdl3()
 include(cmake/VendorVulkan.cmake)
 lykoware_add_vulkan()
+include(cmake/VendorJolt.cmake)
+lykoware_add_jolt()
 include(cmake/HostTools.cmake)
 lykoware_add_host_tools()
 include(cmake/Shaders.cmake)
@@ -160,6 +162,16 @@ if(BUILD_TESTING)
                           sandbox.vulkan_window rhi.pipeline
             APPEND PROPERTY ENVIRONMENT "VK_LOADER_DISABLE_DYNAMIC_LIBRARY_UNLOADING=1")
     endif()
+
+    # Physics spike (ADR 0003, ADR 0018): the vendored Jolt build, the Lykoware replacements
+    # of its Numerical Recipes-derived functions, and cross-platform determinism. The test
+    # links Jolt directly; game code will use a Lykoware wrapper.
+    add_executable(lykoware_physics_jolt_test tests/physics_jolt.cpp)
+    target_link_libraries(lykoware_physics_jolt_test PRIVATE lykoware::engine Jolt)
+    lykoware_configure_target(lykoware_physics_jolt_test)
+    add_test(NAME physics.jolt_math COMMAND lykoware_physics_jolt_test math)
+    add_test(NAME physics.jolt_determinism COMMAND lykoware_physics_jolt_test determinism)
+    set_tests_properties(physics.jolt_math physics.jolt_determinism PROPERTIES TIMEOUT 120)
 
     add_executable(lykoware_cpu_budget tests/cpu_budget.cpp tools/cli/process.cpp)
     target_link_libraries(lykoware_cpu_budget PRIVATE lykoware::engine)
