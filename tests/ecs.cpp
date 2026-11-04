@@ -305,6 +305,132 @@ void test_determinism()
     expect(first == second, "the same calls give the same handles, values and iteration order");
 }
 
+void test_remove_hooks()
+{
+    std::vector<std::string> removed;
+    ecs::Entity a;
+    ecs::Entity b;
+    {
+        ecs::World world;
+        world.on_remove<Health>([&](ecs::Entity e, Health& h) {
+            removed.push_back("health " + std::to_string(e.index) + " " + std::to_string(h.value));
+            // Structural changes are refused inside a hook.
+            const bool refused = !world.alive(world.create()) && !world.destroy(e) && world.add<Velocity>(e) == nullptr
+                              && !world.remove<Health>(e) && world.locked();
+            if (!refused) {
+                removed.emplace_back("a hook changed the world");
+            }
+        });
+        a = world.create();
+        b = world.create();
+        const ecs::Entity c = world.create();
+        world.add<Health>(a, Health{1});
+        world.add<Health>(b, Health{2});
+        world.add<Health>(c, Health{3});
+        world.add<Position>(c);
+
+        world.remove<Health>(a);
+        expect(removed.size() == 1 && removed[0] == "health 0 1", "remove runs the hook with the component");
+        world.destroy(c);
+        expect(removed.size() == 2 && removed[1] == "health 2 3", "destroy runs the hook");
+        expect(!world.remove<Health>(a) && removed.size() == 2, "nothing removed, no hook");
+        expect(!world.locked(), "the world is unlocked after hooks");
+
+        world.on_remove<Position>({});
+        expect(world.on_remove<Health>([&](ecs::Entity e, Health&) { removed.push_back("new " + std::to_string(e.index)); }),
+               "a hook can be replaced");
+        ecs::World other;
+        const ecs::Entity d = other.create();
+        other.add<Health>(d, Health{4});
+        world = std::move(other);
+        expect(removed.size() == 3 && removed[2] == "new 1", "move-assigning over a world runs its hooks");
+        expect(world.alive(d) && world.get<Health>(d)->value == 4, "the moved-in world keeps its entities");
+    }
+    expect(removed.size() == 3, "the moved-in world had no hooks, so its destruction runs none");
+
+    std::vector<int> order;
+    {
+        ecs::World world;
+        world.on_remove<Health>([&](ecs::Entity, Health& h) { order.push_back(h.value); });
+        for (int i = 0; i < 4; ++i) {
+            world.add<Health>(world.create(), Health{i});
+        }
+        world.destroy(ecs::Entity{1, 1});
+    }
+    expect(order == std::vector<int>{1, 0, 2, 3}, "destroying the world runs the hooks of the rest, in slot order");
+
+    ecs::World world;
+    bool called = false;
+    world.on_remove<Health>([&](ecs::Entity, Health&) { called = true; });
+    world.on_remove<Health>({});
+    world.add<Health>(world.create());
+    world.destroy(ecs::Entity{0, 1});
+    expect(!called, "an empty hook clears it");
+    world.add<Health>(world.create());
+    bool refused_inside_each = false;
+    world.each<Health>([&](ecs::Entity, Health&) { refused_inside_each = !world.on_remove<Health>({}); });
+    expect(refused_inside_each, "hooks cannot be changed during each");
+}
+
+void test_change_buffer()
+{
+    ecs::World world;
+    std::vector<ecs::Entity> entities;
+    for (int i = 0; i < 6; ++i) {
+        entities.push_back(world.create());
+        world.add<Health>(entities.back(), Health{i * 10});
+    }
+
+    // A system that removes the dying and spawns a replacement for each, during iteration.
+    ecs::ChangeBuffer changes;
+    world.each<Health>([&](ecs::Entity e, Health& h) {
+        if (h.value < 30) {
+            changes.destroy(e);
+            changes.create([value = h.value](ecs::World& w, ecs::Entity spawned) {
+                w.add<Health>(spawned, Health{100 + value});
+            });
+        } else {
+            changes.add<Velocity>(e, Velocity{1.F, 0.F, 0.F});
+        }
+    });
+    expect(changes.size() == 9 && world.size() == 6, "changes are recorded, not applied, during each");
+    expect(changes.apply(world) == 9 && changes.empty(), "apply makes every change and empties the buffer");
+    expect(world.size() == 6 && world.count<Velocity>() == 3, "three replaced, three given velocity");
+    expect(!world.alive(entities[0]) && world.get<Velocity>(entities[4]) != nullptr, "the right entities changed");
+
+    // Slots freed by the destroys are reused by the creates in order: 0, 1, 2 freed; 2, 1, 0 reused.
+    int spawned_sum = 0;
+    world.each<Health>([&](ecs::Entity, Health& h) { spawned_sum += h.value >= 100 ? h.value : 0; });
+    expect(spawned_sum == 100 + 110 + 120, "the spawned entities got their components");
+
+    // Changes to an entity destroyed earlier in the buffer do nothing and are not counted.
+    changes.destroy(entities[3]);
+    changes.add<Position>(entities[3], Position{});
+    changes.remove<Health>(entities[4]);
+    changes.remove<Health>(entities[4]);
+    expect(changes.apply(world) == 2, "changes the world refuses are skipped");
+
+    // Inside each, apply does nothing and keeps the buffer.
+    changes.destroy(entities[5]);
+    std::size_t applied_inside = 99;
+    world.each<Health>([&](ecs::Entity, Health&) { applied_inside = changes.apply(world); });
+    expect(applied_inside == 0 && changes.size() == 1 && world.alive(entities[5]), "apply refuses while locked");
+    expect(changes.apply(world) == 1 && !world.alive(entities[5]), "and works afterwards");
+
+    // Move-only components can be recorded.
+    struct Owned {
+        std::unique_ptr<int> value;
+    };
+    const ecs::Entity holder = world.create();
+    changes.add<Owned>(holder, Owned{std::make_unique<int>(7)});
+    changes.apply(world);
+    expect(world.get<Owned>(holder) != nullptr && *world.get<Owned>(holder)->value == 7, "move-only components work");
+
+    changes.destroy(holder);
+    changes.clear();
+    expect(changes.apply(world) == 0 && world.alive(holder), "clear drops recorded changes");
+}
+
 void test_many()
 {
     ecs::World world;
@@ -335,6 +461,8 @@ int main()
     test_each();
     test_changes_during_each();
     test_determinism();
+    test_remove_hooks();
+    test_change_buffer();
     test_many();
     if (g_failures != 0) {
         std::cerr << g_failures << " ECS assertion(s) failed\n";
