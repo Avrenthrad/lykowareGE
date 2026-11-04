@@ -595,11 +595,11 @@ bool Swapchain::Impl::render_frame(const ClearColor& color, VkPipeline pipeline,
                           VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT);
     const float rgba[4] = {color.r, color.g, color.b, color.a};
     if (meshes != nullptr) {
-        const VkImageView depth_view = depth ? impl.depth_view : VK_NULL_HANDLE;
-        if (depth_view != VK_NULL_HANDLE) {
+        const VkImageView pass_depth = depth ? impl.depth_view : VK_NULL_HANDLE;
+        if (pass_depth != VK_NULL_HANDLE) {
             detail::depth_barrier(frame.commands, impl.depth_image);
         }
-        detail::record_mesh_pass(frame.commands, impl.views[image_index], depth_view, impl.extent, rgba, pipeline,
+        detail::record_mesh_pass(frame.commands, impl.views[image_index], pass_depth, impl.extent, rgba, pipeline,
                                  layout, meshes->data(), meshes->size());
     } else {
         detail::record_draw_pass(frame.commands, impl.views[image_index], impl.extent, rgba, pipeline, vertex_count);
