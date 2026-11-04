@@ -1,7 +1,7 @@
 # ADR 0020 — The Lykoware physics API
 
 Status: Proposed
-Related task/PR: physics spike, PR 2 (branch `claude/physics-api`), after spike PR 1 ([#21](https://github.com/Avrenthrad/lykowareGE/pull/21)) merged.
+Related task/PR: physics spike, PR 2 (merged as [#23](https://github.com/Avrenthrad/lykowareGE/pull/23)); extended by spike PR 3 (branch `claude/physics-character`) with terrain and characters.
 Numbered 0020 because a concurrent documentation proposal ([#22](https://github.com/Avrenthrad/lykowareGE/pull/22)) claimed 0019 first.
 Supersedes / superseded by: none. Builds on [ADR 0003](0003-physics.md), [ADR 0017](0017-clocks-fixed-step.md) and [ADR 0018](0018-jolt-integration.md).
 
@@ -45,6 +45,27 @@ Proposed, not accepted by the owner:
 - **Units and axes:** metres, kilograms, seconds and radians; +Y up; right-handed; gravity a world setting (default 9.81 m/s² down).
 - **Minimal value types.** `Vec3` and `Quat` live in the physics namespace until the engine has a maths module, which will replace them.
 
+### Terrain and characters (spike PR 3)
+
+- **Height fields.**
+  - `HeightFieldShape` is a square grid of heights (row-major), `spacing` metres apart along +X and +Z from the body's position.
+  - Static bodies only. `samples_per_side` must be even, from 4 to 4096. Wrong sample counts, non-finite heights and non-positive spacing are refused.
+  - Jolt stores heights compressed, so we ask for at most 1 cm of error.
+- **Characters.** `World::create_character` makes an upright capsule (Jolt's `CharacterVirtual`) with its own generation-checked `CharacterId`.
+  - **Position:** its position is its feet.
+  - **Ground state:** `character_state` reports `OnGround`, `OnSteepGround`, `NotSupported` or `InAir`, plus the ground body's handle and the ground normal.
+  - **Limits:** `max_slope` (default 50°) and `step_height` (default 0.4 m) set what it can walk up.
+  - **Input:** `set_character_input(id, horizontal_velocity, jump_speed)` sets the speed it tries to move at from now on. A jump is used once, on the next step where it is on walkable ground.
+  - **Movement:** each step the world adds gravity and the ground's own motion, then moves characters in handle order before stepping bodies.
+  - **Not yet:**
+    - dynamic bodies do not push characters (no inner body);
+    - characters do not collide with each other;
+    - nothing tests characters pushing bodies.
+    
+    These come with a caller.
+- Shapes are now built through Jolt's shape settings, which also cover height fields. `physics.world`'s hash did not change, so the switch changed no behaviour.
+- Jolt numbers characters from a process-wide counter. The determinism test creates its scene twice in one process (so with different character numbers) and requires identical states.
+
 ## Contracts and compatibility
 
 Ownership, threading and failure are documented on the declarations:
@@ -79,4 +100,16 @@ Ownership, threading and failure are documented on the declarations:
 - **Deliberate breaks, each caught:**
   - ignoring the generation in handle lookup failed "a wrong generation is invalid" and "the old handle never reaches the new body";
   - ray hits that drop the generation failed three ray checks.
-- **CI:** [run 41765080887](https://github.com/Avrenthrad/lykowareGE/actions/runs/41765080887) on 9204b58 passed all five jobs. `physics.world` reproduced `0x84f90a3cbf37a28b` on Windows MSVC Debug and Release and on Linux GCC Debug, ASan/UBSan and the clang-tidy build.
+- **Terrain and characters** (`physics.character`, spike PR 3, links only the engine):
+  - **Landing and walking:** a character dropped onto flat terrain lands with its feet at height 0 and reports the terrain as its ground. It walks 2 m in 1 s at 2 m/s.
+  - **Jumping:** a 5 m/s jump leaves the ground, lands again, and is used only once.
+  - **Slopes:** it walks up a 15° slope but is held at the foot of a 63° one.
+  - **Ledges:** it walks up a 0.3 m ledge but a 0.7 m ledge blocks it.
+  - **Rays:** rays hit the height field.
+  - **Misuse:** every invalid character handle and bad character or height-field description is refused.
+  - **Determinism:** a rolling-terrain scene with three characters (one jumping) and six crates gives the same state with 1 and 4 worker threads, and its hash must be `0xbe1264481a8a8720`. The terrain is a triangle wave built only from operations that round identically everywhere, because `std::sin` differs between platforms' maths libraries.
+  - **Local results:** GCC 13 and Clang 18 Debug and Release give that hash; 28/28 tests pass in the Debug, ASan/UBSan and clang-tidy presets.
+  - **Deliberate breaks, each caught:** ignoring `step_height` failed the 0.3 m ledge; ignoring `max_slope` failed the 63° slope check and the 0.7 m ledge; a jump that is never used up failed "lands again".
+  - **A gap found by a break:** my first steep-slope check ran out of time before the character reached the steep part. With the 85° break it had only just started climbing, so the break was caught only by the ledge check. The check now pushes for six seconds and requires the character to stay at the foot.
+- **CI (spike PR 3):** [run 41770820818](https://github.com/Avrenthrad/lykowareGE/actions/runs/41770820818) on 3d40d91 passed all five jobs. `physics.character` reproduced `0xbe1264481a8a8720` on Windows MSVC Debug and Release and on Linux GCC Debug, ASan/UBSan and the clang-tidy build.
+- **CI (spike PR 2):** [run 41765080887](https://github.com/Avrenthrad/lykowareGE/actions/runs/41765080887) on 9204b58 passed all five jobs. `physics.world` reproduced `0x84f90a3cbf37a28b` on Windows MSVC Debug and Release and on Linux GCC Debug, ASan/UBSan and the clang-tidy build.

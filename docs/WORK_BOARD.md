@@ -5,7 +5,7 @@
 Canonical implementation status: [STATUS.md](STATUS.md).
 Canonical plan: [ROADMAP.md](ROADMAP.md).
 
-`main` at b5a19a6 contains PRs #2 and #4–#21. Details and CI evidence: [STATUS.md](STATUS.md). Earlier per-task entries on this board were removed once merged; they remain in the pull requests and git history.
+`main` at 346ee0d contains PRs #2, #4–#21 and #23. Details and CI evidence: [STATUS.md](STATUS.md). Earlier per-task entries on this board were removed once merged; they remain in the pull requests and git history.
 Owner-supplied vision is captured in [ENGINE_VISION.md](ENGINE_VISION.md).
 
 Owner rules for every task: small stacked PRs; commit small and often; keep all five CI jobs green; record each decision as an ADR; keep STATUS handoff-ready after every task; Joshua merges; no regenerable generated files in commits; artifact upload stays opt-in and no storage or service is bought; no roadmap box ticked unless truly done.
@@ -14,13 +14,14 @@ Check latest main and open PRs before starting. Documents do not automatically s
 
 ## Active task
 
-Physics spike (ADR 0003 accepted 2026-11-04; build in ADR 0018). Owner: Claude. Status: PR 1 merged (#21); PR 2 in review on `claude/physics-api`, based on `main` at b5a19a6.
+Physics spike (ADR 0003 accepted 2026-11-04; build in ADR 0018). Owner: Claude. Status: PRs 1 and 2 merged (#21, #23); PR 3 in review on `claude/physics-character`, based on `main` at 346ee0d.
 
 - Objective: Jolt Physics running deterministically inside the engine, behind a Lykoware API, with the evidence ADR 0003 asks for.
 - Planned PRs, in order:
   1. (Merged, #21.) Vendor Jolt v5.6.0 with the two *Numerical Recipes*-derived headers replaced; build it in all five jobs with options forced; tests for the replacements and a cross-platform determinism hash.
-  2. (In review, ADR 0020.) `lykoware::physics` wrapper: Jolt setup, stable body handles, create/destroy, stepping once per `FixedStep` tick, ray casts, invalid-handle and repeated-cleanup tests; no Jolt types in public headers.
-  3. A character capsule on a height field, and a first active-body benchmark on the hosted runners, labelled as not a hardware profile.
+  2. (Merged, #23, ADR 0020.) `lykoware::physics` wrapper: Jolt setup, stable body handles, create/destroy, stepping once per `FixedStep` tick, ray casts, invalid-handle and repeated-cleanup tests; no Jolt types in public headers.
+  3. (In review.) Height-field terrain and a character capsule that walks, jumps, steps up ledges and is held back by steep slopes.
+  4. A first active-body benchmark on the hosted runners, labelled as not a hardware profile.
 - Shared interfaces/formats affected: PR 2 adds the public physics API. PR 1 adds none (tests use Jolt directly).
 - Acceptance checks: all five CI jobs green; the same state hash in every job; no vendored warnings promoted; nothing downloaded.
 - Assumptions and decisions needed: ADR 0018 (including AVX2) was accepted on 2026-11-04. ADR 0020 (the API shape) is Proposed.
