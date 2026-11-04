@@ -74,7 +74,7 @@ Owner: Claude. Branch `claude/physics-api`, based on `main` at b5a19a6. In revie
   - limits and repeated cleanup;
   - a determinism hash `0x84f90a3cbf37a28b` that must match in every build, with 1 and 4 worker threads giving the same state.
 - Local checks: GCC and Clang, Debug and Release, all produce the hash. 27/27 pass in the Debug, ASan/UBSan and clang-tidy presets. Deliberately ignoring handle generations, and losing the generation in ray hits, were each caught.
-- CI: pending.
+- CI: [run 41765080887](https://github.com/Avrenthrad/lykowareGE/actions/runs/41765080887) on 9204b58 passed all five jobs. `physics.world` reproduced `0x84f90a3cbf37a28b` on Windows MSVC Debug and Release and on Linux GCC (Debug, ASan/UBSan, clang-tidy build).
 
 ## Next
 

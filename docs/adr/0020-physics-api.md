@@ -79,4 +79,4 @@ Ownership, threading and failure are documented on the declarations:
 - **Deliberate breaks, each caught:**
   - ignoring the generation in handle lookup failed "a wrong generation is invalid" and "the old handle never reaches the new body";
   - ray hits that drop the generation failed three ray checks.
-- **CI:** pending.
+- **CI:** [run 41765080887](https://github.com/Avrenthrad/lykowareGE/actions/runs/41765080887) on 9204b58 passed all five jobs. `physics.world` reproduced `0x84f90a3cbf37a28b` on Windows MSVC Debug and Release and on Linux GCC Debug, ASan/UBSan and the clang-tidy build.
