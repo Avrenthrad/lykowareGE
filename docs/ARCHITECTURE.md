@@ -34,7 +34,7 @@ The runtime must not require Howler to be installed or link editor UI code. Engi
 | Persistence | Serialization facilities and format handling | Which game state persists and its meaning |
 | Tooling | Inspection hooks and reusable runtime APIs | Panels, selection gizmos, undo/redo, project workspace |
 
-Create modules incrementally. The brief requires a data-driven ECS; its design/library, scripting language, threading model, and plugin ABI remain open. The graphics API is Vulkan 1.3 behind an owned RHI ([ADR 0002](adr/0002-graphics.md)); the renderer is not implemented. Authored encodings are accepted in [ADR 0004](adr/0004-data-formats.md); schemas are not.
+Create modules incrementally. The brief requires a data-driven ECS: Lykoware writes its own ([ADR 0023](adr/0023-ecs.md), owner decision 2026-11-04). The scripting language, threading model and plugin ABI remain open. The graphics API is Vulkan 1.3 behind an owned RHI ([ADR 0002](adr/0002-graphics.md)); the renderer is not implemented. Authored encodings are accepted in [ADR 0004](adr/0004-data-formats.md); schemas are not.
 
 ## Shared contract checklist
 

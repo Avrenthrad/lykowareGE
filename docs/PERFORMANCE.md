@@ -59,6 +59,12 @@ For scale, a 60 Hz frame is 16.67 ms. In Release, 1024 colliding boxes use about
 
 The table and timings above are for single precision. With double-precision positions ([ADR 0022](adr/0022-double-precision-positions.md)), Release is about 10–15% slower with many contacts: 1024 boxes mean 0.81–0.83 ms, worst 4.1–5.6 ms; 4096 boxes mean 10.9–11.3 ms. 256 boxes are unchanged.
 
+### ECS iteration
+
+`lykoware_ecs_benchmark ENTITIES FRAMES LIMIT_MS` runs a movement system (position += velocity × dt) over ENTITIES entities each frame and fails if the mean frame time is over the limit or the result is wrong. CTest runs `perf.ecs_iterate_100k`: 100,000 entities, 300 frames, 250 ms limit. That limit is slack for Debug and sanitizer builds, not a frame budget.
+
+Local, GCC 13 Release, one thread: about 4 ns per entity per frame. 1000 entities take 0.005 ms, 100,000 take 0.39 ms and 1,000,000 take 3.9 ms. Debug is about 63 ns per entity. These numbers are from one local machine, not a hardware profile.
+
 ## Testing layers
 
 - Unit checks for algorithms and validation.

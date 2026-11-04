@@ -5,7 +5,7 @@
 Canonical implementation status: [STATUS.md](STATUS.md).
 Canonical plan: [ROADMAP.md](ROADMAP.md).
 
-`main` at b5c75ed contains PRs #2, #4–#21 and #23–#25. Details and CI evidence: [STATUS.md](STATUS.md). Earlier per-task entries on this board were removed once merged; they remain in the pull requests and git history.
+`main` at f50b9dd contains PRs #2, #4–#21 and #23–#28. Details and CI evidence: [STATUS.md](STATUS.md). Earlier per-task entries on this board were removed once merged; they remain in the pull requests and git history.
 Owner-supplied vision is captured in [ENGINE_VISION.md](ENGINE_VISION.md).
 
 Owner rules for every task: small stacked PRs; commit small and often; keep all five CI jobs green; record each decision as an ADR; keep STATUS handoff-ready after every task; Joshua merges; no regenerable generated files in commits; artifact upload stays opt-in and no storage or service is bought; no roadmap box ticked unless truly done.
@@ -14,15 +14,19 @@ Check latest main and open PRs before starting. Documents do not automatically s
 
 ## Active task
 
-Double-precision positions (ADR 0021 decided; ADR 0022 to record the build). Owner: Claude. Status: PR 1 in review as #27 (`claude/physics-double`, stacked on #26); PR 2 in review on `claude/physics-double-api`, stacked on #27.
+ECS (Phase 1; ADR 0023). Owner: Claude. Status: PR 1 in review on `claude/ecs-core`, based on `main` at f50b9dd.
 
-- Objective: physics positions accurate to well under a millimetre anywhere in a 16 km+ world, still bit-identical across MSVC, GCC and Clang.
+- Objective: Lykoware's own entity-component system with stable, generation-checked IDs and deterministic iteration, as the base for scenes, the command bus, replays, saves and later co-op (ADR 0021).
 - Planned PRs, in order:
-  1. Build Jolt with `DOUBLE_PRECISION` on; convert inside `physics.cpp`; the public API is unchanged. New determinism hashes must match in all five jobs; the benchmark is re-run.
-  2. Public positions become `double` (bodies, characters, ray origins and hit points); a test shows bodies and characters 16 km from the origin behave like ones at the origin.
-- Shared interfaces/formats affected: PR 2 changes `lykoware::physics` position types.
-- Acceptance checks: all five CI jobs green; the same hashes in every job; the benchmark stays within its limit.
-- Assumptions and decisions needed: ADR 0022 starts Proposed; the owner accepted the direction in ADR 0021.
+  1. (In review.) `lykoware::ecs::World`: entities, components in packed arrays, `each` iteration; tests and a 100,000-entity benchmark.
+  2. Physics bodies and characters attached to entities, and a deferred-change buffer so systems can create and destroy during iteration.
+- Shared interfaces/formats affected: new public header `lykoware/ecs.hpp`.
+- Acceptance checks: all five CI jobs green; determinism test identical across runs; benchmark within its limit.
+- Assumptions and decisions needed: the owner chose "write our own" on 2026-11-04; ADR 0023's design is Proposed.
+
+## Completed task: double-precision positions
+
+Owner: Claude. Done: #26 (ADR 0021), #27 and #28 merged. Jolt and the physics API use double-precision positions (ADR 0022, Proposed); the same scene 16 km and 64 km from the origin matches the origin scene and costs the same; kinematic bodies never sleep. Details and CI runs are in [STATUS.md](STATUS.md).
 
 ## Completed task: physics spike
 
