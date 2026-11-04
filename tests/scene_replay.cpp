@@ -67,7 +67,7 @@ void malformed_and_ordering(const scene::Description& description, const std::ve
     const std::string canonical = scene::encode(description);
     scene::Description output = description;
     for (const std::string& text : {std::string("{}"), std::string("[]"),
-             std::string("{\"version\":1,\"version\":1}"),
+             std::string("{\"schema_version\":1,\"schema_version\":1}"),
              canonical.substr(0, canonical.size()/2),
              std::string(16U*1024U*1024U + 1, ' ')}) {
         require(!scene::decode(text, output, error) && scene::encode(output) == canonical,
@@ -94,7 +94,7 @@ void malformed_and_ordering(const scene::Description& description, const std::ve
         require(false, "duplicate command sequence must fail");
     } catch (const std::invalid_argument&) {
     }
-    require(!scene::decode_commands("{\"format\":\"lykoware.commands\",\"version\":2,\"commands\":[]}", decoded, error),
+    require(!scene::decode_commands("{\"format\":\"lykoware.commands\",\"schema_version\":2,\"commands\":[]}", decoded, error),
             "unknown command versions fail");
     auto world = scene::Scene::create(description, error);
     const auto before = world->state_hash();

@@ -349,3 +349,7 @@ if(BUILD_TESTING)
 endif()
 
 install(TARGETS lykoware_sandbox lyko RUNTIME DESTINATION bin)
+
+# nlohmann/json is compiled into runtime/tools; preserve its MIT notice in staged builds.
+install(FILES third_party/json/LICENSE.MIT third_party/json/PROVENANCE.md
+    DESTINATION share/lykoware/licenses/json)

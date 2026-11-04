@@ -162,8 +162,8 @@ Json json(const render::Camera& value)
 
 Description description(const Json& value)
 {
-    fields(value, {"format", "version", "entities", "camera"});
-    check(value.at("format") == "lykoware.scene" && integer(value.at("version")) == 1, "unsupported scene schema");
+    fields(value, {"format", "schema_version", "entities", "camera"});
+    check(value.at("format") == "lykoware.scene" && integer(value.at("schema_version")) == 1, "unsupported scene schema");
     const auto& list = value.at("entities");
     check(list.is_array() && list.size() <= limit, "invalid entity list");
     Description result;
@@ -243,8 +243,8 @@ bool decode_commands(std::string_view text, std::vector<Command>& output, std::s
 {
     return decode_checked([&] {
         const auto root = parse(text);
-        fields(root, {"format", "version", "commands"});
-        check(root.at("format") == "lykoware.commands" && integer(root.at("version")) == 1, "unsupported command schema");
+        fields(root, {"format", "schema_version", "commands"});
+        check(root.at("format") == "lykoware.commands" && integer(root.at("schema_version")) == 1, "unsupported command schema");
         const auto& list = root.at("commands");
         check(list.is_array() && list.size() <= limit, "invalid command list");
         std::set<std::uint64_t> sequences;
@@ -267,7 +267,7 @@ std::string encode(const Description& value)
     for (const auto& entity : value.entities) {
         entities.push_back(json(entity));
     }
-    Json root{{"format", "lykoware.scene"}, {"version", 1U}, {"camera", json(value.camera)}, {"entities", entities}};
+    Json root{{"format", "lykoware.scene"}, {"schema_version", 1U}, {"camera", json(value.camera)}, {"entities", entities}};
     // Validate before dump (dump otherwise converts NaN to null).
     const auto normalized = description(root);
     entities.clear();
@@ -285,7 +285,7 @@ std::string encode_commands(const std::vector<Command>& commands)
     for (const auto& value : commands) {
         list.push_back(json(value));
     }
-    const std::string text = Json{{"format", "lykoware.commands"}, {"version", 1U}, {"commands", list}}.dump();
+    const std::string text = Json{{"format", "lykoware.commands"}, {"schema_version", 1U}, {"commands", list}}.dump();
     std::vector<Command> validated;
     std::string error;
     if (!decode_commands(text, validated, error)) {
@@ -295,7 +295,7 @@ std::string encode_commands(const std::vector<Command>& commands)
     for (const auto& value : validated) {
         list.push_back(json(value));
     }
-    return Json{{"format", "lykoware.commands"}, {"version", 1U}, {"commands", list}}.dump() + '\n';
+    return Json{{"format", "lykoware.commands"}, {"schema_version", 1U}, {"commands", list}}.dump() + '\n';
 }
 
 struct Scene::Impl {

@@ -139,7 +139,7 @@ int scene_command(std::span<const std::string> arguments, bool screenshot)
         }
         if (!world->advance_tick(error)) { throw std::runtime_error(error); }
     };
-    Json result{{"format", "lykoware.measurement"}, {"version", 1}, {"engine_version", lykoware::version},
+    Json result{{"format", "lykoware.measurement"}, {"schema_version", 1}, {"engine_version", lykoware::version},
                 {"cpu_threads", std::thread::hardware_concurrency()}, {"scene_ticks", ticks},
                 {"public_release_validation", false}, {"gpu_timestamp_ms", nullptr},
                 {"gpu_resident_bytes", nullptr}, {"measurement", "offscreen synchronous draw; excludes presentation"}};

@@ -1,6 +1,6 @@
 {
   "format": "lykoware.commands",
-  "version": 1,
+  "schema_version": 1,
   "commands": [
     {
       "tick": 10,

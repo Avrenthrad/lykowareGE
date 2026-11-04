@@ -13,7 +13,8 @@
 
 namespace lykoware::scene {
 
-// Version-1 built-in box/cube schema (ADR 0031). Authored IDs are independent of ECS handles.
+// Version-1 built-in box/cube schema (ADR 0031): metres, m/s, radians, linear RGB.
+// Authored IDs are independent of ECS handles.
 struct Box {
     std::string id;
     physics::DVec3 position;

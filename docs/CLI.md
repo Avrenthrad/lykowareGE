@@ -24,7 +24,7 @@ Plain `run` launches the sandbox beside lyko (or the recorded build-tree path), 
 
 `--measure-frames` runs additional fixed ticks and synchronous offscreen draws after the replay, with raw samples and p50/p95/p99/max in the report. Warmup defaults to 30 draws of the settled scene; it does not advance simulation. Final capture is after the additional measured frames. Readback/file writing and pipeline creation are outside measured frames. This fixture measures offscreen throughput and CPU simulation, not display pacing, pure GPU time or VRAM residency. See [PERFORMANCE](PERFORMANCE.md) for the local Windows runner and limits.
 
-Limits: 16 MiB per scene/command input; 10,000 lifetime IDs/commands; 36,000 initial ticks; 10,000 measured frames; 1,000 warmup draws; dimensions at most 8192 and 16 megapixels total. Inputs reject unknown fields/schema versions, duplicate keys/IDs/sequences, nonfinite numbers and invalid shapes. Commands beyond `--ticks` are rejected before simulation; commands with nonexistent/destroyed IDs fail explicitly. Persisted files never contain runtime handles or process-local type IDs.
+Limits: 16 MiB per scene/command input; 10,000 lifetime IDs/commands; 36,000 initial ticks; 10,000 measured frames; 1,000 warmup draws; dimensions at most 8192 and 16 megapixels total. Authored envelopes use `schema_version: 1` (ADR 0004). Inputs reject unknown fields/schema versions, duplicate keys/IDs/sequences, nonfinite numbers and invalid shapes. Commands beyond `--ticks` are rejected before simulation; commands with nonexistent/destroyed IDs fail explicitly. Persisted files never contain runtime handles or process-local type IDs.
 
 Exit codes:
 

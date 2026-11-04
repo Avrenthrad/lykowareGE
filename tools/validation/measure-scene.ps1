@@ -27,7 +27,7 @@ $system = Get-CimInstance Win32_ComputerSystem
 $os = Get-CimInstance Win32_OperatingSystem
 $cpu = Get-CimInstance Win32_Processor
 $metadata = [ordered]@{
-    format = 'lykoware.hardware-evidence'; version = 1
+    format = 'lykoware.hardware-evidence'; schema_version = 1
     date_utc = [DateTime]::UtcNow.ToString('o')
     commit = (& git -C $repository rev-parse HEAD)
     os = $os.Caption; os_version = $os.Version
