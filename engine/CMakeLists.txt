@@ -4,6 +4,7 @@ configure_file(
     @ONLY)
 
 add_library(lykoware_engine STATIC
+    src/clock.cpp
     src/log.cpp
     src/paths.cpp
     src/trace.cpp

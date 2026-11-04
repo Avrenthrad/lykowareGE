@@ -1,3 +1,4 @@
+#include <lykoware/clock.hpp>
 #include <lykoware/log.hpp>
 #include <lykoware/paths.hpp>
 #include <lykoware/rhi/device.hpp>
@@ -17,6 +18,7 @@
 #include <filesystem>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -222,12 +224,31 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
     }
     lykoware::log(lykoware::LogLevel::info, "Drawing with Vulkan on " + device->info().name + ".");
 
+    // The sample simulation: the background colour's phase, advanced only in
+    // fixed 60 Hz ticks (ADR 0017), so it changes at the same speed at any
+    // frame rate. Each frame draws a blend of the last two ticks' states.
+    std::string clock_error;
+    std::optional<lykoware::FixedStep> simulation = lykoware::FixedStep::create({}, clock_error);
+    if (!simulation) {
+        lykoware::log(lykoware::LogLevel::error, "Simulation clock: " + clock_error);
+        return EXIT_FAILURE;
+    }
+    constexpr double phase_per_second = 1.2;
+    double previous_phase = 0.0;
+    double phase = 0.0;
+    lykoware::FrameClock frame_clock;
+
     bool ok = true;
     std::uint64_t frame = 0;
     while (window.pump()) {
-        const float phase = static_cast<float>(frame) * 0.02F;
-        const lykoware::rhi::ClearColor color{0.5F + 0.5F * std::sin(phase), 0.5F + 0.5F * std::sin(phase + 2.1F),
-                                              0.5F + 0.5F * std::sin(phase + 4.2F), 1.F};
+        const lykoware::FrameSteps steps = simulation->advance(frame_clock.lap());
+        for (std::uint32_t tick = 0; tick < steps.ticks; ++tick) {
+            previous_phase = phase;
+            phase += phase_per_second * simulation->tick_seconds();
+        }
+        const auto shown = static_cast<float>(previous_phase + (phase - previous_phase) * steps.alpha);
+        const lykoware::rhi::ClearColor color{0.5F + 0.5F * std::sin(shown), 0.5F + 0.5F * std::sin(shown + 2.1F),
+                                              0.5F + 0.5F * std::sin(shown + 4.2F), 1.F};
         if (!swapchain->render_draw(color, *pipeline, 3, error)) {
             lykoware::log(lykoware::LogLevel::error, "Vulkan frame: " + error.message);
             ok = false;
@@ -247,7 +268,14 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
     if (!ok) {
         return EXIT_FAILURE;
     }
-    lykoware::log(lykoware::LogLevel::info, "Presented " + std::to_string(presented) + " frames.");
+    lykoware::log(lykoware::LogLevel::info,
+                  "Presented " + std::to_string(presented) + " frames; ran " + std::to_string(simulation->tick())
+                      + " simulation ticks at " + std::to_string(simulation->ticks_per_second()) + " Hz.");
+    if (simulation->total_dropped_ns() > 0) {
+        lykoware::log(lykoware::LogLevel::warning,
+                      "The simulation fell behind and dropped "
+                          + std::to_string(simulation->total_dropped_ns() / 1'000'000) + " ms.");
+    }
     if (instance->validation_error_count() != 0) {
         lykoware::log(lykoware::LogLevel::error,
                       std::to_string(instance->validation_error_count()) + " Vulkan validation errors.");
