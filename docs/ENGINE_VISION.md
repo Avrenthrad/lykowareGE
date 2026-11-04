@@ -37,7 +37,7 @@ GitHub is the only repository host. Keep work private. Do not publish without Pa
 - Relationships, factions, reputation, branching quests and consequential main-story spine.
 - Living Memory: faction-wide reputation/memory, rumour spread, NPC goals and relationship arcs, territory/world-driven change. Do not reproduce the promoted-captain return-after-defeat hierarchy described in the brief. No patent clearance is established by this design description; the owner requires Pax and patent-lawyer review before public release.
 - Living World AI: local dialogue/planning/emergent events constrained by authored lore and story, using Living Memory. No server dependency; target RTX 4070-class inference hardware with explicit frame-time/VRAM budgets and safe fallbacks.
-- Scale rendering/simulation from Intel Arc MSI Claw to RTX 4070 desktop. Handheld inference capability is not assumed equivalent to the desktop.
+- Desktop PC only: RTX 4070 recommended at 1440p60, a weaker minimum at lower settings, 16 GB RAM (ADR 0021). The MSI Claw handheld is no longer a target.
 - Optional later replay/highlighter capture.
 
 ## Content and reference direction
@@ -60,8 +60,8 @@ See [ADRs](adr/README.md), [roadmap](ROADMAP.md), and [status](STATUS.md).
 
 ## Remaining product questions
 
-- Multiplayer: single-player, co-op, competitive or persistent servers?
-- Exact MSI Claw model/RAM/power profile, desktop CPU/RAM/4070 VRAM, display targets, and memory budgets?
-- World scale/traversal speed, active-unit/body counts, and persistence expectations?
+- Answered 2026-11-04 ([ADR 0021](adr/0021-product-targets.md)): single-player first, built co-op-ready; desktop PC with the RTX 4070 recommended at 1440p60 and 16 GB RAM; one seamless world of 16 km or more, with double-precision positions.
+- Exact minimum GPU, desktop CPU and memory budgets per system?
+- Traversal speed, active-unit/body counts, and persistence expectations?
 - Terrain digging/deformation, destruction granularity, and structural simulation scope?
 - Howler/editor naming and final repository name?

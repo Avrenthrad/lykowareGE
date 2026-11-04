@@ -44,7 +44,7 @@ Exit: proposed 256-unit seeded battle runs for 10 minutes at target budgets; uni
 
 Goal: traverse a representative seamless persistent world.
 Deliverables: async IO/decompression/uploads, terrain/cell streaming, LOD, shader/pipeline preparation, save/load of changed regions, memory residency limits.
-Exit: agreed-speed 10-minute traversal with combat/building changes meets warmed hitch/frame/memory budgets on desktop and handheld profiles; cold cache behavior is measured separately; no missing collision/corrupt state across streaming boundaries; saves round-trip. Owner accepts core milestone before Track E starts.
+Exit: agreed-speed 10-minute traversal with combat/building changes meets warmed hitch/frame/memory budgets on the recommended and minimum desktop profiles (ADR 0021); cold cache behavior is measured separately; no missing collision/corrupt state across streaming boundaries; saves round-trip. Owner accepts core milestone before Track E starts.
 
 ## Phase 7 — Reserved/editor moved
 
