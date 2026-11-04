@@ -31,6 +31,8 @@ Canonical directory: docs/adr. Decisions remain Proposed until resolved; disting
 | [0025](0025-rhi-meshes.md) | Proposed | RHI meshes: vertex and index buffers, depth, culling, push constants, `draw_meshes` |
 | [0026](0026-renderer.md) | Proposed | First renderer: `Transform`, `MeshRenderer`, `Camera`, `Renderer` drawing ECS entities camera-relative; swapchain depth; falling crates in the sandbox |
 
+| [0030](0030-runtime-contract-hardening.md) | Proposed | Runtime owner tokens, transactional ECS storage and exclusive physics links |
+
 Use [the template](TEMPLATE.md). Record context, options, decision/status, contracts, consequences and verification. Use a new ADR to supersede an accepted choice; do not silently rewrite its history.
 
 [Pre-brief records](../decisions/README.md) remain historical and are not part of this numbering sequence.

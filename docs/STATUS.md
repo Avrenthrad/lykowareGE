@@ -2,6 +2,12 @@
 
 Records what is implemented and verified on `main`. Plans live in [ROADMAP.md](ROADMAP.md); task ownership in [WORK_BOARD.md](WORK_BOARD.md). Older per-branch handoffs are in the merged pull requests and git history.
 
+## Runtime review follow-up ready for owner review
+
+PR [#35](https://github.com/Avrenthrad/lykowareGE/pull/35), branch `codex/core-contract-hardening`, implements world-specific handles, transactional component storage/physics attachment, exclusive lifetime hooks, deterministic per-world cleanup order and allocation-free move transfer ([ADR 0030](adr/0030-runtime-contract-hardening.md)). All five CI jobs passed on source commit `f113b45` in [run 41826863572](https://github.com/Avrenthrad/lykowareGE/actions/runs/41826863572): Windows Debug/Release, Linux Debug, ASan/UBSan and clang-tidy 18. The 39-test suite includes allocation fault injection and unchanged physics hashes. This paragraph is a documentation-only handoff after that source result.
+
+Joshua merges per WORK_BOARD. Scene/command/replay/capture integration follows in [#36](https://github.com/Avrenthrad/lykowareGE/pull/36); actual Windows target-PC performance remains unverified. No Phase 1 completion is claimed.
+
 ## Decisions
 
 | ADR | Status | Subject |

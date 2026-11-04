@@ -6,6 +6,7 @@ configure_file(
 add_library(lykoware_engine STATIC
     src/clock.cpp
     src/ecs.cpp
+    src/world_identity.cpp
     src/log.cpp
     src/paths.cpp
     src/physics.cpp

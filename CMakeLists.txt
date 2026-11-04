@@ -219,6 +219,12 @@ if(BUILD_TESTING)
     set_tests_properties(ecs.world PROPERTIES TIMEOUT 120)
 
     # Physics bodies and characters on ECS entities (ADR 0023). Links only the engine.
+    add_executable(lykoware_ecs_allocation_test tests/ecs_allocation.cpp)
+    target_link_libraries(lykoware_ecs_allocation_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_ecs_allocation_test)
+    add_test(NAME ecs.allocation_recovery COMMAND lykoware_ecs_allocation_test)
+    set_tests_properties(ecs.allocation_recovery PROPERTIES TIMEOUT 120)
+
     add_executable(lykoware_physics_ecs_test tests/physics_ecs.cpp)
     target_link_libraries(lykoware_physics_ecs_test PRIVATE lykoware::engine)
     lykoware_configure_target(lykoware_physics_ecs_test)

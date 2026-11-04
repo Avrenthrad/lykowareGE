@@ -6,3 +6,6 @@
 *.suo
 # Host tools built from third_party (cmake/HostTools.cmake)
 /.lykoware-tools/
+
+# Python build-tool caches are regenerable.
+__pycache__/

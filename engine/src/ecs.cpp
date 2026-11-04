@@ -1,4 +1,5 @@
 #include <lykoware/ecs.hpp>
+#include "world_identity.hpp"
 
 #include <atomic>
 #include <utility>
@@ -15,33 +16,49 @@ TypeId next_type_id()
 
 }
 
-World::World() = default;
+World::World() : owner_(lykoware::detail::next_world_identity()) {}
 
 World::~World()
 {
     destroy_all();
 }
 
-World::World(World&& other) noexcept
-    : generations_(std::exchange(other.generations_, {}))
-    , alive_(std::exchange(other.alive_, {}))
-    , free_(std::exchange(other.free_, {}))
-    , pools_(std::exchange(other.pools_, {}))
-    , live_(std::exchange(other.live_, 0))
-    , iterating_(std::exchange(other.iterating_, 0))
+bool World::has_owned_hooks() const
 {
+    for (const auto& pool : pools_) {
+        if (pool && pool->owned_hook()) {
+            return true;
+        }
+    }
+    return false;
 }
 
-World& World::operator=(World&& other) noexcept
+World::World(World&& other)
+{
+    *this = std::move(other);
+}
+
+World& World::operator=(World&& other)
 {
     if (this != &other) {
+        if (locked() || other.locked() || has_owned_hooks() || other.has_owned_hooks()) {
+            throw std::logic_error("cannot move a locked or subsystem-linked ECS world");
+        }
         destroy_all();
-        generations_ = std::exchange(other.generations_, {});
-        alive_ = std::exchange(other.alive_, {});
-        free_ = std::exchange(other.free_, {});
-        pools_ = std::exchange(other.pools_, {});
+        owner_ = std::exchange(other.owner_, 0);
+        generations_.clear();
+        alive_.clear();
+        free_.clear();
+        removal_order_.clear();
+        pools_.clear();
+        // Swap empty storage rather than constructing vector temporaries. No allocation,
+        // including MSVC Debug iterator proxies, can interrupt the ownership transfer.
+        generations_.swap(other.generations_);
+        alive_.swap(other.alive_);
+        free_.swap(other.free_);
+        pools_.swap(other.pools_);
+        removal_order_.swap(other.removal_order_);
         live_ = std::exchange(other.live_, 0);
-        iterating_ = std::exchange(other.iterating_, 0);
     }
     return *this;
 }
@@ -51,7 +68,7 @@ void World::destroy_all()
     iterating_ = 0;
     for (std::uint32_t index = 0; index < generations_.size(); ++index) {
         if (alive_[index] != 0) {
-            destroy(Entity{index, generations_[index]});
+            destroy(Entity{index, generations_[index], owner_});
         }
     }
 }
@@ -60,6 +77,9 @@ Entity World::create()
 {
     if (iterating_ != 0) {
         return {};
+    }
+    if (owner_ == 0) {
+        owner_ = lykoware::detail::next_world_identity();
     }
     std::uint32_t index = 0;
     if (!free_.empty()) {
@@ -71,6 +91,17 @@ Entity World::create()
             return {};
         }
         index = static_cast<std::uint32_t>(generations_.size());
+        const std::size_t required = generations_.size() + 1;
+        const std::size_t capacity = required * 2;
+        if (generations_.capacity() < required) {
+            generations_.reserve(capacity);
+        }
+        if (alive_.capacity() < required) {
+            alive_.reserve(capacity);
+        }
+        if (free_.capacity() < required) {
+            free_.reserve(capacity);
+        }
         generations_.push_back(0);
         alive_.push_back(0);
     }
@@ -78,7 +109,7 @@ Entity World::create()
     ++generations_[index];
     alive_[index] = 1;
     ++live_;
-    return {index, generations_[index]};
+    return {index, generations_[index], owner_};
 }
 
 bool World::destroy(Entity entity)
@@ -89,10 +120,8 @@ bool World::destroy(Entity entity)
     {
         // Hooks run with the world locked, so they cannot change it under this loop.
         const IterationGuard guard(iterating_);
-        for (const std::unique_ptr<detail::PoolBase>& pool : pools_) {
-            if (pool) {
-                pool->remove(entity);
-            }
+        for (detail::PoolBase* pool : removal_order_) {
+            pool->remove(entity);
         }
     }
     alive_[entity.index] = 0;
@@ -111,19 +140,24 @@ std::size_t ChangeBuffer::apply(World& world)
         return 0;
     }
     std::size_t applied = 0;
-    // Take the changes first: a setup function may record more changes into this buffer,
-    // which then wait for the next apply().
-    std::vector<std::unique_ptr<Change>> changes = std::move(changes_);
-    changes_.clear();
-    for (const std::unique_ptr<Change>& change : changes) {
-        applied += change->apply(world) ? 1U : 0U;
+    std::list<std::unique_ptr<Change>> changes;
+    changes.splice(changes.end(), changes_);
+    while (!changes.empty()) {
+        auto change = std::move(changes.front());
+        changes.pop_front();
+        try {
+            applied += change->apply(world) ? 1U : 0U;
+        } catch (...) {
+            changes_.splice(changes_.begin(), changes);
+            throw;
+        }
     }
     return applied;
 }
 
 bool World::alive(Entity entity) const
 {
-    return entity.generation != 0 && entity.index < generations_.size() && alive_[entity.index] != 0
+    return entity.owner != 0 && entity.owner == owner_ && entity.generation != 0 && entity.index < generations_.size() && alive_[entity.index] != 0
         && generations_[entity.index] == entity.generation;
 }
 

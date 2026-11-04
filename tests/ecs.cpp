@@ -74,8 +74,8 @@ void test_handles()
     const ecs::Entity c = world.create();
     expect(c.index == a.index && c.generation != a.generation, "a freed slot is reused with a new generation");
     expect(!world.alive(a) && world.alive(c), "the old handle never reaches the new entity");
-    expect(!world.alive(ecs::Entity{999, 1}), "an out-of-range handle is not alive");
-    expect(!world.alive(ecs::Entity{b.index, b.generation + 1}), "a wrong generation is not alive");
+    expect(!world.alive(ecs::Entity{999, 1, b.owner}), "an out-of-range handle is not alive");
+    expect(!world.alive(ecs::Entity{b.index, b.generation + 1, b.owner}), "a wrong generation is not alive");
 
     // Slots are reused last freed, first used.
     std::vector<ecs::Entity> many;
@@ -352,10 +352,15 @@ void test_remove_hooks()
     {
         ecs::World world;
         world.on_remove<Health>([&](ecs::Entity, Health& h) { order.push_back(h.value); });
+        ecs::Entity second;
         for (int i = 0; i < 4; ++i) {
-            world.add<Health>(world.create(), Health{i});
+            const auto entity = world.create();
+            world.add<Health>(entity, Health{i});
+            if (i == 1) {
+                second = entity;
+            }
         }
-        world.destroy(ecs::Entity{1, 1});
+        world.destroy(second);
     }
     expect(order == std::vector<int>{1, 0, 2, 3}, "destroying the world runs the hooks of the rest, in slot order");
 
@@ -363,8 +368,9 @@ void test_remove_hooks()
     bool called = false;
     world.on_remove<Health>([&](ecs::Entity, Health&) { called = true; });
     world.on_remove<Health>({});
-    world.add<Health>(world.create());
-    world.destroy(ecs::Entity{0, 1});
+    const auto cleared = world.create();
+    world.add<Health>(cleared);
+    world.destroy(cleared);
     expect(!called, "an empty hook clears it");
     world.add<Health>(world.create());
     bool refused_inside_each = false;
@@ -431,6 +437,74 @@ void test_change_buffer()
     expect(changes.apply(world) == 0 && world.alive(holder), "clear drops recorded changes");
 }
 
+void test_world_isolation_and_failures()
+{
+    ecs::World a;
+    ecs::World b;
+    const auto first = a.create();
+    const auto foreign = b.create();
+    a.add<Health>(first);
+    b.add<Health>(foreign);
+    expect(first.index == foreign.index && first.generation == foreign.generation && first != foreign,
+           "identical slots in separate worlds have different handles");
+    expect(!a.alive(foreign) && !a.destroy(foreign) && !a.remove<Health>(foreign)
+               && a.get<Health>(foreign) == nullptr && a.add<Position>(foreign) == nullptr,
+           "all entity entry points reject foreign handles");
+    ecs::World moved(std::move(a));
+    const auto replacement = a.create(); // NOLINT(bugprone-use-after-move,clang-analyzer-cplusplus.Move) -- moved-from reuse is the contract under test.
+    expect(moved.alive(first) && !a.alive(first) && !moved.alive(replacement),
+           "move transfers identity and moved-from reuse gets fresh identity");
+    bool refused = false;
+    moved.each<Health>([&](ecs::Entity, Health&) {
+        try {
+            ecs::World invalid(std::move(moved));
+            throw std::runtime_error("locked move unexpectedly succeeded");
+        } catch (const std::logic_error&) {
+            refused = true;
+        }
+    });
+    expect(refused && !moved.locked() && moved.alive(first), "locked move is refused without corrupting iteration");
+
+    ecs::ChangeBuffer changes;
+    changes.create([&](ecs::World& world, ecs::Entity e) {
+        world.add<Position>(e);
+        changes.add<Position>(first, Position{3, 0, 0});
+        if (world.has<Position>(e)) {
+            throw std::runtime_error("setup failed");
+        }
+    });
+    changes.add<Health>(first, Health{22});
+    try {
+        changes.apply(moved);
+    } catch (const std::runtime_error&) {
+    }
+    expect(moved.size() == 1 && moved.count<Position>() == 0 && changes.size() == 2,
+           "throwing setup rolls back entity and preserves later and appended changes");
+    moved.remove<Health>(first);
+    expect(changes.apply(moved) == 2 && moved.get<Health>(first)->value == 22
+               && moved.get<Position>(first)->x == 3,
+           "preserved commands apply in order on retry");
+}
+
+void test_local_hook_order()
+{
+    struct First { int value = 0; };
+    struct Second { int value = 0; };
+    ecs::World unrelated;
+    const auto other = unrelated.create();
+    unrelated.add<Second>(other);
+    unrelated.add<First>(other);
+    ecs::World world;
+    std::vector<int> order;
+    world.on_remove<First>([&](ecs::Entity, First&) { order.push_back(1); });
+    world.on_remove<Second>([&](ecs::Entity, Second&) { order.push_back(2); });
+    const auto entity = world.create();
+    world.add<Second>(entity);
+    world.add<First>(entity);
+    world.destroy(entity);
+    expect(order == std::vector<int>{1, 2}, "unrelated worlds cannot change this world's cleanup ordering");
+}
+
 void test_many()
 {
     ecs::World world;
@@ -464,6 +538,8 @@ int main()
     test_remove_hooks();
     test_change_buffer();
     test_many();
+    test_local_hook_order();
+    test_world_isolation_and_failures();
     if (g_failures != 0) {
         std::cerr << g_failures << " ECS assertion(s) failed\n";
         return EXIT_FAILURE;

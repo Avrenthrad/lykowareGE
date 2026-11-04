@@ -12,6 +12,17 @@ Owner rules for every task: small stacked PRs; commit small and often; keep all 
 
 Check latest main and open PRs before starting. Documents do not automatically synchronize assistants or reserve work.
 
+## Active review follow-ups (Codex)
+
+- Owner/status: Codex, ready for owner review in #35; all five jobs passed on `f113b45` ([run](https://github.com/Avrenthrad/lykowareGE/actions/runs/41826863572)); original base `5b46f0812eab373fa3e3062acd272c6b593a1b63`, branch `codex/core-contract-hardening`.
+- Scope: ECS/physics handle isolation, allocation/exception safety, exclusive physics attachment ownership; ADR 0030. No renderer rewrite.
+- Affected interfaces: ECS Entity, physics handles, ECS movement/hook claims, physics component accessors.
+- Checks: cross-world rejection; move/locked/rebind tests; injected allocation failures; unchanged deterministic physics hashes; full five-job CI.
+- Related work: Claude's `claude/math`, `claude/rhi-mesh`, and `claude/render-scene` supply camera-relative rendering. Keep their ownership and changes intact.
+- Remaining follow-ups: stable persisted scene/schema IDs and fixed-tick command replay; render/simulation separation tests; integrated capture/measurement runner; documentation reconciliation.
+- Hardware gate: actual Windows GPU timing and memory on the recommended desktop require that machine. A software Vulkan run is not that evidence.
+- Integration: Joshua merges, per the owner rules above. Stacked follow-up PRs may be built/tested together locally before owner merge.
+
 ## Active task
 
 3D rendering (Phase 1). Owner: Claude. Status: PR 1 in review as #32 (`claude/math`), PR 2 as #33 (`claude/rhi-mesh`) and PR 3 on `claude/render-scene`, each stacked on the one before.
