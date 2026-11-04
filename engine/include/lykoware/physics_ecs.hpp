@@ -4,6 +4,7 @@
 #include <lykoware/physics.hpp>
 
 #include <string>
+#include <utility>
 
 // Physics bodies and characters on ECS entities (ADR 0023). An entity with a RigidBody or
 // Character component owns that physics object: removing the component, or destroying the
@@ -19,14 +20,40 @@ struct Transform {
     physics::Quat rotation;
 };
 
-// The physics body an entity owns.
-struct RigidBody {
-    physics::BodyId id;
+// Unique ownership components: created by Link, inspected through id(). Do not move a
+// component out of ECS storage; moves are for packed-pool relocation only.
+class RigidBody {
+public:
+    RigidBody(const RigidBody&) = delete;
+    RigidBody& operator=(const RigidBody&) = delete;
+    RigidBody(RigidBody&& other) noexcept : id_(std::exchange(other.id_, {})) {}
+    RigidBody& operator=(RigidBody&& other) noexcept
+    {
+        id_ = std::exchange(other.id_, {});
+        return *this;
+    }
+    [[nodiscard]] physics::BodyId id() const { return id_; }
+private:
+    friend class Link;
+    explicit RigidBody(physics::BodyId id) : id_(id) {}
+    physics::BodyId id_;
 };
 
-// The physics character an entity owns.
-struct Character {
-    physics::CharacterId id;
+class Character {
+public:
+    Character(const Character&) = delete;
+    Character& operator=(const Character&) = delete;
+    Character(Character&& other) noexcept : id_(std::exchange(other.id_, {})) {}
+    Character& operator=(Character&& other) noexcept
+    {
+        id_ = std::exchange(other.id_, {});
+        return *this;
+    }
+    [[nodiscard]] physics::CharacterId id() const { return id_; }
+private:
+    friend class Link;
+    explicit Character(physics::CharacterId id) : id_(id) {}
+    physics::CharacterId id_;
 };
 
 // Connects one ECS world to one physics world.
@@ -38,8 +65,9 @@ struct Character {
 // Lifetime: the physics world must outlive the ECS world (create it first). The link object
 // itself is only a helper; use it while both worlds exist.
 //
-// One physics world per ECS world: a second link replaces the first one's hooks. Do not move a
-// linked ECS world. Threading and failure rules are those of the two worlds.
+// One exclusive link per ECS world: rebinding, conflicting hooks, preexisting ownership
+// components, or construction while locked throw std::logic_error. The claim persists after
+// helper destruction. Moving a linked world is refused. Threading follows the two worlds.
 class Link {
 public:
     Link(ecs::World& entities, physics::World& physics);
@@ -51,7 +79,7 @@ public:
 
     // Creates a physics body from desc and gives the entity RigidBody and Transform components
     // (an existing Transform is overwritten). False, with error filled and nothing changed, if
-    // the entity is not alive, already has a RigidBody, the ECS world is locked, or physics
+    // the entity is not alive, already has either ownership component, is locked, or physics
     // refuses the body.
     bool add_body(ecs::Entity entity, const physics::BodyDesc& desc, std::string& error);
     // The same for a walking character and the Character component.

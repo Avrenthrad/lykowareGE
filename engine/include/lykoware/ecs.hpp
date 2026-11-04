@@ -3,7 +3,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <list>
 #include <memory>
+#include <stdexcept>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -14,8 +16,8 @@
 // An entity is a generation-checked handle. Components are plain C++ types stored per type in
 // packed arrays (sparse sets), so iterating one component type walks contiguous memory.
 //
-// Determinism: the same calls in the same order give the same handles and the same iteration
-// order, on every compiler and platform. Nothing depends on addresses, hashing or time. This is
+// Determinism: the same calls in the same order give the same slots/generations and iteration
+// order. Opaque owner tokens isolate worlds and must not be persisted or hashed. This is
 // what replays, saves and later co-op build on (ADR 0021).
 
 namespace lykoware::ecs {
@@ -26,6 +28,7 @@ namespace lykoware::ecs {
 struct Entity {
     std::uint32_t index = 0;
     std::uint32_t generation = 0;
+    std::uint64_t owner = 0;
 
     friend bool operator==(const Entity&, const Entity&) = default;
 };
@@ -56,6 +59,7 @@ public:
     virtual ~PoolBase() = default;
     // Removes the entity's component, if it has one, after calling the removal hook.
     virtual bool remove(Entity entity) = 0;
+    [[nodiscard]] virtual bool owned_hook() const = 0;
 };
 
 // Components of one type: `values_[i]` belongs to the entity in slot `dense_[i]`, and
@@ -78,10 +82,19 @@ public:
     template <class... Args>
     T& emplace(std::uint32_t index, Args&&... args)
     {
+        // Construct before reserve: args may refer to an existing component.
+        T staged(std::forward<Args>(args)...);
+        const std::size_t required = dense_.size() + 1;
+        if (required > dense_.capacity()) {
+            dense_.reserve(required * 2);
+        }
+        if (required > values_.capacity()) {
+            values_.reserve(required * 2);
+        }
         if (index >= sparse_.size()) {
             sparse_.resize(static_cast<std::size_t>(index) + 1, absent);
         }
-        values_.emplace_back(std::forward<Args>(args)...);
+        values_.push_back(std::move(staged));
         sparse_[index] = static_cast<std::uint32_t>(dense_.size());
         dense_.push_back(index);
         return values_.back();
@@ -112,9 +125,17 @@ public:
     [[nodiscard]] std::size_t size() const { return dense_.size(); }
     [[nodiscard]] std::uint32_t slot_at(std::size_t position) const { return dense_[position]; }
     [[nodiscard]] T& value_at(std::size_t position) { return values_[position]; }
+    [[nodiscard]] bool owned_hook() const override { return static_cast<bool>(hook_owner_); }
+    [[nodiscard]] bool has_hook() const { return static_cast<bool>(on_remove_); }
     void set_on_remove(std::function<void(Entity, T&)> hook) { on_remove_ = std::move(hook); }
+    void claim_hook(const std::shared_ptr<void>& owner, std::function<void(Entity, T&)> hook) noexcept
+    {
+        hook_owner_ = owner;
+        on_remove_ = std::move(hook);
+    }
 
 private:
+    std::shared_ptr<void> hook_owner_;
     std::function<void(Entity, T&)> on_remove_;
     std::vector<std::uint32_t> sparse_;
     std::vector<std::uint32_t> dense_;
@@ -125,7 +146,7 @@ private:
 
 // One set of entities and their components.
 //
-// Components: any type that can be moved (move-constructible and move-assignable), with no
+// Components: nonthrowing move-constructible, move-assignable and destructible types, with no
 // const or reference members. An entity has at most one component of each type.
 //
 // Pointers returned by add() and get() stay valid until the next add() or remove() of that
@@ -142,7 +163,7 @@ private:
 // hook may not make structural changes to this world (they are refused) and must not throw.
 //
 // Threading: one thread at a time. Ownership: the world owns all components; destroying the
-// world destroys them. Copy is not provided; move is.
+// world destroys them. Copy is not provided; move is refused while locked or with owned hooks.
 //
 // Failure: functions that take an Entity return false or nullptr for an invalid, destroyed or
 // foreign handle, and for refused structural changes. Nothing throws for those; std::bad_alloc
@@ -153,8 +174,8 @@ public:
     ~World();
     World(const World&) = delete;
     World& operator=(const World&) = delete;
-    World(World&&) noexcept;
-    World& operator=(World&&) noexcept;
+    World(World&&);
+    World& operator=(World&&);
 
     // A new entity with no components. Default (invalid) handle if refused during each(), or
     // if every one of 2^32 - 1 slots is in use or retired.
@@ -171,8 +192,9 @@ public:
     template <class T, class... Args>
     T* add(Entity entity, Args&&... args)
     {
-        static_assert(std::is_move_constructible_v<T> && std::is_move_assignable_v<T>,
-                      "ECS components must be movable");
+        static_assert(std::is_nothrow_move_constructible_v<T> && std::is_nothrow_move_assignable_v<T>
+                          && std::is_nothrow_destructible_v<T>,
+                      "ECS components require nonthrowing move and destruction");
         if (iterating_ != 0 || !alive(entity)) {
             return nullptr;
         }
@@ -215,14 +237,39 @@ public:
     }
 
     // Sets the hook called before each removal of a T (see the class comment); an empty
-    // function clears it. False during each() or a hook.
+    // function clears it. False during each(), a hook, or for a subsystem-owned hook.
     template <class T>
     bool on_remove(std::function<void(Entity, T&)> hook)
     {
         if (iterating_ != 0) {
             return false;
         }
-        pool_for<T>().set_on_remove(std::move(hook));
+        detail::Pool<T>& pool = pool_for<T>();
+        if (pool.owned_hook()) {
+            return false;
+        }
+        pool.set_on_remove(std::move(hook));
+        return true;
+    }
+
+    // Exclusively claim two empty component pools for a subsystem. The shared owner pins
+    // cleanup context after the helper dies. Refused without changing either hook.
+    template <class A, class B>
+    bool claim_removal_hooks(std::shared_ptr<void> owner,
+                             std::function<void(Entity, A&)> first,
+                             std::function<void(Entity, B&)> second)
+    {
+        static_assert(!std::is_same_v<A, B>);
+        if (locked() || !owner || !first || !second) {
+            return false;
+        }
+        auto& a = pool_for<A>();
+        auto& b = pool_for<B>();
+        if (a.owned_hook() || b.owned_hook() || a.has_hook() || b.has_hook() || a.size() != 0 || b.size() != 0) {
+            return false;
+        }
+        a.claim_hook(owner, std::move(first));
+        b.claim_hook(owner, std::move(second));
         return true;
     }
 
@@ -249,7 +296,7 @@ public:
         const IterationGuard guard(iterating_);
         for (std::size_t position = 0; position < first->size(); ++position) {
             const std::uint32_t index = first->slot_at(position);
-            visit<Rest...>(fn, Entity{index, generations_[index]}, first->value_at(position));
+            visit<Rest...>(fn, Entity{index, generations_[index], owner_}, first->value_at(position));
         }
     }
 
@@ -305,6 +352,8 @@ private:
 
     // Destroys every live entity in slot order, running removal hooks.
     void destroy_all();
+    [[nodiscard]] bool has_owned_hooks() const;
+    std::uint64_t owner_ = 0;
 
     // generations_[slot] is the slot's current generation; a slot is alive when alive_[slot].
     std::vector<std::uint32_t> generations_;
@@ -330,7 +379,12 @@ public:
             if (!world.alive(entity)) {
                 return false;
             }
-            setup(world, entity);
+            try {
+                setup(world, entity);
+            } catch (...) {
+                world.destroy(entity);
+                throw;
+            }
             return true;
         });
     }
@@ -354,7 +408,8 @@ public:
     // Applies every change in order and empties the buffer. Returns how many took effect: a
     // change does nothing if, when its turn comes, the world refuses it (for example the
     // entity was destroyed by an earlier change). If the world is locked (inside each() or a
-    // hook), nothing is applied, the buffer is kept and the result is 0.
+    // hook), nothing is applied, the buffer is kept and the result is 0. On exception the
+    // failing command is consumed and later commands remain queued; prior changes stay applied.
     std::size_t apply(World& world);
 
     [[nodiscard]] std::size_t size() const { return changes_.size(); }
@@ -390,7 +445,7 @@ private:
     }
 
     // Move-only callables (components may be move-only, so std::function cannot hold them).
-    std::vector<std::unique_ptr<Change>> changes_;
+    std::list<std::unique_ptr<Change>> changes_;
 };
 
 }

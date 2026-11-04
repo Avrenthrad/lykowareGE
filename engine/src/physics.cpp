@@ -1,4 +1,6 @@
 #include <lykoware/physics.hpp>
+#include "world_identity.hpp"
+#include <stdexcept>
 
 #include <lykoware/log.hpp>
 
@@ -295,6 +297,13 @@ public:
             free_.pop_back();
             return index;
         }
+        const std::size_t required = slots_.size() + 1;
+        if (required >= UINT32_MAX) {
+            throw std::length_error("physics handle slots exhausted");
+        }
+        if (free_.capacity() < required) {
+            free_.reserve(required * 2);
+        }
         slots_.emplace_back();
         return static_cast<std::uint32_t>(slots_.size() - 1);
     }
@@ -310,13 +319,13 @@ public:
         ++live_;
         return slot.generation;
     }
-    [[nodiscard]] Payload* find(std::uint32_t index, std::uint32_t generation)
+    [[nodiscard]] Payload* find(std::uint32_t index, std::uint32_t generation, std::uint64_t owner)
     {
-        return const_cast<Payload*>(std::as_const(*this).find(index, generation));
+        return const_cast<Payload*>(std::as_const(*this).find(index, generation, owner));
     }
-    [[nodiscard]] const Payload* find(std::uint32_t index, std::uint32_t generation) const
+    [[nodiscard]] const Payload* find(std::uint32_t index, std::uint32_t generation, std::uint64_t owner) const
     {
-        if (generation == 0 || index >= slots_.size()) {
+        if (owner != owner_ || generation == 0 || index >= slots_.size()) {
             return nullptr;
         }
         const Slot& slot = slots_[index];
@@ -330,6 +339,7 @@ public:
         free_.push_back(index);
         --live_;
     }
+    [[nodiscard]] std::uint64_t owner() const { return owner_; }
     [[nodiscard]] std::size_t live() const { return live_; }
     [[nodiscard]] std::uint32_t generation(std::uint32_t index) const { return slots_[index].generation; }
     [[nodiscard]] bool alive(std::uint32_t index) const { return index < slots_.size() && slots_[index].alive; }
@@ -338,6 +348,7 @@ public:
     [[nodiscard]] const Payload& payload(std::uint32_t index) const { return slots_[index].payload; }
 
 private:
+    const std::uint64_t owner_ = lykoware::detail::next_world_identity();
     std::vector<Slot> slots_;
     std::vector<std::uint32_t> free_;
     std::size_t live_ = 0;
@@ -424,7 +435,7 @@ struct World::Impl : private Runtime {
         if (!bodies.alive(index)) {
             return std::nullopt;
         }
-        return BodyId{index, bodies.generation(index)};
+        return BodyId{index, bodies.generation(index), bodies.owner()};
     }
 
     void move_character(Character& character, float seconds)
@@ -516,7 +527,7 @@ std::optional<BodyId> World::create_body(const BodyDesc& desc, std::string& erro
         error = "a height field must be static";
         return std::nullopt;
     }
-    JPH::ShapeSettings* shape = make_shape_settings(desc.shape, error);
+    JPH::Ref<JPH::ShapeSettings> shape = make_shape_settings(desc.shape, error);
     if (shape == nullptr) {
         return std::nullopt;
     }
@@ -525,7 +536,7 @@ std::optional<BodyId> World::create_body(const BodyDesc& desc, std::string& erro
     const std::uint32_t index = impl.bodies.reserve();
     const bool is_static = desc.motion == MotionType::Static;
     // The creation settings take the only reference to the shape settings.
-    JPH::BodyCreationSettings settings{shape, to_jolt_position(desc.position), rotation.Normalized(),
+    JPH::BodyCreationSettings settings{shape.GetPtr(), to_jolt_position(desc.position), rotation.Normalized(),
                                        to_jolt(desc.motion), is_static ? layer::static_bodies : layer::moving_bodies};
     settings.mFriction = desc.friction;
     settings.mRestitution = desc.restitution;
@@ -544,13 +555,13 @@ std::optional<BodyId> World::create_body(const BodyDesc& desc, std::string& erro
         error = "Jolt could not create the body";
         return std::nullopt;
     }
-    return BodyId{index, impl.bodies.activate(index, jolt)};
+    return BodyId{index, impl.bodies.activate(index, jolt), impl.bodies.owner()};
 }
 
 bool World::destroy_body(BodyId body)
 {
     Impl& impl = *impl_;
-    const JPH::BodyID* jolt = impl.bodies.find(body.index, body.generation);
+    const JPH::BodyID* jolt = impl.bodies.find(body.index, body.generation, body.owner);
     if (jolt == nullptr) {
         return false;
     }
@@ -563,7 +574,7 @@ bool World::destroy_body(BodyId body)
 
 bool World::is_valid(BodyId body) const
 {
-    return impl_->bodies.find(body.index, body.generation) != nullptr;
+    return impl_->bodies.find(body.index, body.generation, body.owner) != nullptr;
 }
 
 std::size_t World::body_count() const
@@ -573,7 +584,7 @@ std::size_t World::body_count() const
 
 std::optional<BodyState> World::state(BodyId body) const
 {
-    const JPH::BodyID* jolt = impl_->bodies.find(body.index, body.generation);
+    const JPH::BodyID* jolt = impl_->bodies.find(body.index, body.generation, body.owner);
     if (jolt == nullptr) {
         return std::nullopt;
     }
@@ -587,7 +598,7 @@ std::optional<BodyState> World::state(BodyId body) const
 
 bool World::set_velocity(BodyId body, Vec3 linear, Vec3 angular)
 {
-    const JPH::BodyID* jolt = impl_->bodies.find(body.index, body.generation);
+    const JPH::BodyID* jolt = impl_->bodies.find(body.index, body.generation, body.owner);
     if (jolt == nullptr) {
         return false;
     }
@@ -634,17 +645,17 @@ std::optional<CharacterId> World::create_character(const CharacterDesc& desc, st
     settings.mMaxSlopeAngle = desc.max_slope;
     settings.mMass = desc.mass;
 
-    const std::uint32_t index = impl.characters.reserve();
     Character character;
     character.jolt = new JPH::CharacterVirtual(&settings, to_jolt_position(desc.position), JPH::Quat::sIdentity(),
-                                               index, &impl.system);
+                                               0, &impl.system);
     character.step_height = desc.step_height;
-    return CharacterId{index, impl.characters.activate(index, std::move(character))};
+    const std::uint32_t index = impl.characters.reserve();
+    return CharacterId{index, impl.characters.activate(index, std::move(character)), impl.characters.owner()};
 }
 
 bool World::destroy_character(CharacterId character)
 {
-    if (impl_->characters.find(character.index, character.generation) == nullptr) {
+    if (impl_->characters.find(character.index, character.generation, character.owner) == nullptr) {
         return false;
     }
     impl_->characters.release(character.index);
@@ -653,7 +664,7 @@ bool World::destroy_character(CharacterId character)
 
 bool World::is_valid(CharacterId character) const
 {
-    return impl_->characters.find(character.index, character.generation) != nullptr;
+    return impl_->characters.find(character.index, character.generation, character.owner) != nullptr;
 }
 
 std::size_t World::character_count() const
@@ -663,7 +674,7 @@ std::size_t World::character_count() const
 
 bool World::set_character_input(CharacterId character, Vec3 horizontal_velocity, float jump_speed)
 {
-    Character* found = impl_->characters.find(character.index, character.generation);
+    Character* found = impl_->characters.find(character.index, character.generation, character.owner);
     if (found == nullptr || !finite(horizontal_velocity) || !std::isfinite(jump_speed) || jump_speed < 0.F) {
         return false;
     }
@@ -674,7 +685,7 @@ bool World::set_character_input(CharacterId character, Vec3 horizontal_velocity,
 
 std::optional<CharacterState> World::character_state(CharacterId character) const
 {
-    const Character* found = impl_->characters.find(character.index, character.generation);
+    const Character* found = impl_->characters.find(character.index, character.generation, character.owner);
     if (found == nullptr) {
         return std::nullopt;
     }
@@ -727,7 +738,7 @@ std::uint64_t World::state_hash() const
         if (!impl_->bodies.alive(index)) {
             continue;
         }
-        const std::optional<BodyState> body = state(BodyId{index, impl_->bodies.generation(index)});
+        const std::optional<BodyState> body = state(BodyId{index, impl_->bodies.generation(index), impl_->bodies.owner()});
         hash.add(impl_->system.GetBodyInterface().GetPosition(impl_->bodies.payload(index)));
         hash.add(body->rotation.x);
         hash.add(body->rotation.y);
@@ -740,7 +751,7 @@ std::uint64_t World::state_hash() const
         if (!impl_->characters.alive(index)) {
             continue;
         }
-        const std::optional<CharacterState> character = character_state(CharacterId{index, impl_->characters.generation(index)});
+        const std::optional<CharacterState> character = character_state(CharacterId{index, impl_->characters.generation(index), impl_->characters.owner()});
         hash.add(impl_->characters.payload(index).jolt->GetPosition());
         hash.add(character->velocity);
         hash.add(static_cast<std::uint32_t>(character->ground));

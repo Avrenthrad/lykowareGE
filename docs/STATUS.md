@@ -2,6 +2,10 @@
 
 Records what is implemented and verified on `main`. Plans live in [ROADMAP.md](ROADMAP.md); task ownership in [WORK_BOARD.md](WORK_BOARD.md). Older per-branch handoffs are in the merged pull requests and git history.
 
+## Review follow-ups in progress
+
+Codex branch `codex/core-contract-hardening`, based on `5b46f08` (#31 merged), changes runtime handle and attachment contracts under [ADR 0030](adr/0030-runtime-contract-hardening.md). The standalone ECS regression binary passes locally. Full native build and fault-injection tests are pending; no completion box is checked. Owner merges after CI/review. See [WORK_BOARD](WORK_BOARD.md).
+
 ## Decisions
 
 | ADR | Status | Subject |

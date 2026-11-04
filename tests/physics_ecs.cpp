@@ -14,6 +14,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <stdexcept>
 #include <string_view>
 #include <vector>
 
@@ -77,6 +78,62 @@ physics::BodyDesc crate_desc(double x, double y)
     return crate;
 }
 
+void test_world_and_link_contracts()
+{
+    auto a = make_physics(1);
+    auto b = make_physics(1);
+    std::string error;
+    const auto first = a->create_body(crate_desc(0, 2), error);
+    const auto foreign = b->create_body(crate_desc(0, 2), error);
+    expect(first && foreign && first->index == foreign->index && first->generation == foreign->generation,
+           "two worlds exercise matching slots and generations");
+    expect(!a->is_valid(*foreign) && !a->state(*foreign) && !a->set_velocity(*foreign, {})
+               && !a->destroy_body(*foreign) && a->is_valid(*first), "all body operations reject foreign owners");
+    const auto walker_a = a->create_character({}, error);
+    const auto walker_b = b->create_character({}, error);
+    expect(walker_a && walker_b && !a->is_valid(*walker_b) && !a->character_state(*walker_b)
+               && !a->set_character_input(*walker_b, {}) && !a->destroy_character(*walker_b),
+           "all character operations reject foreign owners");
+    ecs::World entities;
+    link::Link link(entities, *a);
+    bool refused = false;
+    try {
+        link::Link duplicate(entities, *b);
+    } catch (const std::logic_error&) {
+        refused = true;
+    }
+    expect(refused, "a second physics link cannot replace ownership hooks");
+    expect(!entities.on_remove<link::RigidBody>({}) && !entities.on_remove<link::Character>({}),
+           "ordinary hook replacement cannot erase subsystem ownership");
+    const auto crate = entities.create();
+    expect(link.add_body(crate, crate_desc(0, 2), error) && !link.add_character(crate, {}, error),
+           "body and character ownership are mutually exclusive");
+    const auto walker = entities.create();
+    expect(link.add_character(walker, {}, error) && !link.add_body(walker, crate_desc(0, 2), error),
+           "character also excludes body ownership");
+    refused = false;
+    try {
+        ecs::World moved(std::move(entities));
+    } catch (const std::logic_error&) {
+        refused = true;
+    }
+    expect(refused && entities.alive(crate), "linked world move is refused without damaging ownership");
+    ecs::World locked;
+    const auto e = locked.create();
+    locked.add<int>(e, 1);
+    refused = false;
+    locked.each<int>([&](ecs::Entity, int&) {
+        try {
+            link::Link invalid(locked, *a);
+        } catch (const std::logic_error&) {
+            refused = true;
+        }
+    });
+    expect(refused, "link creation while locked fails explicitly");
+    link::Link valid_after_refusal(locked, *a);
+    expect(valid_after_refusal.add_body(e, crate_desc(0, 2), error), "failed link creation leaves hooks unclaimed");
+}
+
 void test_bodies_follow_physics()
 {
     auto physics = make_physics();
@@ -98,7 +155,7 @@ void test_bodies_follow_physics()
         stepped = linked.step(tick_seconds()) && stepped;
     }
     expect(stepped, "every step succeeds");
-    const physics::BodyId crate_body = entities.get<link::RigidBody>(crate)->id;
+    const physics::BodyId crate_body = entities.get<link::RigidBody>(crate)->id();
     const auto state = physics->state(crate_body);
     const link::Transform* transform = entities.get<link::Transform>(crate);
     expect(state && transform->position.y == state->position.y && transform->rotation.w == state->rotation.w,
@@ -127,7 +184,7 @@ void test_bodies_follow_physics()
     entities.remove<link::RigidBody>(crate);
     expect(!physics->is_valid(crate_body) && physics->body_count() == 1, "removing RigidBody destroys the body");
     expect(entities.alive(crate) && entities.has<link::Transform>(crate), "the entity and its Transform remain");
-    const physics::BodyId ground_body = entities.get<link::RigidBody>(ground)->id;
+    const physics::BodyId ground_body = entities.get<link::RigidBody>(ground)->id();
     entities.destroy(ground);
     expect(!physics->is_valid(ground_body) && physics->body_count() == 0, "destroying the entity destroys its body");
 }
@@ -145,7 +202,7 @@ void test_characters_and_lifetimes()
         desc.position = {0.0, 0.0, 0.0};
         expect(linked.add_character(walker, desc, error), "a character can be added to an entity");
         expect(!linked.add_character(walker, desc, error), "a second character is refused");
-        const physics::CharacterId walker_id = entities.get<link::Character>(walker)->id;
+        const physics::CharacterId walker_id = entities.get<link::Character>(walker)->id();
         physics->set_character_input(walker_id, {2.F, 0.F, 0.F});
         for (int i = 0; i < 60; ++i) {
             linked.step(tick_seconds());
@@ -225,6 +282,7 @@ void test_despawn_with_change_buffer()
 
 int main()
 {
+    test_world_and_link_contracts();
     test_bodies_follow_physics();
     test_characters_and_lifetimes();
     test_despawn_with_change_buffer();

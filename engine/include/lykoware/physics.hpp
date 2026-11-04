@@ -48,6 +48,7 @@ struct Quat {
 struct BodyId {
     std::uint32_t index = 0;
     std::uint32_t generation = 0;
+    std::uint64_t owner = 0;
 
     friend bool operator==(const BodyId&, const BodyId&) = default;
 };
@@ -106,6 +107,7 @@ struct BodyState {
 struct CharacterId {
     std::uint32_t index = 0;
     std::uint32_t generation = 0;
+    std::uint64_t owner = 0;
 
     friend bool operator==(const CharacterId&, const CharacterId&) = default;
 };
