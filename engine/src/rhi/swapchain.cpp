@@ -9,6 +9,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -41,17 +42,22 @@ bool has_extension(const Device& device, std::string_view name)
     return false;
 }
 
-VkSurfaceFormatKHR choose_format(const std::vector<VkSurfaceFormatKHR>& formats)
+// 8-bit UNORM, like RenderTarget, so pipelines have a ColorFormat to target.
+// sRGB/HDR output waits for the colour-pipeline decision. The standard
+// colour space is preferred; any colour space is accepted after that.
+std::optional<VkSurfaceFormatKHR> choose_format(const std::vector<VkSurfaceFormatKHR>& formats)
 {
-    // UNORM, like RenderTarget. sRGB/HDR output waits for the colour-pipeline decision.
-    for (const VkFormat wanted : {VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_R8G8B8A8_UNORM}) {
-        for (const VkSurfaceFormatKHR& format : formats) {
-            if (format.format == wanted && format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
-                return format;
+    for (const bool standard_space : {true, false}) {
+        for (const VkFormat wanted : {VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_R8G8B8A8_UNORM}) {
+            for (const VkSurfaceFormatKHR& format : formats) {
+                if (format.format == wanted
+                    && (!standard_space || format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)) {
+                    return format;
+                }
             }
         }
     }
-    return formats.front();
+    return std::nullopt;
 }
 
 VkPresentModeKHR choose_present_mode(const std::vector<VkPresentModeKHR>& modes, bool vsync)
@@ -247,6 +253,9 @@ struct Swapchain::Impl {
         return build(error);
     }
 
+    // One acquire, clear (and draw when pipeline is not null), present cycle.
+    bool render_frame(const ClearColor& color, VkPipeline pipeline, std::uint32_t vertex_count, RhiError& error);
+
     const Instance* instance = nullptr;
     Window* window = nullptr;
     VkPhysicalDevice physical = VK_NULL_HANDLE;
@@ -322,7 +331,13 @@ std::unique_ptr<Swapchain> Swapchain::create(
         fail(error, RhiFailure::DriverError, driver_failure("vkGetPhysicalDeviceSurfaceFormatsKHR", result));
         return nullptr;
     }
-    impl->format = choose_format(formats);
+    const std::optional<VkSurfaceFormatKHR> format = choose_format(formats);
+    if (!format) {
+        fail(error, RhiFailure::NoSuitableDevice,
+             "the window surface offers no 8-bit UNORM BGRA or RGBA format");
+        return nullptr;
+    }
+    impl->format = *format;
 
     result = vkGetPhysicalDeviceSurfacePresentModesKHR(impl->physical, impl->surface, &count, nullptr);
     std::vector<VkPresentModeKHR> modes(count);
@@ -406,10 +421,32 @@ std::uint32_t Swapchain::rebuild_count() const
     return impl_->rebuilds;
 }
 
+ColorFormat Swapchain::color_format() const
+{
+    return impl_->format.format == VK_FORMAT_B8G8R8A8_UNORM ? ColorFormat::Bgra8Unorm : ColorFormat::Rgba8Unorm;
+}
+
 bool Swapchain::render_clear(const ClearColor& color, RhiError& error)
 {
     error = {};
-    Impl& impl = *impl_;
+    return impl_->render_frame(color, VK_NULL_HANDLE, 0, error);
+}
+
+bool Swapchain::render_draw(const ClearColor& clear, const GraphicsPipeline& pipeline, std::uint32_t vertex_count,
+                            RhiError& error)
+{
+    error = {};
+    if (pipeline.color_format() != color_format()) {
+        return fail(error, RhiFailure::InvalidArgument,
+                    "the pipeline targets a different colour format than this swapchain");
+    }
+    return impl_->render_frame(clear, static_cast<VkPipeline>(pipeline.native_handle()), vertex_count, error);
+}
+
+bool Swapchain::Impl::render_frame(const ClearColor& color, VkPipeline pipeline, std::uint32_t vertex_count,
+                                   RhiError& error)
+{
+    Impl& impl = *this;
 
     VkExtent2D wanted{};
     if (!impl.desired_extent(wanted, error)) {
@@ -465,7 +502,7 @@ bool Swapchain::render_clear(const ClearColor& color, RhiError& error)
                           VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_NONE,
                           VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT);
     const float rgba[4] = {color.r, color.g, color.b, color.a};
-    detail::record_clear_pass(frame.commands, impl.views[image_index], impl.extent, rgba);
+    detail::record_draw_pass(frame.commands, impl.views[image_index], impl.extent, rgba, pipeline, vertex_count);
     detail::image_barrier(frame.commands, image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
                           VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
                           VK_PIPELINE_STAGE_2_NONE, VK_ACCESS_2_NONE);

@@ -74,6 +74,12 @@ jobs:
           Remove-Item $trace
           ./out/windows-${{ matrix.configuration }}/bin/lyko.exe run --scene
           Assert-Exit 3
+          # The installed sandbox reads its shaders from bin/shaders before any
+          # Vulkan work (ADR 0016): exit 1 would mean they were not installed.
+          # Hosted Windows runners have no Vulkan, so 3 ("unsupported") is the
+          # expected result once the shaders are found.
+          ./out/windows-${{ matrix.configuration }}/bin/lykoware_sandbox.exe --window --offscreen --vulkan --frames 3
+          Assert-Exit 3
           exit 0
       # Upload is opt-in and best-effort. The account's Actions artifact quota
       # can reject CreateArtifact even when the build, tests, and staged run
@@ -152,3 +158,10 @@ jobs:
             exit 1
           fi
           rm -f "$trace"
+          # The installed sandbox loads its shaders from bin/shaders and draws
+          # the triangle on lavapipe (ADR 0016). Sanitizer builds keep Vulkan
+          # drivers loaded, as in CTest (ADR 0015).
+          if [ "${{ matrix.preset }}" = "linux-sanitizers" ]; then
+            export VK_LOADER_DISABLE_DYNAMIC_LIBRARY_UNLOADING=1
+          fi
+          expect_exit 0 ./out/${{ matrix.preset }}/bin/lykoware_sandbox --window --offscreen --vulkan --frames 3

@@ -1,13 +1,17 @@
 // rhi.swapchain: the interactive path on a headless window. SDL's offscreen
 // video driver gives a Vulkan surface through VK_EXT_headless_surface (Mesa
 // lavapipe supports it), so CI exercises acquire, render, present and resize
-// with the validation layer watching synchronisation.
+// with the validation layer watching synchronisation. It also draws the test
+// triangle through the swapchain (render_draw), the path the sandbox window
+// uses; the triangle's pixels are checked offscreen by rhi.pipeline.
 //
+// Usage: lykoware_rhi_swapchain_test <triangle.vert.spv> <triangle.frag.spv>
 // Exit codes: 0 pass, 1 fail, 77 skip (no Vulkan, no headless surface, or no
 // device that can present). CTest reports 77 as Skipped, never as Passed.
 
 #include <lykoware/rhi/device.hpp>
 #include <lykoware/rhi/instance.hpp>
+#include <lykoware/rhi/pipeline.hpp>
 #include <lykoware/rhi/swapchain.hpp>
 #include <lykoware/window.hpp>
 
@@ -49,10 +53,41 @@ bool render(lykoware::rhi::Swapchain& swapchain, lykoware::Window& window, int f
     return true;
 }
 
+std::unique_ptr<lykoware::rhi::GraphicsPipeline> triangle_pipeline(const lykoware::rhi::Device& device,
+                                                                   const char* vertex_path, const char* fragment_path,
+                                                                   lykoware::rhi::ColorFormat format)
+{
+    using lykoware::rhi::Shader;
+    using lykoware::rhi::ShaderStage;
+    lykoware::rhi::RhiError error;
+    const auto vertex = Shader::load_file(device, vertex_path, ShaderStage::Vertex, error);
+    const auto fragment = vertex ? Shader::load_file(device, fragment_path, ShaderStage::Fragment, error) : nullptr;
+    if (!vertex || !fragment) {
+        std::cerr << "shader: " << error.message << '\n';
+        return nullptr;
+    }
+    lykoware::rhi::GraphicsPipelineDesc desc;
+    desc.vertex = vertex.get();
+    desc.fragment = fragment.get();
+    desc.color_format = format;
+    auto pipeline = lykoware::rhi::GraphicsPipeline::create(device, desc, error);
+    if (!pipeline) {
+        std::cerr << "pipeline: " << error.message << '\n';
+    }
+    return pipeline;
 }
 
-int main()
+}
+
+int main(int argc, char* argv[])
 {
+    if (argc != 3) {
+        std::cerr << "usage: lykoware_rhi_swapchain_test <triangle.vert.spv> <triangle.frag.spv>\n";
+        return EXIT_FAILURE;
+    }
+    const char* vertex_path = argv[1];
+    const char* fragment_path = argv[2];
+
     lykoware::WindowConfig window_config;
     window_config.title = "lykoware rhi.swapchain test";
     window_config.width = 64;
@@ -106,6 +141,10 @@ int main()
     std::cout << "device: " << device->info().name << '\n';
 
     {
+        // Declared before the swapchain so they are destroyed after it: the
+        // swapchain destructor waits for frames that still use them.
+        std::unique_ptr<lykoware::rhi::GraphicsPipeline> pipeline;
+        std::unique_ptr<lykoware::rhi::GraphicsPipeline> wrong_format;
         auto swapchain = lykoware::rhi::Swapchain::create(*instance, *device, *window, {}, error);
         if (!swapchain && error.failure == lykoware::rhi::RhiFailure::NoSuitableDevice) {
             return skip(error.message);
@@ -126,6 +165,34 @@ int main()
             expect(swapchain->width() == 80 && swapchain->height() == 60, "swapchain follows the new window size");
             expect(swapchain->rebuild_count() > rebuilds_before, "a resize rebuilds the swapchain");
             expect(swapchain->frames_presented() == 8, "every frame after the resize is presented");
+
+            using lykoware::rhi::ColorFormat;
+            const ColorFormat format = swapchain->color_format();
+            pipeline = triangle_pipeline(*device, vertex_path, fragment_path, format);
+            expect(pipeline != nullptr, "a triangle pipeline is built for the swapchain's colour format");
+            if (pipeline) {
+                bool drawn = true;
+                for (int index = 0; index < 4 && drawn; ++index) {
+                    window->pump();
+                    drawn = swapchain->render_draw({0.2F, 0.2F, 0.2F, 1.F}, *pipeline, 3, error);
+                    if (!drawn) {
+                        std::cerr << "render_draw: " << error.message << '\n';
+                    }
+                }
+                expect(drawn, "the triangle draws through the swapchain");
+                expect(swapchain->frames_presented() == 12, "every drawn frame is presented");
+            }
+
+            const ColorFormat other = format == ColorFormat::Bgra8Unorm ? ColorFormat::Rgba8Unorm
+                                                                        : ColorFormat::Bgra8Unorm;
+            wrong_format = triangle_pipeline(*device, vertex_path, fragment_path, other);
+            expect(wrong_format != nullptr, "a pipeline for the other colour format builds");
+            if (wrong_format) {
+                expect(!swapchain->render_draw({0.F, 0.F, 0.F, 1.F}, *wrong_format, 3, error)
+                           && error.failure == lykoware::rhi::RhiFailure::InvalidArgument,
+                       "a pipeline for another colour format is refused");
+                expect(swapchain->frames_presented() == 12, "a refused draw presents nothing");
+            }
         }
     }
 

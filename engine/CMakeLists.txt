@@ -5,6 +5,7 @@ configure_file(
 
 add_library(lykoware_engine STATIC
     src/log.cpp
+    src/paths.cpp
     src/trace.cpp
     src/image.cpp
     src/input.cpp

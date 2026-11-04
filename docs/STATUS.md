@@ -18,7 +18,8 @@ Records what is implemented and verified on `main`. Plans live in [ROADMAP.md](R
 | [0012](adr/0012-swapchain.md) | Proposed (merged; owner has not accepted) | Swapchain with two frames in flight and resize rebuilds; `VideoDriver::Offscreen` headless Vulkan window; sandbox `--vulkan`. |
 | [0013](adr/0013-shader-compiler.md) | **Accepted by owner 2026-11-03: Slang**; the build spike passed | Slang built without `slang-glslang` (avoids glslang's GPL-with-Bison-exception parser and NVIDIA AML preprocessor), plus SPIRV-Tools for validation. Owner accepted the one Unlicense file in Slang core. |
 | [0014](adr/0014-shader-build.md) | Proposed (merged; owner has not accepted) | Host tools built once from vendored source into a cache; `slangc` → `spirv-opt` → `spirv-val` at build time; CI Actions cache. |
-| [0015](adr/0015-graphics-pipeline.md) | Proposed (in review) | `rhi::Shader`, `rhi::GraphicsPipeline`, `RenderTarget::draw`, `shaderDrawParameters`; sanitizer builds keep Vulkan drivers loaded. |
+| [0015](adr/0015-graphics-pipeline.md) | Proposed (merged; owner has not accepted) | `rhi::Shader`, `rhi::GraphicsPipeline`, `RenderTarget::draw`, `shaderDrawParameters`; sanitizer builds keep Vulkan drivers loaded. |
+| [0016](adr/0016-runtime-shader-files.md) | Proposed (in review) | Programs load their compiled shaders from a `shaders` folder beside the executable; the build and `cmake --install` deploy them there. |
 
 ## Verified on main
 
@@ -42,41 +43,53 @@ The five CI jobs are Windows x64 Debug and Release, Linux Debug, Linux ASan/UBSa
 | RHI 4: `rhi::Swapchain`, two frames in flight, resize rebuilds; `VideoDriver::Offscreen` so CI runs the present path; sandbox `--vulkan` | [PR #14](https://github.com/Avrenthrad/lykowareGE/pull/14), merge 528304a | PR run [41478643774](https://github.com/Avrenthrad/lykowareGE/actions/runs/41478643774); covered by the #16 run |
 | ADR 0013 shader-compiler licence review (docs) | [PR #15](https://github.com/Avrenthrad/lykowareGE/pull/15), merge 09ebf36 | covered by the #16 run |
 | RHI 5a: vendored Slang v2026.18.3, SPIRV-Tools v2026.4 and SPIRV-Headers; host tools built once into `.lykoware-tools/` and cached in CI; every shader compiled, optimised and validated at build time | [PR #16](https://github.com/Avrenthrad/lykowareGE/pull/16), merge c60264d | PR run [41626480873](https://github.com/Avrenthrad/lykowareGE/actions/runs/41626480873); `main` run [41735089452](https://github.com/Avrenthrad/lykowareGE/actions/runs/41735089452) passed all five jobs (cold tool cache, now saved for `main`) |
+| RHI 5b: `rhi::Shader`, `rhi::GraphicsPipeline`, `RenderTarget::draw`; devices enable `shaderDrawParameters`; the first triangle drawn offscreen and checked by the image harness | [PR #17](https://github.com/Avrenthrad/lykowareGE/pull/17), merge 5ffb8ac | PR run [41735418191](https://github.com/Avrenthrad/lykowareGE/actions/runs/41735418191); `main` run [41740344136](https://github.com/Avrenthrad/lykowareGE/actions/runs/41740344136) passed all five jobs |
 
-CTest on `main` (21 tests): `trace.api`, `image.harness.api`, `image.harness.golden_pass`, `image.harness.golden_fail`, `input.mapping`, `window.lifecycle`, `perf.sandbox_startup`, `perf.cpu_fixture`, `perf.budget_rejects_overrun`, `perf.budget_accepts_within`, `foundation.smoke`, `cli.commands`, `cli.integration`, `rhi.instance`, `rhi.instance.no_driver`, `rhi.device`, `rhi.render_target`, `rhi.swapchain`, `sandbox.vulkan_window`, `shaders.spirv_valid`, `shaders.spirv_valid_fragment`. The `rhi.*` and `sandbox.vulkan_window` tests run on lavapipe in Linux CI and report Skipped on the Windows runners, which have no Vulkan.
+CTest on `main` (22 tests): `trace.api`, `image.harness.api`, `image.harness.golden_pass`, `image.harness.golden_fail`, `input.mapping`, `window.lifecycle`, `perf.sandbox_startup`, `perf.cpu_fixture`, `perf.budget_rejects_overrun`, `perf.budget_accepts_within`, `foundation.smoke`, `cli.commands`, `cli.integration`, `rhi.instance`, `rhi.instance.no_driver`, `rhi.device`, `rhi.render_target`, `rhi.swapchain`, `sandbox.vulkan_window`, `shaders.spirv_valid`, `shaders.spirv_valid_fragment`, `rhi.pipeline`. The `rhi.*` and `sandbox.vulkan_window` tests run on lavapipe in Linux CI and report Skipped on the Windows runners, which have no Vulkan.
 
-Per-PR detail (local checks, failures found and fixed, mutation checks) is in each pull request and in ADRs 0009–0014.
+Per-PR detail (local checks, failures found and fixed, mutation checks) is in each pull request and in ADRs 0009–0015.
 
 ## Current development task
 
-### RHI PR 5b: first draw
+### RHI PR 5c: the triangle in the sandbox window
 
-Owner: Claude. Branch `claude/vulkan-rhi-5b`, based on `main` at c60264d. In review.
+Owner: Claude. Branch `claude/vulkan-rhi-5c`, based on `main` at 5ffb8ac. In review.
 
-- `rhi::Shader` (SPIR-V words or `.spv` file; header checked; entry point `main`) and `rhi::GraphicsPipeline`:
-  - dynamic rendering, one RGBA8 or BGRA8 colour attachment;
-  - triangle lists, no vertex buffers, no culling, blending or depth;
-  - dynamic viewport and scissor.
-- `RenderTarget::draw(clear, pipeline, vertex_count)` uses the same pass helper as `clear()` and the swapchain, and refuses a pipeline built for another colour format.
-- Devices now require and enable Vulkan 1.1 `shaderDrawParameters` (Slang's `SV_VertexID`).
-- ADR 0015, Proposed.
-- New test `rhi.pipeline`: the Slang triangle compiled at build time is drawn and checked through the image harness (sampled regions, identical repeat draw), plus refusals.
-- Sanitizer builds set `VK_LOADER_DISABLE_DYNAMIC_LIBRARY_UNLOADING=1` for the GPU tests. Without it, LeakSanitizer reported lavapipe's own LLVM-thread memory when the loader unloaded the driver; a deliberate leak in Lykoware code is still caught with it on.
-- Local checks (Linux, GCC 13, lavapipe, validation on): 22/22 in the Debug, ASan/UBSan and clang-tidy presets. Deliberately removing the draw, not enabling `shaderDrawParameters`, and leaking a `Shader` were each caught.
-- CI: [run 41735418191](https://github.com/Avrenthrad/lykowareGE/actions/runs/41735418191) on c4d2113 passed all five jobs. `rhi.pipeline` drew the triangle on lavapipe and passed in Linux Debug, ASan/UBSan and clang-tidy (22/22 each); Windows reported it Skipped, as designed.
+- `lykoware_sandbox --window --vulkan` draws the triangle over the cycling clear colour through the swapchain.
+- How programs find shaders (ADR 0016, Proposed):
+  - a `shaders` folder beside the executable, found through `lykoware::shader_directory()` (SDL's base path), never the working directory;
+  - `lykoware_deploy_shaders()` copies them there on every build and installs them to `bin/shaders`;
+  - the sandbox reads its shader files before any window or Vulkan work, so a broken install exits 1 with the file named, even without Vulkan.
+- New API:
+  - `rhi::read_spirv_file()`;
+  - `Swapchain::color_format()` and `Swapchain::render_draw()`;
+  - `lykoware/paths.hpp`.
+  
+  A surface without an 8-bit UNORM BGRA or RGBA format is now refused with `NoSuitableDevice`.
+- The sandbox has its own shader source (`samples/sandbox/shaders/triangle.slang`); the test fixture stays separate.
+- Tests:
+  - `rhi.swapchain` now draws the test triangle through `render_draw` and checks a wrong-format pipeline is refused;
+  - new `sandbox.missing_shaders`;
+  - CI runs the installed sandbox: Linux must draw (exit 0), and Windows must reach "no Vulkan" (exit 3), which proves the shaders were installed.
+- Local checks (Linux, GCC 13, lavapipe, validation on): 23/23 in Debug. The installed sandbox drew 3 frames when run from `/`, and exited 1 naming the file once its shaders were removed.
+  - Deliberately removing the format check, and destroying the pipeline before the swapchain, were each caught by validation errors.
+- Not verified: the triangle's pixels in a real window (no swapchain read-back yet), and a desktop window on a real GPU.
+- CI: [run 41747802339](https://github.com/Avrenthrad/lykowareGE/actions/runs/41747802339) on e9fc338 passed all five jobs, about 3 minutes each with the tool cache.
+  - Linux: 23/23 in Debug, ASan/UBSan and clang-tidy. The installed sandbox drew 3 frames on lavapipe.
+  - Windows Debug and Release: 23/23, with `sandbox.missing_shaders` passing and the Vulkan tests Skipped. The install contained `bin/shaders/`, and the installed sandbox exited 3 ("Failed to load Vulkan Portability library"), meaning it found its shaders and stopped only for lack of Vulkan.
 
 ## Next
 
 Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 
-1. Finish the Vulkan RHI bring-up. Done on `main`: instance, device, offscreen clear and read-back into the image harness, swapchain on the SDL window, and shaders compiled at build time; lavapipe runs the GPU tests in Linux CI. Left: the first draw (5b, in review), then 5c, where the sandbox window draws the triangle and we decide how the runtime finds shader files.
+1. Finish the Vulkan RHI bring-up. Done on `main`: instance, device, offscreen clear and read-back into the image harness, swapchain on the SDL window, shaders compiled at build time, and graphics pipelines with the first triangle checked offscreen; lavapipe runs the GPU tests in Linux CI. Left: 5c (in review), the triangle in the sandbox window and where programs find their shaders.
 2. Phase 1 clocks and fixed-step update loop.
 3. Decide Jolt (ADR 0003) before any physics.
 4. Agree hardware profiles (RTX 4070 desktop, MSI Claw), multiplayer intent, world scope and budgets. Owner's current leaning on multiplayer: co-op later or MMO, undecided. This is not a commitment.
 
 ## Known issues and limitations
 
-- No renderer, ECS, scene loader, physics, audio, animation, world streaming or inference. The RHI on `main` creates a Vulkan instance, a device with one queue, an offscreen render target it can clear and read back, and a swapchain that presents clears to a window, and the build compiles Slang shaders to validated SPIR-V. Graphics pipelines and the first draw (an offscreen test triangle) are in review in 5b. Nothing is drawn to the window yet beyond clears.
+- No renderer, ECS, scene loader, physics, audio, animation, world streaming or inference. The RHI on `main` creates a Vulkan instance, a device with one queue, an offscreen render target it can clear, draw into and read back, a swapchain that presents clears to a window, and graphics pipelines from Slang shaders compiled at build time. The first draw is an offscreen test triangle; drawing it in the sandbox window is in review in 5c. There are no vertex buffers, textures, depth or camera yet.
 - GPU tests skip (exit 77, CTest "Skipped") where no Vulkan loader or driver is installed. Hosted Windows runners may skip them; a skip is not a pass.
 - `lyko run` launches the console sandbox. `lyko screenshot` and `lyko run --scene` print `unsupported: no renderer` and exit 3. `lyko trace --frames N` is a CPU trace of the sandbox loop, not a GPU capture.
 - The image harness compares a software test pattern with committed PPM fixtures, and Vulkan clears read back from a render target. Neither is a scene screenshot or the image/performance gate; `lyko screenshot` still exits 3.
@@ -91,10 +104,10 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 
 ## Handoff
 
-- State: `main` at c60264d contains PRs #2, #4–#16. Every PR in #10–#16 passed all five jobs as a pull request; the `main` run for the stack ([run 41735089452](https://github.com/Avrenthrad/lykowareGE/actions/runs/41735089452)) passed all five jobs.
-- Open decisions for the owner: ADR 0003 (Jolt); accepting or rejecting ADRs 0008–0012, 0014 and 0015 (merging did not accept them); hardware profiles, multiplayer, world scope and budgets.
-- In review: RHI 5b (`claude/vulkan-rhi-5b`), graphics pipelines and the first triangle drawn offscreen and checked by the image harness. Next concrete action after it merges: RHI 5c, the sandbox window draws the triangle; decide how the runtime finds shader files.
-- Owner check wanted: run `lykoware_sandbox --window --vulkan` on the RTX 4070 desktop and the MSI Claw; a window cycling through colours is expected.
+- State: `main` at 5ffb8ac contains PRs #2, #4–#17, green on all five jobs ([run 41740344136](https://github.com/Avrenthrad/lykowareGE/actions/runs/41740344136)).
+- Open decisions for the owner: ADR 0003 (Jolt); accepting or rejecting ADRs 0008–0012 and 0014–0016 (merging did not accept them); hardware profiles, multiplayer, world scope and budgets.
+- In review: RHI 5c (`claude/vulkan-rhi-5c`), the triangle in the sandbox window and ADR 0016. Next concrete action after it merges: Phase 1 clocks and the fixed-step update loop.
+- Owner check wanted: run `lykoware_sandbox --window --vulkan` on the RTX 4070 desktop and the MSI Claw. With 5c, a red, green and blue triangle over a slowly changing background is expected.
 - Checklist: no box ticked by this update. Phase 1 and the image/performance gate stay open.
 
 Read [WORK_BOARD.md](WORK_BOARD.md), [CLI.md](CLI.md), [ROADMAP.md](ROADMAP.md) and the [ADRs](adr/README.md). Check latest `main` and open PRs before starting. Update this file with exact commits, checks, failures and next actions.

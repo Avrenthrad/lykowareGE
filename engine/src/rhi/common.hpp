@@ -28,14 +28,10 @@ void image_barrier(VkCommandBuffer commands, VkImage image, VkImageLayout from, 
                    VkPipelineStageFlags2 src_stage, VkAccessFlags2 src_access,
                    VkPipelineStageFlags2 dst_stage, VkAccessFlags2 dst_access);
 
-// Records a dynamic-rendering pass on one colour view whose only work is a
-// load-op clear of `extent`. The view must be in COLOR_ATTACHMENT_OPTIMAL.
-void record_clear_pass(VkCommandBuffer commands, VkImageView view, VkExtent2D extent,
-                       const float (&rgba)[4]);
-
-// The same pass, then (when pipeline is not null) binds the graphics
-// pipeline, sets a full-extent viewport and scissor and draws vertex_count
-// vertices with no vertex buffers.
+// Records a dynamic-rendering pass on one colour view: a load-op clear of
+// `extent`, then (when pipeline is not null) binds the graphics pipeline,
+// sets a full-extent viewport and scissor and draws vertex_count vertices
+// with no vertex buffers. The view must be in COLOR_ATTACHMENT_OPTIMAL.
 void record_draw_pass(VkCommandBuffer commands, VkImageView view, VkExtent2D extent, const float (&rgba)[4],
                       VkPipeline pipeline, std::uint32_t vertex_count);
 

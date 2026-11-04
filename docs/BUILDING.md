@@ -62,13 +62,15 @@ sudo apt-get install libvulkan1 mesa-vulkan-drivers vulkan-validationlayers
 
 `mesa-vulkan-drivers` includes lavapipe, a CPU Vulkan driver for machines without a GPU. Without a loader or a driver, the RHI tests are reported by CTest as Skipped, not Passed.
 
-To see the Vulkan path on a desktop, run the sandbox with a window and Vulkan; it shows a window slowly cycling through colours until it is closed:
+To see the Vulkan path on a desktop, run the sandbox with a window and Vulkan. It draws a red, green and blue triangle over a slowly changing background until the window is closed:
 
 ```powershell
 .\build\windows\samples\sandbox\Debug\lykoware_sandbox.exe --window --vulkan
 ```
 
 It exits 3 if no usable Vulkan device exists. `--window --offscreen --vulkan --frames N` is the headless form used by CTest.
+
+The sandbox loads its shaders from the `shaders` folder beside its executable. The build puts them there, and `cmake --install` installs them to `bin/shaders`. If you copy the executable somewhere, copy that folder with it; without it the sandbox exits 1 and names the missing file (ADR 0016).
 
 ## Structure
 
