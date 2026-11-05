@@ -33,6 +33,7 @@ Canonical directory: docs/adr. Decisions remain Proposed until resolved; disting
 | [0030](0030-runtime-contract-hardening.md) | Proposed | Runtime owner tokens, transactional ECS storage and exclusive physics links |
 | [0031](0031-scenes-and-command-replay.md) | Proposed | Versioned scenes, stable authored IDs, fixed-tick commands and read-only presentation |
 | [0032](0032-audio-mixer.md) | Proposed (owner chose "our own mixer") | Lykoware's own audio mixer: 64 voices, 48 kHz stereo float output, bit-identical however it is split into calls; constant-power panning, ramped gains, linear resampling; our own WAV reader |
+| [0033](0033-audio-output.md) | Proposed (owner chose SDL3 for playback) | Audio output through SDL3: `audio::Output` owns a mixer that SDL's audio thread renders under a lock; dummy and disk drivers for tests; window and audio SDL sessions independent |
 
 Use [the template](TEMPLATE.md). Record context, options, decision/status, contracts, consequences and verification. Use a new ADR to supersede an accepted choice; do not silently rewrite its history.
 

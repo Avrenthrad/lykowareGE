@@ -38,6 +38,7 @@ Records what is implemented and verified on `main`. Plans live in [ROADMAP.md](R
 | [0030](adr/0030-runtime-contract-hardening.md) | Proposed (merged in #35) | World-specific runtime owner tokens on handles, transactional ECS storage and attachment, exclusive physics links. |
 | [0031](adr/0031-scenes-and-command-replay.md) | Proposed (merged in #36) | Versioned JSON scenes with stable authored IDs, fixed-tick command replay, read-only presentation snapshots, CLI replay and capture; nlohmann/json 3.11.3 kept private (the owner chose to keep it on 2026-11-05). |
 | [0032](adr/0032-audio-mixer.md) | Proposed (in review; owner chose "our own mixer") | `lykoware::audio`: our own 64-voice mixer to 48 kHz stereo float, bit-identical however the output is split into calls; constant-power panning, ramped gains, fixed-point linear resampling; our own WAV reader. No device yet. |
+| [0033](adr/0033-audio-output.md) | Proposed (in review; owner chose SDL3 for playback) | `audio::Output`: SDL3 plays the mixer, rendered on SDL's audio thread under a lock; starts paused; dummy and disk drivers for tests; closing the last window no longer shuts down all of SDL. |
 
 ## Verified on main
 
@@ -99,7 +100,25 @@ Owner: Claude. Branch `claude/audio-mixer`, based on `main` at 7616ce3. In revie
 - **Also:** `scene.cli_capture` (from #36) renders on lavapipe, so sanitizer builds now keep Vulkan drivers loaded for it, as for the other GPU tests (ADR 0015). Without that it fails under ASan on a machine whose lavapipe reports its known false leak; CI's lavapipe did not.
 - **Local checks:** 42/42 pass in Debug, ASan/UBSan and clang-tidy. A GCC `-Wshadow -Wconversion` sweep of the new files is clean.
 - **CI:** to be recorded.
-- **Next:** PR 2 sends the mix to a device through SDL3 (`audio::Output`, SDL's audio thread, dummy-driver tests). PR 3 adds a listener and an ECS sound component for 3D positional sound, with crate landing sounds in the sandbox.
+
+### Audio, PR 2: output through SDL3
+
+Owner: Claude. Branch `claude/audio-output`, stacked on PR 1 (`claude/audio-mixer`). In review.
+
+- [ADR 0033](adr/0033-audio-output.md) (Proposed). SDL's audio subsystem is on: WASAPI on Windows; PipeWire, PulseAudio or ALSA on Linux when found; dummy and disk drivers for tests.
+- **`lykoware/audio_output.hpp`:** `audio::Output` owns a `Mixer` that SDL's audio thread renders under a lock. Game code reaches the mixer through `lock()`. The device starts paused; `resume()` and `pause()`; `driver_name()` and `device_format()` for diagnostics.
+- **Window fix:** closing the last window used to call `SDL_Quit`, which would also stop audio. Each session now stops only its own subsystems.
+- **New test `audio.output`:**
+  - the audio thread pulls audio and ends voices;
+  - pause works;
+  - game-thread changes are safe while the audio thread renders;
+  - driver rules;
+  - audio survives the last window closing;
+  - a disk-driver capture equals the mixer's own output, bit for bit.
+- **Deliberate breaks:** 6 of 7 caught; the seventh is a guard SDL duplicates. A one-off ThreadSanitizer build is clean, and catches a removed lock.
+- **Local checks:** 43/43 pass in Debug, ASan/UBSan and clang-tidy. The GCC warning sweep is clean.
+- **CI:** blocked for the whole account (see PR 1). Windows (WASAPI, MSVC) is unverified.
+- **Next:** PR 3 adds a listener and an ECS sound component for 3D positional sound, with crate landing sounds in the sandbox.
 
 ## Next
 
@@ -130,9 +149,9 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 ## Handoff
 
 - State: `main` at 7616ce3 contains PRs #2, #4–#21, #23–#29 and #31–#36. The Vulkan RHI bring-up, Phase 1 clocks, the physics spike, double-precision positions, the ECS (with physics on entities), the first lit renderer (falling crates), contract hardening and versioned scenes with command replay and CLI capture are complete. Physics determinism is verified on MSVC, GCC and Clang.
-- In review: `claude/audio-mixer` (Audio PR 1, ADR 0032). #30's fix reached `main` through #36 (80a0640), so the owner can close #30. Cursor's #22 is open.
-- Open decisions for the owner: accepting or rejecting ADRs 0008–0012, 0014–0017, 0022–0026 and 0030–0032 (merging did not accept them); the working assumptions in ADR 0021 (2–4 player co-op, 6-core CPU, 8 GB VRAM at minimum settings, camera-relative rendering); Cursor's #22 (ADR 0019).
-- Next concrete action: Audio PR 2 (output through SDL3), then PR 3 (3D positional sound on ECS entities).
+- In review: `claude/audio-mixer` (Audio PR 1, ADR 0032, [#37](https://github.com/Avrenthrad/lykowareGE/pull/37)) and, stacked on it, `claude/audio-output` (Audio PR 2, ADR 0033). CI cannot run at the moment: since 2026-11-05 every job fails before a runner starts, an account-level block (likely the private repository's Actions minutes); both PRs are checked locally only. #30's fix reached `main` through #36 (80a0640), so the owner can close #30. Cursor's #22 is open.
+- Open decisions for the owner: accepting or rejecting ADRs 0008–0012, 0014–0017, 0022–0026 and 0030–0033; how to restore CI (wait for the monthly Actions minutes, a self-hosted runner on the owner's PC, or a paid limit, which needs the owner's approval) (merging did not accept them); the working assumptions in ADR 0021 (2–4 player co-op, 6-core CPU, 8 GB VRAM at minimum settings, camera-relative rendering); Cursor's #22 (ADR 0019).
+- Next concrete action: Audio PR 3 (3D positional sound on ECS entities, crate landing sounds).
 - Owner checks wanted: run `lykoware_sandbox --window --vulkan` on the RTX 4070 desktop (a 5 × 5 grid of coloured crates tumbling onto a grey ground and dropping again every 8 seconds), and `tools/validation/measure-scene.ps1` (ADR 0031).
 - Checklist: no box ticked by this update. Phase 1 and the image/performance gate stay open.
 

@@ -74,7 +74,7 @@ Proposed:
   - functions taking a `VoiceId` return false for a stale handle or an out-of-range value;
   - nothing throws for misuse (`std::bad_alloc` can propagate).
 - **Lifetime:** a voice holds a `shared_ptr` to its sound, so dropping the caller's pointer while the voice plays is safe.
-- **No device yet:** SDL3's audio subsystem stays off (`SDL_AUDIO OFF` in `cmake/VendorSdl3.cmake`) until PR 2.
+- **No device yet:** SDL3's audio subsystem stays off (`SDL_AUDIO OFF` in `cmake/VendorSdl3.cmake`) until PR 2 ([ADR 0033](0033-audio-output.md)).
 - **Not yet:**
   - output to a device (PR 2);
   - listener, distance attenuation and the ECS sound component (PR 3);
