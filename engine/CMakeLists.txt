@@ -11,6 +11,7 @@ add_library(lykoware_engine STATIC
     src/scene.cpp
     src/ecs.cpp
     src/gltf.cpp
+    src/image/image_decode.cpp
     src/mesh.cpp
     src/world_identity.cpp
     src/log.cpp
@@ -35,7 +36,7 @@ target_compile_features(lykoware_engine PUBLIC cxx_std_20)
 target_include_directories(lykoware_engine PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
     "${CMAKE_CURRENT_BINARY_DIR}/generated")
-target_link_libraries(lykoware_engine PRIVATE SDL3-static lykoware_volk lykoware_vma Jolt)
+target_link_libraries(lykoware_engine PRIVATE SDL3-static lykoware_volk lykoware_vma lykoware_wuffs Jolt)
 
 lykoware_configure_target(lykoware_engine)
 
