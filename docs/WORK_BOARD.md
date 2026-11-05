@@ -13,6 +13,13 @@ Owner rules for every task: small stacked PRs; commit small and often; keep all 
 
 Check latest main and open PRs before starting. Documents do not automatically synchronize assistants or reserve work.
 
+## Active task: model loading (Claude)
+
+- Owner/status: Claude, active. PR 1 (glTF meshes, [ADR 0035](adr/0035-gltf-meshes.md)) in review on `claude/gltf-meshes`, stacked on audio PR 3 to avoid conflicts in shared files.
+- Objective (owner's choice, 2026-11-05): our own glTF 2.0 reader; shapes first, textures later.
+- Shared interfaces: new `lykoware/mesh.hpp` and `lykoware/gltf.hpp`; `Renderer::add_mesh`; `MeshRenderer` gains a last field `mesh`; sandbox `--model FILE`.
+- Checks: models built in tests (none committed), GPU pixel checks, deliberate breaks, a local fuzz run, five CI jobs once CI runs again.
+
 ## Active task: audio (Claude)
 
 - Owner/status: Claude, active. PR 1 (mixer and WAV reader, [ADR 0032](adr/0032-audio-mixer.md)) in review as #37 on `claude/audio-mixer`, based on `main` at `7616ce3`. PR 2 (SDL3 output, [ADR 0033](adr/0033-audio-output.md)) in review as #38 on `claude/audio-output`, stacked on PR 1. PR 3 (3D positional sound and sandbox crate knocks, [ADR 0034](adr/0034-spatial-audio.md)) in review on `claude/audio-spatial`, stacked on PR 2. CI is blocked account-wide since 2026-11-05 (jobs fail before a runner starts); checks are local only until the owner restores it.

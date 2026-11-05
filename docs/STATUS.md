@@ -40,6 +40,7 @@ Records what is implemented and verified on `main`. Plans live in [ROADMAP.md](R
 | [0032](adr/0032-audio-mixer.md) | Proposed (in review; owner chose "our own mixer") | `lykoware::audio`: our own 64-voice mixer to 48 kHz stereo float, bit-identical however the output is split into calls; constant-power panning, ramped gains, fixed-point linear resampling; our own WAV reader. No device yet. |
 | [0033](adr/0033-audio-output.md) | Proposed (in review; owner chose SDL3 for playback) | `audio::Output`: SDL3 plays the mixer, rendered on SDL's audio thread under a lock; starts paused; dummy and disk drivers for tests; closing the last window no longer shuts down all of SDL. |
 | [0034](adr/0034-spatial-audio.md) | Proposed (in review; owner chose 3D sound tied to ECS entities) | `audio::AudioSource` component and `SpatialAudio`: sounds play from entities' Transforms with inverse-distance falloff and stereo pan, computed relative to the listener in double precision; the sandbox's crates knock as they land. |
+| [0035](adr/0035-gltf-meshes.md) | Proposed (in review; owner chose "write our own", shapes first) | `gltf::read`/`gltf::load`: our own glTF 2.0 reader into `MeshData` (one merged mesh per model, node transforms applied, strict bounds, external buffers confined to the model's folder); `Renderer::add_mesh` and `MeshRenderer::mesh`; normals use the inverse transpose; sandbox `--model FILE`. |
 
 ## Verified on main
 
@@ -142,6 +143,29 @@ Owner: Claude. Branch `claude/audio-spatial`, stacked on PR 2 (`claude/audio-out
 - **Recording:** an 8.9 s recording through the disk driver was shared with the owner.
 - **CI:** blocked for the whole account (see PR 1).
 
+### Model loading, PR 1: glTF meshes
+
+Owner: Claude. Branch `claude/gltf-meshes`, stacked on audio PR 3 to avoid conflicts in shared files; it uses no audio code. In review.
+
+- The owner chose on 2026-11-05 our own glTF reader (not cgltf), shapes first, textures later. [ADR 0035](adr/0035-gltf-meshes.md) (Proposed).
+- **`lykoware/mesh.hpp`:** `MeshData`, `valid_mesh`, `bounds`.
+- **`lykoware/gltf.hpp`:**
+  - reads .gltf and .glb, with buffers in the .glb, in data URIs, or in separate files, and node transforms applied;
+  - refuses malformed, out-of-bounds, extension-dependent and sparse data with the item named;
+  - `load()` reads external buffers only from the model's folder.
+- **Renderer:**
+  - `add_mesh` returns a `MeshId`, and `MeshRenderer::mesh` draws it;
+  - normals now use the inverse transpose, so uneven scale lights correctly.
+- **Sandbox:** `--model FILE` shows a model beside the crates.
+- **New tests:**
+  - `assets.gltf`: models built in the test, nothing committed;
+  - `render.model`: a loaded ramp drawn with the correct lighting, and the same image 16 km out;
+  - `sandbox.model`.
+- **Deliberate breaks:** 19 caught. The strip and fan checks were first too weak and were strengthened.
+- **Fuzzing:** a local fuzz of 200,000 mutated files under ASan/UBSan, with no crash.
+- **Local checks:** 47/47 pass in Debug, ASan/UBSan and clang-tidy. The warning sweep is clean.
+- **CI:** blocked for the whole account (see audio PR 1).
+
 ## Next
 
 Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
@@ -171,10 +195,10 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 ## Handoff
 
 - State: `main` at 7616ce3 contains PRs #2, #4–#21, #23–#29 and #31–#36. The Vulkan RHI bring-up, Phase 1 clocks, the physics spike, double-precision positions, the ECS (with physics on entities), the first lit renderer (falling crates), contract hardening and versioned scenes with command replay and CLI capture are complete. Physics determinism is verified on MSVC, GCC and Clang.
-- In review: `claude/audio-mixer` (Audio PR 1, ADR 0032, [#37](https://github.com/Avrenthrad/lykowareGE/pull/37)) and, stacked on it, `claude/audio-output` (Audio PR 2, ADR 0033, [#38](https://github.com/Avrenthrad/lykowareGE/pull/38)) and `claude/audio-spatial` (Audio PR 3, ADR 0034). CI cannot run at the moment: since 2026-11-05 every job fails before a runner starts, an account-level block (likely the private repository's Actions minutes); both PRs are checked locally only. #30's fix reached `main` through #36 (80a0640), so the owner can close #30. Cursor's #22 is open.
-- Open decisions for the owner: accepting or rejecting ADRs 0008–0012, 0014–0017, 0022–0026 and 0030–0034; how to restore CI (wait for the monthly Actions minutes, a self-hosted runner on the owner's PC, or a paid limit, which needs the owner's approval) (merging did not accept them); the working assumptions in ADR 0021 (2–4 player co-op, 6-core CPU, 8 GB VRAM at minimum settings, camera-relative rendering); Cursor's #22 (ADR 0019).
-- Next concrete action: once CI runs again, get the three audio PRs green (Windows/MSVC first), then the next Phase 1 item the owner picks.
-- Owner checks wanted: run `lykoware_sandbox --window --vulkan` on the RTX 4070 desktop (a 5 × 5 grid of coloured crates tumbling onto a grey ground and dropping again every 8 seconds, each knocking as it lands, through the default sound device), and `tools/validation/measure-scene.ps1` (ADR 0031).
+- In review: `claude/audio-mixer` (Audio PR 1, ADR 0032, [#37](https://github.com/Avrenthrad/lykowareGE/pull/37)) and, stacked on it, `claude/audio-output` (Audio PR 2, ADR 0033, [#38](https://github.com/Avrenthrad/lykowareGE/pull/38)) and `claude/audio-spatial` (Audio PR 3, ADR 0034, [#39](https://github.com/Avrenthrad/lykowareGE/pull/39)), then `claude/gltf-meshes` (model loading, ADR 0035). CI cannot run at the moment: since 2026-11-05 every job fails before a runner starts, an account-level block (likely the private repository's Actions minutes); both PRs are checked locally only. #30's fix reached `main` through #36 (80a0640), so the owner can close #30. Cursor's #22 is open.
+- Open decisions for the owner: accepting or rejecting ADRs 0008–0012, 0014–0017, 0022–0026 and 0030–0035; how to restore CI (wait for the monthly Actions minutes, a self-hosted runner on the owner's PC, or a paid limit, which needs the owner's approval) (merging did not accept them); the working assumptions in ADR 0021 (2–4 player co-op, 6-core CPU, 8 GB VRAM at minimum settings, camera-relative rendering); Cursor's #22 (ADR 0019).
+- Next concrete action: once CI runs again, get the stacked PRs green (Windows/MSVC first). Then the next Phase 1 item: textures for models, GPU timings in traces, or scripting (which needs the owner's choice of language).
+- Owner checks wanted: run `lykoware_sandbox --window --vulkan` on the RTX 4070 desktop (a 5 × 5 grid of coloured crates tumbling onto a grey ground and dropping again every 8 seconds, each knocking as it lands, through the default sound device), `tools/validation/measure-scene.ps1` (ADR 0031), and `lykoware_sandbox --window --vulkan --model FILE` with a .glb exported from Blender (ADR 0035).
 - Checklist: no box ticked by this update. Phase 1 and the image/performance gate stay open.
 
 Read [WORK_BOARD.md](WORK_BOARD.md), [CLI.md](CLI.md), [ROADMAP.md](ROADMAP.md) and the [ADRs](adr/README.md). Check latest `main` and open PRs before starting. Update this file with exact commits, checks, failures and next actions.
