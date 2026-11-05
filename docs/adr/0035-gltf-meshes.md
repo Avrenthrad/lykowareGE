@@ -85,6 +85,7 @@ Proposed:
 - **Renderer:** gains `add_mesh` and `MeshId`, and `MeshRenderer` gains a last field `mesh`. Existing aggregate initialisers are unchanged.
 - **Threading:** `gltf::read` and `gltf::load` share no state, so they can run on any thread, for example a loading thread. `add_mesh` runs on the device's thread, like the rest of the renderer.
 - **Lifetime:** a `MeshId` is valid only with the renderer that made it. There is no removal yet, because freeing a mesh a frame in flight may still use needs frame tracking.
+- **Ownership:** a `MeshId` carries its renderer's process-local owner token, as ECS and physics handles do (ADR 0030). Another renderer's id is not drawn, even one with the same position, such as an id kept from a renderer that was destroyed and replaced. Codex's health check (#47) found such ids accepted before this rule existed.
 - **Not yet:**
   - materials and colours from the file (a `MeshRenderer` colour applies to the whole model);
   - textures and texture coordinates;
@@ -135,6 +136,7 @@ Proposed:
   - its brightness matches the lighting formula with the inverse-transpose normal: 167 measured against 167 expected; the old rotation-only normal gives 221;
   - a built-in cube draws beside it;
   - an unknown mesh id is not drawn, and the sky shows there;
+  - a mesh id from a destroyed renderer is not drawn by its replacement, though both have the same position;
   - an empty mesh is refused;
   - the same image 16 km out;
   - no validation errors.

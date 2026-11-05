@@ -203,13 +203,14 @@ int main(int argc, char* argv[])
     std::cout << "device: " << device->info().name << '\n';
 
     Frame first;
+    std::optional<render::MeshId> first_id;
+    std::vector<std::uint32_t> vertex_words;
+    std::vector<std::uint32_t> fragment_words;
+    if (!rhi::read_spirv_file(argv[1], vertex_words, error) || !rhi::read_spirv_file(argv[2], fragment_words, error)) {
+        std::cerr << "FAIL: the lit shaders load: " << error.message << '\n';
+        return EXIT_FAILURE;
+    }
     {
-        std::vector<std::uint32_t> vertex_words;
-        std::vector<std::uint32_t> fragment_words;
-        if (!rhi::read_spirv_file(argv[1], vertex_words, error) || !rhi::read_spirv_file(argv[2], fragment_words, error)) {
-            std::cerr << "FAIL: the lit shaders load: " << error.message << '\n';
-            return EXIT_FAILURE;
-        }
         auto renderer = render::Renderer::create(*device, rhi::ColorFormat::Rgba8Unorm, vertex_words, fragment_words, error);
         if (!renderer) {
             std::cerr << "FAIL: the renderer is created: " << error.message << '\n';
@@ -220,6 +221,7 @@ int main(int argc, char* argv[])
         expect(mesh.has_value(), "the ramp model loads: " + load_error);
         const auto id = mesh ? renderer->add_mesh(*mesh, error) : std::nullopt;
         expect(id.has_value() && !(*id == render::MeshId{}), "the loaded mesh is uploaded");
+        first_id = id;
         expect(!renderer->add_mesh(lykoware::MeshData{}, error) && error.failure == rhi::RhiFailure::InvalidArgument,
                "an empty mesh is refused");
         if (id) {
@@ -230,6 +232,20 @@ int main(int argc, char* argv[])
             check(distant, far);
             expect(distant.image.width() == width && lykoware::compare_images(first.image, distant.image, 0).matches,
                    "the model 16 km from the origin gives exactly the same image");
+        }
+    }
+    if (first_id) {
+        // ADR 0030: an id works only with the renderer that made it. A renderer made after the
+        // first is gone gives its own first mesh the same position.
+        auto renderer = render::Renderer::create(*device, rhi::ColorFormat::Rgba8Unorm, vertex_words, fragment_words, error);
+        std::string load_error;
+        const auto mesh = ramp(load_error);
+        const auto id = renderer && mesh ? renderer->add_mesh(*mesh, error) : std::nullopt;
+        expect(id && id->value == first_id->value && !(*id == *first_id),
+               "a new renderer's first mesh id differs from the old renderer's only by owner");
+        if (renderer) {
+            const Frame stale = draw(*device, *renderer, *first_id, {});
+            expect(stale.drawn + 1 == first.drawn, "an old renderer's mesh id is not drawn by a new renderer");
         }
     }
     if (instance->validation_error_count() != 0) {
