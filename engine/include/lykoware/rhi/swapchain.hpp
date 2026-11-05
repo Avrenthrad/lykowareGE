@@ -98,8 +98,8 @@ public:
     // As render_clear(), then draws `meshes` with `pipeline` in the same pass,
     // depth-tested when the pipeline uses depth. The same checks as
     // RenderTarget::draw_meshes refuse misuse with InvalidArgument before
-    // anything is acquired. The pipeline and every buffer must stay alive
-    // until the GPU is done with them (see render_draw).
+    // anything is acquired. The pipeline and every buffer and texture must
+    // stay alive until the GPU is done with them (see render_draw).
     [[nodiscard]] bool render_meshes(const ClearColor& clear, const GraphicsPipeline& pipeline,
                                      std::span<const MeshDraw> meshes, RhiError& error);
 

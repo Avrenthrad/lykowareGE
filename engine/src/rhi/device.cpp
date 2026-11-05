@@ -243,6 +243,9 @@ struct Device::Impl {
             if (command_pool != VK_NULL_HANDLE) {
                 vkDestroyCommandPool(device, command_pool, nullptr);
             }
+            if (texture_layout != VK_NULL_HANDLE) {
+                vkDestroyDescriptorSetLayout(device, texture_layout, nullptr);
+            }
             if (allocator != VK_NULL_HANDLE) {
                 vmaDestroyAllocator(allocator);
             }
@@ -262,6 +265,8 @@ struct Device::Impl {
     VkCommandPool command_pool = VK_NULL_HANDLE;
     VkCommandBuffer command_buffer = VK_NULL_HANDLE;
     VkFence fence = VK_NULL_HANDLE;
+    VkDescriptorSetLayout texture_layout = VK_NULL_HANDLE;
+    std::uint32_t max_image_dimension = 0;
     std::uint32_t queue_family = no_queue_family;
     bool owns_slot = false;
     DeviceInfo info;
@@ -403,6 +408,27 @@ std::unique_ptr<Device> Device::create(const Instance& instance, const DeviceCon
         return nullptr;
     }
 
+    // Every texture's descriptor set has this layout, so any texture works with any pipeline
+    // that reads one (ADR 0037).
+    VkDescriptorSetLayoutBinding texture_binding{};
+    texture_binding.binding = 0;
+    texture_binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    texture_binding.descriptorCount = 1;
+    texture_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    VkDescriptorSetLayoutCreateInfo layout_info{};
+    layout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layout_info.bindingCount = 1;
+    layout_info.pBindings = &texture_binding;
+    result = vkCreateDescriptorSetLayout(impl->device, &layout_info, nullptr, &impl->texture_layout);
+    if (result != VK_SUCCESS) {
+        impl->texture_layout = VK_NULL_HANDLE;
+        fail(error, RhiFailure::DriverError, driver_failure("vkCreateDescriptorSetLayout", result));
+        return nullptr;
+    }
+    VkPhysicalDeviceProperties properties{};
+    vkGetPhysicalDeviceProperties(impl->physical, &properties);
+    impl->max_image_dimension = properties.limits.maxImageDimension2D;
+
     return std::unique_ptr<Device>(new Device(std::move(impl)));
 }
 
@@ -461,6 +487,16 @@ VmaAllocator DeviceAccess::allocator(const Device& device)
 VkQueue DeviceAccess::queue(const Device& device)
 {
     return device.impl_->queue;
+}
+
+VkDescriptorSetLayout DeviceAccess::texture_set_layout(const Device& device)
+{
+    return device.impl_->texture_layout;
+}
+
+std::uint32_t DeviceAccess::max_image_dimension(const Device& device)
+{
+    return device.impl_->max_image_dimension;
 }
 
 bool DeviceAccess::submit_and_wait(

@@ -17,6 +17,11 @@ struct DeviceAccess {
     [[nodiscard]] static VkDevice device(const Device& device);
     [[nodiscard]] static VmaAllocator allocator(const Device& device);
     [[nodiscard]] static VkQueue queue(const Device& device);
+    // The descriptor set layout of every texture: one combined image sampler at
+    // binding 0, read by the fragment stage (ADR 0037). Owned by the Device.
+    [[nodiscard]] static VkDescriptorSetLayout texture_set_layout(const Device& device);
+    // VkPhysicalDeviceLimits::maxImageDimension2D.
+    [[nodiscard]] static std::uint32_t max_image_dimension(const Device& device);
 
     // Records commands with `record` into the device's one-shot command
     // buffer, submits them to the graphics queue and waits for completion.

@@ -47,6 +47,8 @@ struct PreparedDraw {
     std::uint32_t index_count = 0;
     const void* push_constants = nullptr;
     std::uint32_t push_constant_bytes = 0;
+    // The texture's descriptor set (set 0), or null for a pipeline without one.
+    VkDescriptorSet texture = VK_NULL_HANDLE;
 };
 
 // Checks `meshes` against the pipeline and the target being drawn to (the
