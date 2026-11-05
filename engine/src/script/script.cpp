@@ -196,6 +196,64 @@ struct Script::Impl {
         return lua_gettop(L);
     }
 
+    // Calls the original library function (upvalue 1) with this call's arguments.
+    static int forward(lua_State* L)
+    {
+        lua_pushvalue(L, lua_upvalueindex(1));
+        lua_insert(L, 1);
+        lua_call(L, lua_gettop(L) - 1, LUA_MULTRET);
+        return lua_gettop(L);
+    }
+
+    // Loops inside Lua's C library run no Lua instructions, so the instruction limit cannot stop
+    // them. These guards bound the ones a script could make endless without using memory.
+
+    // Elements a table can hold within the memory limit; more can only be absent slots.
+    static lua_Integer element_limit(lua_State* L)
+    {
+        return static_cast<lua_Integer>(from(L).memory_limit / sizeof(lua_Number) / 2);
+    }
+
+    // string.rep of an empty string (and separator) copies nothing, so it would loop up to
+    // 2^63 times without allocating.
+    static int guarded_rep(lua_State* L)
+    {
+        std::size_t length = 0;
+        std::size_t separator = 0;
+        luaL_checklstring(L, 1, &length);
+        luaL_checkinteger(L, 2);
+        luaL_optlstring(L, 3, "", &separator);
+        if (length + separator == 0) {
+            lua_pushliteral(L, "");
+            return 1;
+        }
+        return forward(L);
+    }
+
+    // table.insert and table.remove shift every element up to the table's length, which a
+    // sparse table or a __len metamethod can make far larger than anything in memory.
+    static int guarded_shift(lua_State* L)
+    {
+        if (lua_type(L, 1) == LUA_TTABLE && luaL_len(L, 1) > element_limit(L)) {
+            return luaL_error(L, "%s: the table's length is beyond what the script's memory could hold",
+                              lua_tostring(L, lua_upvalueindex(2)));
+        }
+        return forward(L);
+    }
+
+    // table.move walks every index in its range, present or not.
+    static int guarded_move(lua_State* L)
+    {
+        const lua_Integer first = luaL_checkinteger(L, 2);
+        const lua_Integer last = luaL_checkinteger(L, 3);
+        if (last >= first
+            && static_cast<lua_Unsigned>(last) - static_cast<lua_Unsigned>(first)
+                >= static_cast<lua_Unsigned>(element_limit(L))) {
+            return luaL_error(L, "table.move: more elements than the script's memory could hold");
+        }
+        return forward(L);
+    }
+
     static int print(lua_State* L)
     {
         const int count = lua_gettop(L);
@@ -283,6 +341,21 @@ struct Script::Impl {
         lua_getglobal(L, LUA_STRLIBNAME);
         lua_pushnil(L);
         lua_setfield(L, -2, "dump");
+        lua_getfield(L, -1, "rep");
+        lua_pushcclosure(L, guarded_rep, 1);
+        lua_setfield(L, -2, "rep");
+        lua_pop(L, 1);
+
+        lua_getglobal(L, LUA_TABLIBNAME);
+        for (const char* name : {"insert", "remove"}) {
+            lua_getfield(L, -1, name);
+            lua_pushfstring(L, "table.%s", name);
+            lua_pushcclosure(L, guarded_shift, 2);
+            lua_setfield(L, -2, name);
+        }
+        lua_getfield(L, -1, "move");
+        lua_pushcclosure(L, guarded_move, 1);
+        lua_setfield(L, -2, "move");
         lua_pop(L, 1);
 
         for (const char* removed : {"dofile", "loadfile", "load", "collectgarbage"}) {

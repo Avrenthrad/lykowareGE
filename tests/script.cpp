@@ -155,6 +155,37 @@ void test_instruction_limit()
            "a coroutine still yields across pcall");
 }
 
+// Loops inside Lua's C library run no Lua instructions, so the instruction limit cannot stop
+// them; the sandbox bounds the ones a script could make endless without using memory.
+void test_library_loops_are_bounded()
+{
+    Fixture f = make();
+    if (!f.script) {
+        return;
+    }
+    expect(run(*f.script, "assert(string.rep('', 1 << 40) == '' and ('').rep('', 1 << 62, '') == '')").empty(),
+           "repeating an empty string many times is immediate");
+    expect(run(*f.script, "assert(string.rep('ab', 3, ',') == 'ab,ab,ab' and ('x'):rep(0) == '')").empty(),
+           "string.rep still repeats");
+    const std::string move = run(*f.script, "table.move({}, 1, 1 << 40, 2)");
+    expect(contains(move, "memory"), "moving more elements than memory could hold is refused: " + move);
+    // Keys 2^40, 2^39, ..., 1 inserted in that order: Lua reports a length of 2^40 for 41 elements.
+    const std::string sparse = run(*f.script, "local t = {} for k = 40, 0, -1 do t[1 << k] = k end\n"
+                                              "assert(#t >= 1 << 40, 'no huge border')\ntable.insert(t, 1, 'x')");
+    expect(contains(sparse, "memory"), "inserting into a sparse table with a huge border is refused: " + sparse);
+    const std::string removed =
+        run(*f.script, "local t = {} for k = 40, 0, -1 do t[1 << k] = k end\ntable.remove(t, 1)");
+    expect(contains(removed, "memory"), "removing from it is refused too: " + removed);
+    const std::string claimed = run(*f.script,
+                                    "local t = setmetatable({}, {__len = function() return 1 << 40 end})\n"
+                                    "table.insert(t, 1, 'x')");
+    expect(contains(claimed, "memory"), "a __len that claims a huge length is refused: " + claimed);
+    expect(run(*f.script, "local t = {1, 2, 3} table.insert(t, 1, 0) table.remove(t) table.insert(t, 9)\n"
+                          "local m = table.move(t, 1, 3, 2, {}) assert(#t == 4 and t[1] == 0 and m[4] == 2)")
+               .empty(),
+           "insert, remove and move still work on real tables");
+}
+
 void test_memory_limit()
 {
     ScriptConfig config;
@@ -322,6 +353,7 @@ int main()
     test_errors_name_their_place();
     test_sandbox_has_no_way_out();
     test_instruction_limit();
+    test_library_loops_are_bounded();
     test_memory_limit();
     test_host_functions();
     test_calls_from_the_host();

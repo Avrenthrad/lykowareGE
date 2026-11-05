@@ -53,9 +53,12 @@ using HostFunction =
 // switched off.
 //
 // Limits: memory and instructions, as in ScriptConfig. A script that reaches the instruction
-// limit is stopped even inside pcall, xpcall or a coroutine. A single call into Lua's string
-// library (a long pattern match, say) is one instruction, so it can take longer than the count
-// suggests. The sandbox protects the engine from mistakes in scripts it runs, such as endless
+// limit is stopped even inside pcall, xpcall or a coroutine. A call into Lua's C library counts
+// as one instruction, however long it runs. The library calls that could loop without end
+// while using no memory are bounded: string.rep of an empty string returns at once, and
+// table.insert, table.remove and table.move refuse lengths and ranges larger than the memory
+// limit could hold. A pattern match (string.find, match, gmatch, gsub) can still take very
+// long on a pathological pattern. The sandbox protects the engine from mistakes in scripts it runs, such as endless
 // loops, runaway memory and reaching for files. It is not yet a defence against hostile code.
 //
 // Determinism: the string hash seed is fixed and math.random is seeded by the host, so the same
