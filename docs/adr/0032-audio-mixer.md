@@ -50,6 +50,9 @@ Proposed:
     Truncated and malformed files are refused. Finite floats that go past ±1 are clamped, since export tools often produce them. NaN and infinity are refused.
 - **`Mixer`:**
   - **Voices:** up to 64. `play` returns a generation-checked `VoiceId`, under the same handle rules as ECS entities and physics bodies; a slot whose generation would wrap is retired.
+    - Like those handles (ADR 0030), a `VoiceId` carries its mixer's process-local owner token and works only with that mixer.
+    - A mixer cannot be copied or moved, so a handle never names two mixers.
+    - Codex's health check (#47) found that one mixer's handle could stop another's voice before this rule existed.
   - **Controls:** `stop`, `playing`, `set_gain` (0–16), `set_pan` (-1 to 1) and `set_master_gain`. Gain and pan changes ramp over 240 frames (5 ms) and land on the target exactly, so they do not click. `pitch` (1/8 to 8) is set when a voice starts.
   - **Mono voices** are panned with constant power: left² + right² = gain².
   - **Stereo voices** are balanced: panning turns down the far channel only.
@@ -71,7 +74,7 @@ Proposed:
 - New public header `lykoware/audio.hpp`; new source `engine/src/audio.cpp`. Nothing else in the engine changes.
 - **Failures:**
   - `play` and the `Sound` factories return empty and fill an error string;
-  - functions taking a `VoiceId` return false for a stale handle or an out-of-range value;
+  - functions taking a `VoiceId` return false for a stale handle, one from another mixer, or an out-of-range value;
   - nothing throws for misuse (`std::bad_alloc` can propagate).
 - **Lifetime:** a voice holds a `shared_ptr` to its sound, so dropping the caller's pointer while the voice plays is safe.
 - **No device yet:** SDL3's audio subsystem stays off (`SDL_AUDIO OFF` in `cmake/VendorSdl3.cmake`) until PR 2.
@@ -104,6 +107,7 @@ Proposed:
   - **Ends and handles:**
     - a voice plays its last frame and then stops;
     - stale and default handles are refused;
+    - another mixer's handle is refused, even with the same index and generation, and neither voice is touched;
     - a freed slot is reused with a new generation;
     - bad parameters, a 65th voice and odd output sizes are refused.
   - **Looping and resampling:**
