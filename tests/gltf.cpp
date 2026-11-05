@@ -4,6 +4,8 @@
 #include <lykoware/gltf.hpp>
 #include <lykoware/mesh.hpp>
 
+#include "support/png_writer.hpp"
+
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -116,6 +118,11 @@ struct Model {
     std::size_t vec3s(const std::vector<Vec3>& values)
     {
         return accessor(view(values), 5126, values.size(), "VEC3");
+    }
+
+    std::size_t vec2s(const std::vector<lykoware::math::Vec2>& values)
+    {
+        return accessor(view(values), 5126, values.size(), "VEC2");
     }
 
     template <typename T>
@@ -433,6 +440,158 @@ void test_external_buffers(const std::filesystem::path& directory)
     expect(!gltf::load(directory / "models" / "missing.gltf", error) && !error.empty(), "a missing file is refused");
 }
 
+// --- Materials (ADR 0038) -------------------------------------------------------------------
+
+using lykoware::math::Vec2;
+
+// A 2x1 PNG: red then blue.
+std::vector<std::byte> red_blue_png()
+{
+    return lykoware::test::png_rgba(2, 1, {255, 0, 0, 255, 0, 0, 255, 255});
+}
+
+// The unit quad with texture coordinates, a material with a factor and a texture, its sampler,
+// and the PNG in a buffer view. `material_json` replaces the material when given.
+Model textured_quad(const std::string& material_json = "")
+{
+    Model m = quad();
+    const std::size_t uv = m.vec2s({{0.F, 1.F}, {1.F, 1.F}, {1.F, 0.F}, {0.F, 0.F}});
+    const std::size_t image_view = m.view(red_blue_png());
+    m.meshes = "[{\"primitives\":[{\"attributes\":{\"POSITION\":0,\"NORMAL\":1,\"TEXCOORD_0\":" + std::to_string(uv)
+        + "},\"indices\":2,\"material\":0}]}]";
+    m.extra = ",\"materials\":["
+        + (material_json.empty() ? std::string{"{\"pbrMetallicRoughness\":{\"baseColorFactor\":[0.5,0.25,1,1],\"baseColorTexture\":{\"index\":0}}}"}
+                                 : material_json)
+        + "],\"textures\":[{\"source\":0,\"sampler\":0}],"
+          "\"samplers\":[{\"wrapS\":33071,\"wrapT\":33071,\"magFilter\":9728,\"minFilter\":9729}],"
+          "\"images\":[{\"bufferView\":" + std::to_string(image_view) + ",\"mimeType\":\"image/png\"}]";
+    return m;
+}
+
+void test_materials()
+{
+    std::string error;
+    const Model m = textured_quad();
+    auto model = gltf::read_model(m.gltf(), {}, error);
+    expect(model.has_value(), "a textured model loads: " + error);
+    if (!model) {
+        return;
+    }
+    expect(model->parts.size() == 1 && model->parts[0].first_index == 0 && model->parts[0].index_count == 6
+               && model->parts[0].material == std::optional<std::size_t>{0},
+           "a primitive becomes one part with its material");
+    expect(model->materials.size() == 1 && model->materials[0].base_colour.x == 0.5F && model->materials[0].base_colour.y == 0.25F
+               && model->materials[0].base_colour.z == 1.F && model->materials[0].base_colour_texture == std::optional<std::size_t>{0},
+           "the material's base colour factor and texture are read");
+    expect(model->textures.size() == 1 && model->textures[0].image == 0 && model->textures[0].sampling.wrap == gltf::Wrap::ClampToEdge
+               && model->textures[0].sampling.nearest && !model->textures[0].sampling.mipmaps,
+           "the sampler's wrap, magnification and mipmap settings are read");
+    expect(model->images.size() == 1 && model->images[0].width == 2 && model->images[0].height == 1
+               && model->images[0].pixels == std::vector<std::uint8_t>{255, 0, 0, 255, 0, 0, 255, 255},
+           "the image in a buffer view is decoded");
+    expect(model->mesh.uvs.size() == 4 && model->mesh.uvs[2] == Vec2{1.F, 0.F}, "texture coordinates are read");
+
+    // The same file through .glb, and through read() for the shape alone.
+    const auto from_glb = gltf::read_model(m.glb(), {}, error);
+    expect(from_glb && from_glb->images.size() == 1 && from_glb->mesh.uvs == model->mesh.uvs, "the same model as .glb reads identically");
+    const auto shape = gltf::read(m.gltf(), {}, error);
+    expect(shape && shape->positions == model->mesh.positions && shape->indices == model->mesh.indices, "read() gives the same shape");
+
+    // read() does not decode images, so a broken image only stops read_model().
+    Model broken = textured_quad();
+    broken.bin[broken.bin.size() - 30] ^= std::byte{0xFF};
+    expect(gltf::read(broken.gltf(), {}, error).has_value(), "read() ignores materials and their images");
+    expect(!gltf::read_model(broken.gltf(), {}, error) && error.find("image 0") != std::string::npos,
+           "read_model() refuses an image that does not decode, naming it");
+
+    // Two primitives: one textured with a material, one with no material and no coordinates.
+    Model two = textured_quad();
+    two.meshes = "[{\"primitives\":[{\"attributes\":{\"POSITION\":0,\"NORMAL\":1},\"indices\":2},"
+                 "{\"attributes\":{\"POSITION\":0,\"NORMAL\":1,\"TEXCOORD_0\":3},\"indices\":2,\"material\":0},"
+                 "{\"attributes\":{\"POSITION\":0,\"NORMAL\":1,\"TEXCOORD_0\":3},\"indices\":2,\"material\":0}]}]";
+    model = gltf::read_model(two.gltf(), {}, error);
+    expect(model && model->parts.size() == 3 && !model->parts[0].material && model->parts[1].first_index == 6
+               && model->parts[2].material == std::optional<std::size_t>{0} && model->materials.size() == 1 && model->images.size() == 1,
+           "parts follow the primitives; a material used twice is listed once");
+    expect(model && model->mesh.uvs.size() == 12 && model->mesh.uvs[0] == Vec2{} && model->mesh.uvs[6] == Vec2{1.F, 0.F},
+           "vertices without texture coordinates read (0, 0)");
+
+    // Normalised 8- and 16-bit coordinates; unnormalised integers are refused.
+    for (const int bits : {8, 16}) {
+        Model n = quad();
+        const std::size_t v = bits == 8 ? n.view(std::vector<std::uint8_t>{0, 255, 255, 255, 255, 0, 0, 0})
+                                        : n.view(std::vector<std::uint16_t>{0, 65535, 65535, 65535, 65535, 0, 0, 0});
+        n.accessors.push_back("{\"bufferView\":" + std::to_string(v) + ",\"componentType\":" + (bits == 8 ? "5121" : "5123")
+                              + ",\"normalized\":true,\"count\":4,\"type\":\"VEC2\"}");
+        n.meshes = "[{\"primitives\":[{\"attributes\":{\"POSITION\":0,\"NORMAL\":1,\"TEXCOORD_0\":3},\"indices\":2}]}]";
+        model = gltf::read_model(n.gltf(), {}, error);
+        expect(model && model->mesh.uvs[1] == Vec2{1.F, 1.F} && model->mesh.uvs[3] == Vec2{0.F, 0.F},
+               bits == 8 ? "normalised 8-bit texture coordinates are read" : "normalised 16-bit texture coordinates are read");
+        n.accessors.back().replace(n.accessors.back().find("true"), 4, "false");
+        expect(!gltf::read_model(n.gltf(), {}, error), "unnormalised integer texture coordinates are refused");
+    }
+
+    // Flat normals keep each corner's texture coordinate.
+    Model flat;
+    const std::size_t fp = flat.vec3s({{0.F, 0.F, 0.F}, {1.F, 0.F, 0.F}, {0.F, 1.F, 0.F}});
+    const std::size_t fuv = flat.vec2s({{0.1F, 0.2F}, {0.3F, 0.4F}, {0.5F, 0.6F}});
+    flat.meshes = "[{\"primitives\":[{\"attributes\":{\"POSITION\":" + std::to_string(fp) + ",\"TEXCOORD_0\":" + std::to_string(fuv) + "}}]}]";
+    flat.nodes = "[{\"mesh\":0,\"scale\":[-1,1,1]}]";
+    model = gltf::read_model(flat.gltf(), {}, error);
+    expect(model && model->mesh.uvs == std::vector<Vec2>{{0.1F, 0.2F}, {0.5F, 0.6F}, {0.3F, 0.4F}} && faces_outwards(model->mesh),
+           "flat normals keep each corner's texture coordinate, mirrored corners included");
+
+    // Refusals.
+    auto refused = [&](const Model& model_in, std::string_view what) {
+        error.clear();
+        expect(!gltf::read_model(model_in.gltf(), {}, error) && !error.empty(), what);
+    };
+    refused(textured_quad("{\"pbrMetallicRoughness\":{\"baseColorTexture\":{\"index\":0,\"texCoord\":1}}}"),
+            "a texture on a second coordinate set is refused");
+    refused(textured_quad("{\"pbrMetallicRoughness\":{\"baseColorFactor\":[1.5,1,1,1]}}"), "a base colour factor above 1 is refused");
+    refused(textured_quad("{\"pbrMetallicRoughness\":{\"baseColorTexture\":{\"index\":7}}}"), "a missing texture is refused");
+    Model no_source = textured_quad();
+    no_source.extra.replace(no_source.extra.find("{\"source\":0,"), 12, "{");
+    refused(no_source, "a texture without a source image is refused");
+    Model bad_wrap = textured_quad();
+    bad_wrap.extra.replace(bad_wrap.extra.find("33071"), 5, "12345");
+    refused(bad_wrap, "an unknown wrap mode is refused");
+    Model webp = textured_quad();
+    webp.extra.replace(webp.extra.find("image/png"), 9, "image/webp");
+    refused(webp, "an image in a buffer view with another mime type is refused");
+}
+
+void test_material_files(const std::filesystem::path& directory)
+{
+    std::filesystem::create_directories(directory / "models");
+    auto write = [](const std::filesystem::path& path, const std::vector<std::byte>& data) {
+        std::ofstream out(path, std::ios::binary);
+        out.write(reinterpret_cast<const char*>(data.data()), static_cast<std::streamsize>(data.size()));
+    };
+    // The image in its own file beside the model, and as a data URI.
+    for (const std::string& uri : {std::string{"red%20blue.png"}, "data:image/png;base64," + lykoware::test::base64(red_blue_png())}) {
+        Model m = textured_quad();
+        m.extra.replace(m.extra.find("{\"bufferView\""), m.extra.find("}]", m.extra.find("\"images\"")) - m.extra.find("{\"bufferView\"") + 1,
+                        "{\"uri\":\"" + uri + "\"}");
+        write(directory / "models" / "red blue.png", red_blue_png());
+        write(directory / "models" / "file-image.gltf", m.gltf());
+        std::string error;
+        const auto model = gltf::load_model(directory / "models" / "file-image.gltf", error);
+        expect(model && model->images.size() == 1 && model->images[0].pixels[8 - 2] == 255,
+               (uri.starts_with("data:") ? "an image in a data URI loads" : "an image in a file beside the model loads") + std::string{": "} + error);
+    }
+    Model escape = textured_quad();
+    escape.extra.replace(escape.extra.find("{\"bufferView\""), escape.extra.find("}]", escape.extra.find("\"images\"")) - escape.extra.find("{\"bufferView\"") + 1,
+                         "{\"uri\":\"../outside.png\"}");
+    write(directory / "outside.png", red_blue_png());
+    write(directory / "models" / "escape-image.gltf", escape.gltf());
+    std::string error;
+    expect(!gltf::load_model(directory / "models" / "escape-image.gltf", error), "an image outside the model's folder is refused");
+
+    // The textured quad as .glb, for sandbox.model (a CTest fixture).
+    write(directory / "models" / "textured.glb", textured_quad().glb());
+}
+
 void test_valid_mesh()
 {
     std::string error;
@@ -461,6 +620,8 @@ int main(int argc, char** argv)
     test_refusals();
     test_external_buffers(directory);
     test_valid_mesh();
+    test_materials();
+    test_material_files(directory);
     if (g_failures != 0) {
         std::cerr << g_failures << " glTF assertion(s) failed\n";
         return EXIT_FAILURE;
