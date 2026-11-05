@@ -1,5 +1,7 @@
 #include <lykoware/audio.hpp>
 
+#include "world_identity.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -231,6 +233,7 @@ void Mixer::Ramp::advance()
 }
 
 Mixer::Mixer()
+    : owner_{detail::next_world_identity()}
 {
     voices_.reserve(max_voices);
     master_.set(1.F);
@@ -243,7 +246,7 @@ Mixer::Voice* Mixer::find(VoiceId voice)
 
 const Mixer::Voice* Mixer::find(VoiceId voice) const
 {
-    if (voice.generation == 0 || voice.index >= voices_.size()) {
+    if (voice.owner != owner_ || voice.generation == 0 || voice.index >= voices_.size()) {
         return nullptr;
     }
     const Voice& slot = voices_[voice.index];
@@ -291,7 +294,7 @@ std::optional<VoiceId> Mixer::play(std::shared_ptr<const Sound> sound, const Pla
     voice.right.set(right);
     ++voice.generation;
     voice.active = true;
-    return VoiceId{index, voice.generation};
+    return VoiceId{index, voice.generation, owner_};
 }
 
 bool Mixer::stop(VoiceId voice)

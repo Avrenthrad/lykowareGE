@@ -50,7 +50,7 @@ Proposed:
   - **`read` and `load`** return the shape (now with texture coordinates) and do not touch materials or images.
 - **Renderer:**
   - **`MeshPart`:** an index range, a colour that multiplies `MeshRenderer::colour`, and a texture that takes the place of `MeshRenderer::texture`.
-  - **`Renderer::add_mesh(mesh, parts)`:** each part is a draw. It refuses a part outside the indices, one that is not whole triangles, or one with an unknown texture id.
+  - **`Renderer::add_mesh(mesh, parts)`:** each part is a draw. It refuses a part outside the indices, one that is not whole triangles, or one with a texture id this renderer did not make, including another renderer's id at the same position (ADR 0030; found by Codex's health check, #47).
   - **`add_mesh(mesh)`** is one whole-mesh part.
   - **`last_draw_count()`** counts entities, so a mesh of several parts counts once.
 - **RHI:** `MeshDraw::first_index` sets where a draw's indices start, and is checked against the index buffer.
@@ -105,7 +105,7 @@ Proposed:
   - two primitives read by `read_model` and uploaded as the sandbox does;
   - the textured part shows its red|blue texture and the other its green factor, each lit to the formula's value (115);
   - two parts count as one entity;
-  - a part outside the indices, and one with an unknown texture, are refused;
+  - a part outside the indices, one with an unknown texture, and one with another renderer's texture id at a real position, are refused;
   - the frame is written as `render-model/materials.ppm`.
 - **`sandbox.model`:** now shows the textured .glb (1 material, 1 image).
 - **Deliberate breaks:** 15, each caught:
