@@ -127,7 +127,40 @@ Proposed:
     - missing functions, table results and errors are reported;
     - a global lookup that runs script code is protected.
   - **Determinism:** two states with one seed iterate 200 string keys and draw 20 random numbers identically. Another seed draws other numbers.
-- **Deliberate breaks:** to be recorded.
-- **Fuzzing** (local): to be recorded.
-- **Local results:** to be recorded.
+- **Deliberate breaks:** 25 of 25 caught.
+  - **Sandbox:**
+    - the hash seed from time and addresses;
+    - `load`, `string.dump` or `math.randomseed` left in;
+    - bytecode accepted;
+    - `math.random` not seeded by the host;
+    - `__gc` allowed.
+  - **Instruction limit:**
+    - `pcall`, `xpcall` or `coroutine.resume` unguarded;
+    - the guard without a continuation;
+    - the stop raised only once;
+    - the count not reset per run.
+  - **Memory limit:** ignored.
+  - **Library loops:**
+    - `string.rep` unguarded;
+    - `table.insert`/`remove` unguarded;
+    - `table.move` unguarded;
+    - the element limit too high.
+  - **Host boundary:**
+    - re-entry allowed;
+    - tables accepted as nil;
+    - integers read as floats;
+    - a host exception escaping;
+    - the global lookup unprotected;
+    - the error position dropped;
+    - a keyword accepted as a name.
+
+  Four of these first exposed weak tests, which were fixed:
+  - the coroutine stop came late;
+  - the "raise every step" behaviour was untested;
+  - the hash-seed test let two states share one address;
+  - the bytecode test matched any binary error.
+- **Fuzzing** (local): 200,000 mutated scripts through `run` and `call` under ASan/UBSan, with random memory and instruction limits, in 192 s, with no crash and no hang.
+  - An earlier run hung on `string.rep('', 2^40)`, which led to the library-loop guards.
+  - The slowest script took 1 s: a string-allocating loop stopped by its instruction limit under ASan.
+- **Local results:** 54/54 pass in the Debug, ASan/UBSan and clang-tidy presets. The handle-ownership fixes from #47 are merged in.
 - **CI:** blocked for the whole account since 2026-11-05 (failed payment or spending limit, see STATUS).

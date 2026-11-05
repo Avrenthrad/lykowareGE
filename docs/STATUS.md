@@ -276,8 +276,11 @@ Owner: Claude. Branch `claude/script-lua`, stacked on window lifecycle. In revie
   - No files, processes, clocks, module loading, `load` or bytecode; finalizers are refused.
   - Replays repeat: the string hash seed is fixed and `math.random` is seeded by the host.
 - **Tests:** new `script.sandbox`.
-- **Deliberate breaks:** 21 of 21 caught. Four of them first exposed weak tests, which were fixed.
-- **Local checks:** see ADR 0041.
+- **Deliberate breaks:** 25 of 25 caught. Four of them first exposed weak tests, which were fixed.
+- **Fuzzing:** 200,000 scripts under ASan/UBSan, with no crash or hang.
+  - An earlier run hung inside `string.rep('', 2^40)`.
+  - The sandbox now bounds that, and the matching `table.insert`, `remove` and `move` loops, which the instruction limit cannot stop.
+- **Local checks:** 54/54 pass in Debug, ASan/UBSan and clang-tidy.
 - **CI:** blocked for the whole account (see audio PR 1).
 
 ## Next
