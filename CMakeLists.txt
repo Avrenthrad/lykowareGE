@@ -340,6 +340,20 @@ if(BUILD_TESTING)
         set_property(TEST scene.cli_capture APPEND PROPERTY ENVIRONMENT "VK_LOADER_DISABLE_DYNAMIC_LIBRARY_UNLOADING=1")
     endif()
 
+    # A real renderer capture through lyko screenshot matches its committed golden (ADR 0043).
+    # Skipped without Vulkan, and on hardware GPUs: the golden is the software (lavapipe) image.
+    add_executable(lykoware_image_compare tests/image_compare.cpp)
+    target_link_libraries(lykoware_image_compare PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_image_compare)
+    add_test(NAME scene.capture_golden COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_SOURCE_DIR}/tests/capture_golden.py" "$<TARGET_FILE:lyko>" "$<TARGET_FILE:lykoware_image_compare>"
+        "${CMAKE_SOURCE_DIR}/samples/scenes" "${CMAKE_SOURCE_DIR}/tests/golden/falling-crates-160x120.ppm"
+        "${CMAKE_BINARY_DIR}/test-output/capture-golden")
+    set_tests_properties(scene.capture_golden PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
+    if(LYKOWARE_SANITIZERS)
+        set_property(TEST scene.capture_golden APPEND PROPERTY ENVIRONMENT "VK_LOADER_DISABLE_DYNAMIC_LIBRARY_UNLOADING=1")
+    endif()
+
     add_executable(lykoware_scene_replay_test tests/scene_replay.cpp)
     target_link_libraries(lykoware_scene_replay_test PRIVATE lykoware::engine)
     lykoware_configure_target(lykoware_scene_replay_test)
