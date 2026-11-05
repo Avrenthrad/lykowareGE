@@ -113,13 +113,14 @@ int main(int argc, char* argv[])
         return unavailable ? exit_skip : EXIT_FAILURE;
     }
     lykoware::Image image;
+    std::optional<render::TextureId> old_texture;
+    std::vector<std::uint32_t> vertex_words;
+    std::vector<std::uint32_t> fragment_words;
+    if (!rhi::read_spirv_file(argv[1], vertex_words, error) || !rhi::read_spirv_file(argv[2], fragment_words, error)) {
+        std::cerr << "FAIL: the lit shaders load: " << error.message << '\n';
+        return EXIT_FAILURE;
+    }
     {
-        std::vector<std::uint32_t> vertex_words;
-        std::vector<std::uint32_t> fragment_words;
-        if (!rhi::read_spirv_file(argv[1], vertex_words, error) || !rhi::read_spirv_file(argv[2], fragment_words, error)) {
-            std::cerr << "FAIL: the lit shaders load: " << error.message << '\n';
-            return EXIT_FAILURE;
-        }
         auto renderer = render::Renderer::create(*device, rhi::ColorFormat::Rgba8Unorm, vertex_words, fragment_words, error);
         if (!renderer) {
             std::cerr << "FAIL: the renderer is created: " << error.message << '\n';
@@ -141,6 +142,7 @@ int main(int argc, char* argv[])
         if (!mesh || !texture) {
             return EXIT_FAILURE;
         }
+        old_texture = texture;
 
         ecs::World entities;
         const ecs::Entity textured = entities.create();
@@ -176,6 +178,34 @@ int main(int argc, char* argv[])
         expect(cube.g > cube.r + 40 && cube.g > cube.b + 40, "an untextured cube still shows its colour");
         const Pixel sky_pixel = at(image, pixel_of(camera, {-2.5, 0.0, 0.5}));
         expect(sky_pixel.r == 115 && sky_pixel.g == 153 && sky_pixel.b == 204, "where the unknown texture's cube would be, the sky shows");
+    }
+    if (old_texture) {
+        // ADR 0030: a texture id works only with the renderer that made it. A renderer made after
+        // the first is gone gives its own first texture the same position.
+        auto renderer = render::Renderer::create(*device, rhi::ColorFormat::Rgba8Unorm, vertex_words, fragment_words, error);
+        lykoware::RgbaImage green;
+        green.width = 1;
+        green.height = 1;
+        green.pixels = {0, 255, 0, 255};
+        const auto texture = renderer ? renderer->add_texture(green, {}, error) : std::nullopt;
+        expect(texture && texture->value == old_texture->value && !(*texture == *old_texture),
+               "a new renderer's first texture id differs from the old renderer's only by owner");
+        auto target = rhi::RenderTarget::create(*device, {width, height, true}, error);
+        if (renderer && texture && target) {
+            const render::Camera camera{{0.0, 0.0, 6.0}, {0.0, 0.0, 0.0}};
+            for (const render::TextureId id : {*old_texture, *texture}) {
+                ecs::World entities;
+                const ecs::Entity cube = entities.create();
+                entities.add<lykoware::Transform>(cube, lykoware::Transform{});
+                entities.add<render::MeshRenderer>(
+                    cube, render::MeshRenderer{render::MeshShape::Cube, {1.F, 1.F, 1.F}, {1.F, 1.F, 1.F}, {}, id});
+                expect(renderer->draw(entities, camera, *target, sky, error), "a frame draws");
+                const std::size_t expected = id == *texture ? 1U : 0U;
+                expect(renderer->last_draw_count() == expected,
+                       id == *texture ? "the new renderer draws its own texture"
+                                      : "an old renderer's texture id is not drawn by a new renderer");
+            }
+        }
     }
     if (instance->validation_error_count() != 0) {
         expect(false, std::to_string(instance->validation_error_count()) + " Vulkan validation errors");
