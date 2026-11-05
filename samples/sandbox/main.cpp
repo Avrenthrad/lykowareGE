@@ -3,8 +3,10 @@
 #include <lykoware/audio_spatial.hpp>
 #include <lykoware/clock.hpp>
 #include <lykoware/ecs.hpp>
+#include <lykoware/gltf.hpp>
 #include <lykoware/log.hpp>
 #include <lykoware/math.hpp>
+#include <lykoware/mesh.hpp>
 #include <lykoware/paths.hpp>
 #include <lykoware/physics.hpp>
 #include <lykoware/physics_ecs.hpp>
@@ -145,6 +147,8 @@ struct WindowOptions {
     bool no_audio = false;
     bool has_frames = false;
     std::uint64_t frames = 0;
+    // --model FILE: a glTF model shown beside the crates (ADR 0035).
+    std::string model;
 };
 
 // The engine's lit shader compiled for the sandbox, deployed by the build and
@@ -249,10 +253,33 @@ public:
     }
 
     // Advances one fixed tick; every seconds_per_drop the crates are replaced.
+    // Shows an uploaded model standing on the ground to the left of the crates, scaled so its
+    // largest side is 3 m, turning slowly.
+    void add_model(lykoware::render::MeshId mesh, const lykoware::Bounds& box)
+    {
+        const lykoware::math::Vec3 size = box.max - box.min;
+        const float largest = std::max({size.x, size.y, size.z});
+        model_scale_ = largest > 0.F ? 3.F / largest : 1.F;
+        model_centre_ = (box.min + box.max) * 0.5F;
+        model_base_ = box.min.y;
+        model_ = entities_.create();
+        entities_.add<lykoware::Transform>(model_, lykoware::Transform{});
+        entities_.add<lykoware::render::MeshRenderer>(
+            model_, lykoware::render::MeshRenderer{lykoware::render::MeshShape::Cube,
+                                                   {model_scale_, model_scale_, model_scale_},
+                                                   {0.85F, 0.75F, 0.6F},
+                                                   mesh});
+        place_model();
+    }
+
     void tick(float seconds)
     {
         link_.step(seconds);
         find_impacts(seconds);
+        if (entities_.alive(model_)) {
+            model_turn_ += 0.5F * seconds; // radians per second
+            place_model();
+        }
         elapsed_ += seconds;
         if (elapsed_ >= seconds_per_drop) {
             elapsed_ = 0.0;
@@ -271,6 +298,17 @@ public:
     std::vector<Impact> take_impacts() { return std::exchange(impacts_, {}); }
 
 private:
+    // The model turns about its own centre, with its lowest point on the ground at (-7, 0, 1).
+    void place_model()
+    {
+        const lykoware::math::Quat turn = lykoware::math::from_axis_angle({0.F, 1.F, 0.F}, model_turn_);
+        const lykoware::math::Vec3 centre{model_centre_.x * model_scale_, model_base_ * model_scale_, model_centre_.z * model_scale_};
+        const lykoware::math::Vec3 offset = lykoware::math::rotate(turn, centre);
+        auto* transform = entities_.get<lykoware::Transform>(model_);
+        transform->position = lykoware::math::DVec3{-7.0, 0.0, 1.0} + (-1.F * offset);
+        transform->rotation = turn;
+    }
+
     // Gravity changes a crate's velocity by about 0.16 m/s per 60 Hz tick. A change of more than
     // 1 m/s in one tick is a collision; 6 m/s or more is the hardest knock. A short quiet time
     // after each knock stops a crate resting on another from rattling.
@@ -335,10 +373,16 @@ private:
     std::vector<float> quiet_;
     std::vector<Impact> impacts_;
     double elapsed_ = 0.0;
+    lykoware::ecs::Entity model_{};
+    float model_scale_ = 1.F;
+    lykoware::math::Vec3 model_centre_{};
+    float model_base_ = 0.F;
+    float model_turn_ = 0.F;
 };
 
 // Draws the falling-crates scene through the RHI swapchain.
-int present_loop(lykoware::Window& window, const WindowOptions& options, const ShaderWords& shaders)
+int present_loop(lykoware::Window& window, const WindowOptions& options, const ShaderWords& shaders,
+                 const std::optional<lykoware::MeshData>& model)
 {
     lykoware::rhi::InstanceConfig instance_config;
     instance_config.application_name = "lykoware sandbox";
@@ -398,6 +442,14 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
         }
     }
     auto scene = std::make_unique<CrateScene>(*physics, audio ? make_thump() : nullptr);
+    if (model) {
+        const auto mesh = renderer->add_mesh(*model, error);
+        if (!mesh) {
+            lykoware::log(lykoware::LogLevel::error, "Model: " + error.message);
+            return EXIT_FAILURE;
+        }
+        scene->add_model(*mesh, lykoware::bounds(*model));
+    }
     const lykoware::render::Camera camera{{0.0, 7.0, 15.0}, {0.0, 1.5, 0.0}};
     const auto listener = lykoware::audio::Listener::looking_at(camera.eye, camera.target, camera.up);
     lykoware::audio::SpatialAudio spatial;
@@ -497,6 +549,14 @@ int run_window(const std::vector<std::string>& args)
             flag(options.vulkan, option);
         } else if (option == "--no-audio") {
             flag(options.no_audio, option);
+        } else if (option == "--model") {
+            if (!options.model.empty()) {
+                throw std::invalid_argument("Duplicate option: --model");
+            }
+            if (index + 1 >= args.size() || args[index + 1].empty() || args[index + 1].starts_with("--")) {
+                throw std::invalid_argument("Missing value for --model");
+            }
+            options.model = args[++index];
         } else if (option == "--frames") {
             if (options.has_frames) {
                 throw std::invalid_argument("Duplicate option: --frames");
@@ -523,9 +583,26 @@ int run_window(const std::vector<std::string>& args)
         throw std::invalid_argument("--window --dummy or --offscreen requires --frames N so it can exit without a display.");
     }
 
+    if (!options.model.empty() && !options.vulkan) {
+        throw std::invalid_argument("--model needs --vulkan to draw it.");
+    }
+
     ShaderWords shaders;
     if (options.vulkan && !read_shaders(shaders)) {
         return EXIT_FAILURE;
+    }
+    // The model is read before any window or GPU work, like the shaders, so a bad file fails
+    // clearly on any machine.
+    std::optional<lykoware::MeshData> model;
+    if (!options.model.empty()) {
+        std::string model_error;
+        model = lykoware::gltf::load(utf8_path(options.model), model_error);
+        if (!model) {
+            lykoware::log(lykoware::LogLevel::error, "Model " + options.model + ": " + model_error);
+            return EXIT_FAILURE;
+        }
+        lykoware::log(lykoware::LogLevel::info, "Loaded model " + options.model + ": "
+                                                    + std::to_string(model->indices.size() / 3) + " triangles.");
     }
 
     lykoware::WindowConfig config;
@@ -547,7 +624,7 @@ int run_window(const std::vector<std::string>& args)
     }
     lykoware::log(lykoware::LogLevel::info, "Opened sandbox window.");
     if (options.vulkan) {
-        const int status = present_loop(*window, options, shaders);
+        const int status = present_loop(*window, options, shaders, model);
         lykoware::log(lykoware::LogLevel::info, "Closed sandbox window.");
         return status;
     }
@@ -586,7 +663,8 @@ int run(const std::vector<std::string>& args)
         if (option == "--help") {
             std::cout << "Usage: lykoware_sandbox [--version|--help]\n"
                          "       lykoware_sandbox --frames N --trace FILE\n"
-                         "       lykoware_sandbox --window [--dummy | --offscreen] [--vulkan] [--no-audio] [--frames N]\n"
+                         "       lykoware_sandbox --window [--dummy | --offscreen] [--vulkan] [--no-audio]\n"
+                         "                        [--model FILE] [--frames N]\n"
                          "Without options, runs the console foundation check.\n"
                          "--frames with --trace runs N CPU iterations and writes a Chrome trace.\n"
                          "--window opens a window and pumps input until it closes.\n"
@@ -596,7 +674,8 @@ int run(const std::vector<std::string>& args)
                          "  the shaders folder beside the executable; exit 3 when no usable Vulkan\n"
                          "  device exists, 1 when shaders are missing. Crates knock as they land,\n"
                          "  through the default sound device (the dummy driver when headless).\n"
-                         "--no-audio runs --vulkan without sound.\n";
+                         "--no-audio runs --vulkan without sound.\n"
+                         "--model FILE shows a glTF model (.gltf or .glb) beside the crates.\n";
             return EXIT_SUCCESS;
         }
         throw std::invalid_argument("Unknown option: " + std::string{option}

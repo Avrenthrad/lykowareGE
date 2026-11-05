@@ -243,6 +243,16 @@ if(BUILD_TESTING)
     add_test(NAME assets.gltf COMMAND lykoware_gltf_test "${CMAKE_BINARY_DIR}/test-output/gltf")
     set_tests_properties(assets.gltf PROPERTIES TIMEOUT 60 FIXTURES_SETUP gltf_models)
 
+    # The sandbox shows a model written by assets.gltf (a CTest fixture), so the repository
+    # holds no model files. Exit 3 without a usable Vulkan device is Skipped.
+    add_test(NAME sandbox.model
+        COMMAND lykoware_sandbox --window --offscreen --vulkan --frames 3
+            --model "${CMAKE_BINARY_DIR}/test-output/gltf/models/quad.glb")
+    set_tests_properties(sandbox.model PROPERTIES TIMEOUT 60 SKIP_RETURN_CODE 3 FIXTURES_REQUIRED gltf_models)
+    if(LYKOWARE_SANITIZERS)
+        set_property(TEST sandbox.model APPEND PROPERTY ENVIRONMENT "VK_LOADER_DISABLE_DYNAMIC_LIBRARY_UNLOADING=1")
+    endif()
+
     # The maths module (ADR 0024). Links only the engine.
     add_executable(lykoware_math_test tests/math.cpp)
     target_link_libraries(lykoware_math_test PRIVATE lykoware::engine)
