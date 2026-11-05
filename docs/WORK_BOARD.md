@@ -13,6 +13,13 @@ Owner rules for every task: small stacked PRs; commit small and often; keep all 
 
 Check latest main and open PRs before starting. Documents do not automatically synchronize assistants or reserve work.
 
+## Active task: scripting (Claude)
+
+- Owner/status: Claude, active. PR 1 (sandboxed Lua 5.4, [ADR 0041](adr/0041-lua-scripting.md)) in review on `claude/script-lua`, stacked on window lifecycle. PR 2 (scripts issue scene commands; `--script` in the sandbox and `lyko`) next.
+- Objective (owner's choice, 2026-11-05: "go with what you recommend"): the Phase 1 scripting entry point, in Lua.
+- Shared interfaces: new `lykoware/script.hpp`; new vendored `third_party/lua/` (MIT); `lykoware_lua` linked privately into the engine.
+- Checks: `script.sandbox`, deliberate breaks, a local fuzz run under ASan/UBSan, five CI jobs once CI runs again.
+
 ## Active task: window lifecycle (Claude)
 
 - Owner/status: Claude, active. One PR ([ADR 0040](adr/0040-window-lifecycle.md)) in review as #46 on `claude/window-lifecycle`, stacked on GPU timings.
