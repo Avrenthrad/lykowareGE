@@ -39,6 +39,7 @@ Canonical directory: docs/adr. Decisions remain Proposed until resolved; disting
 | [0036](0036-image-decoding.md) | Proposed (owner chose "vendor Wuffs") | PNG and JPEG decoding through vendored Wuffs v0.4.0-alpha.12 (MIT option) into 8-bit RGBA; checksums checked; size limits before allocation |
 | [0037](0037-gpu-textures.md) | Proposed | `rhi::Texture` (sRGB/Unorm, CPU-made gamma-correct mipmaps, wrap and filter), one descriptor set per texture, `PositionNormalUv` pipelines; the lit shader samples a base colour texture; `Renderer::add_texture` and `MeshRenderer::texture` |
 | [0038](0038-gltf-materials.md) | Proposed | glTF `read_model`/`load_model`: TEXCOORD_0, base colour materials, textures and samplers, decoded images; models drawn as `MeshPart`s with their own colour and texture (`MeshDraw::first_index`); sandbox shows textured models |
+| [0039](0039-gpu-timings.md) | Proposed | GPU timings from Vulkan timestamp queries: `RenderTarget::last_gpu_time_ns`, `Swapchain::take_gpu_frame_times`; `CpuTrace` GPU spans on a second track; sandbox `--window --vulkan --trace` and `lyko trace --gpu` |
 
 Use [the template](TEMPLATE.md). Record context, options, decision/status, contracts, consequences and verification. Use a new ADR to supersede an accepted choice; do not silently rewrite its history.
 

@@ -13,9 +13,16 @@ Owner rules for every task: small stacked PRs; commit small and often; keep all 
 
 Check latest main and open PRs before starting. Documents do not automatically synchronize assistants or reserve work.
 
+## Active task: GPU timings (Claude)
+
+- Owner/status: Claude, active. One PR ([ADR 0039](adr/0039-gpu-timings.md)) in review on `claude/gpu-timings`, stacked on textures PR 3.
+- Objective (owner's choice, 2026-11-05): the Phase 1 exit item "traces report CPU/GPU timings where supported".
+- Shared interfaces: `Device::gpu_timestamps`, `RenderTarget::last_gpu_time_ns`, `Swapchain::take_gpu_frame_times`, `CpuTrace::add_gpu_span`/`elapsed_us`; sandbox `--window --vulkan --trace FILE`; `lyko trace --gpu`.
+- Checks: GPU timing checks in the RHI tests (lavapipe has timestamps), `sandbox.gpu_trace`, deliberate breaks, five CI jobs once CI runs again.
+
 ## Active task: textures (Claude)
 
-- Owner/status: Claude, active. PR 1 (PNG and JPEG decoding through vendored Wuffs, [ADR 0036](adr/0036-image-decoding.md)) in review as #41 on `claude/image-decode`, stacked on model loading. PR 2 (textures in the RHI and renderer, [ADR 0037](adr/0037-gpu-textures.md)) in review as #42 on `claude/gpu-textures`, stacked on PR 1. PR 3 (glTF materials, texture coordinates and mesh parts, [ADR 0038](adr/0038-gltf-materials.md)) in review on `claude/gltf-materials`, stacked on PR 2.
+- Owner/status: Claude, active. PR 1 (PNG and JPEG decoding through vendored Wuffs, [ADR 0036](adr/0036-image-decoding.md)) in review as #41 on `claude/image-decode`, stacked on model loading. PR 2 (textures in the RHI and renderer, [ADR 0037](adr/0037-gpu-textures.md)) in review as #42 on `claude/gpu-textures`, stacked on PR 1. PR 3 (glTF materials, texture coordinates and mesh parts, [ADR 0038](adr/0038-gltf-materials.md)) in review as #43 on `claude/gltf-materials`, stacked on PR 2.
 - Objective (owner's choice, 2026-11-05): textures on models, in three PRs: (1) image decoding, (2) GPU textures in the RHI and renderer, (3) glTF materials and texture coordinates.
 - Shared interfaces: new `lykoware/image_decode.hpp`; new vendored `third_party/wuffs/` (MIT option); PR 2 changes RHI pipelines (descriptor sets) and the lit shader.
 - Checks: images encoded by the tests (none committed), deliberate breaks, a cross-check against PIL and a fuzz run (local), five CI jobs once CI runs again.

@@ -116,7 +116,7 @@ On Linux:
 ./build/linux-debug/tools/cli/lyko run
 ```
 
-See [CLI.md](CLI.md) for defaults, overrides, exit codes and the header contract. Installing the project stages both sandbox and lyko under bin/, which is where `lyko run` and `lyko trace` find the sandbox. `lyko trace --frames N` writes a CPU Chrome trace of the sandbox loop. `screenshot` and `run --scene` exit 3 with `unsupported: no renderer`.
+See [CLI.md](CLI.md) for defaults, overrides, exit codes and the header contract. Installing the project stages both sandbox and lyko under bin/, which is where `lyko run` and `lyko trace` find the sandbox. `lyko trace --frames N` writes a CPU Chrome trace of the sandbox loop; `lyko trace --gpu --frames N` traces its Vulkan window with GPU frame times (ADR 0039). `screenshot` and `run --scene` exit 3 with `unsupported: no renderer`.
 
 On Windows, use the installed copy when rebuilding the CLI itself: a running executable in the build directory cannot be relinked in place. Restage after the command exits to update the installed tool.
 
