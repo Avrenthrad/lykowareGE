@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -246,6 +247,9 @@ struct Device::Impl {
             if (texture_layout != VK_NULL_HANDLE) {
                 vkDestroyDescriptorSetLayout(device, texture_layout, nullptr);
             }
+            if (timestamps != VK_NULL_HANDLE) {
+                vkDestroyQueryPool(device, timestamps, nullptr);
+            }
             if (allocator != VK_NULL_HANDLE) {
                 vmaDestroyAllocator(allocator);
             }
@@ -267,6 +271,11 @@ struct Device::Impl {
     VkFence fence = VK_NULL_HANDLE;
     VkDescriptorSetLayout texture_layout = VK_NULL_HANDLE;
     std::uint32_t max_image_dimension = 0;
+    // GPU timestamps (ADR 0039): the graphics queue's valid bits (0 means none), nanoseconds
+    // per tick, and two queries for timing one-shot submissions.
+    std::uint32_t timestamp_bits = 0;
+    float timestamp_period = 0.F;
+    VkQueryPool timestamps = VK_NULL_HANDLE;
     std::uint32_t queue_family = no_queue_family;
     bool owns_slot = false;
     DeviceInfo info;
@@ -429,6 +438,27 @@ std::unique_ptr<Device> Device::create(const Instance& instance, const DeviceCon
     vkGetPhysicalDeviceProperties(impl->physical, &properties);
     impl->max_image_dimension = properties.limits.maxImageDimension2D;
 
+    // GPU timestamps, when the graphics queue writes them (ADR 0039).
+    std::uint32_t family_count = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(impl->physical, &family_count, nullptr);
+    std::vector<VkQueueFamilyProperties> families(family_count);
+    vkGetPhysicalDeviceQueueFamilyProperties(impl->physical, &family_count, families.data());
+    if (impl->queue_family < families.size() && families[impl->queue_family].timestampValidBits > 0
+        && properties.limits.timestampPeriod > 0.F) {
+        VkQueryPoolCreateInfo query_info{};
+        query_info.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+        query_info.queryType = VK_QUERY_TYPE_TIMESTAMP;
+        query_info.queryCount = 2;
+        result = vkCreateQueryPool(impl->device, &query_info, nullptr, &impl->timestamps);
+        if (result != VK_SUCCESS) {
+            impl->timestamps = VK_NULL_HANDLE;
+            fail(error, RhiFailure::DriverError, driver_failure("vkCreateQueryPool", result));
+            return nullptr;
+        }
+        impl->timestamp_bits = families[impl->queue_family].timestampValidBits;
+        impl->timestamp_period = properties.limits.timestampPeriod;
+    }
+
     return std::unique_ptr<Device>(new Device(std::move(impl)));
 }
 
@@ -455,6 +485,11 @@ bool Device::wait_idle(RhiError& error) const
         return fail(error, RhiFailure::DriverError, driver_failure("vkDeviceWaitIdle", result));
     }
     return true;
+}
+
+bool Device::gpu_timestamps() const
+{
+    return impl_->timestamp_bits > 0;
 }
 
 void* Device::native_device() const
@@ -489,6 +524,16 @@ VkQueue DeviceAccess::queue(const Device& device)
     return device.impl_->queue;
 }
 
+std::uint32_t DeviceAccess::timestamp_bits(const Device& device)
+{
+    return device.impl_->timestamp_bits;
+}
+
+float DeviceAccess::timestamp_period(const Device& device)
+{
+    return device.impl_->timestamp_period;
+}
+
 VkDescriptorSetLayout DeviceAccess::texture_set_layout(const Device& device)
 {
     return device.impl_->texture_layout;
@@ -499,9 +544,12 @@ std::uint32_t DeviceAccess::max_image_dimension(const Device& device)
     return device.impl_->max_image_dimension;
 }
 
-bool DeviceAccess::submit_and_wait(
-    const Device& device, const std::function<void(VkCommandBuffer)>& record, RhiError& error)
+bool DeviceAccess::submit_and_wait(const Device& device, const std::function<void(VkCommandBuffer)>& record,
+                                   RhiError& error, std::optional<std::uint64_t>* gpu_ns)
 {
+    if (gpu_ns != nullptr) {
+        *gpu_ns = std::nullopt;
+    }
     error = {};
     const Device::Impl& impl = *device.impl_;
     VkResult result = vkResetCommandBuffer(impl.command_buffer, 0);
@@ -515,7 +563,15 @@ bool DeviceAccess::submit_and_wait(
     if (result != VK_SUCCESS) {
         return fail(error, RhiFailure::DriverError, driver_failure("vkBeginCommandBuffer", result));
     }
+    const bool timed = gpu_ns != nullptr && impl.timestamps != VK_NULL_HANDLE;
+    if (timed) {
+        vkCmdResetQueryPool(impl.command_buffer, impl.timestamps, 0, 2);
+        detail::write_timestamp(impl.command_buffer, impl.timestamps, 0, false);
+    }
     record(impl.command_buffer);
+    if (timed) {
+        detail::write_timestamp(impl.command_buffer, impl.timestamps, 1, true);
+    }
     result = vkEndCommandBuffer(impl.command_buffer);
     if (result != VK_SUCCESS) {
         return fail(error, RhiFailure::DriverError, driver_failure("vkEndCommandBuffer", result));
@@ -540,6 +596,10 @@ bool DeviceAccess::submit_and_wait(
     result = vkWaitForFences(impl.device, 1, &impl.fence, VK_TRUE, timeout_ns);
     if (result != VK_SUCCESS) {
         return fail(error, RhiFailure::DriverError, driver_failure("vkWaitForFences", result));
+    }
+    if (timed) {
+        *gpu_ns =
+            detail::read_gpu_interval(impl.device, impl.timestamps, 0, impl.timestamp_bits, impl.timestamp_period);
     }
     return true;
 }

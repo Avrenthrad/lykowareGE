@@ -10,6 +10,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <span>
@@ -69,6 +70,17 @@ void depth_barrier(VkCommandBuffer commands, VkImage image);
 void record_mesh_pass(VkCommandBuffer commands, VkImageView colour_view, VkImageView depth_view, VkExtent2D extent,
                       const float (&rgba)[4], VkPipeline pipeline, VkPipelineLayout layout,
                       const PreparedDraw* draws, std::size_t draw_count);
+
+// GPU timestamps (ADR 0039). Writes timestamp query `query` of `pool`: the start of the work
+// recorded after it (top of pipe) or, with `end`, the moment all work recorded before it is done
+// (bottom of pipe).
+void write_timestamp(VkCommandBuffer commands, VkQueryPool pool, std::uint32_t query, bool end);
+
+// The time between timestamp queries `first` and `first + 1` of `pool`, in nanoseconds, or
+// nullopt when either is not available. Ticks are masked to the queue's valid bits and scaled by
+// the device's timestamp period.
+[[nodiscard]] std::optional<std::uint64_t> read_gpu_interval(VkDevice device, VkQueryPool pool, std::uint32_t first,
+                                                             std::uint32_t valid_bits, float period_ns);
 
 // True while an rhi::Device is alive. Defined in device.cpp; the Instance
 // destructor uses it to report a Device that outlived its Instance.

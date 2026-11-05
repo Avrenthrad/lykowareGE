@@ -25,6 +25,7 @@
 #include <iostream>
 #include <memory>
 #include <numbers>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -267,6 +268,24 @@ void test_far_from_origin(Scene& scene, const lykoware::Image& at_origin)
     expect(lykoware::compare_images(image, at_origin, 0).matches, "it looks exactly as it does at the origin");
 }
 
+void test_gpu_time(const rhi::Device& device, Scene& scene)
+{
+    // ADR 0039: a mesh draw is timed on the GPU, and a refused one leaves no time behind.
+    const Camera camera{{0.0, 0.0, 3.0}, {0.0, 0.0, 0.0}};
+    lykoware::Image image;
+    const std::vector<Constants> one{constants_for(camera, {}, {}, {1.F, 1.F, 1.F}, {1.F, 0.F, 0.F})};
+    expect(render(scene, one, {scene.indices.get()}, image), "a cube draws for timing");
+    const std::optional<std::uint64_t> drawn = scene.target->last_gpu_time_ns();
+    expect(drawn.has_value() == device.gpu_timestamps(), "a mesh draw has a GPU time when the device has timestamps");
+    expect(!drawn || (*drawn > 0 && *drawn < 10'000'000'000ULL), "the mesh draw's GPU time is plausible");
+    rhi::RhiError error;
+    const Constants constants{};
+    const rhi::MeshDraw no_vertices[1] = {{nullptr, scene.indices.get(), 0, std::as_bytes(std::span(&constants, 1))}};
+    expect(!scene.target->draw_meshes(clear_colour, *scene.pipeline, no_vertices, error),
+           "a mesh without vertices is refused");
+    expect(!scene.target->last_gpu_time_ns(), "a refused draw clears the last GPU time");
+}
+
 void test_misuse(const rhi::Device& device, Scene& scene, const rhi::Shader& vertex, const rhi::Shader& fragment,
                  const rhi::Shader& triangle_vertex, const rhi::Shader& triangle_fragment)
 {
@@ -403,6 +422,7 @@ int main(int argc, char* argv[])
         test_depth(scene);
         test_winding(scene);
         test_far_from_origin(scene, cube_image);
+        test_gpu_time(*device, scene);
         test_misuse(*device, scene, *vertex, *fragment, *triangle_vertex, *triangle_fragment);
     }
 

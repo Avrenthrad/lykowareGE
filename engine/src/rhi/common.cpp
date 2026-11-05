@@ -2,6 +2,8 @@
 
 #include <lykoware/rhi/texture.hpp>
 
+#include <cmath>
+
 #include <utility>
 
 namespace lykoware::rhi::detail {
@@ -241,6 +243,27 @@ void record_mesh_pass(VkCommandBuffer commands, VkImageView colour_view, VkImage
         vkCmdDrawIndexed(commands, draw.index_count, 1, draw.first_index, 0, 0);
     }
     vkCmdEndRendering(commands);
+}
+
+void write_timestamp(VkCommandBuffer commands, VkQueryPool pool, std::uint32_t query, bool end)
+{
+    const VkPipelineStageFlags2 stage = end ? VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT : VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT;
+    vkCmdWriteTimestamp2(commands, stage, pool, query);
+}
+
+std::optional<std::uint64_t> read_gpu_interval(VkDevice device, VkQueryPool pool, std::uint32_t first,
+                                               std::uint32_t valid_bits, float period_ns)
+{
+    // Each query reports its value and then whether it is available.
+    std::uint64_t raw[4] = {};
+    const VkResult result = vkGetQueryPoolResults(device, pool, first, 2, sizeof(raw), raw, 2 * sizeof(std::uint64_t),
+                                                  VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WITH_AVAILABILITY_BIT);
+    if ((result != VK_SUCCESS && result != VK_NOT_READY) || raw[1] == 0 || raw[3] == 0) {
+        return std::nullopt;
+    }
+    const std::uint64_t mask = valid_bits >= 64 ? ~std::uint64_t{0} : (std::uint64_t{1} << valid_bits) - 1;
+    const std::uint64_t ticks = (raw[2] - raw[0]) & mask;
+    return static_cast<std::uint64_t>(std::llround(static_cast<double>(ticks) * static_cast<double>(period_ns)));
 }
 
 bool fail(RhiError& error, RhiFailure failure, std::string message)

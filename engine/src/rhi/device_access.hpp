@@ -9,7 +9,9 @@
 
 #include <vk_mem_alloc.h>
 
+#include <cstdint>
 #include <functional>
+#include <optional>
 
 namespace lykoware::rhi::detail {
 
@@ -27,9 +29,14 @@ struct DeviceAccess {
     // buffer, submits them to the graphics queue and waits for completion.
     // Single-threaded like the rest of the Device (see device.hpp). On
     // failure, fills error and returns false; the command buffer is reset
-    // on the next call.
-    [[nodiscard]] static bool submit_and_wait(
-        const Device& device, const std::function<void(VkCommandBuffer)>& record, RhiError& error);
+    // on the next call. With `gpu_ns`, the recorded work is timed with GPU
+    // timestamps (ADR 0039): *gpu_ns becomes its duration, or nullopt when
+    // the device has no timestamps.
+    [[nodiscard]] static bool submit_and_wait(const Device& device, const std::function<void(VkCommandBuffer)>& record,
+                                              RhiError& error, std::optional<std::uint64_t>* gpu_ns = nullptr);
+    // The queue's timestamp bits (0: no timestamps) and nanoseconds per tick.
+    [[nodiscard]] static std::uint32_t timestamp_bits(const Device& device);
+    [[nodiscard]] static float timestamp_period(const Device& device);
 };
 
 }

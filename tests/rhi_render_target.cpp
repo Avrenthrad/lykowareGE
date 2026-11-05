@@ -13,11 +13,13 @@
 #include <lykoware/rhi/instance.hpp>
 #include <lykoware/rhi/render_target.hpp>
 
+#include <chrono>
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -106,9 +108,18 @@ void test_clear_and_read(const lykoware::rhi::Device& device, std::uint32_t widt
            "reading back before any render is refused");
     expect(unread.width() == 0 && unread.pixels().empty(), "a refused read-back leaves the image empty");
 
+    expect(!target->last_gpu_time_ns(), "a target that has not rendered has no GPU time");
+    const auto before = std::chrono::steady_clock::now();
     expect(target->clear(clear_of(first), error), "first clear succeeds");
+    const auto wall_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - before);
+    // ADR 0039: the clear's GPU time lies inside the call, which waits for the GPU.
+    const std::optional<std::uint64_t> gpu_ns = target->last_gpu_time_ns();
+    expect(gpu_ns.has_value() == device.gpu_timestamps(), "a clear has a GPU time when the device has timestamps");
+    const auto wall = static_cast<std::uint64_t>(wall_ns.count());
+    expect(!gpu_ns || *gpu_ns <= wall + wall / 10, "the clear's GPU time is no longer than the call that waited for it");
     lykoware::Image actual;
     expect(target->read_back(actual, error), "first read-back succeeds");
+    expect(target->last_gpu_time_ns() == gpu_ns, "a read-back keeps the last render's GPU time");
     expect_image(solid(width, height, first), actual, std::string{name} + "-first");
 
     // A second pass on the same target checks layout tracking after a read-back.
@@ -160,6 +171,7 @@ int main(int argc, char* argv[])
         return unavailable ? exit_skip : EXIT_FAILURE;
     }
     std::cout << "device: " << device->info().name << '\n';
+    std::cout << "gpu timestamps: " << (device->gpu_timestamps() ? "yes" : "no") << '\n';
 
     // Square, and odd non-square to catch row-pitch or axis mistakes.
     test_clear_and_read(*device, 16, 16, {64, 128, 192}, {255, 0, 0}, "square-16x16");
