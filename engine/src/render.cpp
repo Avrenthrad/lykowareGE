@@ -266,7 +266,8 @@ std::optional<MeshId> Renderer::add_mesh(const MeshData& mesh, std::span<const M
             error = {rhi::RhiFailure::InvalidArgument, "a mesh part must be whole triangles inside the mesh's indices"};
             return std::nullopt;
         }
-        if (part.texture.value > impl_->textures.size()) {
+        if (!(part.texture == TextureId{})
+            && (part.texture.owner != impl_->owner || part.texture.value > impl_->textures.size())) {
             error = {rhi::RhiFailure::InvalidArgument, "a mesh part names a texture this renderer did not make"};
             return std::nullopt;
         }

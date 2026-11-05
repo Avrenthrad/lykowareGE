@@ -247,6 +247,12 @@ void test_materials(rhi::Device& device, render::Renderer& renderer, const std::
     const render::MeshPart unknown{0, 6, {1.F, 1.F, 1.F}, render::TextureId{77}};
     expect(!renderer.add_mesh(model->mesh, std::span(&unknown, 1), error) && error.failure == rhi::RhiFailure::InvalidArgument,
            "a part with an unknown texture is refused");
+    if (texture) {
+        // ADR 0030: this texture's position, but not this renderer's id.
+        const render::MeshPart foreign{0, 6, {1.F, 1.F, 1.F}, render::TextureId{texture->value, texture->owner + 1}};
+        expect(!renderer.add_mesh(model->mesh, std::span(&foreign, 1), error) && error.failure == rhi::RhiFailure::InvalidArgument,
+               "a part with another renderer's texture id is refused");
+    }
     if (!mesh) {
         return;
     }
