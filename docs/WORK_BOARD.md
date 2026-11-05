@@ -13,6 +13,13 @@ Owner rules for every task: small stacked PRs; commit small and often; keep all 
 
 Check latest main and open PRs before starting. Documents do not automatically synchronize assistants or reserve work.
 
+## Active task: textures (Claude)
+
+- Owner/status: Claude, active. PR 1 (PNG and JPEG decoding through vendored Wuffs, [ADR 0036](adr/0036-image-decoding.md)) in review on `claude/image-decode`, stacked on model loading.
+- Objective (owner's choice, 2026-11-05): textures on models, in three PRs: (1) image decoding, (2) GPU textures in the RHI and renderer, (3) glTF materials and texture coordinates.
+- Shared interfaces: new `lykoware/image_decode.hpp`; new vendored `third_party/wuffs/` (MIT option); PR 2 changes RHI pipelines (descriptor sets) and the lit shader.
+- Checks: images encoded by the tests (none committed), deliberate breaks, a cross-check against PIL and a fuzz run (local), five CI jobs once CI runs again.
+
 ## Active task: model loading (Claude)
 
 - Owner/status: Claude, active. PR 1 (glTF meshes, [ADR 0035](adr/0035-gltf-meshes.md)) in review on `claude/gltf-meshes`, stacked on audio PR 3 to avoid conflicts in shared files.
