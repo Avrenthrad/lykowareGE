@@ -6,7 +6,7 @@ Records what is implemented and verified on `main`. Plans live in [ROADMAP.md](R
 
 - Runtime PR [#35](https://github.com/Avrenthrad/lykowareGE/pull/35), `codex/core-contract-hardening`: [ADR 0030](adr/0030-runtime-contract-hardening.md), world-specific handles, transactional attachment/storage, exclusive cleanup hooks, world-local hook order and allocation-free moves. All five CI jobs passed on source `f113b45` in [run 41826863572](https://github.com/Avrenthrad/lykowareGE/actions/runs/41826863572), including Windows Debug/Release and 39 CTests; the follow-up commit changes handoff prose only.
 - Integration PR [#36](https://github.com/Avrenthrad/lykowareGE/pull/36), `codex/scene-command-replay`: [ADR 0031](adr/0031-scenes-and-command-replay.md), versioned scene/command schemas with stable IDs, read-only interpolated snapshots, CLI replay/capture/report and a Windows measurement runner. Preserves Claude's #30 and merged #32–#34. Local Linux Debug: **41/41 passed, no skips**, with Mesa lavapipe (LLVM 19), including 180-tick hashes at 30/60/144 Hz and irregular frames, real repeated captures and far-origin/read-only GPU checks. Staged CLI replay and real capture from `/tmp` pass, including shader deployment and the JSON MIT notice. All five CI jobs passed on source `26f7332` ([run 41827916577](https://github.com/Avrenthrad/lykowareGE/actions/runs/41827916577)): Windows Debug/Release, Linux Debug, ASan/UBSan and clang-tidy 18. Hosted Windows GPU tests report Skipped; Linux uses software Vulkan. The subsequent handoff/build-concurrency change caps first-build compiler jobs at two and validates job counts; current PR-head checks govern merge readiness.
-- [REVIEW_FOLLOWUP](REVIEW_FOLLOWUP.md) records completion gates. Actual Windows target-PC performance remains unverified. Joshua merges per WORK_BOARD; Phase 1 remains open.
+- [REVIEW_FOLLOWUP](REVIEW_FOLLOWUP.md) records completion gates. Actual Windows target-PC performance remains unverified. Joshua merged #35 and #36 on 2026-11-04 (`main` 7616ce3, both `main` runs passed all five jobs); Phase 1 remains open.
 
 ## Decisions
 
@@ -35,6 +35,9 @@ Records what is implemented and verified on `main`. Plans live in [ROADMAP.md](R
 | [0024](adr/0024-math.md) | Proposed (owner chose "write our own") | `lykoware::math`: vectors, quaternions, column-major matrices, right-handed +Y up, Vulkan reversed infinite-depth projection, camera-relative `relative_to`; physics value types are now its aliases. |
 | [0025](adr/0025-rhi-meshes.md) | Proposed | RHI meshes: `rhi::Buffer` (vertex and 32-bit index data), pipelines with a position-normal vertex layout, reversed-depth test, back-face culling (counter-clockwise front faces) and up to 128 bytes of push constants; render targets with depth and `draw_meshes`. |
 | [0026](adr/0026-renderer.md) | Proposed | The first renderer: `lykoware::Transform`, `render::MeshRenderer` and `render::Camera`; `render::Renderer` draws every ECS entity with both, camera-relative; swapchains gain depth and `render_meshes`; the sandbox window shows falling crates. |
+| [0030](adr/0030-runtime-contract-hardening.md) | Proposed (merged in #35) | World-specific runtime owner tokens on handles, transactional ECS storage and attachment, exclusive physics links. |
+| [0031](adr/0031-scenes-and-command-replay.md) | Proposed (merged in #36) | Versioned JSON scenes with stable authored IDs, fixed-tick command replay, read-only presentation snapshots, CLI replay and capture; nlohmann/json 3.11.3 kept private (the owner chose to keep it on 2026-11-05). |
+| [0032](adr/0032-audio-mixer.md) | Proposed (in review; owner chose "our own mixer") | `lykoware::audio`: our own 64-voice mixer to 48 kHz stereo float, bit-identical however the output is split into calls; constant-power panning, ramped gains, fixed-point linear resampling; our own WAV reader. No device yet. |
 
 ## Verified on main
 
@@ -71,65 +74,32 @@ The five CI jobs are Windows x64 Debug and Release, Linux Debug, Linux ASan/UBSa
 | Double-precision spike 2: `double` positions in the physics API; kinematic bodies never sleep; `physics.far_from_origin` and `perf.physics_bodies_1024_far` | [PR #28](https://github.com/Avrenthrad/lykowareGE/pull/28), merge f50b9dd | PR run [41812549670](https://github.com/Avrenthrad/lykowareGE/actions/runs/41812549670) passed all five jobs |
 | ECS 1: Lykoware's own entity-component system (generation-checked entities, packed component storage, deterministic iteration); `ecs.world`, `perf.ecs_iterate_100k` | [PR #29](https://github.com/Avrenthrad/lykowareGE/pull/29), merge f80b909 | PR run [41815974698](https://github.com/Avrenthrad/lykowareGE/actions/runs/41815974698) passed all five jobs |
 | ECS 2: removal hooks, `ChangeBuffer`, physics bodies and characters on entities (`physics_ecs`); `physics.ecs_link` despawn hash identical on MSVC, GCC and Clang | [PR #31](https://github.com/Avrenthrad/lykowareGE/pull/31), merge 5b46f08 | PR run [41818502123](https://github.com/Avrenthrad/lykowareGE/actions/runs/41818502123) passed all five jobs |
+| 3D rendering 1: Lykoware's own maths module (`math.types`) | [PR #32](https://github.com/Avrenthrad/lykowareGE/pull/32), merge e2473cc | PR run [41820018128](https://github.com/Avrenthrad/lykowareGE/actions/runs/41820018128); `main` run [41824907164](https://github.com/Avrenthrad/lykowareGE/actions/runs/41824907164) passed all five jobs |
+| 3D rendering 2: meshes in the RHI: buffers, depth, culling, push constants (`rhi.mesh`) | [PR #33](https://github.com/Avrenthrad/lykowareGE/pull/33), merge 06ee9b3 | PR run [41820726840](https://github.com/Avrenthrad/lykowareGE/actions/runs/41820726840); `main` run [41824925378](https://github.com/Avrenthrad/lykowareGE/actions/runs/41824925378) passed all five jobs |
+| 3D rendering 3: falling crates drawn from the ECS, camera-relative (`render.scene`); the sandbox window shows them | [PR #34](https://github.com/Avrenthrad/lykowareGE/pull/34), merge 855e01e | PR run [41823030117](https://github.com/Avrenthrad/lykowareGE/actions/runs/41823030117); `main` run [41824945028](https://github.com/Avrenthrad/lykowareGE/actions/runs/41824945028) passed all five jobs |
+| Codex: runtime contract hardening (ADR 0030, `ecs.allocation_recovery`) | [PR #35](https://github.com/Avrenthrad/lykowareGE/pull/35), merge 9a476fc | PR run [41826863572](https://github.com/Avrenthrad/lykowareGE/actions/runs/41826863572); `main` run [41831650885](https://github.com/Avrenthrad/lykowareGE/actions/runs/41831650885) passed all five jobs |
+| Codex: scenes, command replay and CLI capture (ADR 0031, `scene.replay`, `scene.cli_capture`); carries #30's physics slot retirement | [PR #36](https://github.com/Avrenthrad/lykowareGE/pull/36), merge 7616ce3 | PR run [41827916577](https://github.com/Avrenthrad/lykowareGE/actions/runs/41827916577); `main` run [41831704372](https://github.com/Avrenthrad/lykowareGE/actions/runs/41831704372) passed all five jobs |
 
-CTest on `main` (35 tests): `trace.api`, `clock.fixed_step`, `ecs.world`, `physics.jolt_math`, `physics.jolt_determinism`, `physics.world`, `physics.character`, `physics.far_from_origin`, `physics.ecs_link`, `image.harness.api`, `image.harness.golden_pass`, `image.harness.golden_fail`, `input.mapping`, `window.lifecycle`, `perf.sandbox_startup`, `perf.cpu_fixture`, `perf.budget_rejects_overrun`, `perf.budget_accepts_within`, `perf.physics_bodies_256`, `perf.physics_bodies_1024`, `perf.physics_bodies_1024_far`, `perf.ecs_iterate_100k`, `foundation.smoke`, `cli.commands`, `cli.integration`, `rhi.instance`, `rhi.instance.no_driver`, `rhi.device`, `rhi.render_target`, `rhi.swapchain`, `sandbox.vulkan_window`, `shaders.spirv_valid`, `shaders.spirv_valid_fragment`, `rhi.pipeline`, `sandbox.missing_shaders`. The `rhi.*` and `sandbox.vulkan_window` tests run on lavapipe in Linux CI and report Skipped on the Windows runners, which have no Vulkan.
+CTest on `main` (41 tests): `trace.api`, `clock.fixed_step`, `image.harness.api`, `image.harness.golden_pass`, `image.harness.golden_fail`, `input.mapping`, `window.lifecycle`, `rhi.instance`, `rhi.instance.no_driver`, `rhi.device`, `rhi.render_target`, `rhi.swapchain`, `shaders.spirv_valid`, `shaders.spirv_valid_fragment`, `rhi.pipeline`, `rhi.mesh`, `render.scene`, `sandbox.vulkan_window`, `sandbox.missing_shaders`, `physics.jolt_math`, `physics.jolt_determinism`, `physics.world`, `math.types`, `scene.cli_capture`, `scene.replay`, `ecs.world`, `ecs.allocation_recovery`, `physics.ecs_link`, `physics.character`, `physics.far_from_origin`, `perf.sandbox_startup`, `perf.cpu_fixture`, `perf.budget_rejects_overrun`, `perf.budget_accepts_within`, `perf.physics_bodies_256`, `perf.physics_bodies_1024`, `perf.ecs_iterate_100k`, `perf.physics_bodies_1024_far`, `foundation.smoke`, `cli.commands`, `cli.integration`. The GPU tests (`rhi.*`, `render.scene`, `sandbox.vulkan_window`, `scene.cli_capture`) run on lavapipe in Linux CI and report Skipped on the Windows runners, which have no Vulkan.
 
 Per-PR detail (local checks, failures found and fixed, mutation checks) is in each pull request and in ADRs 0009–0018.
 
 ## Current development task
 
-### 3D rendering, PR 1: the maths module
+### Audio, PR 1: the mixer and WAV reader
 
-Owner: Claude. Branch `claude/math`, based on `main` at 5b46f08. In review.
+Owner: Claude. Branch `claude/audio-mixer`, based on `main` at 7616ce3. In review.
 
-- The owner chose on 2026-11-04 to write Lykoware's own maths rather than use GLM, and a first 3D milestone of lit falling crates drawn from the ECS. [ADR 0024](adr/0024-math.md) records the maths conventions (Proposed).
-- `lykoware/math.hpp`: `Vec2`, `Vec3`, `Vec4`, `DVec3`, `Quat`, `Mat4` and their operations.
-  - Right-handed, +Y up; column-major matrices.
-  - Vulkan perspective with reversed, infinite depth.
-  - `relative_to` for camera-relative positions.
-  - `physics::Vec3`, `DVec3` and `Quat` are now aliases of these, with every physics hash unchanged.
-- **New test `math.types`.** Ten deliberate breaks, each caught; two first slipped through and led to stronger tests.
-- **Local checks:** 36/36 pass in Debug, ASan/UBSan and clang-tidy; every physics hash unchanged.
-- **CI:** [run 41820018128](https://github.com/Avrenthrad/lykowareGE/actions/runs/41820018128) on dd00780 passed all five jobs.
-
-### 3D rendering, PR 2: meshes in the RHI
-
-Owner: Claude. Branch `claude/rhi-mesh`, stacked on PR 1 (`claude/math`). In review.
-
-- `rhi::Buffer` for vertex and index data.
-- Pipelines with a position-and-normal vertex layout, a reversed-depth test, back-face culling and push constants.
-- Render targets with a depth buffer, and `draw_meshes` for a list of indexed meshes. Every misuse is refused before anything reaches the GPU. [ADR 0025](adr/0025-rhi-meshes.md) (Proposed).
-- **New test `rhi.mesh`** (lavapipe): a lit cube with lighting per face, depth order regardless of draw order, the winding convention, repeatable bytes, identical bytes 16 km out, and every misuse. Six deliberate breaks, each caught.
-- **Local checks:** 37/37 pass in Debug, ASan/UBSan and clang-tidy, with no Vulkan validation errors. Under ASan, `rhi.mesh` joined the GPU tests that keep Vulkan drivers loaded, which avoids lavapipe's known false leak report; a deliberate leak in our own code is still caught.
-- **CI:** [run 41820726840](https://github.com/Avrenthrad/lykowareGE/actions/runs/41820726840) on 507a269 passed all five jobs.
-
-### 3D rendering, PR 3: falling crates drawn from the ECS
-
-Owner: Claude. Branch `claude/render-scene`, stacked on PR 2 (`claude/rhi-mesh`). In review.
-
-- **`lykoware::Transform`:** the position and rotation physics writes and the renderer reads.
-- **`render::Renderer`:** draws every entity with a `Transform` and a `MeshRenderer` (a lit, coloured, scaled cube for now), camera-relative, into an offscreen target or a window.
-- **Window path:** swapchains gain a depth buffer and mesh drawing.
-- **The sandbox's `--window --vulkan`** now shows a 5 × 5 grid of coloured crates tumbling onto a grey ground, replaced every 8 seconds. [ADR 0026](adr/0026-renderer.md) (Proposed).
-- **New test `render.scene`:**
-  - physics drops three crates in front of a wall;
-  - colours, depth, ground and sky are checked at the right pixels;
-  - two runs give identical bytes;
-  - the scene 16 km out gives exactly the same image.
-
-  It writes the frame under the build directory to look at.
-- **Deliberate breaks:** four caught. Culling off is not caught here, as expected; `rhi.mesh` covers it. A weakness found and fixed: depth off first went unnoticed until the wall was added.
-- **Local checks:** 38/38 pass in Debug, ASan/UBSan and clang-tidy, with no Vulkan validation errors.
-- **CI:** [run 41823030117](https://github.com/Avrenthrad/lykowareGE/actions/runs/41823030117) on eb3716a passed all five jobs, after a fix for MSVC's C4458 (a local hid a member) that failed the first run's Windows jobs.
-
-### Physics handles: retire a slot instead of wrapping its generation
-
-Owner: Claude. Branch `claude/nice-mendel-lm4mb0`, stacked on `claude/ecs-core`. In review.
-
-- **Bug:** after 2^32 - 1 reuses of one slot, a physics body or character generation wrapped back to 1. A handle kept from the slot's first use could then match a later object, against ADR 0020's promise.
-- **Fix:** such a slot is retired when freed, not reused, as in the ECS. Nothing changes below that count, so the recorded physics hashes stay the same.
-- **Local checks:** 34/34 pass in GCC 13 Debug. A temporary build whose slots start two generations short of the limit showed the fix retiring the full slot for bodies and characters; the old code handed the slot out again at generation 1. No permanent test: reaching the limit through the API would take hours.
-- **CI:** [run 41817249456](https://github.com/Avrenthrad/lykowareGE/actions/runs/41817249456) on 7126cec passed all five jobs with the recorded physics hashes.
+- The owner chose audio as the next Phase 1 system on 2026-11-05: playback through SDL3, our own mixer, 3D positional sound on ECS entities, deterministic tests. This PR is the mixer; [ADR 0032](adr/0032-audio-mixer.md) (Proposed).
+- **`lykoware/audio.hpp`:**
+  - `Sound`: immutable mono or stereo float audio; `Sound::load_wav` is our own WAV reader (PCM 8/16/24/32-bit, 32-bit float, extensible).
+  - `Mixer`: 64 voices with generation-checked `VoiceId`s; gain, pan and pitch; looping; gain, pan and master changes ramped over 5 ms; `render` into 48 kHz interleaved stereo float.
+  - **Deterministic:** the same calls give bit-identical output however the output is split into calls, with integer playback positions and no fused multiply-adds.
+- **New test `audio.mixer`** (no device; exact values). 14 deliberate breaks, each caught. Review found a real determinism bug: reusing the most recently freed slot made the summing order depend on how output was split. A new voice now takes the lowest free slot, and the test checks it.
+- **Also:** `scene.cli_capture` (from #36) renders on lavapipe, so sanitizer builds now keep Vulkan drivers loaded for it, as for the other GPU tests (ADR 0015). Without that it fails under ASan on a machine whose lavapipe reports its known false leak; CI's lavapipe did not.
+- **Local checks:** 42/42 pass in Debug, ASan/UBSan and clang-tidy. A GCC `-Wshadow -Wconversion` sweep of the new files is clean.
+- **CI:** to be recorded.
+- **Next:** PR 2 sends the mix to a device through SDL3 (`audio::Output`, SDL's audio thread, dummy-driver tests). PR 3 adds a listener and an ECS sound component for 3D positional sound, with crate landing sounds in the sandbox.
 
 ## Next
 
@@ -140,17 +110,17 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 3. Physics: Jolt accepted (ADR 0003) and vendored (#21, ADR 0018). The `lykoware::physics` API is merged (#23). Terrain and characters (#24) and the body-count benchmark (#25) are merged; the spike is done. The owner accepted ADR 0020 on 2026-11-04.
 4. Hardware profiles, multiplayer intent, world scope and budgets: decided on 2026-11-04 (ADR 0021). Desktop PC only, RTX 4070 recommended at 1440p60, 16 GB RAM, single-player built co-op-ready, a 16 km+ world, double-precision positions.
 5. Physics positions in double precision: done (#27, #28, ADR 0022).
-6. The rest of Phase 1: ECS and the first lit renderer are merged (#29/#31–#34). #35 hardens contracts; #36 adds the first scene/command/replay/capture path. Audio, other Phase 1 exits and measured hardware budgets remain future work.
+6. The rest of Phase 1: ECS and the first lit renderer are merged (#29/#31–#34). #35 hardens contracts; #36 adds the first scene/command/replay/capture path (both merged). Audio is in progress (PR 1 above). Other Phase 1 exits and measured hardware budgets remain future work.
 
 ## Known issues and limitations
 
-- The merged renderer draws lit cubes with depth and camera-relative positions; #36 adds versioned box scenes, commands and interpolation snapshots. General mesh import, textures/PBR materials, shadows, multiple lights, audio, animation, streaming and inference remain future work. Window read-back/frame-pacing validation is still absent; offscreen pixels are checked.
+- The merged renderer draws lit cubes with depth and camera-relative positions; #36 adds versioned box scenes, commands and interpolation snapshots. General mesh import, textures/PBR materials, shadows, multiple lights, audio output and 3D sound, animation, streaming and inference remain future work. Window read-back/frame-pacing validation is still absent; offscreen pixels are checked.
 - GPU tests skip (exit 77, CTest "Skipped") where no Vulkan loader or driver is installed. Hosted Windows runners may skip them; a skip is not a pass.
-- On main, `lyko run` launches the console sandbox; scene/capture support is added on the Codex integration branch (ADR 0031). `lyko trace --frames N` remains a CPU trace of the sandbox loop, not a GPU trace.
+- `lyko run` launches the console sandbox; #36 added scene replay and capture (ADR 0031). `lyko trace --frames N` remains a CPU trace of the sandbox loop, not a GPU trace.
 - The image harness supports software fixtures and real Vulkan readback. #36 implements scene screenshots and repeated pixel/hash checks; this does not close the calibrated hardware performance gate.
 - Provisional CPU budgets apply only to the hosted windows-2022 and ubuntu-24.04 runners. They are not an RTX 4070 gate.
 - Window: a real Win32/X11/Wayland desktop window, focus changes and a real Vulkan surface are untested in CI. A Linux desktop window needs X11 or Wayland headers at configure time. A newly adopted gamepad starts with released buttons and centred axes until it reports a change.
-- Vendored runtime sources: SDL 3.4.18 (HIDAPI inside it under the BSD-style licence, not GPL), Vulkan-Headers C headers (MIT option), volk (MIT), Vulkan Memory Allocator 3.4.0 (MIT), Jolt 5.6.0 (MIT) and, on #36, nlohmann/json 3.11.3 (MIT). Vendored build-time tools, not shipped: Slang (Apache-2.0 WITH LLVM-exception, one owner-accepted Unlicense file), SPIRV-Tools and SPIRV-Headers. See [third_party/README.md](../third_party/README.md).
+- Vendored runtime sources: SDL 3.4.18 (HIDAPI inside it under the BSD-style licence, not GPL), Vulkan-Headers C headers (MIT option), volk (MIT), Vulkan Memory Allocator 3.4.0 (MIT), Jolt 5.6.0 (MIT) and nlohmann/json 3.11.3 (MIT, since #36). Vendored build-time tools, not shipped: Slang (Apache-2.0 WITH LLVM-exception, one owner-accepted Unlicense file), SPIRV-Tools and SPIRV-Headers. See [third_party/README.md](../third_party/README.md).
 - The first configure on a machine builds the shader tools, which takes about 15 extra minutes once per tool version. CI keeps them in the free Actions cache.
 - Sanitizers are Linux-only. ThreadSanitizer is deferred until there are concurrent engine systems.
 - The CLI keeps its build/test process wrapper and adds the shared native scene command handler in #36. Generic editor actions/undo and a scripting language are not implemented. See [CLI.md](CLI.md).
@@ -159,10 +129,11 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 
 ## Handoff
 
-- State: `main` at 5b46f08 contains PRs #2, #4–#21, #23–#29 and #31. The Vulkan RHI bring-up, Phase 1 clocks, the physics spike, double-precision positions and the ECS (with physics on entities) are complete; Jolt is vendored behind the `lykoware::physics` API, with cross-platform determinism verified on MSVC, GCC and Clang.
-- Open decisions for the owner: accepting or rejecting ADRs 0008–0012, 0014–0017 and 0022–0024 (merging did not accept them); the working assumptions in ADR 0021 (2–4 player co-op, 6-core CPU, 8 GB VRAM at minimum settings, camera-relative rendering); Cursor's #22 (ADR 0019).
-- In review: `claude/math` (#32, 3D rendering PR 1, ADR 0024), `claude/rhi-mesh` (#33, PR 2, ADR 0025) and `claude/render-scene` (PR 3, ADR 0026), stacked in that order. Also open: #30 (physics handle slots retire instead of wrapping, from a separate session) and Cursor's #22. Next concrete action: the next Phase 1 items: scene loading (text-authored scenes through the CLI), real screenshots (`lyko screenshot`, a golden-image gate), command bus and replay, audio.
-- Owner check wanted: run `lykoware_sandbox --window --vulkan` on the RTX 4070 desktop. With 3D rendering PR 3, a 5 × 5 grid of coloured crates should tumble onto a grey ground under a blue sky and drop again every 8 seconds.
+- State: `main` at 7616ce3 contains PRs #2, #4–#21, #23–#29 and #31–#36. The Vulkan RHI bring-up, Phase 1 clocks, the physics spike, double-precision positions, the ECS (with physics on entities), the first lit renderer (falling crates), contract hardening and versioned scenes with command replay and CLI capture are complete. Physics determinism is verified on MSVC, GCC and Clang.
+- In review: `claude/audio-mixer` (Audio PR 1, ADR 0032). #30's fix reached `main` through #36 (80a0640), so the owner can close #30. Cursor's #22 is open.
+- Open decisions for the owner: accepting or rejecting ADRs 0008–0012, 0014–0017, 0022–0026 and 0030–0032 (merging did not accept them); the working assumptions in ADR 0021 (2–4 player co-op, 6-core CPU, 8 GB VRAM at minimum settings, camera-relative rendering); Cursor's #22 (ADR 0019).
+- Next concrete action: Audio PR 2 (output through SDL3), then PR 3 (3D positional sound on ECS entities).
+- Owner checks wanted: run `lykoware_sandbox --window --vulkan` on the RTX 4070 desktop (a 5 × 5 grid of coloured crates tumbling onto a grey ground and dropping again every 8 seconds), and `tools/validation/measure-scene.ps1` (ADR 0031).
 - Checklist: no box ticked by this update. Phase 1 and the image/performance gate stay open.
 
 Read [WORK_BOARD.md](WORK_BOARD.md), [CLI.md](CLI.md), [ROADMAP.md](ROADMAP.md) and the [ADRs](adr/README.md). Check latest `main` and open PRs before starting. Update this file with exact commits, checks, failures and next actions.

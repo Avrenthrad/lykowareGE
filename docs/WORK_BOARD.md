@@ -5,7 +5,7 @@
 Canonical implementation status: [STATUS.md](STATUS.md).
 Canonical plan: [ROADMAP.md](ROADMAP.md).
 
-`main` at `855e01e` includes Claude's #32–#34 math/mesh/renderer stack (alongside #31 ECS/physics). Review follow-ups #35 and #36 remain separate owner-merge PRs. Earlier per-task entries remain in pull requests/git history. Details: [STATUS](STATUS.md).
+`main` at `7616ce3` includes Claude's #32–#34 math/mesh/renderer stack (alongside #31 ECS/physics) and Codex's #35 contract hardening and #36 scenes/command replay. Audio is the active task (Claude). Earlier per-task entries remain in pull requests/git history. Details: [STATUS](STATUS.md).
 
 Owner-supplied vision is captured in [ENGINE_VISION.md](ENGINE_VISION.md).
 
@@ -13,7 +13,15 @@ Owner rules for every task: small stacked PRs; commit small and often; keep all 
 
 Check latest main and open PRs before starting. Documents do not automatically synchronize assistants or reserve work.
 
-## Active review follow-ups (Codex)
+## Active task: audio (Claude)
+
+- Owner/status: Claude, active. PR 1 (mixer and WAV reader, [ADR 0032](adr/0032-audio-mixer.md)) in review on `claude/audio-mixer`, based on `main` at `7616ce3`.
+- Objective (owner's choice, 2026-11-05): sound playback through SDL3 (already vendored), our own mixer, 3D positional sound tied to ECS entities, deterministic tests.
+- Plan: PR 1 the mixer (`lykoware/audio.hpp`, no device); PR 2 output through SDL3 on its audio thread, with dummy-driver tests; PR 3 a listener and an ECS sound component, camera-relative, with procedurally made crate landing sounds in the sandbox (no binary assets).
+- Shared interfaces: new `lykoware::audio`; PR 2 turns on SDL's audio subsystem in `cmake/VendorSdl3.cmake`; PR 3 adds an ECS component next to `Transform`.
+- Checks: exact-value tests with no device; bit-identical output however rendering is split; deliberate breaks; five CI jobs.
+
+## Completed: review follow-ups (Codex, #35 merged)
 
 - Owner/status: Codex, ready for owner review in #35; all five jobs passed on `f113b45` ([run](https://github.com/Avrenthrad/lykowareGE/actions/runs/41826863572)); original base `5b46f0812eab373fa3e3062acd272c6b593a1b63`, branch `codex/core-contract-hardening`.
 - Scope: ECS/physics handle isolation, allocation/exception safety, exclusive physics attachment ownership; ADR 0030. No renderer rewrite.
@@ -24,11 +32,11 @@ Check latest main and open PRs before starting. Documents do not automatically s
 - Hardware gate: actual Windows GPU timing and memory on the recommended desktop require that machine. A software Vulkan run is not that evidence.
 - Integration: Joshua merges, per the owner rules above. Stacked follow-up PRs may be built/tested together locally before owner merge.
 
-## Related rendering work
+## Completed: rendering work (Claude, #32–#34 merged)
 
 Claude owns #32 (`claude/math`), #33 (`claude/rhi-mesh`) and #34 (`claude/render-scene`). They supply camera-relative math, RHI mesh/depth drawing and the first lit ECS falling-crates renderer. Their CI evidence is recorded in those PRs/STATUS. Codex's scene-command integration preserves that stack and #30's physics slot retirement; it does not replace or publish Claude's branches.
 
-## Active scene/replay integration
+## Completed: scene/replay integration (Codex, #36 merged)
 
 - Owner/status: Codex, implemented and ready for review as #36 (`codex/scene-command-replay`), stacked on #35; preserves Claude's #30 and merged #32–#34. Runtime/scene source `26f7332` passed all five CI jobs (run 41827916577); subsequent documentation/build-concurrency checks must stay green.
 - Scope: ADR 0031, versioned JSON box scene/command schema, stable authored IDs, fixed-tick dispatch, render-only snapshots, CLI replay/capture/report, local Windows measurement script and documentation reconciliation.
