@@ -42,6 +42,7 @@ Records what is implemented and verified on `main`. Plans live in [ROADMAP.md](R
 | [0034](adr/0034-spatial-audio.md) | Proposed (in review; owner chose 3D sound tied to ECS entities) | `audio::AudioSource` component and `SpatialAudio`: sounds play from entities' Transforms with inverse-distance falloff and stereo pan, computed relative to the listener in double precision; the sandbox's crates knock as they land. |
 | [0035](adr/0035-gltf-meshes.md) | Proposed (in review; owner chose "write our own", shapes first) | `gltf::read`/`gltf::load`: our own glTF 2.0 reader into `MeshData` (one merged mesh per model, node transforms applied, strict bounds, external buffers confined to the model's folder); `Renderer::add_mesh` and `MeshRenderer::mesh`; normals use the inverse transpose; sandbox `--model FILE`. |
 | [0036](adr/0036-image-decoding.md) | Proposed (in review; owner chose "vendor Wuffs") | `decode_image`: PNG and JPEG into 8-bit RGBA through vendored Wuffs v0.4.0-alpha.12 (MIT option; only PNG and JPEG compiled); checksums checked; 16,384 px and 2^26-pixel limits checked before allocation. |
+| [0037](adr/0037-gpu-textures.md) | Proposed (in review) | `rhi::Texture`: RGBA8 sRGB or Unorm with CPU-made, gamma-correct mipmaps and wrap/filter settings; one descriptor set per texture with a device-wide layout; `VertexLayout::PositionNormalUv` and `GraphicsPipelineDesc::texture`; the lit shader multiplies the base colour by a texture (1x1 white by default); `Renderer::add_texture`, `MeshRenderer::texture`, `MeshData::uvs`. |
 
 ## Verified on main
 
@@ -184,6 +185,29 @@ Owner: Claude. Branch `claude/image-decode`, stacked on model loading. In review
 - **Local checks:** 48/48 pass in Debug, ASan/UBSan and clang-tidy. The Wuffs notice is installed.
 - **CI:** blocked for the whole account (see audio PR 1).
 
+### Textures, PR 2: textures on the GPU
+
+Owner: Claude. Branch `claude/gpu-textures`, stacked on textures PR 1. In review.
+
+- [ADR 0037](adr/0037-gpu-textures.md) (Proposed).
+- **`rhi::Texture`:**
+  - sRGB or Unorm RGBA8;
+  - mipmaps made on the CPU, averaged in linear light, so they are the same on every GPU;
+  - wrap and filter settings;
+  - uploaded through a staging buffer.
+- **Pipelines:** they can read one texture; the descriptor layout is shared and owned by the Device. A new vertex layout carries texture coordinates.
+- **Lit shader and renderer:**
+  - the engine's lit shader multiplies the base colour by a texture;
+  - the renderer gains `add_texture` and `MeshRenderer::texture`;
+  - untextured meshes use a 1×1 white texture and look as before;
+  - `rhi.mesh` keeps the old untextured shader as a test shader.
+- **New tests:**
+  - `rhi.texture`: exact texels, sRGB decoding, gamma-correct mipmaps (a far checkerboard gives 128; averaging sRGB values would give 55), the three wrap modes, and misuse;
+  - `render.texture`: a red|blue textured quad lit to the formula's value.
+- **Deliberate breaks:** 12 caught.
+- **Local checks:** 50/50 pass in Debug, ASan/UBSan and clang-tidy.
+- **CI:** blocked for the whole account (see audio PR 1).
+
 ## Next
 
 Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
@@ -197,7 +221,7 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 
 ## Known issues and limitations
 
-- The merged renderer draws lit cubes with depth and camera-relative positions; #36 adds versioned box scenes, commands and interpolation snapshots. General mesh import, textures/PBR materials, shadows, multiple lights, audio output and 3D sound, animation, streaming and inference remain future work. Window read-back/frame-pacing validation is still absent; offscreen pixels are checked.
+- The merged renderer draws lit cubes with depth and camera-relative positions; #36 adds versioned box scenes, commands and interpolation snapshots. PBR materials (normal, metal-roughness, emissive maps), transparency, shadows, multiple lights, animation, streaming and inference remain future work. Window read-back/frame-pacing validation is still absent; offscreen pixels are checked.
 - GPU tests skip (exit 77, CTest "Skipped") where no Vulkan loader or driver is installed. Hosted Windows runners may skip them; a skip is not a pass.
 - `lyko run` launches the console sandbox; #36 added scene replay and capture (ADR 0031). `lyko trace --frames N` remains a CPU trace of the sandbox loop, not a GPU trace.
 - The image harness supports software fixtures and real Vulkan readback. #36 implements scene screenshots and repeated pixel/hash checks; this does not close the calibrated hardware performance gate.
@@ -213,9 +237,9 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 ## Handoff
 
 - State: `main` at 7616ce3 contains PRs #2, #4–#21, #23–#29 and #31–#36. The Vulkan RHI bring-up, Phase 1 clocks, the physics spike, double-precision positions, the ECS (with physics on entities), the first lit renderer (falling crates), contract hardening and versioned scenes with command replay and CLI capture are complete. Physics determinism is verified on MSVC, GCC and Clang.
-- In review: `claude/audio-mixer` (Audio PR 1, ADR 0032, [#37](https://github.com/Avrenthrad/lykowareGE/pull/37)) and, stacked on it, `claude/audio-output` (Audio PR 2, ADR 0033, [#38](https://github.com/Avrenthrad/lykowareGE/pull/38)) and `claude/audio-spatial` (Audio PR 3, ADR 0034, [#39](https://github.com/Avrenthrad/lykowareGE/pull/39)), then `claude/gltf-meshes` (model loading, ADR 0035, [#40](https://github.com/Avrenthrad/lykowareGE/pull/40)), then `claude/image-decode` (textures PR 1, ADR 0036). CI cannot run at the moment: since 2026-11-05 every job fails before a runner starts, an account-level block (likely the private repository's Actions minutes); both PRs are checked locally only. #30's fix reached `main` through #36 (80a0640), so the owner can close #30. Cursor's #22 is open.
-- Open decisions for the owner: accepting or rejecting ADRs 0008–0012, 0014–0017, 0022–0026 and 0030–0036; how to restore CI (wait for the monthly Actions minutes, a self-hosted runner on the owner's PC, or a paid limit, which needs the owner's approval) (merging did not accept them); the working assumptions in ADR 0021 (2–4 player co-op, 6-core CPU, 8 GB VRAM at minimum settings, camera-relative rendering); Cursor's #22 (ADR 0019).
-- Next concrete action: once CI runs again, get the stacked PRs green (Windows/MSVC first). Then textures PR 2 (GPU textures in the RHI and renderer) and PR 3 (glTF materials and texture coordinates).
+- In review: `claude/audio-mixer` (Audio PR 1, ADR 0032, [#37](https://github.com/Avrenthrad/lykowareGE/pull/37)) and, stacked on it, `claude/audio-output` (Audio PR 2, ADR 0033, [#38](https://github.com/Avrenthrad/lykowareGE/pull/38)) and `claude/audio-spatial` (Audio PR 3, ADR 0034, [#39](https://github.com/Avrenthrad/lykowareGE/pull/39)), then `claude/gltf-meshes` (model loading, ADR 0035, [#40](https://github.com/Avrenthrad/lykowareGE/pull/40)), then `claude/image-decode` (textures PR 1, ADR 0036, [#41](https://github.com/Avrenthrad/lykowareGE/pull/41)), then `claude/gpu-textures` (textures PR 2, ADR 0037). CI cannot run at the moment: since 2026-11-05 every job fails before a runner starts, an account-level block (likely the private repository's Actions minutes); both PRs are checked locally only. #30's fix reached `main` through #36 (80a0640), so the owner can close #30. Cursor's #22 is open.
+- Open decisions for the owner: accepting or rejecting ADRs 0008–0012, 0014–0017, 0022–0026 and 0030–0037; how to restore CI (wait for the monthly Actions minutes, a self-hosted runner on the owner's PC, or a paid limit, which needs the owner's approval) (merging did not accept them); the working assumptions in ADR 0021 (2–4 player co-op, 6-core CPU, 8 GB VRAM at minimum settings, camera-relative rendering); Cursor's #22 (ADR 0019).
+- Next concrete action: once CI runs again, get the stacked PRs green (Windows/MSVC first). Then textures PR 3 (glTF materials and texture coordinates; the sandbox shows a textured model).
 - Owner checks wanted: run `lykoware_sandbox --window --vulkan` on the RTX 4070 desktop (a 5 × 5 grid of coloured crates tumbling onto a grey ground and dropping again every 8 seconds, each knocking as it lands, through the default sound device), `tools/validation/measure-scene.ps1` (ADR 0031), and `lykoware_sandbox --window --vulkan --model FILE` with a .glb exported from Blender (ADR 0035).
 - Checklist: no box ticked by this update. Phase 1 and the image/performance gate stay open.
 

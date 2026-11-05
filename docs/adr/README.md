@@ -37,6 +37,7 @@ Canonical directory: docs/adr. Decisions remain Proposed until resolved; disting
 | [0034](0034-spatial-audio.md) | Proposed (owner chose 3D sound tied to ECS entities) | 3D positional sound: `AudioSource` component, `SpatialAudio` keeps voices where their entities are; inverse-distance falloff and stereo pan, camera-relative in double precision; crate knocks in the sandbox |
 | [0035](0035-gltf-meshes.md) | Proposed (owner chose "write our own", shapes first) | Lykoware's own glTF 2.0 reader (.gltf/.glb, node transforms baked, strict bounds, folder-confined external buffers) into `MeshData`; `Renderer::add_mesh` and `MeshRenderer::mesh`; inverse-transpose normals; sandbox `--model FILE` |
 | [0036](0036-image-decoding.md) | Proposed (owner chose "vendor Wuffs") | PNG and JPEG decoding through vendored Wuffs v0.4.0-alpha.12 (MIT option) into 8-bit RGBA; checksums checked; size limits before allocation |
+| [0037](0037-gpu-textures.md) | Proposed | `rhi::Texture` (sRGB/Unorm, CPU-made gamma-correct mipmaps, wrap and filter), one descriptor set per texture, `PositionNormalUv` pipelines; the lit shader samples a base colour texture; `Renderer::add_texture` and `MeshRenderer::texture` |
 
 Use [the template](TEMPLATE.md). Record context, options, decision/status, contracts, consequences and verification. Use a new ADR to supersede an accepted choice; do not silently rewrite its history.
 

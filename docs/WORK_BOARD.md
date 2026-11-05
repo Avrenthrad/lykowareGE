@@ -15,7 +15,7 @@ Check latest main and open PRs before starting. Documents do not automatically s
 
 ## Active task: textures (Claude)
 
-- Owner/status: Claude, active. PR 1 (PNG and JPEG decoding through vendored Wuffs, [ADR 0036](adr/0036-image-decoding.md)) in review on `claude/image-decode`, stacked on model loading.
+- Owner/status: Claude, active. PR 1 (PNG and JPEG decoding through vendored Wuffs, [ADR 0036](adr/0036-image-decoding.md)) in review as #41 on `claude/image-decode`, stacked on model loading. PR 2 (textures in the RHI and renderer, [ADR 0037](adr/0037-gpu-textures.md)) in review on `claude/gpu-textures`, stacked on PR 1.
 - Objective (owner's choice, 2026-11-05): textures on models, in three PRs: (1) image decoding, (2) GPU textures in the RHI and renderer, (3) glTF materials and texture coordinates.
 - Shared interfaces: new `lykoware/image_decode.hpp`; new vendored `third_party/wuffs/` (MIT option); PR 2 changes RHI pipelines (descriptor sets) and the lit shader.
 - Checks: images encoded by the tests (none committed), deliberate breaks, a cross-check against PIL and a fuzz run (local), five CI jobs once CI runs again.
