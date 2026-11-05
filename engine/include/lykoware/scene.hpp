@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <variant>
@@ -61,6 +62,8 @@ public:
     [[nodiscard]] std::uint64_t tick() const;
     [[nodiscard]] std::uint64_t state_hash() const;
     [[nodiscard]] const ecs::World& entities() const;
+    // The position of the live entity with this authored ID, or nullopt (ADR 0042).
+    [[nodiscard]] std::optional<physics::DVec3> position(std::string_view id) const;
     [[nodiscard]] const render::Camera& camera() const;
     // Render-only snapshot: interpolation never modifies the authoritative world.
     [[nodiscard]] ecs::World presentation(double alpha) const;
