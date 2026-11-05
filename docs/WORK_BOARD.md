@@ -13,6 +13,13 @@ Owner rules for every task: small stacked PRs; commit small and often; keep all 
 
 Check latest main and open PRs before starting. Documents do not automatically synchronize assistants or reserve work.
 
+## Active task: Phase 2, character feel (Claude)
+
+- Owner/status: Claude, active. PR 1 (follow camera, [ADR 0044](adr/0044-follow-camera.md)) in review on `claude/follow-camera`, stacked on the capture golden. Next: PR 2, a playable character in the sandbox with fixed-seed obstacle-course fixtures; later, skeletal animation, foot IK and ragdoll.
+- Objective (owner: "Continue", 2026-11-05): Phase 2, character feel on terrain, alongside the owner's reviews of #37–#50.
+- Shared interfaces: new `lykoware/follow_camera.hpp` (reads `physics::World::cast_ray`).
+- Checks: `camera.follow`, deliberate breaks, five CI jobs once CI runs again. Feel is the owner's to judge in play.
+
 ## Active task: real capture golden (Claude)
 
 - Owner/status: Claude, active. One PR ([ADR 0043](adr/0043-renderer-golden-capture.md)) in review as #50 on `claude/capture-golden`, stacked on scripting PR 2.
