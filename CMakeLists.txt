@@ -239,6 +239,11 @@ if(BUILD_TESTING)
             "-DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/sandbox-gpu-trace/$<CONFIG>"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/sandbox_gpu_trace.cmake")
     set_tests_properties(sandbox.gpu_trace PROPERTIES TIMEOUT 60 SKIP_REGULAR_EXPRESSION "SKIP:")
+    # The sandbox's --play mode: the obstacle course with a player and follow camera (ADR 0047).
+    add_test(NAME sandbox.play
+        COMMAND "${CMAKE_COMMAND}" "-DSAMPLE=$<TARGET_FILE:lykoware_sandbox>"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/sandbox_play.cmake")
+    set_tests_properties(sandbox.play PROPERTIES TIMEOUT 120 SKIP_REGULAR_EXPRESSION "SKIP:")
 
     if(LYKOWARE_SANITIZERS)
         # The Vulkan loader unloads drivers at vkDestroyInstance. Memory a
