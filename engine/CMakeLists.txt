@@ -10,6 +10,8 @@ add_library(lykoware_engine STATIC
     src/clock.cpp
     src/scene.cpp
     src/ecs.cpp
+    src/gltf.cpp
+    src/mesh.cpp
     src/world_identity.cpp
     src/log.cpp
     src/paths.cpp
