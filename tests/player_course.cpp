@@ -137,8 +137,8 @@ void test_intent_mapping()
     input.mouse.move_x = 100.F;
     input.mouse.move_y = 40.F;
     intent = read_player_intent(input, config, 1.F / 60.F, true);
-    expect(near(intent.yaw, -100.0 * config.mouse_radians_per_pixel, 1e-6)
-               && near(intent.pitch, 40.0 * config.mouse_radians_per_pixel, 1e-6),
+    const double per_pixel = static_cast<double>(config.mouse_radians_per_pixel);
+    expect(near(intent.yaw, -100.0 * per_pixel, 1e-6) && near(intent.pitch, 40.0 * per_pixel, 1e-6),
            "mouse motion turns the view by its sensitivity");
     expect(read_player_intent(input, config, 1.F / 60.F, false).yaw == 0.F,
            "without mouse-look a free cursor does not turn the view");
@@ -149,7 +149,8 @@ void test_intent_mapping()
 
     lykoware::note_gamepad_axis(input, GamepadAxis::RightX, 1.F);
     intent = read_player_intent(input, config, 0.5F, true);
-    expect(near(intent.yaw, -0.5 * config.turn_radians_per_second, 1e-6), "the right stick turns at its rate");
+    expect(near(intent.yaw, -0.5 * static_cast<double>(config.turn_radians_per_second), 1e-6),
+           "the right stick turns at its rate");
     expect(read_player_intent(input, config, -1.F, true).yaw == 0.F, "a negative frame length turns nothing");
     lykoware::note_gamepad_axis(input, GamepadAxis::RightX, 0.F);
     lykoware::note_key(input, Key::Up, true);
@@ -558,7 +559,7 @@ private:
             results_.view_clear = false;
         }
         for (const Block& box : course_.boxes) {
-            if (distance_to(box, view.eye) < view.near) {
+            if (distance_to(box, view.eye) < static_cast<double>(view.near)) {
                 if (results_.view_clear && results_.view_outside) {
                     results_.first_view_failure = "the near plane in a wall" + where;
                 }

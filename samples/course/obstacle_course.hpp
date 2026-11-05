@@ -64,8 +64,8 @@ inline physics::HeightFieldShape terrain()
     for (std::uint32_t z = 0; z < terrain_samples; ++z) {
         for (std::uint32_t x = 0; x < terrain_samples; ++x) {
             field.heights[static_cast<std::size_t>(z) * terrain_samples + x] =
-                terrain_height(terrain_origin.x + static_cast<double>(x) * terrain_spacing,
-                               terrain_origin.z + static_cast<double>(z) * terrain_spacing);
+                terrain_height(terrain_origin.x + static_cast<double>(x) * static_cast<double>(terrain_spacing),
+                               terrain_origin.z + static_cast<double>(z) * static_cast<double>(terrain_spacing));
         }
     }
     return field;

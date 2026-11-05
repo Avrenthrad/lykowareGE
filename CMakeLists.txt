@@ -253,7 +253,7 @@ if(BUILD_TESTING)
         # reports; leaks in Lykoware code are still caught (ADR 0015 records the
         # deliberate-leak check).
         set_property(TEST rhi.instance rhi.instance.no_driver rhi.device rhi.render_target rhi.swapchain
-                          sandbox.vulkan_window sandbox.gpu_trace rhi.pipeline rhi.mesh rhi.texture render.scene
+                          sandbox.vulkan_window sandbox.gpu_trace sandbox.play rhi.pipeline rhi.mesh rhi.texture render.scene
                           render.model render.texture lifecycle.restart_vulkan
             APPEND PROPERTY ENVIRONMENT "VK_LOADER_DISABLE_DYNAMIC_LIBRARY_UNLOADING=1")
     endif()
