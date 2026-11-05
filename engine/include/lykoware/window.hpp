@@ -127,6 +127,14 @@ public:
     [[nodiscard]] bool minimized() const;
     [[nodiscard]] const InputState& input() const;
 
+    // Relative mouse mode (ADR 0047): the cursor is hidden and held in the
+    // window, and input().mouse.move_x/move_y keep reporting motion, for
+    // mouse-look. The platform releases the mouse while the window does not
+    // have focus and holds it again when focus returns. set_relative_mouse()
+    // fails, with a reason in error, where the platform cannot do it.
+    [[nodiscard]] bool set_relative_mouse(bool enabled, std::string& error);
+    [[nodiscard]] bool relative_mouse() const;
+
     // Poll platform events, start a new input frame, then apply those events.
     // Returns false after request_close() or a platform close/quit.
     bool pump();

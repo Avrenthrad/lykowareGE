@@ -86,7 +86,10 @@ void test_lifecycle()
     motion.type = SDL_EVENT_MOUSE_MOTION;
     motion.motion.x = 8.f;
     motion.motion.y = 9.f;
+    motion.motion.xrel = 2.5f;
+    motion.motion.yrel = -1.5f;
     expect(SDL_PushEvent(&motion), "push motion");
+    expect(SDL_PushEvent(&motion), "push motion again");
     SDL_Event click{};
     click.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
     click.button.button = SDL_BUTTON_LEFT;
@@ -106,6 +109,23 @@ void test_lifecycle()
     expect(window->input().mouse.buttons[static_cast<std::size_t>(lykoware::MouseButton::Left)].pressed,
            "left button maps through the pump");
     expect(window->input().mouse.wheel_y == 1.f, "wheel maps through the pump");
+    expect(window->input().mouse.move_x == 5.f && window->input().mouse.move_y == -3.f,
+           "relative motion adds up over a pump");
+    expect(window->pump(), "pump without motion");
+    expect(window->input().mouse.move_x == 0.f && window->input().mouse.move_y == 0.f,
+           "motion lasts one input frame");
+
+    // Relative mode for mouse-look (ADR 0047). A driver may refuse it, but then it says why
+    // and stays off.
+    expect(!window->relative_mouse(), "a new window does not hold the mouse");
+    std::string relative_error;
+    if (window->set_relative_mouse(true, relative_error)) {
+        expect(relative_error.empty() && window->relative_mouse(), "relative mode turns on");
+        expect(window->set_relative_mouse(false, relative_error) && !window->relative_mouse(),
+               "and off again");
+    } else {
+        expect(!relative_error.empty() && !window->relative_mouse(), "a refusal names a reason and stays off");
+    }
 
     SDL_VirtualJoystickDesc desc;
     SDL_INIT_INTERFACE(&desc);

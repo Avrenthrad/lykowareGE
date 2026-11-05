@@ -326,6 +326,7 @@ struct Window::Impl {
             break;
         case SDL_EVENT_MOUSE_MOTION:
             note_mouse_position(input, event.motion.x, event.motion.y);
+            note_mouse_motion(input, event.motion.xrel, event.motion.yrel);
             break;
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
         case SDL_EVENT_MOUSE_BUTTON_UP: {
@@ -520,6 +521,21 @@ bool Window::minimized() const
 const InputState& Window::input() const
 {
     return impl_->input;
+}
+
+bool Window::set_relative_mouse(bool enabled, std::string& error)
+{
+    error.clear();
+    if (!SDL_SetWindowRelativeMouseMode(impl_->window, enabled)) {
+        error = sdl_failure("SDL_SetWindowRelativeMouseMode");
+        return false;
+    }
+    return true;
+}
+
+bool Window::relative_mouse() const
+{
+    return SDL_GetWindowRelativeMouseMode(impl_->window);
 }
 
 bool Window::pump()

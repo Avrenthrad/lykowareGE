@@ -1,5 +1,7 @@
 #include <lykoware/input.hpp>
 
+#include <cmath>
+
 namespace lykoware {
 namespace {
 
@@ -57,6 +59,8 @@ void begin_input_frame(InputState& state) noexcept
     }
     state.mouse.wheel_x = 0.f;
     state.mouse.wheel_y = 0.f;
+    state.mouse.move_x = 0.f;
+    state.mouse.move_y = 0.f;
     for (ButtonState& button : state.gamepad.buttons) {
         clear_edges(button);
     }
@@ -93,6 +97,15 @@ void note_mouse_wheel(InputState& state, float delta_x, float delta_y) noexcept
 {
     state.mouse.wheel_x += delta_x;
     state.mouse.wheel_y += delta_y;
+}
+
+void note_mouse_motion(InputState& state, float delta_x, float delta_y) noexcept
+{
+    if (!std::isfinite(delta_x) || !std::isfinite(delta_y)) {
+        return;
+    }
+    state.mouse.move_x += delta_x;
+    state.mouse.move_y += delta_y;
 }
 
 void note_gamepad_connection(InputState& state, bool connected) noexcept
