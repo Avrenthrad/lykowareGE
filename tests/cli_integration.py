@@ -56,6 +56,31 @@ with tempfile.TemporaryDirectory(prefix="lyko tests ") as temporary:
     assert first["gpu_timestamp_ms"] is None
     assert first["gpu_resident_bytes"] is None
 
+    # ADR 0042: the falling-crates script gives the command file's scene, and its recording
+    # replays to the same scene without the script.
+    recording = root / "script Ω recording.json"
+    script_report = root / "script report.json"
+    script_args = ("run", "--scene", scene_source / "falling-crates.scene.json",
+                   "--script", scene_source / "falling-crates.lua", "--ticks", "120")
+    assert "ticks=120 entities=4" in invoke(*script_args, "--record", recording, "--report", script_report)
+    scripted = json.loads(script_report.read_text(encoding="utf-8"))
+    assert scripted["replay_state_hash"] == first["replay_state_hash"]
+    assert scripted["commands_applied"] == 3
+    recorded = json.loads(recording.read_text(encoding="utf-8"))
+    original = json.loads((scene_source / "falling-crates.commands.json").read_text(encoding="utf-8"))
+    assert [(c["tick"], c["sequence"], c["type"]) for c in recorded["commands"]] == \
+        [(c["tick"], c["sequence"], c["type"]) for c in original["commands"]]
+    replayed_report = root / "replayed report.json"
+    invoke("run", "--scene", scene_source / "falling-crates.scene.json", "--commands", recording,
+           "--ticks", "120", "--report", replayed_report)
+    replayed = json.loads(replayed_report.read_text(encoding="utf-8"))
+    assert replayed["replay_state_hash"] == first["replay_state_hash"]
+    failing = root / "failing script.lua"
+    failing.write_text("function on_tick(tick)\n  if tick == 5 then destroy('nobody') end\nend\n", encoding="utf-8")
+    message = invoke("run", "--scene", scene_source / "falling-crates.scene.json", "--script", failing,
+                     "--ticks", "10", expected=2)
+    assert "failing script.lua:2:" in message and "does not exist" in message, message
+
     trace_dir = root / "trace Ω & ; literal"
     trace_dir.mkdir()
     trace_file = trace_dir / "cpu trace.json"

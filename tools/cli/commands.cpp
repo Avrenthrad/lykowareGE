@@ -63,7 +63,10 @@ void usage()
                  "trace --gpu instead records N frames of the sandbox's Vulkan window: CPU zones\n"
                  "and, where the GPU has timestamps, GPU frame times (lykoware-gpu-trace.json).\n"
                  "It exits 3 when no window or Vulkan device is available.\n"
-                 "run --scene FILE [--commands FILE] [--ticks N] [--capture FILE] [--report FILE]\n"
+                 "run --scene FILE [--commands FILE | --script FILE [--record FILE]] [--ticks N]\n"
+                 "    [--capture FILE] [--report FILE]\n"
+                 "--script runs a sandboxed Lua script's on_tick(tick) each tick; its commands can\n"
+                 "be written with --record and replayed with --commands.\n"
                  "screenshot --scene FILE --output FILE [--ticks N]\n"
                  "Scene options: --measure-frames N --warmup N --width N --height N.\n";
 }
