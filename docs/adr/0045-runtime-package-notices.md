@@ -1,4 +1,4 @@
-# ADR 0039: Notices in installed runtime packages
+# ADR 0045: Notices in installed runtime packages
 
 Status: Proposed implementation of accepted ADR 0000; no new dependency or licence election.
 

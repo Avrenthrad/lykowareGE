@@ -16,7 +16,7 @@ Check latest main and open PRs before starting. Documents do not automatically s
 ## Active task: runtime package notices (Codex)
 
 - Owner/status: Codex, active on `codex/runtime-package-notices`, based on `main` at `7616ce3`.
-- Scope: install runtime dependency notices/provenance, SDL embedded attributions, readable package index and installed-tree regression checks; ADR 0039. No engine/audio/renderer/asset API changes.
+- Scope: install runtime dependency notices/provenance, SDL embedded attributions, readable package index and installed-tree regression checks; ADR 0045. No engine/audio/renderer/asset API changes.
 - Coordination: Claude owns audio/model/texture PRs #37–#43. This is the separate packaging omission noted in #41; preserve those branches and test integration locally without merging them.
 - Checks: fresh full/component installs, byte-preserved notices/excerpts, relocation, existing local tests. No paid CI or storage; hosted Windows checks remain pending if the account limit prevents jobs starting.
 - Merge: Joshua merges reviewed work. The earlier merge instruction covered #35/#36; it is not standing authorization for new PRs.
