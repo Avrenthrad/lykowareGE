@@ -19,6 +19,7 @@ add_library(lykoware_engine STATIC
     src/physics.cpp
     src/physics_ecs.cpp
     src/render.cpp
+    src/script/script.cpp
     src/trace.cpp
     src/image.cpp
     src/input.cpp
@@ -37,7 +38,7 @@ target_compile_features(lykoware_engine PUBLIC cxx_std_20)
 target_include_directories(lykoware_engine PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
     "${CMAKE_CURRENT_BINARY_DIR}/generated")
-target_link_libraries(lykoware_engine PRIVATE SDL3-static lykoware_volk lykoware_vma lykoware_wuffs Jolt)
+target_link_libraries(lykoware_engine PRIVATE SDL3-static lykoware_volk lykoware_vma lykoware_wuffs lykoware_lua Jolt)
 
 lykoware_configure_target(lykoware_engine)
 

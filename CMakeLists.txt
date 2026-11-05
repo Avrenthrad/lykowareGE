@@ -316,6 +316,13 @@ if(BUILD_TESTING)
         set_property(TEST sandbox.model APPEND PROPERTY ENVIRONMENT "VK_LOADER_DISABLE_DYNAMIC_LIBRARY_UNLOADING=1")
     endif()
 
+    # Sandboxed Lua scripting (ADR 0041). Links only the engine; no files, no GPU.
+    add_executable(lykoware_script_test tests/script.cpp)
+    target_link_libraries(lykoware_script_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_script_test)
+    add_test(NAME script.sandbox COMMAND lykoware_script_test)
+    set_tests_properties(script.sandbox PROPERTIES TIMEOUT 60)
+
     # The maths module (ADR 0024). Links only the engine.
     add_executable(lykoware_math_test tests/math.cpp)
     target_link_libraries(lykoware_math_test PRIVATE lykoware::engine)
