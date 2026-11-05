@@ -5,13 +5,21 @@
 Canonical implementation status: [STATUS.md](STATUS.md).
 Canonical plan: [ROADMAP.md](ROADMAP.md).
 
-`main` at `855e01e` includes Claude's #32–#34 math/mesh/renderer stack (alongside #31 ECS/physics). Review follow-ups #35 and #36 remain separate owner-merge PRs. Earlier per-task entries remain in pull requests/git history. Details: [STATUS](STATUS.md).
+`main` at `855e01e` includes Claude's #32–#34 math/mesh/renderer stack (alongside #31 ECS/physics). Review follow-ups #35 and #36 subsequently merged as `7616ce3`; their per-branch evidence below is historical. Earlier per-task entries remain in pull requests/git history. Details: [STATUS](STATUS.md).
 
 Owner-supplied vision is captured in [ENGINE_VISION.md](ENGINE_VISION.md).
 
 Owner rules for every task: small stacked PRs; commit small and often; keep all five CI jobs green; record each decision as an ADR; keep STATUS handoff-ready after every task; Joshua merges; no regenerable generated files in commits; artifact upload stays opt-in and no storage or service is bought; no roadmap box ticked unless truly done.
 
 Check latest main and open PRs before starting. Documents do not automatically synchronize assistants or reserve work.
+
+## Active task: runtime package notices (Codex)
+
+- Owner/status: Codex, active on `codex/runtime-package-notices`, based on `main` at `7616ce3`.
+- Scope: install runtime dependency notices/provenance, SDL embedded attributions, readable package index and installed-tree regression checks; ADR 0039. No engine/audio/renderer/asset API changes.
+- Coordination: Claude owns audio/model/texture PRs #37–#43. This is the separate packaging omission noted in #41; preserve those branches and test integration locally without merging them.
+- Checks: fresh full/component installs, byte-preserved notices/excerpts, relocation, existing local tests. No paid CI or storage; hosted Windows checks remain pending if the account limit prevents jobs starting.
+- Merge: Joshua merges reviewed work. The earlier merge instruction covered #35/#36; it is not standing authorization for new PRs.
 
 ## Active review follow-ups (Codex)
 

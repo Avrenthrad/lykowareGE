@@ -35,6 +35,8 @@ Canonical directory: docs/adr. Decisions remain Proposed until resolved; disting
 
 | [0031](0031-scenes-and-command-replay.md) | Proposed | Versioned scenes, stable authored IDs, fixed-tick commands and read-only presentation |
 
+| [0039](0039-runtime-package-notices.md) | Proposed | Preserve runtime dependency notices in installed packages, with artifact checks |
+
 Use [the template](TEMPLATE.md). Record context, options, decision/status, contracts, consequences and verification. Use a new ADR to supersede an accepted choice; do not silently rewrite its history.
 
 [Pre-brief records](../decisions/README.md) remain historical and are not part of this numbering sequence.
