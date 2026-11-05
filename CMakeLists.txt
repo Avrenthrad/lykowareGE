@@ -353,6 +353,10 @@ if(BUILD_TESTING)
             "$<TARGET_FILE:lyko>" "$<TARGET_FILE:lyko_tool_fixture>"
             "${CMAKE_COMMAND}" "${CMAKE_CTEST_COMMAND}")
     set_tests_properties(cli.integration PROPERTIES TIMEOUT 120)
+    add_test(NAME validation.runner COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_SOURCE_DIR}/tests/validation_runner.py" "${CMAKE_COMMAND}" "${CMAKE_CTEST_COMMAND}")
+    set_tests_properties(validation.runner PROPERTIES TIMEOUT 120)
+
 endif()
 
 install(TARGETS lykoware_sandbox lyko RUNTIME DESTINATION bin)
