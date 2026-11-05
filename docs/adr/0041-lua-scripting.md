@@ -63,6 +63,12 @@ Proposed:
   - **Instructions:** a count hook raises an error at the limit and on every later step.
     - `pcall`, `xpcall` and `coroutine.resume` are wrapped to pass that stop on, so a script cannot catch it and carry on.
     - The wrappers use continuations, so coroutines still yield across `pcall`.
+  - **Loops inside Lua's C library:** these run no Lua instructions, so the count cannot stop them. Fuzzing found a script hanging in `string.rep('', 2^40)`, which loops 2^40 times while allocating nothing. So the library calls that could loop without end while using no memory are bounded:
+    - `string.rep` of an empty string (and separator) returns `""` at once;
+    - `table.insert` and `table.remove` refuse a table whose length is beyond what the memory limit could hold. A sparse table, or a `__len` metamethod, can report a length of 2^40 for 41 elements;
+    - `table.move` refuses a range of more elements than that.
+
+    A pattern match on a pathological pattern can still run very long (see Not yet).
   - **Re-entry:** `run`, `call` and `define` are refused from inside a host function.
 - **Errors:** host-function failures, and `std::exception`s they throw, become Lua errors at the call site with the script's line, which scripts may catch with `pcall`. Every Lua API use that can fail runs in protected mode, so a failure is reported, never a panic.
 
@@ -83,7 +89,7 @@ Proposed:
   - a `--script` entry point in the sandbox and `lyko`;
   - tables across the boundary;
   - per-call time limits;
-  - a defence against hostile scripts. A single string-library call, such as a long pattern match, counts as one instruction.
+  - a defence against hostile scripts. A pattern match with heavy backtracking (`string.find`, `match`, `gmatch`, `gsub`) is one instruction, however long it runs. Bounding it needs a change to the vendored `lstrlib.c` or a separate process.
 
 ## Consequences
 
@@ -102,7 +108,12 @@ Proposed:
     - 13 names are absent: `io`, `os`, `debug`, `package`, `require`, `dofile`, `loadfile`, `load`, `collectgarbage`, `string.dump`, `math.randomseed`, `module`, `loadstring`;
     - the kept libraries are present;
     - bytecode and `__gc` are refused.
-  - **Instruction limit:** stops `while true do end` at the limit, through `pcall`, `xpcall`, `coroutine.resume` and a wrapped coroutine. A coroutine still yields across `pcall`.
+  - **Instruction limit:** stops `while true do end` within one step of the limit, through `pcall`, `xpcall`, `coroutine.resume`, a wrapped coroutine and a `__close` handler. A coroutine still yields across `pcall`.
+  - **Library loops:**
+    - `string.rep('', 2^40)` returns at once;
+    - `table.move({}, 1, 2^40, 2)` is refused;
+    - `table.insert` and `table.remove` on a sparse table with a length of 2^40, and through a `__len` that claims 2^40, are refused;
+    - the same functions still work on real tables.
   - **Memory limit:** stops a growing table and a 1 GB string, never passing the limit. The state is usable afterwards. Limits below their minimums are refused.
   - **Host functions:**
     - all five value kinds pass through;
