@@ -15,10 +15,11 @@ Check latest main and open PRs before starting. Documents do not automatically s
 
 ## Active task: runtime package notices (Codex)
 
-- Owner/status: Codex, active on `codex/runtime-package-notices`, based on `main` at `7616ce3`.
+- Owner/status: Codex, implemented as draft #45 on `codex/runtime-package-notices`, based on `main` at `7616ce3`; Windows/hosted CI blocked.
 - Scope: install runtime dependency notices/provenance, SDL embedded attributions, readable package index and installed-tree regression checks; ADR 0045. No engine/audio/renderer/asset API changes.
-- Coordination: Claude owns audio/model/texture PRs #37–#43. This is the separate packaging omission noted in #41; preserve those branches and test integration locally without merging them.
-- Checks: fresh full/component installs, byte-preserved notices/excerpts, relocation, existing local tests. No paid CI or storage; hosted Windows checks remain pending if the account limit prevents jobs starting.
+- Coordination: Claude owns audio/model/texture/GPU-timing PRs #37–#44. This is the separate packaging omission noted in #41; preserve those branches and test integration locally without merging them.
+- Checks: baseline Linux Debug 42/42 passed; package code `6984cbd` combined locally with Claude head `2c41f62` passes 52/52 (local integration `15c0b33`, no skips). Fresh full/component installs, unchanged copied bytes, normalized excerpt text, CRLF handling, relocation, missing-anchor errors and a deliberately missing Jolt notice are checked.
+- Blocker: GitHub refused all five jobs before a runner executed any steps, citing failed account payments or the spending limit (run 42036213824). Windows/MSVC remains unverified; no spend, billing change or weakened checks.
 - Merge: Joshua merges reviewed work. The earlier merge instruction covered #35/#36; it is not standing authorization for new PRs.
 
 ## Active review follow-ups (Codex)

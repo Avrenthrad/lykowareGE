@@ -146,3 +146,18 @@ Builds, tests and staged execution are mandatory. Artifact upload is opt-in thro
 ## First-build memory
 
 Host shader tools default to two parallel build jobs, including on CPUs with many logical cores. Override with `-DLYKOWARE_HOST_TOOL_JOBS=N` (1–64) at configure time when machine memory permits. The local Windows validation runner explicitly uses two host-tool and two engine-build jobs for the owner's 16 GB PC. This is a concurrency limit, not a runtime performance setting; compiled tool options/recipe are unchanged. CI may restore prior cache contents, but HostTools selects only its exact version/recipe/platform directory.
+
+## Runtime attribution in staged packages (PR #45)
+
+The full install retains attributions under `share/lykoware/licenses` beside the package's `bin` directory. Preserve this tree when copying a runtime package. It includes a readable index, the studio notice and selected upstream notices/provenance. SDL embedded notice excerpts are generated from vendored source during configuration; changed/missing extraction anchors stop configuration for review. Do not commit these generated files.
+
+A notice-only install, without binaries, is available after configuring:
+
+```sh
+cmake --install build/linux-debug --prefix out/notices --component RuntimeNotices
+ctest --preset linux-debug -R package.runtime_notices --output-on-failure
+```
+
+For a configured/built Windows Release tree, use `cmake --install build/windows --config Release --prefix out/notices --component RuntimeNotices` and `ctest --preset windows-release -R package.runtime_notices --output-on-failure`. The test also checks a fresh full install, so build the executables first. It runs without a GPU and leaves its temporary artifacts in no source directory.
+
+New runtime dependencies must update notice/provenance installation and the package test. Build-only Slang/SPIRV-Tools executables are excluded from this runtime attribution set. The package check does not grant public-release or legal clearance.

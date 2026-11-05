@@ -15,3 +15,9 @@ A readable index identifies dependencies, choices and generated excerpts. Build-
 A CTest installs to a fresh temporary prefix (including spaces), checks that binaries/shaders and the expected notices exist, compares copied files byte for byte and checks extracted blocks against the source. Test full install and a notices-only install component, plus install-prefix relocation. Missing/changed excerpt anchors fail configuration for explicit review rather than silently omitting an attribution.
 
 The installed directory is the artifact under test. No legal clearance, public release, budget increase, new dependency or adoption of an unselected licence is implied. GitHub CI is currently reported blocked account-wide; record actual local checks and keep Windows/MSVC unverified until checks can run.
+
+## Implementation evidence
+
+PR #45 source `6984cbd`: baseline Linux Debug 42/42 pass; the package component adjustment passes its targeted test. Combined locally with Claude's #44 head `2c41f62`, integration commit `15c0b33` passes 52/52 with software Vulkan and no skips, including Wuffs attribution. Shared CMake changes merge cleanly; work-board prose needs the ordinary reconciliation of parallel task entries. The original full JSON/Wuffs rules are unchanged; supplemental `EXCLUDE_FROM_ALL` rules expose their files in the notice-only component without duplicating normal installs.
+
+Tests check CRLF input, missing anchors, and a deliberate Jolt-install omission. CI run 42036213824 was rejected before any job steps because of account billing/spending settings; it supplies no Windows/compiler evidence. The status stays Proposed, and merge/public-release gates are unchanged.

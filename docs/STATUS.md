@@ -2,6 +2,17 @@
 
 Records what is implemented and verified on `main`. Plans live in [ROADMAP.md](ROADMAP.md); task ownership in [WORK_BOARD.md](WORK_BOARD.md). Older per-branch handoffs are in the merged pull requests and git history.
 
+## Runtime package notices: PR #45 (not merged)
+
+Owner: Codex, branch `codex/runtime-package-notices`, based on `main` `7616ce3`. [ADR 0045](adr/0045-runtime-package-notices.md) adds installed runtime attributions and a readable index, including SDL subcomponent notices. Copied files preserve bytes; generated embedded excerpts normalize line endings. The `RuntimeNotices` install component supplements existing full JSON/Wuffs install rules without changing their ownership or adding dependencies.
+
+- **Baseline local checks:** Linux Debug 42/42 CTests pass (Mesa lavapipe/LLVM 19); final component adjustment retested with `package.runtime_notices`.
+- **Combined local check:** source `6984cbd` plus Claude's GPU-timing head `2c41f62` (including #37–#44), local integration commit `15c0b33`: Linux Debug **52/52 passed, no skips**. Includes full/component installs, byte checks, CRLF excerpt handling, relocation, missing-anchor failures and Wuffs notices. CMake merged without a code conflict; the work-board prose was reconciled to retain both owners. The integration branch is local only; Claude's branches are unchanged.
+- **Negative check:** temporarily misdirecting Jolt's installed notice makes the package test fail; restored rules pass. Missing excerpt anchors also fail rather than producing partial notices.
+- **CI blocked, Windows unverified:** [run 42036213824](https://github.com/Avrenthrad/lykowareGE/actions/runs/42036213824) failed all five jobs with no steps executed. GitHub's annotation states: "The job was not started because recent account payments have failed or your spending limit needs to be increased." This is not a compiler/test result. No billing setting, paid operation or CI gate was changed.
+
+Next: review #45 alongside Claude's stack, restore CI through the owner, and verify Windows Debug/Release before merge. Existing target-PC, Phase 1 exit and public-release gates remain open. This is packaging evidence, not legal clearance.
+
 ## Review follow-up verification
 
 - Runtime PR [#35](https://github.com/Avrenthrad/lykowareGE/pull/35), `codex/core-contract-hardening`: [ADR 0030](adr/0030-runtime-contract-hardening.md), world-specific handles, transactional attachment/storage, exclusive cleanup hooks, world-local hook order and allocation-free moves. All five CI jobs passed on source `f113b45` in [run 41826863572](https://github.com/Avrenthrad/lykowareGE/actions/runs/41826863572), including Windows Debug/Release and 39 CTests; the follow-up commit changes handoff prose only.
