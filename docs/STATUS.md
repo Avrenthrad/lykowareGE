@@ -43,6 +43,7 @@ Records what is implemented and verified on `main`. Plans live in [ROADMAP.md](R
 | [0035](adr/0035-gltf-meshes.md) | Proposed (in review; owner chose "write our own", shapes first) | `gltf::read`/`gltf::load`: our own glTF 2.0 reader into `MeshData` (one merged mesh per model, node transforms applied, strict bounds, external buffers confined to the model's folder); `Renderer::add_mesh` and `MeshRenderer::mesh`; normals use the inverse transpose; sandbox `--model FILE`. |
 | [0036](adr/0036-image-decoding.md) | Proposed (in review; owner chose "vendor Wuffs") | `decode_image`: PNG and JPEG into 8-bit RGBA through vendored Wuffs v0.4.0-alpha.12 (MIT option; only PNG and JPEG compiled); checksums checked; 16,384 px and 2^26-pixel limits checked before allocation. |
 | [0037](adr/0037-gpu-textures.md) | Proposed (in review) | `rhi::Texture`: RGBA8 sRGB or Unorm with CPU-made, gamma-correct mipmaps and wrap/filter settings; one descriptor set per texture with a device-wide layout; `VertexLayout::PositionNormalUv` and `GraphicsPipelineDesc::texture`; the lit shader multiplies the base colour by a texture (1x1 white by default); `Renderer::add_texture`, `MeshRenderer::texture`, `MeshData::uvs`. |
+| [0038](adr/0038-gltf-materials.md) | Proposed (in review) | `gltf::read_model`/`load_model`: texture coordinates, base colour materials, textures, samplers and decoded images (confined to the model's folder); `render::MeshPart` and `add_mesh(mesh, parts)` draw a model's primitives with their own materials (`rhi::MeshDraw::first_index`); the sandbox's `--model` shows textured models. |
 
 ## Verified on main
 
@@ -208,6 +209,23 @@ Owner: Claude. Branch `claude/gpu-textures`, stacked on textures PR 1. In review
 - **Local checks:** 50/50 pass in Debug, ASan/UBSan and clang-tidy.
 - **CI:** blocked for the whole account (see audio PR 1).
 
+### Textures, PR 3: glTF materials and texture coordinates
+
+Owner: Claude. Branch `claude/gltf-materials`, stacked on textures PR 2. In review.
+
+- [ADR 0038](adr/0038-gltf-materials.md) (Proposed).
+- **`gltf::read_model` and `load_model`:** return the mesh with texture coordinates, one part per primitive, and the base colour materials, textures (with sampler settings) and decoded images they use, each once. Images can be in buffer views, data URIs or files beside the model.
+- **Renderer:** draws a mesh as parts, each with its own colour and texture. The RHI gains `MeshDraw::first_index`.
+- **Sandbox:** `--model` shows a model's own materials and textures.
+- **Tests:**
+  - `assets.gltf` gains materials cases (PNGs made by the test);
+  - `render.model` draws a two-material model and checks each part's lit colour;
+  - `sandbox.model` now loads a textured .glb.
+- **Deliberate breaks:** 15 caught.
+- **Fuzzing:** a local fuzz of 150,000 mutated textured models under ASan/UBSan, with no crash.
+- **Local checks:** 50/50 pass in Debug, ASan/UBSan and clang-tidy.
+- **CI:** blocked for the whole account (see audio PR 1).
+
 ## Next
 
 Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
@@ -237,10 +255,10 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 ## Handoff
 
 - State: `main` at 7616ce3 contains PRs #2, #4–#21, #23–#29 and #31–#36. The Vulkan RHI bring-up, Phase 1 clocks, the physics spike, double-precision positions, the ECS (with physics on entities), the first lit renderer (falling crates), contract hardening and versioned scenes with command replay and CLI capture are complete. Physics determinism is verified on MSVC, GCC and Clang.
-- In review: `claude/audio-mixer` (Audio PR 1, ADR 0032, [#37](https://github.com/Avrenthrad/lykowareGE/pull/37)) and, stacked on it, `claude/audio-output` (Audio PR 2, ADR 0033, [#38](https://github.com/Avrenthrad/lykowareGE/pull/38)) and `claude/audio-spatial` (Audio PR 3, ADR 0034, [#39](https://github.com/Avrenthrad/lykowareGE/pull/39)), then `claude/gltf-meshes` (model loading, ADR 0035, [#40](https://github.com/Avrenthrad/lykowareGE/pull/40)), then `claude/image-decode` (textures PR 1, ADR 0036, [#41](https://github.com/Avrenthrad/lykowareGE/pull/41)), then `claude/gpu-textures` (textures PR 2, ADR 0037). CI cannot run at the moment: since 2026-11-05 every job fails before a runner starts, an account-level block (likely the private repository's Actions minutes); both PRs are checked locally only. #30's fix reached `main` through #36 (80a0640), so the owner can close #30. Cursor's #22 is open.
-- Open decisions for the owner: accepting or rejecting ADRs 0008–0012, 0014–0017, 0022–0026 and 0030–0037; how to restore CI (wait for the monthly Actions minutes, a self-hosted runner on the owner's PC, or a paid limit, which needs the owner's approval) (merging did not accept them); the working assumptions in ADR 0021 (2–4 player co-op, 6-core CPU, 8 GB VRAM at minimum settings, camera-relative rendering); Cursor's #22 (ADR 0019).
-- Next concrete action: once CI runs again, get the stacked PRs green (Windows/MSVC first). Then textures PR 3 (glTF materials and texture coordinates; the sandbox shows a textured model).
-- Owner checks wanted: run `lykoware_sandbox --window --vulkan` on the RTX 4070 desktop (a 5 × 5 grid of coloured crates tumbling onto a grey ground and dropping again every 8 seconds, each knocking as it lands, through the default sound device), `tools/validation/measure-scene.ps1` (ADR 0031), and `lykoware_sandbox --window --vulkan --model FILE` with a .glb exported from Blender (ADR 0035).
+- In review: `claude/audio-mixer` (Audio PR 1, ADR 0032, [#37](https://github.com/Avrenthrad/lykowareGE/pull/37)) and, stacked on it, `claude/audio-output` (Audio PR 2, ADR 0033, [#38](https://github.com/Avrenthrad/lykowareGE/pull/38)) and `claude/audio-spatial` (Audio PR 3, ADR 0034, [#39](https://github.com/Avrenthrad/lykowareGE/pull/39)), then `claude/gltf-meshes` (model loading, ADR 0035, [#40](https://github.com/Avrenthrad/lykowareGE/pull/40)), then `claude/image-decode` (textures PR 1, ADR 0036, [#41](https://github.com/Avrenthrad/lykowareGE/pull/41)), then `claude/gpu-textures` (textures PR 2, ADR 0037, [#42](https://github.com/Avrenthrad/lykowareGE/pull/42)), then `claude/gltf-materials` (textures PR 3, ADR 0038). CI cannot run at the moment: since 2026-11-05 every job fails before a runner starts, an account-level block (likely the private repository's Actions minutes); both PRs are checked locally only. #30's fix reached `main` through #36 (80a0640), so the owner can close #30. Cursor's #22 is open.
+- Open decisions for the owner: accepting or rejecting ADRs 0008–0012, 0014–0017, 0022–0026 and 0030–0038; how to restore CI (wait for the monthly Actions minutes, a self-hosted runner on the owner's PC, or a paid limit, which needs the owner's approval) (merging did not accept them); the working assumptions in ADR 0021 (2–4 player co-op, 6-core CPU, 8 GB VRAM at minimum settings, camera-relative rendering); Cursor's #22 (ADR 0019).
+- Next concrete action: once CI runs again, get the stacked PRs green (Windows/MSVC first). Then the next Phase 1 item the owner picks (GPU timings in traces, scripting, or window lifecycle tests).
+- Owner checks wanted: run `lykoware_sandbox --window --vulkan` on the RTX 4070 desktop (a 5 × 5 grid of coloured crates tumbling onto a grey ground and dropping again every 8 seconds, each knocking as it lands, through the default sound device), `tools/validation/measure-scene.ps1` (ADR 0031), and `lykoware_sandbox --window --vulkan --model FILE` with a textured .glb exported from Blender (ADR 0035, ADR 0038).
 - Checklist: no box ticked by this update. Phase 1 and the image/performance gate stay open.
 
 Read [WORK_BOARD.md](WORK_BOARD.md), [CLI.md](CLI.md), [ROADMAP.md](ROADMAP.md) and the [ADRs](adr/README.md). Check latest `main` and open PRs before starting. Update this file with exact commits, checks, failures and next actions.
