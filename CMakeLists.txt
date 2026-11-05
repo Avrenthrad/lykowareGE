@@ -159,6 +159,15 @@ if(BUILD_TESTING)
         COMMAND lykoware_render_scene_test "${lit_vert_spv}" "${lit_frag_spv}" "${CMAKE_CURRENT_BINARY_DIR}/render-scene")
     set_tests_properties(render.scene PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
 
+    # A glTF model loaded, uploaded and drawn (ADR 0035), on lavapipe in CI.
+    add_executable(lykoware_render_model_test tests/render_model.cpp)
+    target_link_libraries(lykoware_render_model_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_render_model_test)
+    add_dependencies(lykoware_render_model_test lykoware_test_shaders)
+    add_test(NAME render.model
+        COMMAND lykoware_render_model_test "${lit_vert_spv}" "${lit_frag_spv}" "${CMAKE_CURRENT_BINARY_DIR}/render-model")
+    set_tests_properties(render.model PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
+
     # The sandbox's Vulkan window on the headless offscreen driver: it loads
     # its deployed shaders and draws the triangle. The sandbox exits 3
     # ("unsupported") without a usable Vulkan device, which CTest reports as
@@ -184,7 +193,7 @@ if(BUILD_TESTING)
         # reports; leaks in Lykoware code are still caught (ADR 0015 records the
         # deliberate-leak check).
         set_property(TEST rhi.instance rhi.instance.no_driver rhi.device rhi.render_target rhi.swapchain
-                          sandbox.vulkan_window rhi.pipeline rhi.mesh render.scene
+                          sandbox.vulkan_window rhi.pipeline rhi.mesh render.scene render.model
             APPEND PROPERTY ENVIRONMENT "VK_LOADER_DISABLE_DYNAMIC_LIBRARY_UNLOADING=1")
     endif()
 
