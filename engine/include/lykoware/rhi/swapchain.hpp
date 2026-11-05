@@ -7,8 +7,10 @@
 #include <lykoware/rhi/render_target.hpp>
 #include <lykoware/window.hpp>
 
+#include <chrono>
 #include <cstdint>
 #include <memory>
+#include <vector>
 
 namespace lykoware::rhi {
 
@@ -17,6 +19,16 @@ inline constexpr const char* swapchain_device_extension = "VK_KHR_swapchain";
 
 // Frames the CPU may record ahead of the GPU.
 inline constexpr std::uint32_t frames_in_flight = 2;
+
+// How long one frame's commands took on the GPU (ADR 0039). `frame` counts
+// the frames submitted before it, from 0; frames skipped while minimised or
+// out of date are not submitted and not counted. `submitted` is when the CPU
+// submitted it; the GPU starts on it no earlier.
+struct GpuFrameTime {
+    std::uint64_t frame = 0;
+    std::uint64_t nanoseconds = 0;
+    std::chrono::steady_clock::time_point submitted{};
+};
 
 struct SwapchainConfig {
     // true: FIFO (always available, no tearing). false: mailbox if offered,
@@ -106,6 +118,15 @@ public:
     // Frames actually presented, and how many times the swapchain was rebuilt.
     [[nodiscard]] std::uint64_t frames_presented() const;
     [[nodiscard]] std::uint32_t rebuild_count() const;
+
+    // GPU times of the frames that finished since the last call, oldest
+    // first, measured with timestamps at the start and end of each frame's
+    // commands (ADR 0039). A frame's time can include waiting for its image
+    // to be released by the display. Frames still on the GPU are returned by
+    // a later call; at most 1024 are kept between calls, the oldest dropped
+    // first. Always empty when the device has no timestamps
+    // (Device::gpu_timestamps()).
+    [[nodiscard]] std::vector<GpuFrameTime> take_gpu_frame_times();
 
 private:
     struct Impl;

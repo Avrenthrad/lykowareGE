@@ -15,11 +15,15 @@
 #include <lykoware/rhi/swapchain.hpp>
 #include <lykoware/window.hpp>
 
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <iostream>
 #include <memory>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace {
 
@@ -51,6 +55,35 @@ bool render(lykoware::rhi::Swapchain& swapchain, lykoware::Window& window, int f
         }
     }
     return true;
+}
+
+// ADR 0039: after the device is idle, the next `count` frames from `first` each have a GPU time
+// when the device has timestamps, submitted in order before now, and none are returned twice.
+void expect_frame_times(const lykoware::rhi::Device& device, lykoware::rhi::Swapchain& swapchain, std::uint64_t first,
+                        std::uint64_t count, std::string_view what)
+{
+    lykoware::rhi::RhiError error;
+    expect(device.wait_idle(error), "the device goes idle");
+    const auto now = std::chrono::steady_clock::now();
+    const std::vector<lykoware::rhi::GpuFrameTime> times = swapchain.take_gpu_frame_times();
+    if (!device.gpu_timestamps()) {
+        expect(times.empty(), "no frame times without timestamps");
+        return;
+    }
+    expect(times.size() == count, std::string{what} + ": one GPU time per frame");
+    bool numbered = times.size() == count;
+    bool ordered = true;
+    bool plausible = !times.empty();
+    for (std::size_t index = 0; index < times.size(); ++index) {
+        numbered = numbered && times[index].frame == first + index;
+        ordered = ordered && times[index].submitted <= now
+            && (index == 0 || times[index - 1].submitted <= times[index].submitted);
+        plausible = plausible && times[index].nanoseconds > 0 && times[index].nanoseconds < 10'000'000'000ULL;
+    }
+    expect(numbered, std::string{what} + ": frames are numbered in submission order");
+    expect(ordered, std::string{what} + ": submission times are in order and past");
+    expect(plausible, std::string{what} + ": GPU times are plausible");
+    expect(swapchain.take_gpu_frame_times().empty(), std::string{what} + ": taken times are not returned again");
 }
 
 std::unique_ptr<lykoware::rhi::GraphicsPipeline> triangle_pipeline(const lykoware::rhi::Device& device,
@@ -157,6 +190,7 @@ int main(int argc, char* argv[])
             expect(swapchain->image_count() >= 2, "swapchain has at least two images");
             expect(render(*swapchain, *window, 5, 0.1F), "five frames render and present");
             expect(swapchain->frames_presented() == 5, "five frames are presented");
+            expect_frame_times(*device, *swapchain, 0, 5, "the first five frames");
 
             std::string resize_error;
             expect(window->resize(80, 60, resize_error), "the window resizes");
@@ -181,6 +215,7 @@ int main(int argc, char* argv[])
                 }
                 expect(drawn, "the triangle draws through the swapchain");
                 expect(swapchain->frames_presented() == 12, "every drawn frame is presented");
+                expect_frame_times(*device, *swapchain, 5, 7, "frames across a resize and the triangle");
             }
 
             const ColorFormat other = format == ColorFormat::Bgra8Unorm ? ColorFormat::Rgba8Unorm
@@ -192,6 +227,7 @@ int main(int argc, char* argv[])
                            && error.failure == lykoware::rhi::RhiFailure::InvalidArgument,
                        "a pipeline for another colour format is refused");
                 expect(swapchain->frames_presented() == 12, "a refused draw presents nothing");
+                expect(swapchain->take_gpu_frame_times().empty(), "a refused draw times nothing");
             }
         }
     }
