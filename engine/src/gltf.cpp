@@ -1,4 +1,5 @@
 #include <lykoware/gltf.hpp>
+#include <lykoware/image_decode.hpp>
 
 #include <nlohmann/json.hpp>
 
@@ -197,11 +198,12 @@ struct Accessor {
     std::string type;
     std::optional<std::size_t> view;
     std::size_t offset = 0;
+    bool normalized = false;
 };
 
-class Model {
+class Document {
 public:
-    Model(const Json& root, std::optional<std::span<const std::byte>> glb_binary, const BufferReader& external)
+    Document(const Json& root, std::optional<std::span<const std::byte>> glb_binary, const BufferReader& external)
         : root_(root)
         , glb_binary_(glb_binary)
         , external_(external)
@@ -233,6 +235,49 @@ public:
                 refuse(where + " has a value that is not finite");
             }
             out[i] = {xyz[0], xyz[1], xyz[2]};
+        }
+        return out;
+    }
+
+    // Texture coordinates: float, or normalised unsigned 8- or 16-bit, VEC2 (the glTF spec's
+    // allowed forms for TEXCOORD_n).
+    std::vector<math::Vec2> vec2s(std::size_t index, std::string_view purpose)
+    {
+        const Accessor a = accessor(index);
+        const std::string where = name("accessor", index);
+        const std::size_t size = a.component == component_float ? 4
+            : a.component == component_u8                     ? 1
+            : a.component == component_u16                    ? 2
+                                                              : 0;
+        if (size == 0 || a.type != "VEC2" || (size != 4 && !a.normalized)) {
+            refuse(where + ": " + std::string{purpose} + " must be float, or normalised unsigned 8- or 16-bit, VEC2");
+        }
+        if (a.count > mesh_max_vertices) {
+            refuse(where + ": more than " + std::to_string(mesh_max_vertices) + " vertices");
+        }
+        if (!a.view) {
+            return std::vector<math::Vec2>(a.count);
+        }
+        const View v = view(*a.view);
+        const std::span<const std::byte> bytes = elements(v, a, 2 * size, where);
+        const std::size_t stride = v.stride != 0 ? v.stride : 2 * size;
+        std::vector<math::Vec2> out(a.count);
+        for (std::size_t i = 0; i < a.count; ++i) {
+            float uv[2] = {};
+            for (std::size_t c = 0; c < 2; ++c) {
+                const std::byte* at = bytes.data() + i * stride + c * size;
+                if (size == 4) {
+                    std::memcpy(&uv[c], at, 4);
+                } else if (size == 1) {
+                    uv[c] = static_cast<float>(std::to_integer<unsigned>(at[0])) / 255.F;
+                } else {
+                    uv[c] = static_cast<float>(std::to_integer<unsigned>(at[0]) | (std::to_integer<unsigned>(at[1]) << 8U)) / 65535.F;
+                }
+            }
+            if (!std::isfinite(uv[0]) || !std::isfinite(uv[1])) {
+                refuse(where + " has a value that is not finite");
+            }
+            out[i] = {uv[0], uv[1]};
         }
         return out;
     }
@@ -269,6 +314,45 @@ public:
         return out;
     }
 
+    // The bytes of a buffer view (images can live in one).
+    View view(std::size_t index)
+    {
+        const Json& object = element(array_field(root_, "bufferViews", "the model"), index, "buffer view");
+        const std::string where = name("buffer view", index);
+        const std::size_t buffer_index = required_index(object, "buffer", where);
+        const std::size_t offset = optional_index(object, "byteOffset", where).value_or(0);
+        const std::size_t length = required_index(object, "byteLength", where);
+        const std::size_t stride = optional_index(object, "byteStride", where).value_or(0);
+        if (stride != 0 && (stride < 4 || stride > 252 || stride % 4 != 0)) {
+            refuse(where + ": byteStride must be a multiple of 4 from 4 to 252");
+        }
+        const std::span<const std::byte> data = buffer(buffer_index);
+        if (offset > data.size() || length > data.size() - offset) {
+            refuse(where + " runs past the end of buffer " + std::to_string(buffer_index));
+        }
+        return {data.subspan(offset, length), stride};
+    }
+
+    // The bytes a URI names: a base64 data URI, or a file read through the external reader.
+    std::vector<std::byte> fetch(const std::string& uri, const std::string& where)
+    {
+        if (uri.starts_with("data:")) {
+            const std::size_t comma = uri.find(";base64,");
+            if (comma == std::string::npos) {
+                refuse(where + ": only base64 data URIs are supported");
+            }
+            return decode_base64(std::string_view{uri}.substr(comma + 8), where);
+        }
+        if (!external_) {
+            refuse(where + " is in another file (" + uri + "), which this read cannot reach");
+        }
+        auto data = external_(percent_decode(uri, where));
+        if (!data) {
+            refuse(where + ": could not read " + uri + " (missing, unreadable, or outside the model's folder)");
+        }
+        return std::move(*data);
+    }
+
 private:
     Accessor accessor(std::size_t index)
     {
@@ -287,6 +371,12 @@ private:
         a.type = type->get<std::string>();
         a.view = optional_index(object, "bufferView", where);
         a.offset = optional_index(object, "byteOffset", where).value_or(0);
+        if (const Json* normalized = member(object, "normalized")) {
+            if (!normalized->is_boolean()) {
+                refuse(where + ": normalized must be true or false");
+            }
+            a.normalized = normalized->get<bool>();
+        }
         if (a.count == 0) {
             refuse(where + " has no elements");
         }
@@ -305,24 +395,6 @@ private:
             refuse(where + " runs past the end of its buffer view");
         }
         return v.bytes.subspan(a.offset);
-    }
-
-    View view(std::size_t index)
-    {
-        const Json& object = element(array_field(root_, "bufferViews", "the model"), index, "buffer view");
-        const std::string where = name("buffer view", index);
-        const std::size_t buffer_index = required_index(object, "buffer", where);
-        const std::size_t offset = optional_index(object, "byteOffset", where).value_or(0);
-        const std::size_t length = required_index(object, "byteLength", where);
-        const std::size_t stride = optional_index(object, "byteStride", where).value_or(0);
-        if (stride != 0 && (stride < 4 || stride > 252 || stride % 4 != 0)) {
-            refuse(where + ": byteStride must be a multiple of 4 from 4 to 252");
-        }
-        const std::span<const std::byte> data = buffer(buffer_index);
-        if (offset > data.size() || length > data.size() - offset) {
-            refuse(where + " runs past the end of buffer " + std::to_string(buffer_index));
-        }
-        return {data.subspan(offset, length), stride};
     }
 
     std::span<const std::byte> buffer(std::size_t index)
@@ -352,25 +424,6 @@ private:
             refuse(where + " is shorter than its byteLength");
         }
         return data.first(length);
-    }
-
-    std::vector<std::byte> fetch(const std::string& uri, const std::string& where)
-    {
-        if (uri.starts_with("data:")) {
-            const std::size_t comma = uri.find(";base64,");
-            if (comma == std::string::npos) {
-                refuse(where + ": only base64 data URIs are supported");
-            }
-            return decode_base64(std::string_view{uri}.substr(comma + 8), where);
-        }
-        if (!external_) {
-            refuse(where + " is in another file (" + uri + "), which this read cannot reach");
-        }
-        auto data = external_(percent_decode(uri, where));
-        if (!data) {
-            refuse(where + ": could not read " + uri + " (missing, unreadable, or outside the model's folder)");
-        }
-        return std::move(*data);
     }
 
     const Json& root_;
@@ -430,8 +483,154 @@ math::Vec3 unit_or_up(math::Vec3 v)
     return n == math::Vec3{} || !std::isfinite(n.x) || !std::isfinite(n.y) || !std::isfinite(n.z) ? math::Vec3{0.F, 1.F, 0.F} : n;
 }
 
-// Appends one primitive's triangles, transformed by `world`, to `out`.
-void add_primitive(Model& model, const Json& primitive, const math::Mat4& world, const std::string& where, MeshData& out)
+// The shape being built: the merged mesh and one part per primitive.
+struct Built {
+    MeshData mesh;
+    std::vector<Part> parts;
+};
+
+constexpr std::size_t gl_nearest = 9728;
+constexpr std::size_t gl_linear = 9729;
+constexpr std::size_t gl_clamp_to_edge = 33071;
+constexpr std::size_t gl_mirrored_repeat = 33648;
+constexpr std::size_t gl_repeat = 10497;
+
+// Turns the glTF materials, textures and images the parts use into a Model's lists, each once
+// and in first-use order. Images are decoded here.
+class Materials {
+public:
+    Materials(const Json& root, Document& document, Model& out)
+        : root_(root)
+        , document_(document)
+        , out_(out)
+    {
+    }
+
+    std::size_t material(std::size_t index)
+    {
+        if (const auto found = materials_.find(index); found != materials_.end()) {
+            return found->second;
+        }
+        const Json& object = element(array_field(root_, "materials", "the model"), index, "material");
+        const std::string where = name("material", index);
+        Material resolved;
+        if (const Json* pbr = member(object, "pbrMetallicRoughness")) {
+            if (!pbr->is_object()) {
+                refuse(where + ": pbrMetallicRoughness must be an object");
+            }
+            if (const Json* factor = member(*pbr, "baseColorFactor")) {
+                const auto v = numbers<4>(*factor, where + ".baseColorFactor");
+                if (std::any_of(v.begin(), v.end(), [](float c) { return c < 0.F || c > 1.F; })) {
+                    refuse(where + ": baseColorFactor values must be 0..1");
+                }
+                resolved.base_colour = {v[0], v[1], v[2], v[3]};
+            }
+            if (const Json* info = member(*pbr, "baseColorTexture")) {
+                if (!info->is_object()) {
+                    refuse(where + ": baseColorTexture must be an object");
+                }
+                if (optional_index(*info, "texCoord", where + ".baseColorTexture").value_or(0) != 0) {
+                    refuse(where + ": the base colour texture uses a texture coordinate set other than 0, which is not read yet");
+                }
+                resolved.base_colour_texture = texture(required_index(*info, "index", where + ".baseColorTexture"));
+            }
+        }
+        out_.materials.push_back(resolved);
+        materials_.emplace(index, out_.materials.size() - 1);
+        return out_.materials.size() - 1;
+    }
+
+private:
+    std::size_t texture(std::size_t index)
+    {
+        if (const auto found = textures_.find(index); found != textures_.end()) {
+            return found->second;
+        }
+        const Json& object = element(array_field(root_, "textures", "the model"), index, "texture");
+        const std::string where = name("texture", index);
+        const auto source = optional_index(object, "source", where);
+        if (!source) {
+            refuse(where + " has no source image");
+        }
+        Texture resolved;
+        if (const auto sampler_index = optional_index(object, "sampler", where)) {
+            const Json& sampler = element(array_field(root_, "samplers", "the model"), *sampler_index, "sampler");
+            const std::string at = name("sampler", *sampler_index);
+            const std::size_t wrap = optional_index(sampler, "wrapS", at).value_or(gl_repeat);
+            resolved.sampling.wrap = wrap == gl_repeat           ? Wrap::Repeat
+                : wrap == gl_mirrored_repeat                    ? Wrap::MirroredRepeat
+                : wrap == gl_clamp_to_edge                      ? Wrap::ClampToEdge
+                                                                : (refuse(at + ": unknown wrapS " + std::to_string(wrap)), Wrap::Repeat);
+            if (const auto mag = optional_index(sampler, "magFilter", at)) {
+                if (*mag != gl_nearest && *mag != gl_linear) {
+                    refuse(at + ": unknown magFilter " + std::to_string(*mag));
+                }
+                resolved.sampling.nearest = *mag == gl_nearest;
+            }
+            if (const auto min = optional_index(sampler, "minFilter", at)) {
+                if (*min != gl_nearest && *min != gl_linear && (*min < 9984 || *min > 9987)) {
+                    refuse(at + ": unknown minFilter " + std::to_string(*min));
+                }
+                resolved.sampling.mipmaps = *min >= 9984;
+            }
+        }
+        resolved.image = image(*source);
+        out_.textures.push_back(resolved);
+        textures_.emplace(index, out_.textures.size() - 1);
+        return out_.textures.size() - 1;
+    }
+
+    std::size_t image(std::size_t index)
+    {
+        if (const auto found = images_.find(index); found != images_.end()) {
+            return found->second;
+        }
+        const Json& object = element(array_field(root_, "images", "the model"), index, "image");
+        const std::string where = name("image", index);
+        std::vector<std::byte> bytes;
+        if (const Json* uri = member(object, "uri")) {
+            if (!uri->is_string()) {
+                refuse(where + ": uri must be a string");
+            }
+            bytes = document_.fetch(uri->get<std::string>(), where);
+        } else if (const auto view = optional_index(object, "bufferView", where)) {
+            const Json* mime = member(object, "mimeType");
+            if (mime == nullptr || !mime->is_string()
+                || (mime->get<std::string>() != "image/png" && mime->get<std::string>() != "image/jpeg")) {
+                refuse(where + ": an image in a buffer view needs mimeType image/png or image/jpeg");
+            }
+            const std::span<const std::byte> data = document_.view(*view).bytes;
+            bytes.assign(data.begin(), data.end());
+        } else {
+            refuse(where + " has neither a uri nor a bufferView");
+        }
+        std::string reason;
+        std::optional<RgbaImage> decoded = decode_image(bytes, reason);
+        if (!decoded) {
+            refuse(where + ": " + reason);
+        }
+        pixels_ += static_cast<std::uint64_t>(decoded->width) * decoded->height;
+        if (pixels_ > max_model_image_pixels) {
+            refuse("the model's images hold more than " + std::to_string(max_model_image_pixels) + " pixels in all");
+        }
+        out_.images.push_back(std::move(*decoded));
+        images_.emplace(index, out_.images.size() - 1);
+        return out_.images.size() - 1;
+    }
+
+    const Json& root_;
+    Document& document_;
+    Model& out_;
+    std::map<std::size_t, std::size_t> materials_;
+    std::map<std::size_t, std::size_t> textures_;
+    std::map<std::size_t, std::size_t> images_;
+    std::uint64_t pixels_ = 0;
+};
+
+// Appends one primitive's triangles, transformed by `world`, to `built`, as one part. With
+// `materials`, the primitive's material is resolved too.
+void add_primitive(Document& model, const Json& primitive, const math::Mat4& world, const std::string& where, Built& built,
+                   Materials* materials)
 {
     const std::size_t mode = optional_index(primitive, "mode", where).value_or(4);
     if (mode < 4) {
@@ -449,6 +648,13 @@ void add_primitive(Model& model, const Json& primitive, const math::Mat4& world,
         return; // the spec says to skip a primitive without positions
     }
     const std::vector<math::Vec3> positions = model.vec3s(*position_accessor, "POSITION");
+    std::vector<math::Vec2> uvs;
+    if (const auto uv_accessor = optional_index(*attributes, "TEXCOORD_0", where + ".attributes")) {
+        uvs = model.vec2s(*uv_accessor, "TEXCOORD_0");
+        if (uvs.size() != positions.size()) {
+            refuse(where + ": TEXCOORD_0 and POSITION have different counts");
+        }
+    }
     std::vector<math::Vec3> normals;
     if (const auto normal_accessor = optional_index(*attributes, "NORMAL", where + ".attributes")) {
         normals = model.vec3s(*normal_accessor, "NORMAL");
@@ -505,44 +711,70 @@ void add_primitive(Model& model, const Json& primitive, const math::Mat4& world,
     const math::Vec3 nz = math::cross(a, b) * sign;
     const bool mirrored = determinant < 0.F;
 
+    MeshData& out = built.mesh;
     const std::size_t new_vertices = normals.empty() ? triangles.size() : positions.size();
     if (out.positions.size() + new_vertices > mesh_max_vertices || out.indices.size() + triangles.size() > mesh_max_indices) {
         refuse("the model is larger than " + std::to_string(mesh_max_vertices) + " vertices or "
                + std::to_string(mesh_max_indices) + " indices");
     }
+    if (triangles.empty()) {
+        return;
+    }
+    std::optional<std::size_t> material;
+    if (materials != nullptr) {
+        if (const auto index = optional_index(primitive, "material", where)) {
+            material = materials->material(*index);
+        }
+    }
+    // Texture coordinates are per vertex across the whole mesh: earlier vertices without them
+    // read (0, 0), and so do this primitive's when it has none but others do.
+    if (!uvs.empty() && out.uvs.size() < out.positions.size()) {
+        out.uvs.resize(out.positions.size());
+    }
+    const auto first_index = static_cast<std::uint32_t>(out.indices.size());
     const auto base = static_cast<std::uint32_t>(out.positions.size());
     if (normals.empty()) {
         // Flat normals, as the spec requires when a primitive has none: each triangle gets its
         // own three vertices with the face's normal.
         for (std::size_t t = 0; t < triangles.size(); t += 3) {
-            const math::Vec3 p0 = math::transform_point(world, positions[triangles[t]]);
-            math::Vec3 p1 = math::transform_point(world, positions[triangles[t + 1]]);
-            math::Vec3 p2 = math::transform_point(world, positions[triangles[t + 2]]);
+            std::uint32_t corner[3] = {triangles[t], triangles[t + 1], triangles[t + 2]};
             if (mirrored) {
-                std::swap(p1, p2);
+                std::swap(corner[1], corner[2]);
             }
+            const math::Vec3 p0 = math::transform_point(world, positions[corner[0]]);
+            const math::Vec3 p1 = math::transform_point(world, positions[corner[1]]);
+            const math::Vec3 p2 = math::transform_point(world, positions[corner[2]]);
             const math::Vec3 normal = unit_or_up(math::cross(p1 - p0, p2 - p0));
-            for (const math::Vec3 p : {p0, p1, p2}) {
+            const math::Vec3 corners[3] = {p0, p1, p2};
+            for (int k = 0; k < 3; ++k) {
                 out.indices.push_back(static_cast<std::uint32_t>(out.positions.size()));
-                out.positions.push_back(p);
+                out.positions.push_back(corners[k]);
                 out.normals.push_back(normal);
+                if (!uvs.empty()) {
+                    out.uvs.push_back(uvs[corner[k]]);
+                }
             }
         }
-        return;
+    } else {
+        for (std::size_t i = 0; i < positions.size(); ++i) {
+            out.positions.push_back(math::transform_point(world, positions[i]));
+            const math::Vec3 n = normals[i];
+            out.normals.push_back(unit_or_up(nx * n.x + ny * n.y + nz * n.z));
+        }
+        out.uvs.insert(out.uvs.end(), uvs.begin(), uvs.end());
+        for (std::size_t t = 0; t < triangles.size(); t += 3) {
+            out.indices.push_back(base + triangles[t]);
+            out.indices.push_back(base + triangles[mirrored ? t + 2 : t + 1]);
+            out.indices.push_back(base + triangles[mirrored ? t + 1 : t + 2]);
+        }
     }
-    for (std::size_t i = 0; i < positions.size(); ++i) {
-        out.positions.push_back(math::transform_point(world, positions[i]));
-        const math::Vec3 n = normals[i];
-        out.normals.push_back(unit_or_up(nx * n.x + ny * n.y + nz * n.z));
+    if (!out.uvs.empty()) {
+        out.uvs.resize(out.positions.size());
     }
-    for (std::size_t t = 0; t < triangles.size(); t += 3) {
-        out.indices.push_back(base + triangles[t]);
-        out.indices.push_back(base + triangles[mirrored ? t + 2 : t + 1]);
-        out.indices.push_back(base + triangles[mirrored ? t + 1 : t + 2]);
-    }
+    built.parts.push_back({first_index, static_cast<std::uint32_t>(out.indices.size() - first_index), material});
 }
 
-MeshData read_scene(const Json& root, Model& model)
+Built read_scene(const Json& root, Document& model, Materials* materials)
 {
     if (!root.is_object()) {
         refuse("the glTF JSON is not an object");
@@ -573,7 +805,7 @@ MeshData read_scene(const Json& root, Model& model)
 
     // Depth first, in document order, with an explicit stack: deep hierarchies cannot overflow
     // the call stack, and a node reached twice (a cycle or two parents) is refused.
-    MeshData out;
+    Built out;
     std::vector<bool> visited(nodes.size(), false);
     std::vector<std::pair<std::size_t, math::Mat4>> stack;
     for (std::size_t i = roots.size(); i-- > 0;) {
@@ -597,7 +829,8 @@ MeshData read_scene(const Json& root, Model& model)
             const Json& primitives = array_field(mesh, "primitives", name("mesh", *mesh_index));
             for (std::size_t p = 0; p < primitives.size(); ++p) {
                 const Json& primitive = element(primitives, p, name("mesh", *mesh_index) + " primitive");
-                add_primitive(model, primitive, world, name("mesh", *mesh_index) + " primitive " + std::to_string(p), out);
+                add_primitive(model, primitive, world, name("mesh", *mesh_index) + " primitive " + std::to_string(p), out,
+                              materials);
             }
         }
         const Json& children = array_field(node, "children", where);
@@ -608,7 +841,7 @@ MeshData read_scene(const Json& root, Model& model)
             stack.emplace_back(static_cast<std::size_t>(children[i].get<std::uint64_t>()), world);
         }
     }
-    if (out.indices.empty()) {
+    if (out.mesh.indices.empty()) {
         refuse("the model's scene has no triangles");
     }
     return out;
@@ -655,7 +888,11 @@ bool inside_folder(std::string_view uri)
 
 }
 
-std::optional<MeshData> read(std::span<const std::byte> file, const BufferReader& external, std::string& error)
+namespace {
+
+// Both reads: the shape, and with `with_materials` the materials and images too.
+std::optional<Model> read_any(std::span<const std::byte> file, const BufferReader& external, std::string& error,
+                              bool with_materials)
 {
     try {
         std::span<const std::byte> json = file;
@@ -692,13 +929,17 @@ std::optional<MeshData> read(std::span<const std::byte> file, const BufferReader
         if (root.is_discarded()) {
             refuse("the glTF JSON is malformed");
         }
-        Model model(root, binary, external);
-        MeshData mesh = read_scene(root, model);
-        if (!valid_mesh(mesh, error)) {
+        Document document(root, binary, external);
+        Model model;
+        Materials materials(root, document, model);
+        Built built = read_scene(root, document, with_materials ? &materials : nullptr);
+        if (!valid_mesh(built.mesh, error)) {
             return std::nullopt;
         }
+        model.mesh = std::move(built.mesh);
+        model.parts = std::move(built.parts);
         error.clear();
-        return mesh;
+        return model;
     } catch (const Refusal& refusal) {
         error = refusal.reason;
     } catch (const Json::exception&) {
@@ -707,11 +948,14 @@ std::optional<MeshData> read(std::span<const std::byte> file, const BufferReader
     return std::nullopt;
 }
 
-std::optional<MeshData> load(const std::filesystem::path& file, std::string& error)
+
+// Reads a model file and lets its external buffers and images come only from its folder.
+template <typename Read>
+auto load_any(const std::filesystem::path& file, std::string& error, Read read_with)
 {
     std::vector<std::byte> bytes;
     if (!read_file(file, bytes, error)) {
-        return std::nullopt;
+        return decltype(read_with(bytes, BufferReader{})){};
     }
     const std::filesystem::path folder = file.parent_path();
     const BufferReader external = [&folder](std::string_view uri) -> std::optional<std::vector<std::byte>> {
@@ -725,7 +969,34 @@ std::optional<MeshData> load(const std::filesystem::path& file, std::string& err
         }
         return data;
     };
-    return read(bytes, external, error);
+    return read_with(bytes, external);
+}
+
+}
+
+std::optional<MeshData> read(std::span<const std::byte> file, const BufferReader& external, std::string& error)
+{
+    std::optional<Model> model = read_any(file, external, error, false);
+    return model ? std::optional<MeshData>(std::move(model->mesh)) : std::nullopt;
+}
+
+std::optional<Model> read_model(std::span<const std::byte> file, const BufferReader& external, std::string& error)
+{
+    return read_any(file, external, error, true);
+}
+
+std::optional<MeshData> load(const std::filesystem::path& file, std::string& error)
+{
+    return load_any(file, error, [&](std::span<const std::byte> bytes, const BufferReader& external) {
+        return read(bytes, external, error);
+    });
+}
+
+std::optional<Model> load_model(const std::filesystem::path& file, std::string& error)
+{
+    return load_any(file, error, [&](std::span<const std::byte> bytes, const BufferReader& external) {
+        return read_model(bytes, external, error);
+    });
 }
 
 }
