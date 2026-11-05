@@ -235,7 +235,7 @@ def positive(value):
 
 def parse_arguments(arguments):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--source", type=Path, default=Path(__file__).resolve().parents[2])
+    parser.add_argument("--source", type=Path)
     parser.add_argument("--preset", action="append", choices=tuple(PROFILES))
     parser.add_argument("--output", type=Path, help="fresh output directory (ignored build output or outside source)")
     parser.add_argument("--jobs", type=positive, default=2)
@@ -250,6 +250,11 @@ def parse_arguments(arguments):
     options.preset = options.preset or (["windows-debug", "windows-release"] if platform.system() == "Windows" else ["linux-debug"])
     if len(set(options.preset)) != len(options.preset):
         parser.error("duplicate presets are not allowed")
+    if options.source is None:
+        options.source = next((parent for parent in Path(__file__).resolve().parents
+                               if (parent / "CMakePresets.json").is_file()), None)
+        if options.source is None:
+            parser.error("--source is required outside a checkout")
     options.source = options.source.resolve()
     if not (options.source / "CMakePresets.json").is_file():
         parser.error("--source must contain CMakePresets.json")

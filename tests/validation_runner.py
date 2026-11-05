@@ -196,6 +196,12 @@ class ValidationTests(unittest.TestCase):
                 self.assertEqual(error.exception.code, 2)
         self.assertFalse((self.source / "unignored-report").exists())
 
+    def test_explicit_source_survives_relocated_validator(self):
+        with patch.object(verify, "__file__", str(self.work / "copied-verify.py")):
+            options = verify.parse_arguments(["--source", str(self.source), "--cmake", str(CMAKE),
+                                               "--ctest", str(CTEST), "--output", str(self.work / "fresh")])
+        self.assertEqual(options.source, self.source.resolve())
+
     def test_fingerprint_includes_untracked_inputs(self):
         before = verify.source_snapshot(self.git, self.source)
         (self.source / "new-source.txt").write_text("new input", encoding="utf-8")
