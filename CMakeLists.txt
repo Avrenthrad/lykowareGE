@@ -323,6 +323,13 @@ if(BUILD_TESTING)
     add_test(NAME script.sandbox COMMAND lykoware_script_test)
     set_tests_properties(script.sandbox PROPERTIES TIMEOUT 60)
 
+    # The third-person follow camera never sees through walls (ADR 0044). Physics only.
+    add_executable(lykoware_follow_camera_test tests/follow_camera.cpp)
+    target_link_libraries(lykoware_follow_camera_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_follow_camera_test)
+    add_test(NAME camera.follow COMMAND lykoware_follow_camera_test)
+    set_tests_properties(camera.follow PROPERTIES TIMEOUT 60)
+
     # The maths module (ADR 0024). Links only the engine.
     add_executable(lykoware_math_test tests/math.cpp)
     target_link_libraries(lykoware_math_test PRIVATE lykoware::engine)

@@ -11,6 +11,7 @@ add_library(lykoware_engine STATIC
     src/scene.cpp
     src/scene_script.cpp
     src/ecs.cpp
+    src/follow_camera.cpp
     src/gltf.cpp
     src/image/image_decode.cpp
     src/mesh.cpp
