@@ -48,6 +48,7 @@ Records what is implemented and verified on `main`. Plans live in [ROADMAP.md](R
 | [0040](adr/0040-window-lifecycle.md) | Proposed (in review) | `Window::has_focus()` and `minimized()`; losing focus releases held keys and mouse buttons; the swapchain skips frames while the window is minimised and the sandbox sleeps instead of spinning; tests for platform close and quit, and three full shutdown-and-start cycles of window, audio, physics, ECS and the Vulkan stack in one process. |
 | [0041](adr/0041-lua-scripting.md) | Proposed (in review; owner chose the recommendation) | Scripting: vendored Lua 5.4.9 (MIT) compiled as C++ behind `lykoware::script::Script`: a sandbox without files, processes, clocks, module loading or bytecode; memory and instruction limits that pcall and coroutines cannot escape; a fixed hash seed and host-seeded `math.random`; host functions and calls with nil/boolean/integer/number/string values. |
 | [0042](adr/0042-script-driven-scenes.md) | Proposed (in review) | Lua scripts drive scenes through the scene's own commands: `scene::ScriptDriver` gives scripts `spawn`, `destroy`, `set_velocity` and `position` and calls `on_tick(tick)`; every change is a recorded command, so a script run replays without the script; `lyko run --scene ... --script FILE [--record FILE]`; `Scene::position`. |
+| [0043](adr/0043-renderer-golden-capture.md) | Proposed (in review) | A real renderer capture through `lyko screenshot` is compared with a committed golden (`tests/golden/falling-crates-160x120.ppm`, lavapipe) at tolerance 2 with at most 16 differing pixels; hardware GPUs report Skipped until they have goldens. |
 
 ## Verified on main
 
@@ -263,6 +264,18 @@ Owner: Claude. Branch `claude/window-lifecycle`, stacked on GPU timings. In revi
 - **Local checks:** 53/53 pass in Debug, ASan/UBSan and clang-tidy, with no validation errors.
 - **CI:** blocked for the whole account (see audio PR 1).
 
+### Real capture golden
+
+Owner: Claude. Branch `claude/capture-golden`, stacked on scripting PR 2. In review.
+
+- [ADR 0043](adr/0043-renderer-golden-capture.md) (Proposed).
+- **The gap:** Phase 1's exit asks that "a real image capture passes its golden tolerance". Captures were only checked for repeating.
+- **The test:** new `scene.capture_golden` renders the falling-crates scene through `lyko screenshot` and compares it with a committed 160×120 golden (57 KB), at tolerance 2 with at most 16 differing pixels. A failure writes a diff image.
+- **Devices:** software Vulkan only for now. Hardware GPUs report Skipped.
+- **Deliberate breaks:** 4 of 4 caught (sky colour, a skipped command, ambient light, field of view). A first, looser allowance missed a whole crate and was tightened.
+- **Local checks:** see ADR 0043.
+- **CI:** blocked for the whole account (see audio PR 1). CI's older lavapipe may need a reviewed golden or tolerance adjustment on its first run.
+
 ### Scripting, PR 2: scripts drive scenes
 
 Owner: Claude. Branch `claude/script-commands`, stacked on scripting PR 1. In review as [#49](https://github.com/Avrenthrad/lykowareGE/pull/49).
@@ -316,6 +329,8 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 
    - scripting: sandboxed Lua (ADR 0041) and scripts driving scenes from `lyko run --script` (ADR 0042).
 
+   - a real capture checked against a committed golden (ADR 0043, Phase 1 exit item).
+
    Still open: measured hardware budgets.
 
 ## Known issues and limitations
@@ -336,18 +351,18 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 ## Handoff
 
 - State: `main` at 7616ce3 contains PRs #2, #4–#21, #23–#29 and #31–#36. The Vulkan RHI bring-up, Phase 1 clocks, the physics spike, double-precision positions, the ECS (with physics on entities), the first lit renderer (falling crates), contract hardening and versioned scenes with command replay and CLI capture are complete. Physics determinism is verified on MSVC, GCC and Clang.
-- In review: `claude/audio-mixer` (Audio PR 1, ADR 0032, [#37](https://github.com/Avrenthrad/lykowareGE/pull/37)) and, stacked on it, `claude/audio-output` (Audio PR 2, ADR 0033, [#38](https://github.com/Avrenthrad/lykowareGE/pull/38)) and `claude/audio-spatial` (Audio PR 3, ADR 0034, [#39](https://github.com/Avrenthrad/lykowareGE/pull/39)), then `claude/gltf-meshes` (model loading, ADR 0035, [#40](https://github.com/Avrenthrad/lykowareGE/pull/40)), then `claude/image-decode` (textures PR 1, ADR 0036, [#41](https://github.com/Avrenthrad/lykowareGE/pull/41)), then `claude/gpu-textures` (textures PR 2, ADR 0037, [#42](https://github.com/Avrenthrad/lykowareGE/pull/42)), then `claude/gltf-materials` (textures PR 3, ADR 0038, [#43](https://github.com/Avrenthrad/lykowareGE/pull/43)), then `claude/gpu-timings` (GPU timings in traces, ADR 0039, [#44](https://github.com/Avrenthrad/lykowareGE/pull/44)), then `claude/window-lifecycle` (focus, minimise, close and restart, ADR 0040, [#46](https://github.com/Avrenthrad/lykowareGE/pull/46)), then `claude/script-lua` (scripting PR 1, sandboxed Lua, ADR 0041, [#48](https://github.com/Avrenthrad/lykowareGE/pull/48)), then `claude/script-commands` (scripting PR 2, script-driven scenes, ADR 0042, [#49](https://github.com/Avrenthrad/lykowareGE/pull/49)). CI cannot run at the moment: since 2026-11-05 every job fails before a runner starts. GitHub's annotation on each job reads "The job was not started because recent account payments have failed or your spending limit needs to be increased" (Billing & plans). These PRs are checked locally only. #30's fix reached `main` through #36 (80a0640), so the owner can close #30. Cursor's #22 is open. Codex's [#45](https://github.com/Avrenthrad/lykowareGE/pull/45) (installed licence notices, ADR 0045) is open against `main`.
+- In review: `claude/audio-mixer` (Audio PR 1, ADR 0032, [#37](https://github.com/Avrenthrad/lykowareGE/pull/37)) and, stacked on it, `claude/audio-output` (Audio PR 2, ADR 0033, [#38](https://github.com/Avrenthrad/lykowareGE/pull/38)) and `claude/audio-spatial` (Audio PR 3, ADR 0034, [#39](https://github.com/Avrenthrad/lykowareGE/pull/39)), then `claude/gltf-meshes` (model loading, ADR 0035, [#40](https://github.com/Avrenthrad/lykowareGE/pull/40)), then `claude/image-decode` (textures PR 1, ADR 0036, [#41](https://github.com/Avrenthrad/lykowareGE/pull/41)), then `claude/gpu-textures` (textures PR 2, ADR 0037, [#42](https://github.com/Avrenthrad/lykowareGE/pull/42)), then `claude/gltf-materials` (textures PR 3, ADR 0038, [#43](https://github.com/Avrenthrad/lykowareGE/pull/43)), then `claude/gpu-timings` (GPU timings in traces, ADR 0039, [#44](https://github.com/Avrenthrad/lykowareGE/pull/44)), then `claude/window-lifecycle` (focus, minimise, close and restart, ADR 0040, [#46](https://github.com/Avrenthrad/lykowareGE/pull/46)), then `claude/script-lua` (scripting PR 1, sandboxed Lua, ADR 0041, [#48](https://github.com/Avrenthrad/lykowareGE/pull/48)), then `claude/script-commands` (scripting PR 2, script-driven scenes, ADR 0042, [#49](https://github.com/Avrenthrad/lykowareGE/pull/49)), then `claude/capture-golden` (real capture golden, ADR 0043). CI cannot run at the moment: since 2026-11-05 every job fails before a runner starts. GitHub's annotation on each job reads "The job was not started because recent account payments have failed or your spending limit needs to be increased" (Billing & plans). These PRs are checked locally only. #30's fix reached `main` through #36 (80a0640), so the owner can close #30. Cursor's #22 is open. Codex's [#45](https://github.com/Avrenthrad/lykowareGE/pull/45) (installed licence notices, ADR 0045) is open against `main`.
 - Handle ownership fixes (2026-11-05), from Codex's health check in [#47](https://github.com/Avrenthrad/lykowareGE/pull/47). Both defects were reproduced and fixed in the PR that introduced them, then merged forward through the stack:
   - **`VoiceId`** (#37) carries its mixer's owner token. A mixer can no longer be copied or moved, so one mixer cannot stop another's voice.
   - **`MeshId`** (#40) and **`TextureId`** (#42) carry their renderer's token. An id kept from a destroyed renderer is no longer drawn by its replacement. Mesh parts (#43) refuse another renderer's texture id.
   - Each fix has a test that fails without it (checked by removing the check). ADRs 0032, 0035, 0037 and 0038 record the rule (ADR 0030).
 - Open decisions for the owner:
-  - accepting or rejecting ADRs 0008–0012, 0014–0017, 0022–0026 and 0030–0042 (merging did not accept them);
+  - accepting or rejecting ADRs 0008–0012, 0014–0017, 0022–0026 and 0030–0043 (merging did not accept them);
   - how to restore CI: fix the failed payment or spending limit under Billing & plans, or a self-hosted runner on the owner's PC. Any spending needs the owner's approval;
   - whether #44 and #46 complete their Phase 1 exit items (nothing is ticked);
   - the working assumptions in ADR 0021 (2–4 player co-op, 6-core CPU, 8 GB VRAM at minimum settings, camera-relative rendering);
   - Cursor's #22 (ADR 0019).
-- Next concrete action: once CI runs again, get the stacked PRs green (Windows/MSVC first). With both scripting PRs, the Phase 1 deliverables are all in review. What remains for Phase 1 is the owner's acceptance and the measured hardware budgets on the owner's PC. Codex's #45 covers the install licence notices.
+- Next concrete action: once CI runs again, get the stacked PRs green (Windows/MSVC first). With both scripting PRs and the capture golden (ADR 0043), every Phase 1 deliverable and every exit item that needs no hardware is in review. What remains for Phase 1 is the owner's acceptance and the measured hardware budgets on the owner's PC. Codex's #45 covers the install licence notices.
 - Owner checks wanted: run `lykoware_sandbox --window --vulkan` on the RTX 4070 desktop (a 5 × 5 grid of coloured crates tumbling onto a grey ground and dropping again every 8 seconds, each knocking as it lands, through the default sound device), `tools/validation/measure-scene.ps1` (ADR 0031), `lykoware_sandbox --window --vulkan --model FILE` with a textured .glb exported from Blender (ADR 0035, ADR 0038), `lyko trace --gpu --frames 300` opened in Perfetto (ADR 0039), and in the sandbox window: minimise it (CPU should stay low) and hold W while alt-tabbing away and back (nothing should stay pressed) (ADR 0040).
 - Checklist: no box ticked by this update. Phase 1 and the image/performance gate stay open.
 

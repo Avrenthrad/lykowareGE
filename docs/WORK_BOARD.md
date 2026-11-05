@@ -13,6 +13,13 @@ Owner rules for every task: small stacked PRs; commit small and often; keep all 
 
 Check latest main and open PRs before starting. Documents do not automatically synchronize assistants or reserve work.
 
+## Active task: real capture golden (Claude)
+
+- Owner/status: Claude, active. One PR ([ADR 0043](adr/0043-renderer-golden-capture.md)) in review on `claude/capture-golden`, stacked on scripting PR 2.
+- Objective: the Phase 1 exit item "a real image capture passes its golden tolerance".
+- Shared interfaces: a committed golden (`tests/golden/falling-crates-160x120.ppm`) and the `lykoware_image_compare` test helper. A deliberate change to the lit shader, camera, clear colour or the falling-crates sample now needs a reviewed golden update in the same PR (`LYKOWARE_UPDATE_GOLDEN=1`).
+- Checks: `scene.capture_golden`, deliberate breaks, five CI jobs once CI runs again.
+
 ## Active task: scripting (Claude)
 
 - Owner/status: Claude, active. PR 1 (sandboxed Lua 5.4, [ADR 0041](adr/0041-lua-scripting.md)) in review as #48 on `claude/script-lua`, stacked on window lifecycle. PR 2 (scripts drive scenes through recorded commands; `lyko run --script`, [ADR 0042](adr/0042-script-driven-scenes.md)) in review as #49 on `claude/script-commands`, stacked on PR 1.
