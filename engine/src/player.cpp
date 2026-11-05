@@ -124,6 +124,7 @@ PlayerCharacter::PlayerCharacter(physics::World& world, physics::CharacterId cha
     , config_{config}
     , camera_{config.camera}
     , facing_{camera_.yaw()}
+    , previous_feet_{state().position}
 {
     config_.max_distance = std::max(config_.max_distance, camera_.distance());
 }
@@ -162,6 +163,7 @@ void PlayerCharacter::steer(const PlayerIntent& intent)
 
 void PlayerCharacter::before_step(float seconds)
 {
+    previous_feet_ = state().position;
     const float speed = intent_.run ? config_.run_speed : config_.walk_speed;
     const math::Vec3 velocity = (camera_.forward() * intent_.forward + camera_.right() * intent_.right) * speed;
     if (intent_.forward != 0.F || intent_.right != 0.F) {
@@ -194,9 +196,21 @@ math::DVec3 PlayerCharacter::pivot() const
     return {feet.x, feet.y + static_cast<double>(config_.eye_height), feet.z};
 }
 
-render::Camera PlayerCharacter::view(float seconds)
+math::DVec3 PlayerCharacter::drawn_feet(float alpha) const
 {
-    return camera_.update(world_, pivot(), seconds);
+    const math::DVec3 now = state().position;
+    if (!std::isfinite(alpha)) {
+        return now;
+    }
+    const double t = static_cast<double>(std::clamp(alpha, 0.F, 1.F));
+    return {previous_feet_.x + (now.x - previous_feet_.x) * t, previous_feet_.y + (now.y - previous_feet_.y) * t,
+            previous_feet_.z + (now.z - previous_feet_.z) * t};
+}
+
+render::Camera PlayerCharacter::view(float seconds, float alpha)
+{
+    const math::DVec3 feet = drawn_feet(alpha);
+    return camera_.update(world_, {feet.x, feet.y + static_cast<double>(config_.eye_height), feet.z}, seconds);
 }
 
 }

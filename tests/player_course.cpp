@@ -347,6 +347,88 @@ void test_zoom()
     (void)view;
 }
 
+// Drawing between steps (ADR 0048): the drawn feet blend the last two steps by the frame's alpha,
+// so at 144 Hz the character and camera move evenly every frame instead of jumping a whole step
+// on some frames and standing still on others.
+void test_drawn_between_steps()
+{
+    auto world = make_world();
+    add_floor(*world);
+    PlayerConfig config;
+    config.body.position = {0.0, 0.0, 0.0};
+    auto player = make_player(*world, config);
+    settle(*world, *player, 30);
+    expect(player->drawn_feet(0.F) == player->state().position, "standing still, every alpha draws where it stands");
+    PlayerIntent walk;
+    walk.forward = 1.F;
+    player->steer(walk);
+    settle(*world, *player, 30);
+    const math::DVec3 before = player->state().position;
+    settle(*world, *player, 1);
+    const math::DVec3 after = player->state().position;
+    expect(player->drawn_feet(0.F) == before && player->drawn_feet(1.F) == after,
+           "alpha 0 draws the step before, alpha 1 the latest");
+    const math::DVec3 half = player->drawn_feet(0.5F);
+    expect(near(half.z, (before.z + after.z) / 2.0, 1e-9) && near(half.x, (before.x + after.x) / 2.0, 1e-9),
+           "alpha 0.5 draws halfway");
+    expect(player->drawn_feet(-1.F) == before && player->drawn_feet(2.F) == after, "alpha is clamped to 0..1");
+    expect(player->drawn_feet(std::nanf("")) == after, "a non-finite alpha draws the latest step");
+    const auto view = player->view(1.F / 60.F, 0.25F);
+    const math::DVec3 drawn = player->drawn_feet(0.25F);
+    expect(view.target == math::DVec3{drawn.x, drawn.y + static_cast<double>(config.eye_height), drawn.z},
+           "the camera orbits the drawn pivot");
+    expect(player->view(1.F / 60.F).target == player->pivot(), "without an alpha it orbits the latest step");
+
+    // 144 Hz frames over 60 Hz steps, walking at 4 m/s: 0.0278 m a frame.
+    std::string error;
+    auto clock = lykoware::FixedStep::create({}, error);
+    const double expected = static_cast<double>(config.walk_speed) / 144.0;
+    double drawn_least = 1e9;
+    double drawn_most = 0.0;
+    double eye_least = 1e9;
+    double eye_most = 0.0;
+    double latest_least = 1e9;
+    double latest_most = 0.0;
+    math::DVec3 last_drawn = player->drawn_feet(0.F);
+    math::DVec3 last_eye = view.eye;
+    math::DVec3 last_latest = player->state().position;
+    for (int frame = 0; frame < 300; ++frame) {
+        player->steer(walk);
+        const lykoware::FrameSteps steps = clock->advance(1'000'000'000 / 144);
+        for (std::uint32_t tick = 0; tick < steps.ticks; ++tick) {
+            player->before_step(tick_seconds());
+            (void)world->step(tick_seconds());
+        }
+        const auto alpha = static_cast<float>(steps.alpha);
+        const auto camera = player->view(1.F / 144.F, alpha);
+        const math::DVec3 now = player->drawn_feet(alpha);
+        const math::DVec3 latest = player->state().position;
+        if (frame >= 10) {
+            const auto moved = [](math::DVec3 a, math::DVec3 b) { return std::hypot(a.x - b.x, a.z - b.z); };
+            drawn_least = std::min(drawn_least, moved(now, last_drawn));
+            drawn_most = std::max(drawn_most, moved(now, last_drawn));
+            eye_least = std::min(eye_least, moved(camera.eye, last_eye));
+            eye_most = std::max(eye_most, moved(camera.eye, last_eye));
+            latest_least = std::min(latest_least, moved(latest, last_latest));
+            latest_most = std::max(latest_most, moved(latest, last_latest));
+        }
+        last_drawn = now;
+        last_eye = camera.eye;
+        last_latest = latest;
+    }
+    expect(drawn_least > expected * 0.9 && drawn_most < expected * 1.1,
+           "drawn between steps, the feet move evenly every 144 Hz frame: " + text(drawn_least) + " to "
+               + text(drawn_most) + " m, expected " + text(expected));
+    expect(eye_least > expected * 0.9 && eye_most < expected * 1.1,
+           "and so does the camera: " + text(eye_least) + " to " + text(eye_most) + " m");
+    std::cout << "144 Hz frames: drawn feet move " << drawn_least << " to " << drawn_most << " m, camera " << eye_least
+              << " to " << eye_most << " m, latest step alone " << latest_least << " to " << latest_most << " m (expected "
+              << expected << ")\n";
+    expect(latest_least < expected * 0.1 && latest_most > expected * 2.0,
+           "while the latest step alone stands still on some frames and jumps on others: " + text(latest_least)
+               + " to " + text(latest_most) + " m");
+}
+
 void test_refusals()
 {
     auto world = make_world();
@@ -529,7 +611,9 @@ private:
             results_.steps_ok = course_.world->step(static_cast<float>(clock_->tick_seconds())) && results_.steps_ok;
             check_feet();
         }
-        check_view(player_.view(seconds));
+        // Drawn as the sandbox draws it, between the last two steps (ADR 0048).
+        const auto alpha = static_cast<float>(steps.alpha);
+        check_view(player_.view(seconds, alpha), alpha);
         ++results_.frames;
         return seconds;
     }
@@ -546,9 +630,10 @@ private:
         results_.longest_sunk = std::max(results_.longest_sunk, sunk_);
     }
 
-    void check_view(const lykoware::render::Camera& view)
+    void check_view(const lykoware::render::Camera& view, float alpha)
     {
-        const math::DVec3 pivot = player_.pivot();
+        const math::DVec3 feet = player_.drawn_feet(alpha);
+        const math::DVec3 pivot{feet.x, feet.y + static_cast<double>(PlayerConfig{}.eye_height), feet.z};
         const math::Vec3 line = math::relative_to(view.eye, pivot);
         const std::string where = " at (" + text(pivot.x) + ", " + text(pivot.z) + "), yaw "
             + text(player_.camera().yaw()) + ", pitch " + text(player_.camera().pitch());
@@ -667,6 +752,7 @@ int main()
     test_moves_relative_to_the_camera();
     test_jumps();
     test_zoom();
+    test_drawn_between_steps();
     test_refusals();
     test_course();
     if (g_failures != 0) {

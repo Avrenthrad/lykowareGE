@@ -77,6 +77,11 @@ struct PlayerConfig {
 // step that frame (zero or more), then view() for the camera to draw with. Movement is relative
 // to where the camera faces, so "forward" is always into the screen.
 //
+// Drawing between steps (ADR 0048): physics steps at a fixed rate, frames come faster or slower.
+// Pass the frame's FrameSteps::alpha to view() and drawn_feet() and the character and camera are
+// drawn that far between the last two steps, so they move smoothly at any frame rate. This is
+// presentation only: alpha never reaches the simulation.
+//
 // Ownership: create() returns the sole owner. It owns its character in the world and destroys it
 // with itself; the world must outlive it. Copy and move are not provided.
 //
@@ -104,9 +109,13 @@ public:
     // movement relative to the camera, and a jump if one is waiting and the character stands on
     // walkable ground.
     void before_step(float seconds);
-    // The camera for this frame, after the latest step; `seconds` is the frame's length, for the
-    // camera easing back out after an obstruction.
-    [[nodiscard]] render::Camera view(float seconds);
+    // The camera for this frame, orbiting the drawn pivot (drawn_feet(alpha) plus eye_height);
+    // `seconds` is the frame's length, for the camera easing back out after an obstruction.
+    // alpha 1, the default, is the latest step.
+    [[nodiscard]] render::Camera view(float seconds, float alpha = 1.F);
+    // Where to draw the feet: `alpha` (clamped to 0..1) of the way from where they were before
+    // the latest step to where they are after it. A non-finite alpha gives the latest step.
+    [[nodiscard]] math::DVec3 drawn_feet(float alpha) const;
 
     [[nodiscard]] physics::CharacterId character() const { return character_; }
     [[nodiscard]] physics::CharacterState state() const;
@@ -126,6 +135,8 @@ private:
     PlayerIntent intent_{};
     float jump_wait_ = 0.F;
     float facing_ = 0.F;
+    // The feet before the latest step, for drawing between steps.
+    math::DVec3 previous_feet_;
 };
 
 }

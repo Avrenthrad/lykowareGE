@@ -357,6 +357,10 @@ public:
 
     void tick(float seconds)
     {
+        // Where each crate was before this step, to draw it between steps (ADR 0048).
+        for (std::size_t i = 0; i < crates_.size(); ++i) {
+            before_[i] = pose(crates_[i]);
+        }
         link_.step(seconds);
         find_impacts(seconds);
         if (entities_.alive(model_)) {
@@ -370,9 +374,29 @@ public:
                 entities_.destroy(crate); // the link destroys each crate's physics body too
             }
             crates_.clear();
+            before_.clear();
             last_velocity_.clear();
             quiet_.clear();
             drop();
+        }
+    }
+
+    // Draws each crate `alpha` (FrameSteps::alpha) of the way from where it was before the
+    // latest step to where it is now, so crates fall smoothly at any frame rate (ADR 0048). Only
+    // the drawn Transform changes; the next step overwrites it from physics.
+    void present(float alpha)
+    {
+        const float t = std::isfinite(alpha) ? std::clamp(alpha, 0.F, 1.F) : 1.F;
+        for (std::size_t i = 0; i < crates_.size(); ++i) {
+            auto* transform = entities_.get<lykoware::Transform>(crates_[i]);
+            if (transform == nullptr) {
+                continue;
+            }
+            const Pose now = pose(crates_[i]);
+            const lykoware::math::DVec3 from = before_[i].position;
+            const auto mix = [t](double a, double b) { return a + (b - a) * static_cast<double>(t); };
+            transform->position = {mix(from.x, now.position.x), mix(from.y, now.position.y), mix(from.z, now.position.z)};
+            transform->rotation = blend(before_[i].rotation, now.rotation, t);
         }
     }
 
@@ -381,6 +405,27 @@ public:
     std::vector<Impact> take_impacts() { return std::exchange(impacts_, {}); }
 
 private:
+    struct Pose {
+        lykoware::math::DVec3 position;
+        lykoware::math::Quat rotation;
+    };
+
+    Pose pose(lykoware::ecs::Entity crate) const
+    {
+        const auto* body = entities_.get<lykoware::physics_ecs::RigidBody>(crate);
+        const auto state = body != nullptr ? physics_.state(body->id()) : std::nullopt;
+        return state ? Pose{state->position, state->rotation} : Pose{};
+    }
+
+    // Normalised linear blend along the shorter way round; close enough to a slerp for one
+    // tick's turn.
+    static lykoware::math::Quat blend(lykoware::math::Quat a, lykoware::math::Quat b, float t)
+    {
+        const float sign = a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w < 0.F ? -1.F : 1.F;
+        return lykoware::math::normalize(lykoware::math::Quat{a.x + (sign * b.x - a.x) * t, a.y + (sign * b.y - a.y) * t,
+                                                              a.z + (sign * b.z - a.z) * t, a.w + (sign * b.w - a.w) * t});
+    }
+
     // The model turns about its own centre, with its lowest point on the ground at (-7, 0, 1).
     void place_model()
     {
@@ -469,6 +514,7 @@ private:
                         entities_.add<lykoware::audio::AudioSource>(entity, source);
                     }
                     crates_.push_back(entity);
+                    before_.push_back(pose(entity));
                     last_velocity_.push_back({});
                     quiet_.push_back(0.F);
                 }
@@ -484,6 +530,7 @@ private:
     std::vector<lykoware::ecs::Entity> crates_;
     std::vector<lykoware::math::Vec3> last_velocity_;
     std::vector<float> quiet_;
+    std::vector<Pose> before_;
     std::vector<Impact> impacts_;
     double elapsed_ = 0.0;
     // Where the crates fall: the middle of the flat ground, or beside the course.
@@ -508,9 +555,10 @@ public:
         entities_.add<lykoware::Transform>(visor_, lykoware::Transform{});
     }
 
-    void place(const lykoware::PlayerCharacter& player)
+    // Draws the body `alpha` of the way between the last two steps (ADR 0048).
+    void place(const lykoware::PlayerCharacter& player, float alpha)
     {
-        const lykoware::math::DVec3 feet = player.state().position;
+        const lykoware::math::DVec3 feet = player.drawn_feet(alpha);
         const lykoware::math::Quat facing = lykoware::math::from_axis_angle({0.F, 1.F, 0.F}, player.facing());
         auto* body = entities_.get<lykoware::Transform>(body_);
         body->position = feet + lykoware::math::Vec3{0.F, height / 2.F, 0.F};
@@ -679,8 +727,7 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
     const lykoware::rhi::ClearColor sky{0.45F, 0.6F, 0.8F, 1.F};
 
     // The simulation advances only in fixed 60 Hz ticks (ADR 0017), so the crates fall at the
-    // same speed at any frame rate. Frames show the latest tick; smoothing between ticks
-    // (interpolation) comes later.
+    // same speed at any frame rate. Frames are drawn between the last two ticks (ADR 0048).
     std::string clock_error;
     std::optional<lykoware::FixedStep> simulation = lykoware::FixedStep::create({}, clock_error);
     if (!simulation) {
@@ -741,9 +788,12 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
                 scene->tick(static_cast<float>(simulation->tick_seconds()));
             }
         }
+        // Draw between the last two steps, by how far real time has run past the latest one.
+        const auto alpha = static_cast<float>(steps.alpha);
+        scene->present(alpha);
         if (player) {
-            camera = player->view(frame_seconds);
-            player_body->place(*player);
+            camera = player->view(frame_seconds, alpha);
+            player_body->place(*player, alpha);
         }
         const auto listener = lykoware::audio::Listener::looking_at(camera.eye, camera.target, camera.up);
         if (audio) {
