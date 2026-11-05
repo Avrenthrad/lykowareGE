@@ -78,5 +78,5 @@ Proposed:
     - the ambient light changed from 0.25 to 0.27: 281 pixels;
     - the field of view 1% wider: 28 pixels.
   - **The first allowance (192 pixels) missed** the blue crate. The interpolation factor is not observable at rest (above).
-- **Local results:** to be recorded.
+- **Local results:** 56/56 pass in the Debug, ASan/UBSan and clang-tidy presets. The ASan build's capture also matches the golden with 0 differing pixels.
 - **CI:** blocked for the whole account since 2026-11-05 (failed payment or spending limit, see STATUS).

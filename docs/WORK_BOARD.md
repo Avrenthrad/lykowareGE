@@ -15,7 +15,7 @@ Check latest main and open PRs before starting. Documents do not automatically s
 
 ## Active task: real capture golden (Claude)
 
-- Owner/status: Claude, active. One PR ([ADR 0043](adr/0043-renderer-golden-capture.md)) in review on `claude/capture-golden`, stacked on scripting PR 2.
+- Owner/status: Claude, active. One PR ([ADR 0043](adr/0043-renderer-golden-capture.md)) in review as #50 on `claude/capture-golden`, stacked on scripting PR 2.
 - Objective: the Phase 1 exit item "a real image capture passes its golden tolerance".
 - Shared interfaces: a committed golden (`tests/golden/falling-crates-160x120.ppm`) and the `lykoware_image_compare` test helper. A deliberate change to the lit shader, camera, clear colour or the falling-crates sample now needs a reviewed golden update in the same PR (`LYKOWARE_UPDATE_GOLDEN=1`).
 - Checks: `scene.capture_golden`, deliberate breaks, five CI jobs once CI runs again.
