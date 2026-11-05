@@ -132,10 +132,11 @@ bool prepare_mesh_draws(const GraphicsPipeline& pipeline, ColorFormat target_for
             return fail(error, RhiFailure::InvalidArgument, which + "needs an index buffer");
         }
         const std::size_t available = mesh.indices->size_bytes() / sizeof(std::uint32_t);
-        const std::size_t count = mesh.index_count == 0 ? available : mesh.index_count;
-        if (count == 0 || count % 3 != 0 || count > available) {
+        const std::size_t first = mesh.first_index;
+        const std::size_t count = mesh.index_count == 0 ? (first < available ? available - first : 0) : mesh.index_count;
+        if (count == 0 || count % 3 != 0 || first > available || count > available - first) {
             return fail(error, RhiFailure::InvalidArgument,
-                        which + "the index count must be a non-zero multiple of 3 within the index buffer");
+                        which + "the indices drawn must be a non-zero multiple of 3 within the index buffer");
         }
         const std::size_t vertex_count = mesh.vertices->size_bytes() / stride;
         if (mesh.indices->max_index() >= vertex_count) {
@@ -156,7 +157,8 @@ bool prepare_mesh_draws(const GraphicsPipeline& pipeline, ColorFormat target_for
                          static_cast<VkBuffer>(mesh.indices->native_handle()), static_cast<std::uint32_t>(count),
                          mesh.push_constants.data(), static_cast<std::uint32_t>(mesh.push_constants.size()),
                          mesh.texture != nullptr ? static_cast<VkDescriptorSet>(mesh.texture->native_descriptor_set())
-                                                 : VK_NULL_HANDLE});
+                                                 : VK_NULL_HANDLE,
+                         mesh.first_index});
     }
     return true;
 }
@@ -236,7 +238,7 @@ void record_mesh_pass(VkCommandBuffer commands, VkImageView colour_view, VkImage
         const VkDeviceSize offset = 0;
         vkCmdBindVertexBuffers(commands, 0, 1, &draw.vertices, &offset);
         vkCmdBindIndexBuffer(commands, draw.indices, 0, VK_INDEX_TYPE_UINT32);
-        vkCmdDrawIndexed(commands, draw.index_count, 1, 0, 0, 0);
+        vkCmdDrawIndexed(commands, draw.index_count, 1, draw.first_index, 0, 0);
     }
     vkCmdEndRendering(commands);
 }

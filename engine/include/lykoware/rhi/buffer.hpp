@@ -71,6 +71,9 @@ struct MeshDraw {
     // Required when the pipeline reads a texture (GraphicsPipelineDesc::texture), and must be
     // null otherwise.
     const Texture* texture = nullptr;
+    // The first index drawn, so one index buffer can hold several parts (ADR 0038). With
+    // index_count 0, the draw runs from here to the end of the buffer.
+    std::uint32_t first_index = 0;
 };
 
 }

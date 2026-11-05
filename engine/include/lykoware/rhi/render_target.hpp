@@ -88,8 +88,9 @@ public:
     // InvalidArgument, nothing submitted, when: the pipeline's colour format
     // differs; it has no mesh vertex layout (PositionNormal or
     // PositionNormalUv); it uses depth and this target has none; a mesh lacks
-    // a vertex or index buffer of the right usage; its index count is 0, not
-    // a multiple of 3 or more than the buffer holds; an index reaches past
+    // a vertex or index buffer of the right usage; the indices it draws
+    // (first_index, index_count) are none, not a multiple of 3 or past the
+    // end of the buffer; an index reaches past
     // the last vertex; its push constants are not exactly the pipeline's
     // push_constant_bytes; or it names no texture for a pipeline that reads
     // one, or names one for a pipeline that does not.
