@@ -4,9 +4,15 @@ configure_file(
     @ONLY)
 
 add_library(lykoware_engine STATIC
+    src/audio.cpp
+    src/audio_output.cpp
+    src/audio_spatial.cpp
     src/clock.cpp
     src/scene.cpp
     src/ecs.cpp
+    src/gltf.cpp
+    src/image/image_decode.cpp
+    src/mesh.cpp
     src/world_identity.cpp
     src/log.cpp
     src/paths.cpp
@@ -24,15 +30,23 @@ add_library(lykoware_engine STATIC
     src/rhi/device.cpp
     src/rhi/render_target.cpp
     src/rhi/swapchain.cpp
+    src/rhi/texture.cpp
     src/rhi/pipeline.cpp)
 add_library(lykoware::engine ALIAS lykoware_engine)
 target_compile_features(lykoware_engine PUBLIC cxx_std_20)
 target_include_directories(lykoware_engine PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
     "${CMAKE_CURRENT_BINARY_DIR}/generated")
-target_link_libraries(lykoware_engine PRIVATE SDL3-static lykoware_volk lykoware_vma Jolt)
+target_link_libraries(lykoware_engine PRIVATE SDL3-static lykoware_volk lykoware_vma lykoware_wuffs Jolt)
 
 lykoware_configure_target(lykoware_engine)
+
+# The mixer's output is bit-identical across compilers (ADR 0032), so the compiler must not
+# fuse a multiply and an add into one instruction with a single rounding. MSVC's default
+# /fp:precise already does not.
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    set_source_files_properties(src/audio.cpp src/audio_spatial.cpp PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
+endif()
 
 # JSON stays private behind scene.hpp; upstream licence/notices are vendored.
 target_include_directories(lykoware_engine SYSTEM PRIVATE "${CMAKE_SOURCE_DIR}/third_party/json/include")

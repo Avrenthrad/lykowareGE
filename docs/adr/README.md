@@ -30,10 +30,17 @@ Canonical directory: docs/adr. Decisions remain Proposed until resolved; disting
 | [0024](0024-math.md) | Proposed (owner chose "write our own") | Lykoware's own maths: vectors, quaternions, column-major matrices, reversed infinite-depth Vulkan projection, camera-relative positions |
 | [0025](0025-rhi-meshes.md) | Proposed | RHI meshes: vertex and index buffers, depth, culling, push constants, `draw_meshes` |
 | [0026](0026-renderer.md) | Proposed | First renderer: `Transform`, `MeshRenderer`, `Camera`, `Renderer` drawing ECS entities camera-relative; swapchain depth; falling crates in the sandbox |
-
 | [0030](0030-runtime-contract-hardening.md) | Proposed | Runtime owner tokens, transactional ECS storage and exclusive physics links |
-
 | [0031](0031-scenes-and-command-replay.md) | Proposed | Versioned scenes, stable authored IDs, fixed-tick commands and read-only presentation |
+| [0032](0032-audio-mixer.md) | Proposed (owner chose "our own mixer") | Lykoware's own audio mixer: 64 voices, 48 kHz stereo float output, bit-identical however it is split into calls; constant-power panning, ramped gains, linear resampling; our own WAV reader |
+| [0033](0033-audio-output.md) | Proposed (owner chose SDL3 for playback) | Audio output through SDL3: `audio::Output` owns a mixer that SDL's audio thread renders under a lock; dummy and disk drivers for tests; window and audio SDL sessions independent |
+| [0034](0034-spatial-audio.md) | Proposed (owner chose 3D sound tied to ECS entities) | 3D positional sound: `AudioSource` component, `SpatialAudio` keeps voices where their entities are; inverse-distance falloff and stereo pan, camera-relative in double precision; crate knocks in the sandbox |
+| [0035](0035-gltf-meshes.md) | Proposed (owner chose "write our own", shapes first) | Lykoware's own glTF 2.0 reader (.gltf/.glb, node transforms baked, strict bounds, folder-confined external buffers) into `MeshData`; `Renderer::add_mesh` and `MeshRenderer::mesh`; inverse-transpose normals; sandbox `--model FILE` |
+| [0036](0036-image-decoding.md) | Proposed (owner chose "vendor Wuffs") | PNG and JPEG decoding through vendored Wuffs v0.4.0-alpha.12 (MIT option) into 8-bit RGBA; checksums checked; size limits before allocation |
+| [0037](0037-gpu-textures.md) | Proposed | `rhi::Texture` (sRGB/Unorm, CPU-made gamma-correct mipmaps, wrap and filter), one descriptor set per texture, `PositionNormalUv` pipelines; the lit shader samples a base colour texture; `Renderer::add_texture` and `MeshRenderer::texture` |
+| [0038](0038-gltf-materials.md) | Proposed | glTF `read_model`/`load_model`: TEXCOORD_0, base colour materials, textures and samplers, decoded images; models drawn as `MeshPart`s with their own colour and texture (`MeshDraw::first_index`); sandbox shows textured models |
+| [0039](0039-gpu-timings.md) | Proposed | GPU timings from Vulkan timestamp queries: `RenderTarget::last_gpu_time_ns`, `Swapchain::take_gpu_frame_times`; `CpuTrace` GPU spans on a second track; sandbox `--window --vulkan --trace` and `lyko trace --gpu` |
+| [0040](0040-window-lifecycle.md) | Proposed | `Window::has_focus`/`minimized`; focus loss releases held keys and mouse buttons; the swapchain skips frames while minimised; close and full-restart tests (`lifecycle.restart`, `lifecycle.restart_vulkan`) |
 
 | [0045](0045-runtime-package-notices.md) | Proposed | Preserve runtime dependency notices in installed packages, with artifact checks |
 

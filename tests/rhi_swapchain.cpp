@@ -15,11 +15,17 @@
 #include <lykoware/rhi/swapchain.hpp>
 #include <lykoware/window.hpp>
 
+#include <SDL3/SDL.h>
+
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <iostream>
 #include <memory>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace {
 
@@ -51,6 +57,71 @@ bool render(lykoware::rhi::Swapchain& swapchain, lykoware::Window& window, int f
         }
     }
     return true;
+}
+
+// ADR 0039: after the device is idle, the next `count` frames from `first` each have a GPU time
+// when the device has timestamps, submitted in order between `since` and now, and none are
+// returned twice.
+void expect_frame_times(const lykoware::rhi::Device& device, lykoware::rhi::Swapchain& swapchain, std::uint64_t first,
+                        std::uint64_t count, std::chrono::steady_clock::time_point since, std::string_view what)
+{
+    lykoware::rhi::RhiError error;
+    expect(device.wait_idle(error), "the device goes idle");
+    const auto now = std::chrono::steady_clock::now();
+    const std::vector<lykoware::rhi::GpuFrameTime> times = swapchain.take_gpu_frame_times();
+    if (!device.gpu_timestamps()) {
+        expect(times.empty(), "no frame times without timestamps");
+        return;
+    }
+    expect(times.size() == count, std::string{what} + ": one GPU time per frame");
+    bool numbered = times.size() == count;
+    bool ordered = true;
+    bool plausible = !times.empty();
+    for (std::size_t index = 0; index < times.size(); ++index) {
+        numbered = numbered && times[index].frame == first + index;
+        ordered = ordered && times[index].submitted >= since && times[index].submitted <= now
+            && (index == 0 || times[index - 1].submitted <= times[index].submitted);
+        plausible = plausible && times[index].nanoseconds > 0 && times[index].nanoseconds < 10'000'000'000ULL;
+    }
+    expect(numbered, std::string{what} + ": frames are numbered in submission order");
+    expect(ordered, std::string{what} + ": submission times are in order, while the frames were rendered");
+    expect(plausible, std::string{what} + ": GPU times are plausible");
+    expect(swapchain.take_gpu_frame_times().empty(), std::string{what} + ": taken times are not returned again");
+}
+
+// The window's platform event for `type`, as the platform would send it.
+void push_window_event(SDL_EventType type)
+{
+    int count = 0;
+    SDL_Window** windows = SDL_GetWindows(&count);
+    expect(windows != nullptr && count == 1, "one platform window is open");
+    if (windows != nullptr && count == 1) {
+        SDL_Event event{};
+        event.type = type;
+        event.window.windowID = SDL_GetWindowID(windows[0]);
+        expect(SDL_PushEvent(&event), "push the window event");
+    }
+    SDL_free(windows);
+}
+
+// ADR 0040: frames while minimised are skipped, neither submitted nor presented, and
+// restoring resumes with the same swapchain.
+void expect_minimised_frames_skipped(const lykoware::rhi::Device& device, lykoware::rhi::Swapchain& swapchain,
+                                     lykoware::Window& window)
+{
+    lykoware::rhi::RhiError error;
+    expect(device.wait_idle(error), "the device goes idle");
+    (void)swapchain.take_gpu_frame_times();
+    const std::uint64_t presented = swapchain.frames_presented();
+    const std::uint32_t rebuilds = swapchain.rebuild_count();
+    push_window_event(SDL_EVENT_WINDOW_MINIMIZED);
+    expect(render(swapchain, window, 3, 0.3F) && window.minimized(), "frames while minimised succeed");
+    expect(swapchain.frames_presented() == presented, "a minimised window presents nothing");
+    expect(device.wait_idle(error) && swapchain.take_gpu_frame_times().empty(), "and submits nothing");
+    push_window_event(SDL_EVENT_WINDOW_RESTORED);
+    expect(render(swapchain, window, 2, 0.3F) && !window.minimized(), "frames render after a restore");
+    expect(swapchain.frames_presented() == presented + 2, "a restored window presents again");
+    expect(swapchain.rebuild_count() == rebuilds, "restoring keeps the swapchain");
 }
 
 std::unique_ptr<lykoware::rhi::GraphicsPipeline> triangle_pipeline(const lykoware::rhi::Device& device,
@@ -155,9 +226,12 @@ int main(int argc, char* argv[])
         } else {
             expect(swapchain->width() == 64 && swapchain->height() == 48, "swapchain extent matches the window");
             expect(swapchain->image_count() >= 2, "swapchain has at least two images");
+            const auto first_frames = std::chrono::steady_clock::now();
             expect(render(*swapchain, *window, 5, 0.1F), "five frames render and present");
             expect(swapchain->frames_presented() == 5, "five frames are presented");
+            expect_frame_times(*device, *swapchain, 0, 5, first_frames, "the first five frames");
 
+            const auto later_frames = std::chrono::steady_clock::now();
             std::string resize_error;
             expect(window->resize(80, 60, resize_error), "the window resizes");
             const std::uint32_t rebuilds_before = swapchain->rebuild_count();
@@ -181,6 +255,7 @@ int main(int argc, char* argv[])
                 }
                 expect(drawn, "the triangle draws through the swapchain");
                 expect(swapchain->frames_presented() == 12, "every drawn frame is presented");
+                expect_frame_times(*device, *swapchain, 5, 7, later_frames, "frames across a resize and the triangle");
             }
 
             const ColorFormat other = format == ColorFormat::Bgra8Unorm ? ColorFormat::Rgba8Unorm
@@ -192,6 +267,7 @@ int main(int argc, char* argv[])
                            && error.failure == lykoware::rhi::RhiFailure::InvalidArgument,
                        "a pipeline for another colour format is refused");
                 expect(swapchain->frames_presented() == 12, "a refused draw presents nothing");
+                expect(swapchain->take_gpu_frame_times().empty(), "a refused draw times nothing");
             }
         }
     }
@@ -203,6 +279,7 @@ int main(int argc, char* argv[])
         expect(swapchain != nullptr, "a non-vsync swapchain is created after the first is destroyed");
         if (swapchain) {
             expect(render(*swapchain, *window, 4, 0.9F), "non-vsync frames render and present");
+            expect_minimised_frames_skipped(*device, *swapchain, *window);
         }
     }
 

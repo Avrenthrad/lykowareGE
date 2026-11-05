@@ -103,6 +103,10 @@ public:
     // Blocks until all queued work on the device has finished.
     [[nodiscard]] bool wait_idle(RhiError& error) const;
 
+    // Whether the graphics queue writes GPU timestamps, so RenderTarget and Swapchain can report
+    // how long their work took on the GPU (ADR 0039). Nearly every desktop GPU does.
+    [[nodiscard]] bool gpu_timestamps() const;
+
     // Vulkan handles as opaque pointers for other RHI code. Valid until this
     // object is destroyed. VkDevice, VkPhysicalDevice and VkQueue.
     [[nodiscard]] void* native_device() const;

@@ -150,6 +150,7 @@ struct GraphicsPipeline::Impl {
     VertexLayout vertex_layout = VertexLayout::None;
     bool depth = false;
     std::uint32_t push_constant_bytes = 0;
+    bool texture = false;
 };
 
 GraphicsPipeline::GraphicsPipeline(std::unique_ptr<Impl> impl)
@@ -189,6 +190,7 @@ std::unique_ptr<GraphicsPipeline> GraphicsPipeline::create(
     impl->vertex_layout = desc.vertex_layout;
     impl->depth = desc.depth;
     impl->push_constant_bytes = desc.push_constant_bytes;
+    impl->texture = desc.texture;
     const VkDevice vk_device = DeviceAccess::device(device);
 
     VkPushConstantRange push_range{};
@@ -200,6 +202,12 @@ std::unique_ptr<GraphicsPipeline> GraphicsPipeline::create(
     if (desc.push_constant_bytes > 0) {
         layout_info.pushConstantRangeCount = 1;
         layout_info.pPushConstantRanges = &push_range;
+    }
+    // A texture is set 0, with the layout every rhi::Texture's descriptor set shares.
+    const VkDescriptorSetLayout texture_layout = DeviceAccess::texture_set_layout(device);
+    if (desc.texture) {
+        layout_info.setLayoutCount = 1;
+        layout_info.pSetLayouts = &texture_layout;
     }
     VkResult result = vkCreatePipelineLayout(vk_device, &layout_info, nullptr, &impl->layout);
     if (result != VK_SUCCESS) {
@@ -217,11 +225,12 @@ std::unique_ptr<GraphicsPipeline> GraphicsPipeline::create(
         stages[index].pName = shader_entry_point;
     }
 
+    const bool with_uv = desc.vertex_layout == VertexLayout::PositionNormalUv;
     VkVertexInputBindingDescription binding{};
     binding.binding = 0;
-    binding.stride = position_normal_stride;
+    binding.stride = with_uv ? position_normal_uv_stride : position_normal_stride;
     binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-    VkVertexInputAttributeDescription attributes[2]{};
+    VkVertexInputAttributeDescription attributes[3]{};
     attributes[0].location = 0;
     attributes[0].binding = 0;
     attributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
@@ -230,12 +239,16 @@ std::unique_ptr<GraphicsPipeline> GraphicsPipeline::create(
     attributes[1].binding = 0;
     attributes[1].format = VK_FORMAT_R32G32B32_SFLOAT;
     attributes[1].offset = 12;
+    attributes[2].location = 2;
+    attributes[2].binding = 0;
+    attributes[2].format = VK_FORMAT_R32G32_SFLOAT;
+    attributes[2].offset = 24;
     VkPipelineVertexInputStateCreateInfo vertex_input{};
     vertex_input.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    if (desc.vertex_layout == VertexLayout::PositionNormal) {
+    if (desc.vertex_layout != VertexLayout::None) {
         vertex_input.vertexBindingDescriptionCount = 1;
         vertex_input.pVertexBindingDescriptions = &binding;
-        vertex_input.vertexAttributeDescriptionCount = 2;
+        vertex_input.vertexAttributeDescriptionCount = with_uv ? 3 : 2;
         vertex_input.pVertexAttributeDescriptions = attributes;
     }
     VkPipelineInputAssemblyStateCreateInfo assembly{};
@@ -325,6 +338,11 @@ bool GraphicsPipeline::depth() const
 std::uint32_t GraphicsPipeline::push_constant_bytes() const
 {
     return impl_->push_constant_bytes;
+}
+
+bool GraphicsPipeline::texture() const
+{
+    return impl_->texture;
 }
 
 void* GraphicsPipeline::native_handle() const

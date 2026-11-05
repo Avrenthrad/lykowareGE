@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <span>
 
 namespace lykoware::rhi {
@@ -86,13 +87,23 @@ public:
     // One dynamic-rendering pass: clear colour to `clear` and depth to far,
     // then draw each mesh in order with `pipeline`, then wait. Refused with
     // InvalidArgument, nothing submitted, when: the pipeline's colour format
-    // differs; it has no PositionNormal vertex layout; it uses depth and this
-    // target has none; a mesh lacks a vertex or index buffer of the right
-    // usage; its index count is 0, not a multiple of 3 or more than the
-    // buffer holds; an index reaches past the last vertex; or its push
-    // constants are not exactly the pipeline's push_constant_bytes.
+    // differs; it has no mesh vertex layout (PositionNormal or
+    // PositionNormalUv); it uses depth and this target has none; a mesh lacks
+    // a vertex or index buffer of the right usage; the indices it draws
+    // (first_index, index_count) are none, not a multiple of 3 or past the
+    // end of the buffer; an index reaches past
+    // the last vertex; its push constants are not exactly the pipeline's
+    // push_constant_bytes; or it names no texture for a pipeline that reads
+    // one, or names one for a pipeline that does not.
     [[nodiscard]] bool draw_meshes(const ClearColor& clear, const GraphicsPipeline& pipeline,
                                    std::span<const MeshDraw> meshes, RhiError& error);
+
+    // How long the last clear(), draw() or draw_meshes() took on the GPU, in
+    // nanoseconds, measured with timestamps around its commands (ADR 0039).
+    // nullopt before the first one, after one that failed or was refused, or
+    // when the device has no timestamps (Device::gpu_timestamps()).
+    // read_back() does not change it.
+    [[nodiscard]] std::optional<std::uint64_t> last_gpu_time_ns() const;
 
     // Copies the current contents into `image` as tightly packed RGB8 with
     // the top-left origin of lykoware::Image. Alpha is dropped. On failure

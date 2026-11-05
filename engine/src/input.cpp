@@ -37,6 +37,16 @@ bool slot(Enum value, std::size_t& index) noexcept
 
 }
 
+void release_keys_and_mouse_buttons(InputState& state) noexcept
+{
+    for (ButtonState& key : state.keys) {
+        note_button(key, false);
+    }
+    for (ButtonState& button : state.mouse.buttons) {
+        note_button(button, false);
+    }
+}
+
 void begin_input_frame(InputState& state) noexcept
 {
     for (ButtonState& key : state.keys) {

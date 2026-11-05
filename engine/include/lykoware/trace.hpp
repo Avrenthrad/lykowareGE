@@ -39,7 +39,8 @@ private:
 // arguments. Threading: pure; no shared mutable state. Failure: does not throw.
 [[nodiscard]] std::uint64_t cpu_fixture_iteration(std::uint64_t state) noexcept;
 
-// Records scoped CPU zones and writes one Chrome Trace Event JSON document.
+// Records scoped CPU zones, and GPU spans measured elsewhere, and writes one
+// Chrome Trace Event JSON document.
 // The document is diagnostic output, not an authored project format. ADR 0004
 // accepts canonical JSON for machine-written data; this writer is hand-built
 // and is not that schema. No JSON library is used.
@@ -47,7 +48,14 @@ private:
 // Each zone becomes one complete event ("ph":"X") with a CPU category.
 // Timestamps and durations are steady-clock microseconds from session
 // construction. pid and tid are the constants 1 because a session is one
-// thread; they are not operating-system identifiers. There are no GPU events.
+// thread; they are not operating-system identifiers.
+//
+// GPU spans (ADR 0039) are complete events with category "gpu" on tid 2.
+// The caller gives their start on this session's clock (elapsed_us()) and
+// their GPU duration, for example a Swapchain frame time placed at the
+// moment the frame was submitted. When a document has GPU spans, it also
+// names the two tracks "CPU" and "GPU" with thread_name metadata events
+// ("ph":"M"); a document with only CPU zones is unchanged.
 //
 // Ownership: the session owns its completed-event buffer. A Zone holds a
 // reference to that session and its own copy of the zone name. The caller
@@ -101,7 +109,17 @@ public:
     // Writes Chrome trace JSON. See the class contract for failure behavior.
     [[nodiscard]] bool write(const std::filesystem::path& path) const;
 
-    // Number of zones that have already completed. An open zone is not counted.
+    // Records a GPU span: `name`, starting `start_us` microseconds after
+    // session construction and lasting `duration_us`. Negative values are
+    // stored as zero. If storing it fails, the session is marked failed, as
+    // for a Zone.
+    void add_gpu_span(std::string_view name, std::int64_t start_us, std::int64_t duration_us) noexcept;
+
+    // Microseconds since session construction, on the clock zones use.
+    [[nodiscard]] std::int64_t elapsed_us() const noexcept;
+
+    // Number of events stored: completed zones and GPU spans. An open zone
+    // is not counted.
     [[nodiscard]] std::size_t completed_count() const noexcept;
 
 private:

@@ -1,7 +1,12 @@
+#include <lykoware/audio.hpp>
+#include <lykoware/audio_output.hpp>
+#include <lykoware/audio_spatial.hpp>
 #include <lykoware/clock.hpp>
 #include <lykoware/ecs.hpp>
+#include <lykoware/gltf.hpp>
 #include <lykoware/log.hpp>
 #include <lykoware/math.hpp>
+#include <lykoware/mesh.hpp>
 #include <lykoware/paths.hpp>
 #include <lykoware/physics.hpp>
 #include <lykoware/physics_ecs.hpp>
@@ -11,12 +16,15 @@
 #include <lykoware/rhi/pipeline.hpp>
 #include <lykoware/rhi/swapchain.hpp>
 #include <lykoware/trace.hpp>
+#include <lykoware/transform.hpp>
 #include <lykoware/version.hpp>
 #include <lykoware/window.hpp>
 
+#include <algorithm>
 #include <charconv>
 #include <chrono>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <exception>
@@ -29,6 +37,7 @@
 #include <string_view>
 #include <system_error>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #ifdef _WIN32
@@ -135,8 +144,52 @@ struct WindowOptions {
     bool dummy = false;
     bool offscreen = false;
     bool vulkan = false;
+    bool no_audio = false;
     bool has_frames = false;
     std::uint64_t frames = 0;
+    // --model FILE: a glTF model shown beside the crates (ADR 0035).
+    std::string model;
+    // --trace FILE: a Chrome trace of each frame's CPU zones and GPU time (ADR 0039).
+    std::string trace;
+};
+
+// GPU frame times from the swapchain, as spans on the trace's GPU track (when tracing) and as a
+// running total for the closing log line (ADR 0039).
+class GpuFrameLog {
+public:
+    explicit GpuFrameLog(lykoware::CpuTrace* trace)
+        : trace_{trace}
+    {
+    }
+
+    void collect(lykoware::rhi::Swapchain& swapchain)
+    {
+        const std::vector<lykoware::rhi::GpuFrameTime> times = swapchain.take_gpu_frame_times();
+        // The trace's clock now and the steady clock now, to place each frame where the CPU
+        // submitted it; the GPU starts on it no earlier.
+        const std::int64_t trace_now_us = trace_ != nullptr ? trace_->elapsed_us() : 0;
+        const auto now = std::chrono::steady_clock::now();
+        for (const lykoware::rhi::GpuFrameTime& time : times) {
+            total_ns_ += time.nanoseconds;
+            ++frames_;
+            if (trace_ != nullptr) {
+                const auto ago = std::chrono::duration_cast<std::chrono::microseconds>(now - time.submitted).count();
+                trace_->add_gpu_span("gpu.frame", trace_now_us - ago,
+                                     static_cast<std::int64_t>((time.nanoseconds + 500) / 1000));
+            }
+        }
+    }
+
+    [[nodiscard]] std::uint64_t frames() const { return frames_; }
+    [[nodiscard]] double average_ms() const
+    {
+        return frames_ == 0 ? 0.0 : static_cast<double>(total_ns_) / static_cast<double>(frames_) / 1e6;
+    }
+
+private:
+    lykoware::CpuTrace* trace_;
+    std::uint64_t total_ns_ = 0;
+    std::uint64_t frames_ = 0;
 };
 
 // The engine's lit shader compiled for the sandbox, deployed by the build and
@@ -177,17 +230,56 @@ bool unavailable(lykoware::rhi::RhiFailure failure)
         || failure == RhiFailure::NoSuitableDevice;
 }
 
+// A short wooden knock, made here rather than loaded, so the repository holds no audio files:
+// a low body tone with two decaying partials, plus a burst of low-passed noise for the impact.
+std::shared_ptr<const lykoware::audio::Sound> make_thump()
+{
+    constexpr std::uint32_t rate = lykoware::audio::output_rate;
+    constexpr float two_pi = 6.2831853F;
+    std::vector<float> samples(rate * 3 / 10);
+    std::uint32_t noise = 0x9E3779B9U;
+    float knock = 0.F;
+    float peak = 0.F;
+    for (std::size_t i = 0; i < samples.size(); ++i) {
+        const float t = static_cast<float>(i) / static_cast<float>(rate);
+        const float body = std::sin(two_pi * 92.F * t) * std::exp(-t * 16.F)
+            + 0.45F * std::sin(two_pi * 211.F * t) * std::exp(-t * 34.F);
+        noise = noise * 1664525U + 1013904223U;
+        const float white = static_cast<float>(noise >> 8U) / 8388608.F - 1.F;
+        knock += 0.2F * (white - knock);
+        samples[i] = 0.75F * body + 0.9F * knock * std::exp(-t * 70.F);
+        peak = std::max(peak, std::abs(samples[i]));
+    }
+    for (float& sample : samples) {
+        sample *= 0.9F / peak;
+    }
+    std::string error;
+    auto sound = lykoware::audio::Sound::create(samples, 1, rate, error);
+    if (!sound) {
+        lykoware::log(lykoware::LogLevel::warning, "Crate sound: " + error);
+    }
+    return sound;
+}
+
 // The falling-crates scene (ADR 0026): a grey ground and a grid of coloured crates. Physics
 // moves the crate entities and the renderer draws every entity with a Transform and a
-// MeshRenderer.
+// MeshRenderer. With a sound, each crate has an AudioSource and reports its impacts (ADR 0034).
 class CrateScene {
 public:
     static constexpr int grid = 5;
     // Seconds between drops: then every crate is removed and a new set falls.
     static constexpr double seconds_per_drop = 8.0;
 
-    explicit CrateScene(lykoware::physics::World& physics)
-        : link_(entities_, physics)
+    // A crate that hit something this tick, and how hard (0..1).
+    struct Impact {
+        lykoware::ecs::Entity crate;
+        float strength = 0.F;
+    };
+
+    CrateScene(lykoware::physics::World& physics, std::shared_ptr<const lykoware::audio::Sound> thump)
+        : physics_(physics)
+        , thump_(std::move(thump))
+        , link_(entities_, physics)
     {
         lykoware::physics::BodyDesc ground;
         ground.shape = lykoware::physics::BoxShape{{12.F, 0.5F, 12.F}};
@@ -202,9 +294,33 @@ public:
     }
 
     // Advances one fixed tick; every seconds_per_drop the crates are replaced.
+    // Shows an uploaded model standing on the ground to the left of the crates, scaled so its
+    // largest side is 3 m, turning slowly.
+    void add_model(lykoware::render::MeshId mesh, const lykoware::Bounds& box)
+    {
+        const lykoware::math::Vec3 size = box.max - box.min;
+        const float largest = std::max({size.x, size.y, size.z});
+        model_scale_ = largest > 0.F ? 3.F / largest : 1.F;
+        model_centre_ = (box.min + box.max) * 0.5F;
+        model_base_ = box.min.y;
+        model_ = entities_.create();
+        entities_.add<lykoware::Transform>(model_, lykoware::Transform{});
+        entities_.add<lykoware::render::MeshRenderer>(
+            model_, lykoware::render::MeshRenderer{lykoware::render::MeshShape::Cube,
+                                                   {model_scale_, model_scale_, model_scale_},
+                                                   {1.F, 1.F, 1.F},
+                                                   mesh});
+        place_model();
+    }
+
     void tick(float seconds)
     {
         link_.step(seconds);
+        find_impacts(seconds);
+        if (entities_.alive(model_)) {
+            model_turn_ += 0.5F * seconds; // radians per second
+            place_model();
+        }
         elapsed_ += seconds;
         if (elapsed_ >= seconds_per_drop) {
             elapsed_ = 0.0;
@@ -212,13 +328,49 @@ public:
                 entities_.destroy(crate); // the link destroys each crate's physics body too
             }
             crates_.clear();
+            last_velocity_.clear();
+            quiet_.clear();
             drop();
         }
     }
 
     lykoware::ecs::World& entities() { return entities_; }
+    // Impacts since the last take_impacts(), oldest first.
+    std::vector<Impact> take_impacts() { return std::exchange(impacts_, {}); }
 
 private:
+    // The model turns about its own centre, with its lowest point on the ground at (-7, 0, 1).
+    void place_model()
+    {
+        const lykoware::math::Quat turn = lykoware::math::from_axis_angle({0.F, 1.F, 0.F}, model_turn_);
+        const lykoware::math::Vec3 centre{model_centre_.x * model_scale_, model_base_ * model_scale_, model_centre_.z * model_scale_};
+        const lykoware::math::Vec3 offset = lykoware::math::rotate(turn, centre);
+        auto* transform = entities_.get<lykoware::Transform>(model_);
+        transform->position = lykoware::math::DVec3{-7.0, 0.0, 1.0} + (-1.F * offset);
+        transform->rotation = turn;
+    }
+
+    // Gravity changes a crate's velocity by about 0.16 m/s per 60 Hz tick. A change of more than
+    // 1 m/s in one tick is a collision; 6 m/s or more is the hardest knock. A short quiet time
+    // after each knock stops a crate resting on another from rattling.
+    void find_impacts(float seconds)
+    {
+        for (std::size_t i = 0; i < crates_.size(); ++i) {
+            const auto* body = entities_.get<lykoware::physics_ecs::RigidBody>(crates_[i]);
+            const auto state = body != nullptr ? physics_.state(body->id()) : std::nullopt;
+            if (!state) {
+                continue;
+            }
+            const float jolt = lykoware::math::length(state->linear_velocity - last_velocity_[i]);
+            last_velocity_[i] = state->linear_velocity;
+            quiet_[i] = std::max(0.F, quiet_[i] - seconds);
+            if (thump_ && jolt > 1.F && quiet_[i] == 0.F) {
+                impacts_.push_back({crates_[i], std::min(jolt / 6.F, 1.F)});
+                quiet_[i] = 0.12F;
+            }
+        }
+    }
+
     void drop()
     {
         constexpr lykoware::math::Vec3 palette[] = {
@@ -236,21 +388,75 @@ private:
                     entities_.add<lykoware::render::MeshRenderer>(
                         entity, lykoware::render::MeshRenderer{lykoware::render::MeshShape::Cube, {1.F, 1.F, 1.F},
                                                                palette[(row + column) % 5]});
+                    if (thump_) {
+                        // Each crate knocks at its own pitch; heard fully within 4 m, silent past 80 m.
+                        lykoware::audio::AudioSource source;
+                        source.sound = thump_;
+                        source.pitch = 0.8F + 0.08F * static_cast<float>((row * grid + column) % 6);
+                        source.falloff = {4.F, 80.F};
+                        entities_.add<lykoware::audio::AudioSource>(entity, source);
+                    }
                     crates_.push_back(entity);
+                    last_velocity_.push_back({});
+                    quiet_.push_back(0.F);
                 }
             }
         }
     }
 
+    lykoware::physics::World& physics_;
+    std::shared_ptr<const lykoware::audio::Sound> thump_;
     // The ECS world before the link; the physics world outlives both (ADR 0023).
     lykoware::ecs::World entities_;
     lykoware::physics_ecs::Link link_;
     std::vector<lykoware::ecs::Entity> crates_;
+    std::vector<lykoware::math::Vec3> last_velocity_;
+    std::vector<float> quiet_;
+    std::vector<Impact> impacts_;
     double elapsed_ = 0.0;
+    lykoware::ecs::Entity model_{};
+    float model_scale_ = 1.F;
+    lykoware::math::Vec3 model_centre_{};
+    float model_base_ = 0.F;
+    float model_turn_ = 0.F;
 };
 
+// Uploads a glTF model's textures and its mesh as parts with their materials (ADR 0038).
+std::optional<lykoware::render::MeshId> upload_model(lykoware::render::Renderer& renderer, const lykoware::gltf::Model& model,
+                                                     lykoware::rhi::RhiError& error)
+{
+    std::vector<lykoware::render::TextureId> textures;
+    for (const lykoware::gltf::Texture& texture : model.textures) {
+        lykoware::render::TextureSettings settings;
+        settings.wrap = texture.sampling.wrap == lykoware::gltf::Wrap::ClampToEdge      ? lykoware::rhi::TextureWrap::ClampToEdge
+            : texture.sampling.wrap == lykoware::gltf::Wrap::MirroredRepeat             ? lykoware::rhi::TextureWrap::MirroredRepeat
+                                                                                         : lykoware::rhi::TextureWrap::Repeat;
+        settings.filter = texture.sampling.nearest ? lykoware::rhi::TextureFilter::Nearest : lykoware::rhi::TextureFilter::Linear;
+        settings.mipmaps = texture.sampling.mipmaps;
+        const auto id = renderer.add_texture(model.images[texture.image], settings, error);
+        if (!id) {
+            return std::nullopt;
+        }
+        textures.push_back(*id);
+    }
+    std::vector<lykoware::render::MeshPart> parts;
+    for (const lykoware::gltf::Part& part : model.parts) {
+        lykoware::render::MeshPart mesh_part{part.first_index, part.index_count};
+        if (part.material) {
+            const lykoware::gltf::Material& material = model.materials[*part.material];
+            mesh_part.colour = {material.base_colour.x, material.base_colour.y, material.base_colour.z};
+            if (material.base_colour_texture) {
+                mesh_part.texture = textures[*material.base_colour_texture];
+            }
+        }
+        parts.push_back(mesh_part);
+    }
+    return renderer.add_mesh(model.mesh, parts, error);
+}
+
 // Draws the falling-crates scene through the RHI swapchain.
-int present_loop(lykoware::Window& window, const WindowOptions& options, const ShaderWords& shaders)
+int present_loop(lykoware::Window& window, const WindowOptions& options, const ShaderWords& shaders,
+                 const std::optional<lykoware::gltf::Model>& model)
 {
     lykoware::rhi::InstanceConfig instance_config;
     instance_config.application_name = "lykoware sandbox";
@@ -292,8 +498,36 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
         lykoware::log(lykoware::LogLevel::error, "Physics: " + physics_error);
         return EXIT_FAILURE;
     }
-    auto scene = std::make_unique<CrateScene>(*physics);
+    // Sound (ADR 0033, ADR 0034): the platform's device, or the dummy driver when the window is
+    // headless. Without a device the sandbox runs silently.
+    std::unique_ptr<lykoware::audio::Output> audio;
+    if (!options.no_audio) {
+        lykoware::audio::OutputConfig audio_config;
+        audio_config.driver = options.dummy || options.offscreen ? lykoware::audio::OutputDriver::Dummy
+                                                                 : lykoware::audio::OutputDriver::Platform;
+        std::string audio_error;
+        audio = lykoware::audio::Output::open(audio_config, audio_error);
+        if (audio) {
+            audio->lock()->set_master_gain(0.8F);
+            audio->resume();
+            lykoware::log(lykoware::LogLevel::info, "Playing sound through SDL's " + audio->driver_name() + " driver.");
+        } else {
+            lykoware::log(lykoware::LogLevel::warning, "No sound: " + audio_error);
+        }
+    }
+    auto scene = std::make_unique<CrateScene>(*physics, audio ? make_thump() : nullptr);
+    if (model) {
+        const std::optional<lykoware::render::MeshId> mesh = upload_model(*renderer, *model, error);
+        if (!mesh) {
+            lykoware::log(lykoware::LogLevel::error, "Model: " + error.message);
+            return EXIT_FAILURE;
+        }
+        scene->add_model(*mesh, lykoware::bounds(model->mesh));
+    }
     const lykoware::render::Camera camera{{0.0, 7.0, 15.0}, {0.0, 1.5, 0.0}};
+    const auto listener = lykoware::audio::Listener::looking_at(camera.eye, camera.target, camera.up);
+    lykoware::audio::SpatialAudio spatial;
+    std::uint64_t knocks = 0;
     const lykoware::rhi::ClearColor sky{0.45F, 0.6F, 0.8F, 1.F};
 
     // The simulation advances only in fixed 60 Hz ticks (ADR 0017), so the crates fall at the
@@ -307,25 +541,68 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
     }
     lykoware::FrameClock frame_clock;
 
+    // --trace: CPU zones for each frame's parts, and the GPU's time for each frame (ADR 0039).
+    std::unique_ptr<lykoware::CpuTrace> trace;
+    if (!options.trace.empty()) {
+        trace = std::make_unique<lykoware::CpuTrace>();
+    }
+    GpuFrameLog gpu_frames{trace.get()};
+    // A zone only while tracing.
+    const auto zone = [&trace](std::string_view name) {
+        return trace ? std::make_unique<lykoware::CpuTrace::Zone>(*trace, name) : nullptr;
+    };
+
     bool ok = true;
     std::uint64_t frame = 0;
     while (window.pump()) {
+        auto frame_zone = zone("sandbox.frame");
         const lykoware::FrameSteps steps = simulation->advance(frame_clock.lap());
-        for (std::uint32_t tick = 0; tick < steps.ticks; ++tick) {
-            scene->tick(static_cast<float>(simulation->tick_seconds()));
+        {
+            auto simulate_zone = zone("sandbox.simulate");
+            for (std::uint32_t tick = 0; tick < steps.ticks; ++tick) {
+                scene->tick(static_cast<float>(simulation->tick_seconds()));
+            }
         }
-        if (!renderer->draw(scene->entities(), camera, *swapchain, sky, error)) {
-            lykoware::log(lykoware::LogLevel::error, "Vulkan frame: " + error.message);
-            ok = false;
-            break;
+        if (audio) {
+            auto audio_zone = zone("sandbox.audio");
+            const std::vector<CrateScene::Impact> impacts = scene->take_impacts();
+            auto mixer = audio->lock();
+            for (const CrateScene::Impact& impact : impacts) {
+                std::string sound_error; // a full mixer skips the knock
+                if (spatial.play(scene->entities(), impact.crate, listener, *mixer, sound_error, impact.strength)) {
+                    ++knocks;
+                }
+            }
+            spatial.update(scene->entities(), listener, *mixer);
+        }
+        {
+            auto render_zone = zone("sandbox.render");
+            if (!renderer->draw(scene->entities(), camera, *swapchain, sky, error)) {
+                lykoware::log(lykoware::LogLevel::error, "Vulkan frame: " + error.message);
+                ok = false;
+                break;
+            }
+        }
+        gpu_frames.collect(*swapchain);
+        if (window.minimized()) {
+            // The swapchain draws nothing while minimised (ADR 0040), so don't spin.
+            std::this_thread::sleep_for(std::chrono::milliseconds(16));
         }
         ++frame;
         if (options.has_frames && frame >= options.frames) {
             break;
         }
     }
+    // The last frames' GPU times, once the GPU has finished them.
+    if (device->wait_idle(error)) {
+        gpu_frames.collect(*swapchain);
+    }
     const std::uint64_t presented = swapchain->frames_presented();
     const std::size_t drawn = renderer->last_draw_count();
+    if (audio) {
+        lykoware::log(lykoware::LogLevel::info, "Played " + std::to_string(knocks) + " crate knocks.");
+        audio.reset();
+    }
     // The swapchain destructor waits for the GPU, so the renderer's pipeline
     // and buffers are idle when they are destroyed next.
     swapchain.reset();
@@ -344,10 +621,27 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
                       "The simulation fell behind and dropped "
                           + std::to_string(simulation->total_dropped_ns() / 1'000'000) + " ms.");
     }
+    if (gpu_frames.frames() > 0) {
+        char average[32] = {};
+        const auto written = std::to_chars(average, average + sizeof(average) - 1, gpu_frames.average_ms(),
+                                           std::chars_format::fixed, 3);
+        *written.ptr = '\0';
+        lykoware::log(lykoware::LogLevel::info, std::string{"GPU time per frame: "} + average + " ms on average over "
+                                                    + std::to_string(gpu_frames.frames()) + " frames.");
+    } else {
+        lykoware::log(lykoware::LogLevel::info, "No GPU frame times: the device has no timestamps.");
+    }
     if (instance->validation_error_count() != 0) {
         lykoware::log(lykoware::LogLevel::error,
                       std::to_string(instance->validation_error_count()) + " Vulkan validation errors.");
         return EXIT_FAILURE;
+    }
+    if (trace) {
+        if (!trace->write(utf8_path(options.trace))) {
+            lykoware::log(lykoware::LogLevel::error, "Could not write the trace.");
+            return EXIT_FAILURE;
+        }
+        lykoware::log(lykoware::LogLevel::info, "Wrote CPU and GPU trace.");
     }
     return EXIT_SUCCESS;
 }
@@ -372,6 +666,16 @@ int run_window(const std::vector<std::string>& args)
             flag(options.offscreen, option);
         } else if (option == "--vulkan") {
             flag(options.vulkan, option);
+        } else if (option == "--no-audio") {
+            flag(options.no_audio, option);
+        } else if (option == "--model") {
+            if (!options.model.empty()) {
+                throw std::invalid_argument("Duplicate option: --model");
+            }
+            if (index + 1 >= args.size() || args[index + 1].empty() || args[index + 1].starts_with("--")) {
+                throw std::invalid_argument("Missing value for --model");
+            }
+            options.model = args[++index];
         } else if (option == "--frames") {
             if (options.has_frames) {
                 throw std::invalid_argument("Duplicate option: --frames");
@@ -381,6 +685,14 @@ int run_window(const std::vector<std::string>& args)
             }
             options.frames = parse_frames(args[++index]);
             options.has_frames = true;
+        } else if (option == "--trace") {
+            if (!options.trace.empty()) {
+                throw std::invalid_argument("Duplicate option: --trace");
+            }
+            if (index + 1 >= args.size() || args[index + 1].empty() || args[index + 1].starts_with("--")) {
+                throw std::invalid_argument("Missing value for --trace");
+            }
+            options.trace = args[++index];
         } else {
             throw std::invalid_argument("Unknown option: " + option + ". Use --help.");
         }
@@ -398,9 +710,31 @@ int run_window(const std::vector<std::string>& args)
         throw std::invalid_argument("--window --dummy or --offscreen requires --frames N so it can exit without a display.");
     }
 
+    if (!options.model.empty() && !options.vulkan) {
+        throw std::invalid_argument("--model needs --vulkan to draw it.");
+    }
+    if (!options.trace.empty() && (!options.vulkan || !options.has_frames)) {
+        throw std::invalid_argument("--window --trace needs --vulkan and --frames N.");
+    }
+
     ShaderWords shaders;
     if (options.vulkan && !read_shaders(shaders)) {
         return EXIT_FAILURE;
+    }
+    // The model is read before any window or GPU work, like the shaders, so a bad file fails
+    // clearly on any machine.
+    std::optional<lykoware::gltf::Model> model;
+    if (!options.model.empty()) {
+        std::string model_error;
+        model = lykoware::gltf::load_model(utf8_path(options.model), model_error);
+        if (!model) {
+            lykoware::log(lykoware::LogLevel::error, "Model " + options.model + ": " + model_error);
+            return EXIT_FAILURE;
+        }
+        lykoware::log(lykoware::LogLevel::info,
+                      "Loaded model " + options.model + ": " + std::to_string(model->mesh.indices.size() / 3) + " triangles, "
+                          + std::to_string(model->materials.size()) + " materials, " + std::to_string(model->images.size())
+                          + " images.");
     }
 
     lykoware::WindowConfig config;
@@ -422,7 +756,7 @@ int run_window(const std::vector<std::string>& args)
     }
     lykoware::log(lykoware::LogLevel::info, "Opened sandbox window.");
     if (options.vulkan) {
-        const int status = present_loop(*window, options, shaders);
+        const int status = present_loop(*window, options, shaders, model);
         lykoware::log(lykoware::LogLevel::info, "Closed sandbox window.");
         return status;
     }
@@ -461,15 +795,23 @@ int run(const std::vector<std::string>& args)
         if (option == "--help") {
             std::cout << "Usage: lykoware_sandbox [--version|--help]\n"
                          "       lykoware_sandbox --frames N --trace FILE\n"
-                         "       lykoware_sandbox --window [--dummy | --offscreen] [--vulkan] [--frames N]\n"
+                         "       lykoware_sandbox --window [--dummy | --offscreen] [--vulkan] [--no-audio]\n"
+                         "                        [--model FILE] [--frames N [--trace FILE]]\n"
                          "Without options, runs the console foundation check.\n"
                          "--frames with --trace runs N CPU iterations and writes a Chrome trace.\n"
                          "--window opens a window and pumps input until it closes.\n"
                          "--dummy selects the headless video driver and requires --frames.\n"
                          "--offscreen is headless too, can host Vulkan, and requires --frames.\n"
-                         "--vulkan draws a triangle over a cycling clear colour through the\n"
-                         "  Vulkan RHI, with shaders from the shaders folder beside the executable;\n"
-                         "  exit 3 when no usable Vulkan device exists, 1 when shaders are missing.\n";
+                         "--vulkan shows falling crates through the Vulkan RHI, with shaders from\n"
+                         "  the shaders folder beside the executable; exit 3 when no usable Vulkan\n"
+                         "  device exists, 1 when shaders are missing. Crates knock as they land,\n"
+                         "  through the default sound device (the dummy driver when headless).\n"
+                         "--no-audio runs --vulkan without sound.\n"
+                         "--model FILE shows a glTF model (.gltf or .glb) beside the crates, with its\n"
+                         "  base colour materials and textures (PNG or JPEG).\n"
+                         "--trace FILE with --vulkan and --frames writes a Chrome trace of each frame's\n"
+                         "  CPU zones and, where the GPU has timestamps, its GPU time.\n"
+                         "--vulkan logs the average GPU time per frame on exit.\n";
             return EXIT_SUCCESS;
         }
         throw std::invalid_argument("Unknown option: " + std::string{option}

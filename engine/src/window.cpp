@@ -23,6 +23,18 @@ std::string sdl_failure(const char* action)
     return std::string{action} + " failed: " + message;
 }
 
+constexpr SDL_InitFlags window_subsystems = SDL_INIT_VIDEO | SDL_INIT_GAMEPAD;
+
+// Stops only the window session's subsystems, so audio output (ADR 0033) keeps playing when the
+// last window closes. SDL_Quit frees SDL's global state once nothing else uses SDL.
+void quit_window_subsystems()
+{
+    SDL_QuitSubSystem(window_subsystems);
+    if (SDL_WasInit(0) == 0) {
+        SDL_Quit();
+    }
+}
+
 // Events waiting for one window. The platform event queue is process-wide,
 // so whichever window pumps first drains it and files each event here.
 // A window applies only its own mailbox, after it starts its input frame,
@@ -81,14 +93,14 @@ bool session_acquire(VideoDriver driver, std::string& error)
         }
     }
     SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
-    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) {
+    if (!SDL_Init(window_subsystems)) {
         error = sdl_failure("SDL_Init");
         return false;
     }
     if (forced != nullptr) {
         const char* name = SDL_GetCurrentVideoDriver();
         if (name == nullptr || std::string_view{name} != forced) {
-            SDL_Quit();
+            quit_window_subsystems();
             error = std::string{forced} + " video driver was not selected";
             return false;
         }
@@ -107,7 +119,7 @@ void session_release()
     }
     --current.holders;
     if (current.holders == 0) {
-        SDL_Quit();
+        quit_window_subsystems();
         current.started = false;
     }
 }
@@ -143,6 +155,11 @@ bool event_target(const SDL_Event& event, SDL_WindowID& target) noexcept
         target = 0;
         return true;
     case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
+    case SDL_EVENT_WINDOW_FOCUS_GAINED:
+    case SDL_EVENT_WINDOW_FOCUS_LOST:
+    case SDL_EVENT_WINDOW_MINIMIZED:
+    case SDL_EVENT_WINDOW_MAXIMIZED:
+    case SDL_EVENT_WINDOW_RESTORED:
         target = event.window.windowID;
         return true;
     case SDL_EVENT_KEY_DOWN:
@@ -286,6 +303,21 @@ struct Window::Impl {
         case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
             close = true;
             break;
+        case SDL_EVENT_WINDOW_FOCUS_GAINED:
+            focused = true;
+            break;
+        case SDL_EVENT_WINDOW_FOCUS_LOST:
+            // Keys and buttons released elsewhere would otherwise stay down here.
+            focused = false;
+            release_keys_and_mouse_buttons(input);
+            break;
+        case SDL_EVENT_WINDOW_MINIMIZED:
+            minimized = true;
+            break;
+        case SDL_EVENT_WINDOW_MAXIMIZED:
+        case SDL_EVENT_WINDOW_RESTORED:
+            minimized = false;
+            break;
         case SDL_EVENT_KEY_DOWN:
         case SDL_EVENT_KEY_UP:
             if (!event.key.repeat) {
@@ -372,6 +404,8 @@ struct Window::Impl {
     bool registered = false;
     Mailbox mailbox;
     bool close = false;
+    bool focused = false;
+    bool minimized = false;
     bool vulkan = false;
     int width = 0;
     int height = 0;
@@ -429,6 +463,9 @@ std::unique_ptr<Window> Window::open(const WindowConfig& config, std::string& er
     impl->registered = true;
     impl->adopt_connected_gamepad(0);
     impl->refresh_metrics();
+    const SDL_WindowFlags state = SDL_GetWindowFlags(impl->window);
+    impl->focused = (state & SDL_WINDOW_INPUT_FOCUS) != 0;
+    impl->minimized = (state & SDL_WINDOW_MINIMIZED) != 0;
     if (config.vulkan) {
         impl->capture_extensions();
     }
@@ -468,6 +505,16 @@ float Window::dpi_y() const
 bool Window::close_requested() const
 {
     return impl_->close;
+}
+
+bool Window::has_focus() const
+{
+    return impl_->focused;
+}
+
+bool Window::minimized() const
+{
+    return impl_->minimized;
 }
 
 const InputState& Window::input() const

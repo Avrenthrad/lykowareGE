@@ -148,6 +148,38 @@ void test_escaping_and_replacement(const std::filesystem::path& path)
            "replacement removes the previous events");
 }
 
+void test_gpu_spans(const std::filesystem::path& path)
+{
+    lykoware::CpuTrace trace;
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    const std::int64_t submitted = trace.elapsed_us();
+    expect(submitted > 0, "elapsed_us advances from session construction");
+    {
+        lykoware::CpuTrace::Zone frame{trace, "frame"};
+    }
+    trace.add_gpu_span("gpu frame", submitted, 1234);
+    trace.add_gpu_span("clamped", -5, -7);
+    expect(trace.completed_count() == 3, "GPU spans are counted with zones");
+    expect(trace.write(path), "trace with GPU spans writes");
+
+    const std::string json = read_file(path);
+    expect(json.starts_with("{\"displayTimeUnit\":\"ms\",\"traceEvents\":["
+                            "{\"name\":\"thread_name\",\"ph\":\"M\",\"pid\":1,\"tid\":1,\"args\":{\"name\":\"CPU\"}},"
+                            "{\"name\":\"thread_name\",\"ph\":\"M\",\"pid\":1,\"tid\":2,\"args\":{\"name\":\"GPU\"}},"),
+           "tracks are named when there are GPU spans");
+    const std::string expected_gpu = "{\"name\":\"gpu frame\",\"cat\":\"gpu\",\"ph\":\"X\",\"ts\":"
+                                     + std::to_string(submitted) + ",\"dur\":1234,\"pid\":1,\"tid\":2}";
+    expect(json.find(expected_gpu) != std::string::npos, "GPU span is a gpu event on tid 2 at its given time");
+    expect(json.find("{\"name\":\"clamped\",\"cat\":\"gpu\",\"ph\":\"X\",\"ts\":0,\"dur\":0,\"pid\":1,\"tid\":2}")
+               != std::string::npos,
+           "negative GPU times are stored as zero");
+    const EventTimes frame = event_times(json, "frame");
+    expect(json.find("\"cat\":\"cpu\"", frame.position) != std::string::npos
+               && json.find("\"tid\":1}", frame.position) < json.find("gpu frame"),
+           "CPU zones stay on tid 1");
+    expect(frame.timestamp_us >= submitted, "zones and spans share one clock");
+}
+
 void test_write_failure(const std::filesystem::path& root)
 {
     lykoware::CpuTrace trace;
@@ -174,6 +206,7 @@ int main()
     test_empty_trace(root / "empty.json");
     test_scoped_zones(root / "zones.json");
     test_escaping_and_replacement(root / "escaped.json");
+    test_gpu_spans(root / "gpu.json");
     test_write_failure(root);
 
     std::filesystem::remove_all(root);

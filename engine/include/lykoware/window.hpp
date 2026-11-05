@@ -96,6 +96,15 @@ struct WindowConfig {
 // throw for a platform refusal. std::bad_alloc can propagate from allocation.
 // pump() returns false when close was requested. It still updates input
 // and size before returning.
+//
+// Focus, minimise and close (ADR 0040): has_focus() and minimized() follow
+// the platform's window events as pump() applies them. Losing focus releases
+// every held key and mouse button with a released edge, because their key-up
+// may go to another window or application. A platform close request for this
+// window, or a quit for the whole application, makes pump() return false;
+// only request_close() and those events close a window, and nothing reopens
+// it. The platform may not report every state: Wayland compositors do not
+// tell applications that they are minimised.
 class Window {
 public:
     [[nodiscard]] static std::unique_ptr<Window> open(const WindowConfig& config, std::string& error);
@@ -113,6 +122,9 @@ public:
     [[nodiscard]] float dpi_x() const;
     [[nodiscard]] float dpi_y() const;
     [[nodiscard]] bool close_requested() const;
+    // Whether this window has keyboard focus, and whether it is minimised.
+    [[nodiscard]] bool has_focus() const;
+    [[nodiscard]] bool minimized() const;
     [[nodiscard]] const InputState& input() const;
 
     // Poll platform events, start a new input frame, then apply those events.

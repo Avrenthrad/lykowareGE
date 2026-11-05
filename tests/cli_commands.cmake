@@ -40,7 +40,9 @@ check_lyko(2 "integer from 1 to 1000000" trace --frames 0)
 check_lyko(2 "integer from 1 to 1000000" trace --frames -1)
 check_lyko(2 "integer from 1 to 1000000" trace --frames abc)
 check_lyko(2 "integer from 1 to 1000000" trace --frames 1000001)
-check_lyko(2 "Unknown option for trace" trace --frames 1 --gpu)
+check_lyko(2 "Unknown option for trace" trace --frames 1 --cpu)
+check_lyko(2 "Duplicate option: --gpu" trace --frames 1 --gpu --gpu)
+check_lyko(2 "trace requires --frames" trace --gpu)
 check_lyko(2 "Duplicate option" trace --frames 1 --frames 2)
 
 if(NOT TRACE_DIR)
@@ -97,4 +99,27 @@ endif()
 string(FIND "${missing_stderr}" "Could not write CPU trace." missing_text)
 if(missing_text EQUAL -1)
     message(FATAL_ERROR "Missing parent did not report a write failure:\n${missing_stderr}")
+endif()
+
+# trace --gpu launches the sandbox's Vulkan window (ADR 0039). Without a display or Vulkan device
+# the sandbox exits 3; with one it writes the trace. A wrong launch would exit 1 or 2.
+set(gpu_dir "${TRACE_DIR}/trace-gpu")
+file(REMOVE_RECURSE "${gpu_dir}")
+file(MAKE_DIRECTORY "${gpu_dir}")
+execute_process(
+    COMMAND "${LYKO}" trace --gpu --frames 2
+    WORKING_DIRECTORY "${gpu_dir}"
+    RESULT_VARIABLE gpu_result
+    OUTPUT_VARIABLE gpu_stdout
+    ERROR_VARIABLE gpu_stderr
+    TIMEOUT 40)
+if(gpu_result EQUAL 0)
+    file(READ "${gpu_dir}/lykoware-gpu-trace.json" gpu_json)
+    string(REGEX MATCHALL "\"name\":\"sandbox.frame\"" gpu_frames "${gpu_json}")
+    list(LENGTH gpu_frames gpu_frame_count)
+    if(NOT gpu_frame_count EQUAL 2)
+        message(FATAL_ERROR "Expected 2 sandbox.frame events in the GPU trace:\n${gpu_json}")
+    endif()
+elseif(NOT gpu_result EQUAL 3)
+    message(FATAL_ERROR "trace --gpu returned ${gpu_result}, expected 0 or 3:\n${gpu_stdout}\n${gpu_stderr}")
 endif()

@@ -12,6 +12,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -65,6 +66,8 @@ struct RenderTarget::Impl {
     // Layout the image is in after the last completed submission.
     VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
     bool rendered = false;
+    // GPU time of the last clear or draw (ADR 0039).
+    std::optional<std::uint64_t> gpu_ns;
 };
 
 RenderTarget::RenderTarget(std::unique_ptr<Impl> impl)
@@ -213,11 +216,17 @@ bool RenderTarget::draw(const ClearColor& clear, const GraphicsPipeline& pipelin
                         RhiError& error)
 {
     error = {};
+    impl_->gpu_ns.reset();
     if (pipeline.color_format() != color_format()) {
         return fail(error, RhiFailure::InvalidArgument,
                     "the pipeline targets a different colour format than this render target");
     }
     return render(clear, static_cast<VkPipeline>(pipeline.native_handle()), vertex_count, error);
+}
+
+std::optional<std::uint64_t> RenderTarget::last_gpu_time_ns() const
+{
+    return impl_->gpu_ns;
 }
 
 bool RenderTarget::has_depth() const
@@ -229,6 +238,7 @@ bool RenderTarget::draw_meshes(const ClearColor& clear, const GraphicsPipeline& 
                                std::span<const MeshDraw> meshes, RhiError& error)
 {
     error = {};
+    impl_->gpu_ns.reset();
     std::vector<detail::PreparedDraw> draws;
     if (!detail::prepare_mesh_draws(pipeline, color_format(), has_depth(), meshes, draws, error)) {
         return false;
@@ -248,7 +258,7 @@ bool RenderTarget::draw_meshes(const ClearColor& clear, const GraphicsPipeline& 
         const float rgba[4] = {clear.r, clear.g, clear.b, clear.a};
         detail::record_mesh_pass(commands, impl.view, depth_view, {impl.width, impl.height}, rgba, vk_pipeline,
                                  vk_layout, draws.data(), draws.size());
-    }, error);
+    }, error, &impl.gpu_ns);
     if (!ok) {
         impl.rendered = false;
         impl.layout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -274,7 +284,7 @@ bool RenderTarget::render(const ClearColor& color, void* pipeline_handle, std::u
 
         const float rgba[4] = {color.r, color.g, color.b, color.a};
         detail::record_draw_pass(commands, impl.view, {impl.width, impl.height}, rgba, pipeline, vertex_count);
-    }, error);
+    }, error, &impl.gpu_ns);
     if (!ok) {
         impl.rendered = false;
         impl.layout = VK_IMAGE_LAYOUT_UNDEFINED;

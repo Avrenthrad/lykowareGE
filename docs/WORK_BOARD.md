@@ -5,7 +5,7 @@
 Canonical implementation status: [STATUS.md](STATUS.md).
 Canonical plan: [ROADMAP.md](ROADMAP.md).
 
-`main` at `855e01e` includes Claude's #32–#34 math/mesh/renderer stack (alongside #31 ECS/physics). Review follow-ups #35 and #36 subsequently merged as `7616ce3`; their per-branch evidence below is historical. Earlier per-task entries remain in pull requests/git history. Details: [STATUS](STATUS.md).
+`main` at `7616ce3` includes Claude's #32–#34 math/mesh/renderer stack (alongside #31 ECS/physics) and Codex's #35 contract hardening and #36 scenes/command replay. Audio is the active task (Claude). Earlier per-task entries remain in pull requests/git history. Details: [STATUS](STATUS.md).
 
 Owner-supplied vision is captured in [ENGINE_VISION.md](ENGINE_VISION.md).
 
@@ -22,7 +22,52 @@ Check latest main and open PRs before starting. Documents do not automatically s
 - Blocker: GitHub refused all five jobs before a runner executed any steps, citing failed account payments or the spending limit (run 42036213824). Windows/MSVC remains unverified; no spend, billing change or weakened checks.
 - Merge: Joshua merges reviewed work. The earlier merge instruction covered #35/#36; it is not standing authorization for new PRs.
 
-## Active review follow-ups (Codex)
+
+## Active task: local validation evidence (Codex)
+
+- Owner/status: Codex, active on `codex/local-validation`, stacked on package PR #45 (`7f754b3`).
+- Scope: ADR 0046; local CMake/CTest/staging command, source provenance, honest test/skip reports and failure tests. No engine, audio, model, texture or GPU-timing API changes.
+- Related work: Claude retains #37–#44. CI is blocked by account billing/spending settings; this tool gathers local evidence without changing accounts, spending or weakening CI/merge rules.
+- Checks: failure-path tests, real Linux execution, local compatibility with Claude's stack. Windows code paths/results remain unverified until actual Windows execution.
+
+
+## Active task: window lifecycle (Claude)
+
+- Owner/status: Claude, active. One PR ([ADR 0040](adr/0040-window-lifecycle.md)) in review as #46 on `claude/window-lifecycle`, stacked on GPU timings.
+- Objective (owner's choice, 2026-11-05): the Phase 1 exit item "resize/focus/close and restart tests pass".
+- Shared interfaces: `Window::has_focus`/`minimized`, `release_keys_and_mouse_buttons`; the swapchain skips frames while minimised.
+- Checks: `window.lifecycle`, `rhi.swapchain`, new `lifecycle.restart` and `lifecycle.restart_vulkan`, deliberate breaks, five CI jobs once CI runs again.
+
+## Active task: GPU timings (Claude)
+
+- Owner/status: Claude, active. One PR ([ADR 0039](adr/0039-gpu-timings.md)) in review as #44 on `claude/gpu-timings`, stacked on textures PR 3.
+- Objective (owner's choice, 2026-11-05): the Phase 1 exit item "traces report CPU/GPU timings where supported".
+- Shared interfaces: `Device::gpu_timestamps`, `RenderTarget::last_gpu_time_ns`, `Swapchain::take_gpu_frame_times`, `CpuTrace::add_gpu_span`/`elapsed_us`; sandbox `--window --vulkan --trace FILE`; `lyko trace --gpu`.
+- Checks: GPU timing checks in the RHI tests (lavapipe has timestamps), `sandbox.gpu_trace`, deliberate breaks, five CI jobs once CI runs again.
+
+## Active task: textures (Claude)
+
+- Owner/status: Claude, active. PR 1 (PNG and JPEG decoding through vendored Wuffs, [ADR 0036](adr/0036-image-decoding.md)) in review as #41 on `claude/image-decode`, stacked on model loading. PR 2 (textures in the RHI and renderer, [ADR 0037](adr/0037-gpu-textures.md)) in review as #42 on `claude/gpu-textures`, stacked on PR 1. PR 3 (glTF materials, texture coordinates and mesh parts, [ADR 0038](adr/0038-gltf-materials.md)) in review as #43 on `claude/gltf-materials`, stacked on PR 2.
+- Objective (owner's choice, 2026-11-05): textures on models, in three PRs: (1) image decoding, (2) GPU textures in the RHI and renderer, (3) glTF materials and texture coordinates.
+- Shared interfaces: new `lykoware/image_decode.hpp`; new vendored `third_party/wuffs/` (MIT option); PR 2 changes RHI pipelines (descriptor sets) and the lit shader.
+- Checks: images encoded by the tests (none committed), deliberate breaks, a cross-check against PIL and a fuzz run (local), five CI jobs once CI runs again.
+
+## Active task: model loading (Claude)
+
+- Owner/status: Claude, active. PR 1 (glTF meshes, [ADR 0035](adr/0035-gltf-meshes.md)) in review on `claude/gltf-meshes`, stacked on audio PR 3 to avoid conflicts in shared files.
+- Objective (owner's choice, 2026-11-05): our own glTF 2.0 reader; shapes first, textures later.
+- Shared interfaces: new `lykoware/mesh.hpp` and `lykoware/gltf.hpp`; `Renderer::add_mesh`; `MeshRenderer` gains a last field `mesh`; sandbox `--model FILE`.
+- Checks: models built in tests (none committed), GPU pixel checks, deliberate breaks, a local fuzz run, five CI jobs once CI runs again.
+
+## Active task: audio (Claude)
+
+- Owner/status: Claude, active. PR 1 (mixer and WAV reader, [ADR 0032](adr/0032-audio-mixer.md)) in review as #37 on `claude/audio-mixer`, based on `main` at `7616ce3`. PR 2 (SDL3 output, [ADR 0033](adr/0033-audio-output.md)) in review as #38 on `claude/audio-output`, stacked on PR 1. PR 3 (3D positional sound and sandbox crate knocks, [ADR 0034](adr/0034-spatial-audio.md)) in review on `claude/audio-spatial`, stacked on PR 2. CI is blocked account-wide since 2026-11-05 (jobs fail before a runner starts); checks are local only until the owner restores it.
+- Objective (owner's choice, 2026-11-05): sound playback through SDL3 (already vendored), our own mixer, 3D positional sound tied to ECS entities, deterministic tests.
+- Plan: PR 1 the mixer (`lykoware/audio.hpp`, no device); PR 2 output through SDL3 on its audio thread, with dummy-driver tests; PR 3 a listener and an ECS sound component, camera-relative, with procedurally made crate landing sounds in the sandbox (no binary assets).
+- Shared interfaces: new `lykoware::audio`; PR 2 turns on SDL's audio subsystem in `cmake/VendorSdl3.cmake`; PR 3 adds an ECS component next to `Transform`.
+- Checks: exact-value tests with no device; bit-identical output however rendering is split; deliberate breaks; five CI jobs.
+
+## Completed: review follow-ups (Codex, #35 merged)
 
 - Owner/status: Codex, ready for owner review in #35; all five jobs passed on `f113b45` ([run](https://github.com/Avrenthrad/lykowareGE/actions/runs/41826863572)); original base `5b46f0812eab373fa3e3062acd272c6b593a1b63`, branch `codex/core-contract-hardening`.
 - Scope: ECS/physics handle isolation, allocation/exception safety, exclusive physics attachment ownership; ADR 0030. No renderer rewrite.
@@ -33,11 +78,11 @@ Check latest main and open PRs before starting. Documents do not automatically s
 - Hardware gate: actual Windows GPU timing and memory on the recommended desktop require that machine. A software Vulkan run is not that evidence.
 - Integration: Joshua merges, per the owner rules above. Stacked follow-up PRs may be built/tested together locally before owner merge.
 
-## Related rendering work
+## Completed: rendering work (Claude, #32–#34 merged)
 
 Claude owns #32 (`claude/math`), #33 (`claude/rhi-mesh`) and #34 (`claude/render-scene`). They supply camera-relative math, RHI mesh/depth drawing and the first lit ECS falling-crates renderer. Their CI evidence is recorded in those PRs/STATUS. Codex's scene-command integration preserves that stack and #30's physics slot retirement; it does not replace or publish Claude's branches.
 
-## Active scene/replay integration
+## Completed: scene/replay integration (Codex, #36 merged)
 
 - Owner/status: Codex, implemented and ready for review as #36 (`codex/scene-command-replay`), stacked on #35; preserves Claude's #30 and merged #32–#34. Runtime/scene source `26f7332` passed all five CI jobs (run 41827916577); subsequent documentation/build-concurrency checks must stay green.
 - Scope: ADR 0031, versioned JSON box scene/command schema, stable authored IDs, fixed-tick dispatch, render-only snapshots, CLI replay/capture/report, local Windows measurement script and documentation reconciliation.
@@ -64,13 +109,6 @@ Owner: Claude. Done: #19 merged (ADR 0017, Proposed). `FixedStep` gives numbered
 ## Completed task: Vulkan RHI bring-up
 
 Owner: Claude. Done: PRs #11–#14 and #16–#18 merged, with ADR 0013 in #15. First pixels through a Lykoware-owned Vulkan 1.3 RHI (ADR 0002): instance, device, offscreen render target read back into the image harness, swapchain on the SDL window, Slang shaders compiled and validated at build time, graphics pipelines, and the triangle drawn offscreen (pixel-checked) and in the sandbox window. GPU tests run on Mesa lavapipe in Linux CI and report Skipped on Windows runners, which have no Vulkan. The owner has not accepted ADRs 0009–0012 or 0014–0016; merging them did not accept them. Details and CI runs are in [STATUS.md](STATUS.md) and each pull request.
-
-## Active task: local validation evidence (Codex)
-
-- Owner/status: Codex, active on `codex/local-validation`, stacked on package PR #45 (`7f754b3`).
-- Scope: ADR 0046; local CMake/CTest/staging command, source provenance, honest test/skip reports and failure tests. No engine, audio, model, texture or GPU-timing API changes.
-- Related work: Claude retains #37–#44. CI is blocked by account billing/spending settings; this tool gathers local evidence without changing accounts, spending or weakening CI/merge rules.
-- Checks: failure-path tests, real Linux execution, local compatibility with Claude's stack. Windows code paths/results remain unverified until actual Windows execution.
 
 ## Task template
 
