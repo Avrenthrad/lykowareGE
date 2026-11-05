@@ -53,6 +53,8 @@ public:
     // Moves the camera for one frame of `seconds` around `pivot` and returns the view.
     [[nodiscard]] render::Camera update(const physics::World& world, math::DVec3 pivot, float seconds);
 
+    // The distance it keeps when nothing is in the way.
+    [[nodiscard]] float distance() const { return config_.distance; }
     [[nodiscard]] float yaw() const { return yaw_; }
     [[nodiscard]] float pitch() const { return pitch_; }
     // How far the camera is from the pivot now, after any pull-in.

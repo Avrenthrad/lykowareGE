@@ -20,6 +20,7 @@ add_library(lykoware_engine STATIC
     src/paths.cpp
     src/physics.cpp
     src/physics_ecs.cpp
+    src/player.cpp
     src/render.cpp
     src/script/script.cpp
     src/trace.cpp

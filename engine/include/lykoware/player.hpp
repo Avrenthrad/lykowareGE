@@ -1,0 +1,131 @@
+#pragma once
+
+#include <lykoware/follow_camera.hpp>
+#include <lykoware/input.hpp>
+#include <lykoware/math.hpp>
+#include <lykoware/physics.hpp>
+#include <lykoware/render.hpp>
+
+#include <memory>
+#include <optional>
+#include <string>
+
+// A player-controlled character: input becomes camera-relative movement, jumps and a follow
+// camera's turns (ADR 0047).
+
+namespace lykoware {
+
+// How input turns into a player's movement and view.
+struct PlayerInputConfig {
+    // Radians the view turns per pixel of mouse motion.
+    float mouse_radians_per_pixel = 0.0025F;
+    // Radians per second the view turns with the right stick or an arrow key held fully.
+    float turn_radians_per_second = 2.5F;
+    // Stick deflection up to this is ignored; the rest of the range is rescaled to 0..1.
+    // Clamped to 0..0.9.
+    float stick_dead_zone = 0.2F;
+    // Mouse, stick and arrow keys pointing up look down instead of up.
+    bool invert_pitch = false;
+};
+
+// What a player asks for in one frame.
+struct PlayerIntent {
+    // Movement along the camera's forward and right, each -1..1; together of length at most 1.
+    float forward = 0.F;
+    float right = 0.F;
+    // How far to turn the view this frame, in radians, in FollowCamera::turn's convention.
+    float yaw = 0.F;
+    float pitch = 0.F;
+    // Zoom steps this frame: positive moves the camera in, towards first person.
+    float zoom = 0.F;
+    bool jump = false; // pressed this frame
+    bool run = false;  // held
+};
+
+// One frame's intent from keyboard, mouse and gamepad together:
+//   move: W A S D, or the left stick;    run: Shift, or the left stick pressed in
+//   look: mouse motion (only when `mouse_look`), the arrow keys, or the right stick
+//   jump: Space, or the South face button
+//   zoom: the mouse wheel, or the d-pad up (in) and down (out)
+// `seconds` is the frame's length, for the stick and arrow-key turn rate; a non-finite or
+// negative length turns nothing. Pass `mouse_look` only while the window holds the mouse in
+// relative mode, so a free cursor crossing the window does not turn the view.
+[[nodiscard]] PlayerIntent read_player_intent(const InputState& input, const PlayerInputConfig& config, float seconds,
+                                              bool mouse_look);
+
+struct PlayerConfig {
+    // The character's capsule, spawn point (its feet), walkable slope and step height.
+    physics::CharacterDesc body;
+    // Speeds in metres per second.
+    float walk_speed = 4.F;
+    float run_speed = 7.F;
+    float jump_speed = 5.F;
+    // How long a jump pressed in the air is kept for walkable ground, in seconds.
+    float jump_buffer = 0.1F;
+    // The camera's pivot above the feet, in metres. It must be inside the capsule, below its top.
+    float eye_height = 1.6F;
+    FollowCameraConfig camera;
+    // Zoom: each step moves the camera this far, up to max_distance. Closer than one step it
+    // goes to first person (distance 0), so it never sits inside the head.
+    float zoom_step = 1.F;
+    float max_distance = 8.F;
+};
+
+// A character in a physics world that a player steers, with a follow camera.
+//
+// Each frame: steer() with that frame's intent, then before_step() before each fixed physics
+// step that frame (zero or more), then view() for the camera to draw with. Movement is relative
+// to where the camera faces, so "forward" is always into the screen.
+//
+// Ownership: create() returns the sole owner. It owns its character in the world and destroys it
+// with itself; the world must outlive it. Copy and move are not provided.
+//
+// Threading: one thread at a time, with no physics step running.
+//
+// Determinism: the same intents and steps in the same order give bit-identical characters.
+class PlayerCharacter {
+public:
+    // Creates the character at config.body.position. nullptr, with error filled, when the world
+    // refuses the character or the config is unusable (non-finite or negative speeds, an eye
+    // height outside the capsule).
+    [[nodiscard]] static std::unique_ptr<PlayerCharacter> create(physics::World& world, const PlayerConfig& config,
+                                                                 std::string& error);
+
+    ~PlayerCharacter();
+    PlayerCharacter(const PlayerCharacter&) = delete;
+    PlayerCharacter& operator=(const PlayerCharacter&) = delete;
+    PlayerCharacter(PlayerCharacter&&) = delete;
+    PlayerCharacter& operator=(PlayerCharacter&&) = delete;
+
+    // Takes one frame's intent: the view turns and zooms now; movement and a jump take effect
+    // from the next before_step(). Non-finite parts are ignored.
+    void steer(const PlayerIntent& intent);
+    // Sets the character's input for the coming physics step of `seconds`: the latest intent's
+    // movement relative to the camera, and a jump if one is waiting and the character stands on
+    // walkable ground.
+    void before_step(float seconds);
+    // The camera for this frame, after the latest step; `seconds` is the frame's length, for the
+    // camera easing back out after an obstruction.
+    [[nodiscard]] render::Camera view(float seconds);
+
+    [[nodiscard]] physics::CharacterId character() const { return character_; }
+    [[nodiscard]] physics::CharacterState state() const;
+    // Where the camera orbits: the feet plus eye_height.
+    [[nodiscard]] math::DVec3 pivot() const;
+    // The way the body faces, as a yaw (FollowCamera's convention): the last way it was moved.
+    [[nodiscard]] float facing() const { return facing_; }
+    [[nodiscard]] const FollowCamera& camera() const { return camera_; }
+
+private:
+    PlayerCharacter(physics::World& world, physics::CharacterId character, const PlayerConfig& config);
+
+    physics::World& world_;
+    physics::CharacterId character_;
+    PlayerConfig config_;
+    FollowCamera camera_;
+    PlayerIntent intent_{};
+    float jump_wait_ = 0.F;
+    float facing_ = 0.F;
+};
+
+}
