@@ -212,6 +212,14 @@ if(BUILD_TESTING)
     add_test(NAME audio.mixer COMMAND lykoware_audio_test)
     set_tests_properties(audio.mixer PROPERTIES TIMEOUT 60)
 
+    # Audio output through SDL3 (ADR 0033): the dummy and disk drivers, so no sound card is
+    # needed. The disk capture lands under the build directory.
+    add_executable(lykoware_audio_output_test tests/audio_output.cpp)
+    target_link_libraries(lykoware_audio_output_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_audio_output_test)
+    add_test(NAME audio.output COMMAND lykoware_audio_output_test "${CMAKE_BINARY_DIR}/test-output/audio-output")
+    set_tests_properties(audio.output PROPERTIES TIMEOUT 60)
+
     # The maths module (ADR 0024). Links only the engine.
     add_executable(lykoware_math_test tests/math.cpp)
     target_link_libraries(lykoware_math_test PRIVATE lykoware::engine)
