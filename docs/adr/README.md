@@ -42,6 +42,7 @@ Canonical directory: docs/adr. Decisions remain Proposed until resolved; disting
 | [0039](0039-gpu-timings.md) | Proposed | GPU timings from Vulkan timestamp queries: `RenderTarget::last_gpu_time_ns`, `Swapchain::take_gpu_frame_times`; `CpuTrace` GPU spans on a second track; sandbox `--window --vulkan --trace` and `lyko trace --gpu` |
 | [0040](0040-window-lifecycle.md) | Proposed | `Window::has_focus`/`minimized`; focus loss releases held keys and mouse buttons; the swapchain skips frames while minimised; close and full-restart tests (`lifecycle.restart`, `lifecycle.restart_vulkan`) |
 | [0041](0041-lua-scripting.md) | Proposed (owner chose the recommendation) | Scripting: vendored Lua 5.4.9 (MIT), compiled as C++, sandboxed behind `lykoware::script::Script` with memory and instruction limits, a fixed hash seed and host-seeded `math.random` |
+| [0042](0042-script-driven-scenes.md) | Proposed | Lua scripts drive scenes through recorded commands: `scene::ScriptDriver` (`spawn`, `destroy`, `set_velocity`, `position`, `on_tick`), `Scene::position`, `lyko run --script FILE [--record FILE]`; a script's recording replays without it |
 
 Use [the template](TEMPLATE.md). Record context, options, decision/status, contracts, consequences and verification. Use a new ADR to supersede an accepted choice; do not silently rewrite its history.
 

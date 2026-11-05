@@ -6,7 +6,7 @@ C++20 developer tool; CMake/CTest use child processes without shell interpretati
 lyko build [--source DIR] [--configure-preset NAME] [--preset NAME] [--cmake EXECUTABLE]
 lyko test [--source DIR] [--preset NAME] [--ctest EXECUTABLE]
 lyko run
-lyko run --scene FILE [--commands FILE] [--ticks N] [--capture FILE] [--report FILE]
+lyko run --scene FILE [--commands FILE | --script FILE [--record FILE]] [--ticks N] [--capture FILE] [--report FILE]
 lyko screenshot --scene FILE --output FILE [--commands FILE] [--ticks N] [--report FILE]
 lyko trace --frames N [--gpu] [--output FILE]
 lyko --help | --version
@@ -18,7 +18,7 @@ Build defaults: Windows configure `windows`, build/test `windows-debug`; Linux `
 
 Plain `run` launches the sandbox beside lyko (or the recorded build-tree path), waits and returns its exit code. `trace` launches that sandbox with `--frames` and `--trace`; it records CPU loop zones, not GPU events. Frame count is 1–1,000,000; default trace output is `lykoware-cpu-trace.json` in the working directory. `trace --gpu` instead runs the sandbox's Vulkan window without sound (`--window --vulkan --no-audio`) for N frames: each frame's CPU zones and, where the GPU has timestamps, its GPU time on a second track (ADR 0039). Its default output is `lykoware-gpu-trace.json`; it exits 3 when no window or Vulkan device is available.
 
-`run --scene` parses versioned scene JSON, constructs an ECS/physics world, dispatches optional versioned commands before their fixed 60 Hz ticks, and runs 120 ticks by default. It works without a window or Vulkan when capture/measurement is not requested. `--report` records tick/hash, applied commands, entity count and measured CPU times. Scene and command parsing/dispatch use the public engine API in `lykoware/scene.hpp`; future scripting/editor callers can invoke that same handler. Build/test process routing is separate from the scene command contract.
+`run --scene` parses versioned scene JSON, constructs an ECS/physics world, dispatches optional versioned commands before their fixed 60 Hz ticks, and runs 120 ticks by default. It works without a window or Vulkan when capture/measurement is not requested. `--report` records tick/hash, applied commands, entity count and measured CPU times. Scene and command parsing/dispatch use the public engine API in `lykoware/scene.hpp`; future scripting/editor callers can invoke that same handler. `--script FILE` instead runs a sandboxed Lua script (ADR 0041) whose `on_tick(tick)` issues the same commands through `spawn{...}`, `destroy(id)` and `set_velocity(id, {x, y, z})`, and reads `position(id)` (ADR 0042). `--record FILE` writes the commands the script issued as a command file that `--commands` replays to the same state hash without the script. `--commands` and `--script` cannot be combined; a failing script exits 2 naming its file and line. See `samples/scenes/falling-crates.lua`. Build/test process routing is separate from the scene command contract.
 
 `screenshot` or `--capture` creates an offscreen depth target, draws the scene through the real Vulkan renderer, and writes PPM P6 RGB bytes. It loads validated `cli_lit.vert.spv` and `cli_lit.frag.spv` from the executable's `shaders` directory, independent of the working directory. This is distinct from the GPU-free image test pattern. Installed builds deploy both shaders.
 
