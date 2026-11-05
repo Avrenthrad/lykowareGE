@@ -10,6 +10,7 @@
 #include <lykoware/paths.hpp>
 #include <lykoware/physics.hpp>
 #include <lykoware/physics_ecs.hpp>
+#include <lykoware/player.hpp>
 #include <lykoware/render.hpp>
 #include <lykoware/rhi/device.hpp>
 #include <lykoware/rhi/instance.hpp>
@@ -45,6 +46,8 @@
 #define NOMINMAX
 #include <windows.h>
 #endif
+
+#include "obstacle_course.hpp"
 
 namespace {
 
@@ -151,6 +154,8 @@ struct WindowOptions {
     std::string model;
     // --trace FILE: a Chrome trace of each frame's CPU zones and GPU time (ADR 0039).
     std::string trace;
+    // --play: a character to walk round the obstacle course, with a follow camera (ADR 0047).
+    bool play = false;
 };
 
 // GPU frame times from the swapchain, as spans on the trace's GPU track (when tracing) and as a
@@ -261,9 +266,40 @@ std::shared_ptr<const lykoware::audio::Sound> make_thump()
     return sound;
 }
 
+// The obstacle course's terrain (samples/course) as a mesh to draw: the height field's samples
+// as a grid of triangles, facing up, with normals from the slope between neighbours.
+lykoware::MeshData course_terrain_mesh()
+{
+    const lykoware::physics::HeightFieldShape field = obstacle_course::terrain();
+    const std::uint32_t n = field.samples_per_side;
+    const float spacing = field.spacing;
+    const auto height = [&field, n](std::uint32_t x, std::uint32_t z) {
+        return field.heights[static_cast<std::size_t>(std::min(z, n - 1)) * n + std::min(x, n - 1)];
+    };
+    lykoware::MeshData mesh;
+    for (std::uint32_t z = 0; z < n; ++z) {
+        for (std::uint32_t x = 0; x < n; ++x) {
+            mesh.positions.push_back({static_cast<float>(x) * spacing, height(x, z), static_cast<float>(z) * spacing});
+            const float slope_x = (height(x + 1, z) - height(x == 0 ? 0 : x - 1, z)) / (2.F * spacing);
+            const float slope_z = (height(x, z + 1) - height(x, z == 0 ? 0 : z - 1)) / (2.F * spacing);
+            mesh.normals.push_back(lykoware::math::normalize(lykoware::math::Vec3{-slope_x, 1.F, -slope_z}));
+        }
+    }
+    for (std::uint32_t z = 0; z + 1 < n; ++z) {
+        for (std::uint32_t x = 0; x + 1 < n; ++x) {
+            const std::uint32_t corner = z * n + x;
+            // Counter-clockwise seen from above.
+            mesh.indices.insert(mesh.indices.end(), {corner, corner + n, corner + 1, corner + 1, corner + n, corner + n + 1});
+        }
+    }
+    return mesh;
+}
+
 // The falling-crates scene (ADR 0026): a grey ground and a grid of coloured crates. Physics
 // moves the crate entities and the renderer draws every entity with a Transform and a
 // MeshRenderer. With a sound, each crate has an AudioSource and reports its impacts (ADR 0034).
+// With a terrain mesh it is the obstacle course instead of the flat ground (ADR 0047), and the
+// crates fall to one side of it.
 class CrateScene {
 public:
     static constexpr int grid = 5;
@@ -276,20 +312,26 @@ public:
         float strength = 0.F;
     };
 
-    CrateScene(lykoware::physics::World& physics, std::shared_ptr<const lykoware::audio::Sound> thump)
+    CrateScene(lykoware::physics::World& physics, std::shared_ptr<const lykoware::audio::Sound> thump,
+               std::optional<lykoware::render::MeshId> course_terrain = std::nullopt)
         : physics_(physics)
         , thump_(std::move(thump))
         , link_(entities_, physics)
     {
-        lykoware::physics::BodyDesc ground;
-        ground.shape = lykoware::physics::BoxShape{{12.F, 0.5F, 12.F}};
-        ground.motion = lykoware::physics::MotionType::Static;
-        ground.position = {0.0, -0.5, 0.0};
-        const lykoware::ecs::Entity entity = entities_.create();
         std::string error;
-        link_.add_body(entity, ground, error);
-        entities_.add<lykoware::render::MeshRenderer>(
-            entity, lykoware::render::MeshRenderer{lykoware::render::MeshShape::Cube, {24.F, 1.F, 24.F}, {0.45F, 0.45F, 0.45F}});
+        if (course_terrain) {
+            add_course(*course_terrain);
+            drop_centre_ = {-14.0, 0.0, 0.0};
+        } else {
+            lykoware::physics::BodyDesc ground;
+            ground.shape = lykoware::physics::BoxShape{{12.F, 0.5F, 12.F}};
+            ground.motion = lykoware::physics::MotionType::Static;
+            ground.position = {0.0, -0.5, 0.0};
+            const lykoware::ecs::Entity entity = entities_.create();
+            link_.add_body(entity, ground, error);
+            entities_.add<lykoware::render::MeshRenderer>(
+                entity, lykoware::render::MeshRenderer{lykoware::render::MeshShape::Cube, {24.F, 1.F, 24.F}, {0.45F, 0.45F, 0.45F}});
+        }
         drop();
     }
 
@@ -371,6 +413,35 @@ private:
         }
     }
 
+    // The course's terrain and blocks as static bodies, each drawn.
+    void add_course(lykoware::render::MeshId terrain)
+    {
+        std::string error;
+        lykoware::physics::BodyDesc ground;
+        ground.shape = obstacle_course::terrain();
+        ground.motion = lykoware::physics::MotionType::Static;
+        ground.position = obstacle_course::terrain_origin;
+        lykoware::ecs::Entity entity = entities_.create();
+        if (!link_.add_body(entity, ground, error)) {
+            lykoware::log(lykoware::LogLevel::error, "Course terrain: " + error);
+        }
+        entities_.add<lykoware::render::MeshRenderer>(
+            entity, lykoware::render::MeshRenderer{lykoware::render::MeshShape::Cube, {1.F, 1.F, 1.F}, {0.38F, 0.55F, 0.32F}, terrain});
+        for (const obstacle_course::Block& block : obstacle_course::blocks()) {
+            lykoware::physics::BodyDesc desc;
+            desc.shape = lykoware::physics::BoxShape{block.half};
+            desc.motion = lykoware::physics::MotionType::Static;
+            desc.position = block.centre;
+            desc.rotation = block.rotation;
+            entity = entities_.create();
+            if (!link_.add_body(entity, desc, error)) {
+                lykoware::log(lykoware::LogLevel::error, "Course block: " + error);
+            }
+            entities_.add<lykoware::render::MeshRenderer>(
+                entity, lykoware::render::MeshRenderer{lykoware::render::MeshShape::Cube, block.half * 2.F, block.colour});
+        }
+    }
+
     void drop()
     {
         constexpr lykoware::math::Vec3 palette[] = {
@@ -380,7 +451,8 @@ private:
             for (int column = 0; column < grid; ++column) {
                 lykoware::physics::BodyDesc crate;
                 crate.shape = lykoware::physics::BoxShape{{0.5F, 0.5F, 0.5F}};
-                crate.position = {(column - grid / 2) * 1.6, 4.0 + 1.3 * row + 0.4 * column, (row - grid / 2) * 1.6};
+                crate.position = drop_centre_
+                    + lykoware::math::DVec3{(column - grid / 2) * 1.6, 4.0 + 1.3 * row + 0.4 * column, (row - grid / 2) * 1.6};
                 // A small turn about a tilted axis so the crates tumble as they land.
                 crate.rotation = lykoware::math::from_axis_angle({1.F, 0.F, 1.F}, 0.15F * static_cast<float>(row - column));
                 const lykoware::ecs::Entity entity = entities_.create();
@@ -414,11 +486,59 @@ private:
     std::vector<float> quiet_;
     std::vector<Impact> impacts_;
     double elapsed_ = 0.0;
+    // Where the crates fall: the middle of the flat ground, or beside the course.
+    lykoware::math::DVec3 drop_centre_{};
     lykoware::ecs::Entity model_{};
     float model_scale_ = 1.F;
     lykoware::math::Vec3 model_centre_{};
     float model_base_ = 0.F;
     float model_turn_ = 0.F;
+};
+
+// The player's character as the renderer sees it (ADR 0047): a box the size of its capsule and a
+// visor on the side it faces. Hidden in first person, where the camera is inside it.
+class PlayerBody {
+public:
+    explicit PlayerBody(lykoware::ecs::World& entities)
+        : entities_{entities}
+        , body_{entities.create()}
+        , visor_{entities.create()}
+    {
+        entities_.add<lykoware::Transform>(body_, lykoware::Transform{});
+        entities_.add<lykoware::Transform>(visor_, lykoware::Transform{});
+    }
+
+    void place(const lykoware::PlayerCharacter& player)
+    {
+        const lykoware::math::DVec3 feet = player.state().position;
+        const lykoware::math::Quat facing = lykoware::math::from_axis_angle({0.F, 1.F, 0.F}, player.facing());
+        auto* body = entities_.get<lykoware::Transform>(body_);
+        body->position = feet + lykoware::math::Vec3{0.F, height / 2.F, 0.F};
+        body->rotation = facing;
+        auto* visor = entities_.get<lykoware::Transform>(visor_);
+        visor->position = feet + lykoware::math::Vec3{0.F, height - 0.25F, 0.F} + lykoware::math::rotate(facing, {0.F, 0.F, -width / 2.F});
+        visor->rotation = facing;
+
+        const bool shown = player.camera().current_distance() >= 0.5F;
+        if (shown && !entities_.has<lykoware::render::MeshRenderer>(body_)) {
+            entities_.add<lykoware::render::MeshRenderer>(
+                body_, lykoware::render::MeshRenderer{lykoware::render::MeshShape::Cube, {width, height, width}, {0.2F, 0.42F, 0.8F}});
+            entities_.add<lykoware::render::MeshRenderer>(
+                visor_, lykoware::render::MeshRenderer{lykoware::render::MeshShape::Cube, {0.42F, 0.14F, 0.1F}, {0.95F, 0.82F, 0.3F}});
+        } else if (!shown && entities_.has<lykoware::render::MeshRenderer>(body_)) {
+            entities_.remove<lykoware::render::MeshRenderer>(body_);
+            entities_.remove<lykoware::render::MeshRenderer>(visor_);
+        }
+    }
+
+private:
+    // The default capsule: 0.3 m radius, 1.8 m tall.
+    static constexpr float width = 0.6F;
+    static constexpr float height = 1.8F;
+
+    lykoware::ecs::World& entities_;
+    lykoware::ecs::Entity body_;
+    lykoware::ecs::Entity visor_;
 };
 
 // Uploads a glTF model's textures and its mesh as parts with their materials (ADR 0038).
@@ -515,7 +635,15 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
             lykoware::log(lykoware::LogLevel::warning, "No sound: " + audio_error);
         }
     }
-    auto scene = std::make_unique<CrateScene>(*physics, audio ? make_thump() : nullptr);
+    std::optional<lykoware::render::MeshId> course_terrain;
+    if (options.play) {
+        course_terrain = renderer->add_mesh(course_terrain_mesh(), error);
+        if (!course_terrain) {
+            lykoware::log(lykoware::LogLevel::error, "Course terrain: " + error.message);
+            return EXIT_FAILURE;
+        }
+    }
+    auto scene = std::make_unique<CrateScene>(*physics, audio ? make_thump() : nullptr, course_terrain);
     if (model) {
         const std::optional<lykoware::render::MeshId> mesh = upload_model(*renderer, *model, error);
         if (!mesh) {
@@ -524,8 +652,28 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
         }
         scene->add_model(*mesh, lykoware::bounds(model->mesh));
     }
-    const lykoware::render::Camera camera{{0.0, 7.0, 15.0}, {0.0, 1.5, 0.0}};
-    const auto listener = lykoware::audio::Listener::looking_at(camera.eye, camera.target, camera.up);
+    lykoware::render::Camera camera{{0.0, 7.0, 15.0}, {0.0, 1.5, 0.0}};
+
+    // --play (ADR 0047): a character on the course. Click to hold the mouse for mouse-look; Esc
+    // lets it go; R goes back to the start.
+    lykoware::PlayerConfig player_config;
+    player_config.body.position = obstacle_course::start;
+    const lykoware::PlayerInputConfig input_config;
+    std::unique_ptr<lykoware::PlayerCharacter> player;
+    std::optional<PlayerBody> player_body;
+    bool warned_mouse = false;
+    if (options.play) {
+        std::string player_error;
+        player = lykoware::PlayerCharacter::create(*physics, player_config, player_error);
+        if (!player) {
+            lykoware::log(lykoware::LogLevel::error, "Player: " + player_error);
+            return EXIT_FAILURE;
+        }
+        player_body.emplace(scene->entities());
+        lykoware::log(lykoware::LogLevel::info,
+                      "Play: WASD or the left stick to move, Shift or L3 to run, Space or South to jump, mouse wheel or "
+                      "d-pad to zoom. Click to look with the mouse, Esc to let it go, R to start again.");
+    }
     lykoware::audio::SpatialAudio spatial;
     std::uint64_t knocks = 0;
     const lykoware::rhi::ClearColor sky{0.45F, 0.6F, 0.8F, 1.F};
@@ -556,13 +704,48 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
     std::uint64_t frame = 0;
     while (window.pump()) {
         auto frame_zone = zone("sandbox.frame");
-        const lykoware::FrameSteps steps = simulation->advance(frame_clock.lap());
+        const std::int64_t lap = frame_clock.lap();
+        const float frame_seconds = static_cast<float>(static_cast<double>(lap) * 1e-9);
+        if (player) {
+            const lykoware::InputState& input = window.input();
+            std::string mouse_error;
+            if (!window.relative_mouse() && window.has_focus()
+                && input.mouse.buttons[static_cast<std::size_t>(lykoware::MouseButton::Left)].pressed
+                && !window.set_relative_mouse(true, mouse_error) && !warned_mouse) {
+                lykoware::log(lykoware::LogLevel::warning, "No mouse-look: " + mouse_error);
+                warned_mouse = true;
+            }
+            if (window.relative_mouse() && input.keys[static_cast<std::size_t>(lykoware::Key::Escape)].pressed) {
+                (void)window.set_relative_mouse(false, mouse_error);
+            }
+            // Back to the start on R, or after falling off the edge of the world.
+            if (input.keys[static_cast<std::size_t>(lykoware::Key::R)].pressed || player->state().position.y < -30.0) {
+                player.reset();
+                std::string player_error;
+                player = lykoware::PlayerCharacter::create(*physics, player_config, player_error);
+                if (!player) {
+                    lykoware::log(lykoware::LogLevel::error, "Player: " + player_error);
+                    ok = false;
+                    break;
+                }
+            }
+            player->steer(lykoware::read_player_intent(input, input_config, frame_seconds, window.relative_mouse()));
+        }
+        const lykoware::FrameSteps steps = simulation->advance(lap);
         {
             auto simulate_zone = zone("sandbox.simulate");
             for (std::uint32_t tick = 0; tick < steps.ticks; ++tick) {
+                if (player) {
+                    player->before_step(static_cast<float>(simulation->tick_seconds()));
+                }
                 scene->tick(static_cast<float>(simulation->tick_seconds()));
             }
         }
+        if (player) {
+            camera = player->view(frame_seconds);
+            player_body->place(*player);
+        }
+        const auto listener = lykoware::audio::Listener::looking_at(camera.eye, camera.target, camera.up);
         if (audio) {
             auto audio_zone = zone("sandbox.audio");
             const std::vector<CrateScene::Impact> impacts = scene->take_impacts();
@@ -599,6 +782,12 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
     }
     const std::uint64_t presented = swapchain->frames_presented();
     const std::size_t drawn = renderer->last_draw_count();
+    if (player) {
+        const lykoware::math::DVec3 feet = player->state().position;
+        lykoware::log(lykoware::LogLevel::info, "The player ended at (" + std::to_string(feet.x) + ", " + std::to_string(feet.y)
+                                                    + ", " + std::to_string(feet.z) + ").");
+        player.reset();
+    }
     if (audio) {
         lykoware::log(lykoware::LogLevel::info, "Played " + std::to_string(knocks) + " crate knocks.");
         audio.reset();
@@ -668,6 +857,8 @@ int run_window(const std::vector<std::string>& args)
             flag(options.vulkan, option);
         } else if (option == "--no-audio") {
             flag(options.no_audio, option);
+        } else if (option == "--play") {
+            flag(options.play, option);
         } else if (option == "--model") {
             if (!options.model.empty()) {
                 throw std::invalid_argument("Duplicate option: --model");
@@ -712,6 +903,9 @@ int run_window(const std::vector<std::string>& args)
 
     if (!options.model.empty() && !options.vulkan) {
         throw std::invalid_argument("--model needs --vulkan to draw it.");
+    }
+    if (options.play && !options.vulkan) {
+        throw std::invalid_argument("--play needs --vulkan to draw it.");
     }
     if (!options.trace.empty() && (!options.vulkan || !options.has_frames)) {
         throw std::invalid_argument("--window --trace needs --vulkan and --frames N.");
@@ -796,7 +990,7 @@ int run(const std::vector<std::string>& args)
             std::cout << "Usage: lykoware_sandbox [--version|--help]\n"
                          "       lykoware_sandbox --frames N --trace FILE\n"
                          "       lykoware_sandbox --window [--dummy | --offscreen] [--vulkan] [--no-audio]\n"
-                         "                        [--model FILE] [--frames N [--trace FILE]]\n"
+                         "                        [--model FILE] [--play] [--frames N [--trace FILE]]\n"
                          "Without options, runs the console foundation check.\n"
                          "--frames with --trace runs N CPU iterations and writes a Chrome trace.\n"
                          "--window opens a window and pumps input until it closes.\n"
@@ -809,6 +1003,10 @@ int run(const std::vector<std::string>& args)
                          "--no-audio runs --vulkan without sound.\n"
                          "--model FILE shows a glTF model (.gltf or .glb) beside the crates, with its\n"
                          "  base colour materials and textures (PNG or JPEG).\n"
+                         "--play with --vulkan puts a character on an obstacle course beside the crates,\n"
+                         "  with a follow camera: WASD or the left stick to move, Shift or L3 to run,\n"
+                         "  Space or South to jump, the mouse wheel or d-pad to zoom (in to first\n"
+                         "  person). Click to look with the mouse, Esc to let go, R to start again.\n"
                          "--trace FILE with --vulkan and --frames writes a Chrome trace of each frame's\n"
                          "  CPU zones and, where the GPU has timestamps, its GPU time.\n"
                          "--vulkan logs the average GPU time per frame on exit.\n";

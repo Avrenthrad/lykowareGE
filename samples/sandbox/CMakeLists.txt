@@ -1,5 +1,7 @@
 add_executable(lykoware_sandbox main.cpp)
 target_link_libraries(lykoware_sandbox PRIVATE lykoware::engine)
+# The obstacle course for --play, shared with the player.course test (ADR 0047).
+target_include_directories(lykoware_sandbox PRIVATE "${CMAKE_SOURCE_DIR}/samples/course")
 
 lykoware_configure_target(lykoware_sandbox)
 
