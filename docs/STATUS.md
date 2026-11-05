@@ -246,7 +246,7 @@ Owner: Claude. Branch `claude/gpu-timings`, stacked on textures PR 3. In review 
 
 ### Window lifecycle: focus, minimise, close and restart
 
-Owner: Claude. Branch `claude/window-lifecycle`, stacked on GPU timings. In review.
+Owner: Claude. Branch `claude/window-lifecycle`, stacked on GPU timings. In review as [#46](https://github.com/Avrenthrad/lykowareGE/pull/46).
 
 - [ADR 0040](adr/0040-window-lifecycle.md) (Proposed).
 - **Window:**
@@ -257,7 +257,8 @@ Owner: Claude. Branch `claude/window-lifecycle`, stacked on GPU timings. In revi
   - `window.lifecycle` gains focus, minimise and close-event cases;
   - `rhi.swapchain` checks minimised frames;
   - new `lifecycle.restart` (window, audio, physics, ECS; runs everywhere) and `lifecycle.restart_vulkan` (plus the whole Vulkan stack) shut everything down and start again three times in one process.
-- **Local checks:** see ADR 0040.
+- **Deliberate breaks:** 16 of 16 caught.
+- **Local checks:** 53/53 pass in Debug, ASan/UBSan and clang-tidy, with no validation errors.
 - **CI:** blocked for the whole account (see audio PR 1).
 
 ## Next
@@ -289,7 +290,7 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 ## Handoff
 
 - State: `main` at 7616ce3 contains PRs #2, #4–#21, #23–#29 and #31–#36. The Vulkan RHI bring-up, Phase 1 clocks, the physics spike, double-precision positions, the ECS (with physics on entities), the first lit renderer (falling crates), contract hardening and versioned scenes with command replay and CLI capture are complete. Physics determinism is verified on MSVC, GCC and Clang.
-- In review: `claude/audio-mixer` (Audio PR 1, ADR 0032, [#37](https://github.com/Avrenthrad/lykowareGE/pull/37)) and, stacked on it, `claude/audio-output` (Audio PR 2, ADR 0033, [#38](https://github.com/Avrenthrad/lykowareGE/pull/38)) and `claude/audio-spatial` (Audio PR 3, ADR 0034, [#39](https://github.com/Avrenthrad/lykowareGE/pull/39)), then `claude/gltf-meshes` (model loading, ADR 0035, [#40](https://github.com/Avrenthrad/lykowareGE/pull/40)), then `claude/image-decode` (textures PR 1, ADR 0036, [#41](https://github.com/Avrenthrad/lykowareGE/pull/41)), then `claude/gpu-textures` (textures PR 2, ADR 0037, [#42](https://github.com/Avrenthrad/lykowareGE/pull/42)), then `claude/gltf-materials` (textures PR 3, ADR 0038, [#43](https://github.com/Avrenthrad/lykowareGE/pull/43)), then `claude/gpu-timings` (GPU timings in traces, ADR 0039, [#44](https://github.com/Avrenthrad/lykowareGE/pull/44)), then `claude/window-lifecycle` (focus, minimise, close and restart, ADR 0040). CI cannot run at the moment: since 2026-11-05 every job fails before a runner starts. GitHub's annotation on each job reads "The job was not started because recent account payments have failed or your spending limit needs to be increased" (Billing & plans). These PRs are checked locally only. #30's fix reached `main` through #36 (80a0640), so the owner can close #30. Cursor's #22 is open.
+- In review: `claude/audio-mixer` (Audio PR 1, ADR 0032, [#37](https://github.com/Avrenthrad/lykowareGE/pull/37)) and, stacked on it, `claude/audio-output` (Audio PR 2, ADR 0033, [#38](https://github.com/Avrenthrad/lykowareGE/pull/38)) and `claude/audio-spatial` (Audio PR 3, ADR 0034, [#39](https://github.com/Avrenthrad/lykowareGE/pull/39)), then `claude/gltf-meshes` (model loading, ADR 0035, [#40](https://github.com/Avrenthrad/lykowareGE/pull/40)), then `claude/image-decode` (textures PR 1, ADR 0036, [#41](https://github.com/Avrenthrad/lykowareGE/pull/41)), then `claude/gpu-textures` (textures PR 2, ADR 0037, [#42](https://github.com/Avrenthrad/lykowareGE/pull/42)), then `claude/gltf-materials` (textures PR 3, ADR 0038, [#43](https://github.com/Avrenthrad/lykowareGE/pull/43)), then `claude/gpu-timings` (GPU timings in traces, ADR 0039, [#44](https://github.com/Avrenthrad/lykowareGE/pull/44)), then `claude/window-lifecycle` (focus, minimise, close and restart, ADR 0040, [#46](https://github.com/Avrenthrad/lykowareGE/pull/46)). CI cannot run at the moment: since 2026-11-05 every job fails before a runner starts. GitHub's annotation on each job reads "The job was not started because recent account payments have failed or your spending limit needs to be increased" (Billing & plans). These PRs are checked locally only. #30's fix reached `main` through #36 (80a0640), so the owner can close #30. Cursor's #22 is open.
 - Open decisions for the owner: accepting or rejecting ADRs 0008–0012, 0014–0017, 0022–0026 and 0030–0040; how to restore CI (fix the failed payment or spending limit under Billing & plans, or a self-hosted runner on the owner's PC; any spending needs the owner's approval) (merging did not accept them); the working assumptions in ADR 0021 (2–4 player co-op, 6-core CPU, 8 GB VRAM at minimum settings, camera-relative rendering); Cursor's #22 (ADR 0019).
 - Next concrete action: once CI runs again, get the stacked PRs green (Windows/MSVC first). Then the next Phase 1 item the owner picks (for example the scripting entry point). Codex's #45 covers the install licence notices.
 - Owner checks wanted: run `lykoware_sandbox --window --vulkan` on the RTX 4070 desktop (a 5 × 5 grid of coloured crates tumbling onto a grey ground and dropping again every 8 seconds, each knocking as it lands, through the default sound device), `tools/validation/measure-scene.ps1` (ADR 0031), `lykoware_sandbox --window --vulkan --model FILE` with a textured .glb exported from Blender (ADR 0035, ADR 0038), and `lyko trace --gpu --frames 300` opened in Perfetto (ADR 0039).

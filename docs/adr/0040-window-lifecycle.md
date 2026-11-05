@@ -52,7 +52,7 @@ Proposed:
 - **New tests:**
   - **`lifecycle.restart`** (no GPU, runs on every platform). Three cycles of: a headless window, audio on SDL's dummy driver playing a tone, a physics world and an ECS world. Each cycle:
     - the window closes through a platform close request;
-    - the window and audio shut down in alternating order;
+    - the window and audio shut down in alternating order, and closing either leaves the other's part of SDL running;
     - nothing of SDL is left running afterwards (`SDL_WasInit(0) == 0`);
     - physics gives a bit-identical result every cycle.
   - **`lifecycle.restart_vulkan`.** The same plus the whole Vulkan stack on an offscreen window: instance, device, swapchain with depth and the lit renderer. Each of the three cycles:
@@ -99,6 +99,25 @@ Proposed:
   - three frames while minimised present nothing and submit nothing (no GPU frame times);
   - after a restore, frames present again without a rebuild.
 - **`lifecycle.restart` and `lifecycle.restart_vulkan`:** as above. Under ASan/UBSan, LeakSanitizer also checks the restarts for leaks.
-- **Deliberate breaks:** to be recorded.
-- **Local results:** to be recorded.
+- **Deliberate breaks:** 16 of 16 caught:
+  - focus loss keeping keys held;
+  - the release skipping mouse buttons;
+  - the release having no edge;
+  - focus gain not tracked;
+  - focus events reaching every window;
+  - minimise not tracked;
+  - maximise keeping minimised;
+  - a close request reaching every window;
+  - quit ignored;
+  - the swapchain rendering while minimised;
+  - the swapchain rebuilding after a minimise;
+  - the window session never quitting SDL;
+  - the audio session never quitting SDL;
+  - audio quitting all of SDL under an open window;
+  - the window quitting all of SDL under open audio;
+  - the swapchain's query pool leaked across a Vulkan restart (validation layer).
+
+  The audio-under-window break was missed at first. The test then gained its "closing either leaves the other running" check.
+- **Not caught by any test:** the sandbox's sleep while minimised. CPU use is not measured.
+- **Local results:** 53/53 pass in the Debug, ASan/UBSan and clang-tidy presets. A GCC `-Wshadow -Wconversion -Wsign-conversion -Wold-style-cast` sweep finds nothing in the new code.
 - **CI:** blocked for the whole account since 2026-11-05 (see ADR 0033); to be recorded.
