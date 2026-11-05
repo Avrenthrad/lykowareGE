@@ -9,6 +9,7 @@ add_library(lykoware_engine STATIC
     src/audio_spatial.cpp
     src/clock.cpp
     src/scene.cpp
+    src/scene_script.cpp
     src/ecs.cpp
     src/gltf.cpp
     src/image/image_decode.cpp

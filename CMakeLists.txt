@@ -348,6 +348,16 @@ if(BUILD_TESTING)
         "${CMAKE_SOURCE_DIR}/samples/scenes/falling-crates.commands.json")
     set_tests_properties(scene.replay PROPERTIES TIMEOUT 120)
 
+    # A Lua script drives the falling-crates scene and must match its command file (ADR 0042).
+    add_executable(lykoware_scene_script_test tests/scene_script.cpp)
+    target_link_libraries(lykoware_scene_script_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_scene_script_test)
+    add_test(NAME scene.script COMMAND lykoware_scene_script_test
+        "${CMAKE_SOURCE_DIR}/samples/scenes/falling-crates.scene.json"
+        "${CMAKE_SOURCE_DIR}/samples/scenes/falling-crates.commands.json"
+        "${CMAKE_SOURCE_DIR}/samples/scenes/falling-crates.lua")
+    set_tests_properties(scene.script PROPERTIES TIMEOUT 120)
+
     add_executable(lykoware_ecs_test tests/ecs.cpp)
     target_link_libraries(lykoware_ecs_test PRIVATE lykoware::engine)
     lykoware_configure_target(lykoware_ecs_test)
