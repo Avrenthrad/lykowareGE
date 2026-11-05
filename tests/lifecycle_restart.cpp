@@ -149,11 +149,14 @@ void close_from_platform(lykoware::Window& window, const std::string& at)
 void shut_down(std::unique_ptr<lykoware::Window>& window, std::unique_ptr<lykoware::audio::Output>& audio,
                int cycle, const std::string& at)
 {
+    // Each session is independent (ADR 0033): closing one leaves the other's SDL running.
     if (cycle % 2 == 0) {
         window.reset();
+        expect(audio == nullptr || SDL_WasInit(SDL_INIT_AUDIO) != 0, at + "closing the window leaves audio running");
         audio.reset();
     } else {
         audio.reset();
+        expect(window == nullptr || SDL_WasInit(SDL_INIT_VIDEO) != 0, at + "closing audio leaves the window's SDL running");
         window.reset();
     }
     expect(SDL_WasInit(0) == 0, at + "nothing of SDL is left running");
