@@ -1,3 +1,6 @@
+#include <lykoware/audio.hpp>
+#include <lykoware/audio_output.hpp>
+#include <lykoware/audio_spatial.hpp>
 #include <lykoware/clock.hpp>
 #include <lykoware/ecs.hpp>
 #include <lykoware/log.hpp>
@@ -11,12 +14,15 @@
 #include <lykoware/rhi/pipeline.hpp>
 #include <lykoware/rhi/swapchain.hpp>
 #include <lykoware/trace.hpp>
+#include <lykoware/transform.hpp>
 #include <lykoware/version.hpp>
 #include <lykoware/window.hpp>
 
+#include <algorithm>
 #include <charconv>
 #include <chrono>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <exception>
@@ -29,6 +35,7 @@
 #include <string_view>
 #include <system_error>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #ifdef _WIN32
@@ -135,6 +142,7 @@ struct WindowOptions {
     bool dummy = false;
     bool offscreen = false;
     bool vulkan = false;
+    bool no_audio = false;
     bool has_frames = false;
     std::uint64_t frames = 0;
 };
@@ -177,17 +185,56 @@ bool unavailable(lykoware::rhi::RhiFailure failure)
         || failure == RhiFailure::NoSuitableDevice;
 }
 
+// A short wooden knock, made here rather than loaded, so the repository holds no audio files:
+// a low body tone with two decaying partials, plus a burst of low-passed noise for the impact.
+std::shared_ptr<const lykoware::audio::Sound> make_thump()
+{
+    constexpr std::uint32_t rate = lykoware::audio::output_rate;
+    constexpr float two_pi = 6.2831853F;
+    std::vector<float> samples(rate * 3 / 10);
+    std::uint32_t noise = 0x9E3779B9U;
+    float knock = 0.F;
+    float peak = 0.F;
+    for (std::size_t i = 0; i < samples.size(); ++i) {
+        const float t = static_cast<float>(i) / static_cast<float>(rate);
+        const float body = std::sin(two_pi * 92.F * t) * std::exp(-t * 16.F)
+            + 0.45F * std::sin(two_pi * 211.F * t) * std::exp(-t * 34.F);
+        noise = noise * 1664525U + 1013904223U;
+        const float white = static_cast<float>(noise >> 8U) / 8388608.F - 1.F;
+        knock += 0.2F * (white - knock);
+        samples[i] = 0.75F * body + 0.9F * knock * std::exp(-t * 70.F);
+        peak = std::max(peak, std::abs(samples[i]));
+    }
+    for (float& sample : samples) {
+        sample *= 0.9F / peak;
+    }
+    std::string error;
+    auto sound = lykoware::audio::Sound::create(samples, 1, rate, error);
+    if (!sound) {
+        lykoware::log(lykoware::LogLevel::warning, "Crate sound: " + error);
+    }
+    return sound;
+}
+
 // The falling-crates scene (ADR 0026): a grey ground and a grid of coloured crates. Physics
 // moves the crate entities and the renderer draws every entity with a Transform and a
-// MeshRenderer.
+// MeshRenderer. With a sound, each crate has an AudioSource and reports its impacts (ADR 0034).
 class CrateScene {
 public:
     static constexpr int grid = 5;
     // Seconds between drops: then every crate is removed and a new set falls.
     static constexpr double seconds_per_drop = 8.0;
 
-    explicit CrateScene(lykoware::physics::World& physics)
-        : link_(entities_, physics)
+    // A crate that hit something this tick, and how hard (0..1).
+    struct Impact {
+        lykoware::ecs::Entity crate;
+        float strength = 0.F;
+    };
+
+    CrateScene(lykoware::physics::World& physics, std::shared_ptr<const lykoware::audio::Sound> thump)
+        : physics_(physics)
+        , thump_(std::move(thump))
+        , link_(entities_, physics)
     {
         lykoware::physics::BodyDesc ground;
         ground.shape = lykoware::physics::BoxShape{{12.F, 0.5F, 12.F}};
@@ -205,6 +252,7 @@ public:
     void tick(float seconds)
     {
         link_.step(seconds);
+        find_impacts(seconds);
         elapsed_ += seconds;
         if (elapsed_ >= seconds_per_drop) {
             elapsed_ = 0.0;
@@ -212,13 +260,38 @@ public:
                 entities_.destroy(crate); // the link destroys each crate's physics body too
             }
             crates_.clear();
+            last_velocity_.clear();
+            quiet_.clear();
             drop();
         }
     }
 
     lykoware::ecs::World& entities() { return entities_; }
+    // Impacts since the last take_impacts(), oldest first.
+    std::vector<Impact> take_impacts() { return std::exchange(impacts_, {}); }
 
 private:
+    // Gravity changes a crate's velocity by about 0.16 m/s per 60 Hz tick. A change of more than
+    // 1 m/s in one tick is a collision; 6 m/s or more is the hardest knock. A short quiet time
+    // after each knock stops a crate resting on another from rattling.
+    void find_impacts(float seconds)
+    {
+        for (std::size_t i = 0; i < crates_.size(); ++i) {
+            const auto* body = entities_.get<lykoware::physics_ecs::RigidBody>(crates_[i]);
+            const auto state = body != nullptr ? physics_.state(body->id()) : std::nullopt;
+            if (!state) {
+                continue;
+            }
+            const float jolt = lykoware::math::length(state->linear_velocity - last_velocity_[i]);
+            last_velocity_[i] = state->linear_velocity;
+            quiet_[i] = std::max(0.F, quiet_[i] - seconds);
+            if (thump_ && jolt > 1.F && quiet_[i] == 0.F) {
+                impacts_.push_back({crates_[i], std::min(jolt / 6.F, 1.F)});
+                quiet_[i] = 0.12F;
+            }
+        }
+    }
+
     void drop()
     {
         constexpr lykoware::math::Vec3 palette[] = {
@@ -236,16 +309,31 @@ private:
                     entities_.add<lykoware::render::MeshRenderer>(
                         entity, lykoware::render::MeshRenderer{lykoware::render::MeshShape::Cube, {1.F, 1.F, 1.F},
                                                                palette[(row + column) % 5]});
+                    if (thump_) {
+                        // Each crate knocks at its own pitch; heard fully within 4 m, silent past 80 m.
+                        lykoware::audio::AudioSource source;
+                        source.sound = thump_;
+                        source.pitch = 0.8F + 0.08F * static_cast<float>((row * grid + column) % 6);
+                        source.falloff = {4.F, 80.F};
+                        entities_.add<lykoware::audio::AudioSource>(entity, source);
+                    }
                     crates_.push_back(entity);
+                    last_velocity_.push_back({});
+                    quiet_.push_back(0.F);
                 }
             }
         }
     }
 
+    lykoware::physics::World& physics_;
+    std::shared_ptr<const lykoware::audio::Sound> thump_;
     // The ECS world before the link; the physics world outlives both (ADR 0023).
     lykoware::ecs::World entities_;
     lykoware::physics_ecs::Link link_;
     std::vector<lykoware::ecs::Entity> crates_;
+    std::vector<lykoware::math::Vec3> last_velocity_;
+    std::vector<float> quiet_;
+    std::vector<Impact> impacts_;
     double elapsed_ = 0.0;
 };
 
@@ -292,8 +380,28 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
         lykoware::log(lykoware::LogLevel::error, "Physics: " + physics_error);
         return EXIT_FAILURE;
     }
-    auto scene = std::make_unique<CrateScene>(*physics);
+    // Sound (ADR 0033, ADR 0034): the platform's device, or the dummy driver when the window is
+    // headless. Without a device the sandbox runs silently.
+    std::unique_ptr<lykoware::audio::Output> audio;
+    if (!options.no_audio) {
+        lykoware::audio::OutputConfig audio_config;
+        audio_config.driver = options.dummy || options.offscreen ? lykoware::audio::OutputDriver::Dummy
+                                                                 : lykoware::audio::OutputDriver::Platform;
+        std::string audio_error;
+        audio = lykoware::audio::Output::open(audio_config, audio_error);
+        if (audio) {
+            audio->lock()->set_master_gain(0.8F);
+            audio->resume();
+            lykoware::log(lykoware::LogLevel::info, "Playing sound through SDL's " + audio->driver_name() + " driver.");
+        } else {
+            lykoware::log(lykoware::LogLevel::warning, "No sound: " + audio_error);
+        }
+    }
+    auto scene = std::make_unique<CrateScene>(*physics, audio ? make_thump() : nullptr);
     const lykoware::render::Camera camera{{0.0, 7.0, 15.0}, {0.0, 1.5, 0.0}};
+    const auto listener = lykoware::audio::Listener::looking_at(camera.eye, camera.target, camera.up);
+    lykoware::audio::SpatialAudio spatial;
+    std::uint64_t knocks = 0;
     const lykoware::rhi::ClearColor sky{0.45F, 0.6F, 0.8F, 1.F};
 
     // The simulation advances only in fixed 60 Hz ticks (ADR 0017), so the crates fall at the
@@ -314,6 +422,17 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
         for (std::uint32_t tick = 0; tick < steps.ticks; ++tick) {
             scene->tick(static_cast<float>(simulation->tick_seconds()));
         }
+        if (audio) {
+            const std::vector<CrateScene::Impact> impacts = scene->take_impacts();
+            auto mixer = audio->lock();
+            for (const CrateScene::Impact& impact : impacts) {
+                std::string sound_error; // a full mixer skips the knock
+                if (spatial.play(scene->entities(), impact.crate, listener, *mixer, sound_error, impact.strength)) {
+                    ++knocks;
+                }
+            }
+            spatial.update(scene->entities(), listener, *mixer);
+        }
         if (!renderer->draw(scene->entities(), camera, *swapchain, sky, error)) {
             lykoware::log(lykoware::LogLevel::error, "Vulkan frame: " + error.message);
             ok = false;
@@ -326,6 +445,10 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
     }
     const std::uint64_t presented = swapchain->frames_presented();
     const std::size_t drawn = renderer->last_draw_count();
+    if (audio) {
+        lykoware::log(lykoware::LogLevel::info, "Played " + std::to_string(knocks) + " crate knocks.");
+        audio.reset();
+    }
     // The swapchain destructor waits for the GPU, so the renderer's pipeline
     // and buffers are idle when they are destroyed next.
     swapchain.reset();
@@ -372,6 +495,8 @@ int run_window(const std::vector<std::string>& args)
             flag(options.offscreen, option);
         } else if (option == "--vulkan") {
             flag(options.vulkan, option);
+        } else if (option == "--no-audio") {
+            flag(options.no_audio, option);
         } else if (option == "--frames") {
             if (options.has_frames) {
                 throw std::invalid_argument("Duplicate option: --frames");
@@ -461,15 +586,17 @@ int run(const std::vector<std::string>& args)
         if (option == "--help") {
             std::cout << "Usage: lykoware_sandbox [--version|--help]\n"
                          "       lykoware_sandbox --frames N --trace FILE\n"
-                         "       lykoware_sandbox --window [--dummy | --offscreen] [--vulkan] [--frames N]\n"
+                         "       lykoware_sandbox --window [--dummy | --offscreen] [--vulkan] [--no-audio] [--frames N]\n"
                          "Without options, runs the console foundation check.\n"
                          "--frames with --trace runs N CPU iterations and writes a Chrome trace.\n"
                          "--window opens a window and pumps input until it closes.\n"
                          "--dummy selects the headless video driver and requires --frames.\n"
                          "--offscreen is headless too, can host Vulkan, and requires --frames.\n"
-                         "--vulkan draws a triangle over a cycling clear colour through the\n"
-                         "  Vulkan RHI, with shaders from the shaders folder beside the executable;\n"
-                         "  exit 3 when no usable Vulkan device exists, 1 when shaders are missing.\n";
+                         "--vulkan shows falling crates through the Vulkan RHI, with shaders from\n"
+                         "  the shaders folder beside the executable; exit 3 when no usable Vulkan\n"
+                         "  device exists, 1 when shaders are missing. Crates knock as they land,\n"
+                         "  through the default sound device (the dummy driver when headless).\n"
+                         "--no-audio runs --vulkan without sound.\n";
             return EXIT_SUCCESS;
         }
         throw std::invalid_argument("Unknown option: " + std::string{option}
