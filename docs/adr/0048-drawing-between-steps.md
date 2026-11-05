@@ -74,4 +74,5 @@ Proposed:
   - the camera ignoring alpha;
   - the blend running backwards.
 - **Not covered by a test:** the sandbox's crate blend. It is sample code that mirrors the tested player blend; `sandbox.play` runs it.
+- **Local results:** 59/59 pass in the Debug, ASan/UBSan and clang-tidy presets, with no skips. A GCC `-Wshadow -Wconversion -Wsign-conversion -Wold-style-cast -Wdouble-promotion` sweep finds nothing in the new code.
 - **CI:** blocked for the whole account since 2026-11-05 (failed payment or spending limit, see STATUS).
