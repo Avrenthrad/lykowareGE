@@ -285,7 +285,7 @@ if(BUILD_TESTING)
     # holds no model files. Exit 3 without a usable Vulkan device is Skipped.
     add_test(NAME sandbox.model
         COMMAND lykoware_sandbox --window --offscreen --vulkan --frames 3
-            --model "${CMAKE_BINARY_DIR}/test-output/gltf/models/quad.glb")
+            --model "${CMAKE_BINARY_DIR}/test-output/gltf/models/textured.glb")
     set_tests_properties(sandbox.model PROPERTIES TIMEOUT 60 SKIP_RETURN_CODE 3 FIXTURES_REQUIRED gltf_models)
     if(LYKOWARE_SANITIZERS)
         set_property(TEST sandbox.model APPEND PROPERTY ENVIRONMENT "VK_LOADER_DISABLE_DYNAMIC_LIBRARY_UNLOADING=1")

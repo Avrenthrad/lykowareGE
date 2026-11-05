@@ -267,7 +267,7 @@ public:
         entities_.add<lykoware::render::MeshRenderer>(
             model_, lykoware::render::MeshRenderer{lykoware::render::MeshShape::Cube,
                                                    {model_scale_, model_scale_, model_scale_},
-                                                   {0.85F, 0.75F, 0.6F},
+                                                   {1.F, 1.F, 1.F},
                                                    mesh});
         place_model();
     }
@@ -380,9 +380,42 @@ private:
     float model_turn_ = 0.F;
 };
 
+// Uploads a glTF model's textures and its mesh as parts with their materials (ADR 0038).
+std::optional<lykoware::render::MeshId> upload_model(lykoware::render::Renderer& renderer, const lykoware::gltf::Model& model,
+                                                     lykoware::rhi::RhiError& error)
+{
+    std::vector<lykoware::render::TextureId> textures;
+    for (const lykoware::gltf::Texture& texture : model.textures) {
+        lykoware::render::TextureSettings settings;
+        settings.wrap = texture.sampling.wrap == lykoware::gltf::Wrap::ClampToEdge      ? lykoware::rhi::TextureWrap::ClampToEdge
+            : texture.sampling.wrap == lykoware::gltf::Wrap::MirroredRepeat             ? lykoware::rhi::TextureWrap::MirroredRepeat
+                                                                                         : lykoware::rhi::TextureWrap::Repeat;
+        settings.filter = texture.sampling.nearest ? lykoware::rhi::TextureFilter::Nearest : lykoware::rhi::TextureFilter::Linear;
+        settings.mipmaps = texture.sampling.mipmaps;
+        const auto id = renderer.add_texture(model.images[texture.image], settings, error);
+        if (!id) {
+            return std::nullopt;
+        }
+        textures.push_back(*id);
+    }
+    std::vector<lykoware::render::MeshPart> parts;
+    for (const lykoware::gltf::Part& part : model.parts) {
+        lykoware::render::MeshPart mesh_part{part.first_index, part.index_count};
+        if (part.material) {
+            const lykoware::gltf::Material& material = model.materials[*part.material];
+            mesh_part.colour = {material.base_colour.x, material.base_colour.y, material.base_colour.z};
+            if (material.base_colour_texture) {
+                mesh_part.texture = textures[*material.base_colour_texture];
+            }
+        }
+        parts.push_back(mesh_part);
+    }
+    return renderer.add_mesh(model.mesh, parts, error);
+}
+
 // Draws the falling-crates scene through the RHI swapchain.
 int present_loop(lykoware::Window& window, const WindowOptions& options, const ShaderWords& shaders,
-                 const std::optional<lykoware::MeshData>& model)
+                 const std::optional<lykoware::gltf::Model>& model)
 {
     lykoware::rhi::InstanceConfig instance_config;
     instance_config.application_name = "lykoware sandbox";
@@ -443,12 +476,12 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
     }
     auto scene = std::make_unique<CrateScene>(*physics, audio ? make_thump() : nullptr);
     if (model) {
-        const auto mesh = renderer->add_mesh(*model, error);
+        const std::optional<lykoware::render::MeshId> mesh = upload_model(*renderer, *model, error);
         if (!mesh) {
             lykoware::log(lykoware::LogLevel::error, "Model: " + error.message);
             return EXIT_FAILURE;
         }
-        scene->add_model(*mesh, lykoware::bounds(*model));
+        scene->add_model(*mesh, lykoware::bounds(model->mesh));
     }
     const lykoware::render::Camera camera{{0.0, 7.0, 15.0}, {0.0, 1.5, 0.0}};
     const auto listener = lykoware::audio::Listener::looking_at(camera.eye, camera.target, camera.up);
@@ -593,16 +626,18 @@ int run_window(const std::vector<std::string>& args)
     }
     // The model is read before any window or GPU work, like the shaders, so a bad file fails
     // clearly on any machine.
-    std::optional<lykoware::MeshData> model;
+    std::optional<lykoware::gltf::Model> model;
     if (!options.model.empty()) {
         std::string model_error;
-        model = lykoware::gltf::load(utf8_path(options.model), model_error);
+        model = lykoware::gltf::load_model(utf8_path(options.model), model_error);
         if (!model) {
             lykoware::log(lykoware::LogLevel::error, "Model " + options.model + ": " + model_error);
             return EXIT_FAILURE;
         }
-        lykoware::log(lykoware::LogLevel::info, "Loaded model " + options.model + ": "
-                                                    + std::to_string(model->indices.size() / 3) + " triangles.");
+        lykoware::log(lykoware::LogLevel::info,
+                      "Loaded model " + options.model + ": " + std::to_string(model->mesh.indices.size() / 3) + " triangles, "
+                          + std::to_string(model->materials.size()) + " materials, " + std::to_string(model->images.size())
+                          + " images.");
     }
 
     lykoware::WindowConfig config;
@@ -675,7 +710,8 @@ int run(const std::vector<std::string>& args)
                          "  device exists, 1 when shaders are missing. Crates knock as they land,\n"
                          "  through the default sound device (the dummy driver when headless).\n"
                          "--no-audio runs --vulkan without sound.\n"
-                         "--model FILE shows a glTF model (.gltf or .glb) beside the crates.\n";
+                         "--model FILE shows a glTF model (.gltf or .glb) beside the crates, with its\n"
+                         "  base colour materials and textures (PNG or JPEG).\n";
             return EXIT_SUCCESS;
         }
         throw std::invalid_argument("Unknown option: " + std::string{option}
