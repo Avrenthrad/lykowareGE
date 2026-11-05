@@ -2,6 +2,8 @@
 
 #include <lykoware/rhi/buffer.hpp>
 
+#include "world_identity.hpp"
+
 #include <array>
 #include <cmath>
 #include <string>
@@ -73,6 +75,8 @@ bool upload(const rhi::Device& device, std::span<const Vertex> vertices, std::sp
 
 struct Renderer::Impl {
     const rhi::Device* device = nullptr;
+    // This renderer's identity; its ids carry it (ADR 0030).
+    std::uint64_t owner = 0;
     std::unique_ptr<rhi::GraphicsPipeline> pipeline;
     GpuMesh cube;
     // Added meshes; MeshId::value is the position here plus one.
@@ -86,7 +90,10 @@ struct Renderer::Impl {
         if (renderer.mesh == MeshId{}) {
             return &cube;
         }
-        return renderer.mesh.value <= meshes.size() ? &meshes[renderer.mesh.value - 1] : nullptr;
+        if (renderer.mesh.owner != owner || renderer.mesh.value > meshes.size()) {
+            return nullptr;
+        }
+        return &meshes[renderer.mesh.value - 1];
     }
 
     // Builds one draw per entity with Transform and MeshRenderer, relative to the camera.
@@ -143,6 +150,7 @@ std::unique_ptr<Renderer> Renderer::create(const rhi::Device& device, rhi::Color
 {
     auto impl = std::make_unique<Impl>();
     impl->device = &device;
+    impl->owner = detail::next_world_identity();
     {
         const auto vertex = rhi::Shader::load(device, lit_vertex, rhi::ShaderStage::Vertex, error);
         const auto fragment = vertex ? rhi::Shader::load(device, lit_fragment, rhi::ShaderStage::Fragment, error) : nullptr;
@@ -204,7 +212,7 @@ std::optional<MeshId> Renderer::add_mesh(const MeshData& mesh, rhi::RhiError& er
         return std::nullopt;
     }
     impl_->meshes.push_back(std::move(gpu));
-    return MeshId{static_cast<std::uint32_t>(impl_->meshes.size())};
+    return MeshId{static_cast<std::uint32_t>(impl_->meshes.size()), impl_->owner};
 }
 
 std::size_t Renderer::last_draw_count() const

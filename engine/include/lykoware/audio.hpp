@@ -58,13 +58,16 @@ private:
     std::uint32_t sample_rate_;
 };
 
-// Handle to a playing voice, with the same rules as ECS and physics handles: a finished or
-// stopped voice's handle stays invalid, even when its slot plays something else. The default
-// handle is never valid. A new voice takes the lowest free slot, so which slot it gets (and so
-// the order voices are summed in) does not depend on how the output was split into calls.
+// Handle to a playing voice, with the same rules as ECS and physics handles (ADR 0030): it
+// works only with the mixer that made it, and a finished or stopped voice's handle stays
+// invalid, even when its slot plays something else. The default handle is never valid. A new
+// voice takes the lowest free slot, so which slot it gets (and so the order voices are summed
+// in) does not depend on how the output was split into calls. `owner` is an opaque,
+// process-local token: never persist or hash it.
 struct VoiceId {
     std::uint32_t index = 0;
     std::uint32_t generation = 0;
+    std::uint64_t owner = 0;
 
     friend bool operator==(const VoiceId&, const VoiceId&) = default;
 };
@@ -82,12 +85,18 @@ struct PlayParams {
 
 // Mixes voices into interleaved stereo float output at output_rate.
 //
+// Ownership: each mixer has its own identity, and its handles work only with it. Copy and move
+// are not provided, so a handle can never name two mixers.
 // Threading: one thread at a time; an output layer that renders on an audio thread must lock.
-// Failure: functions taking a VoiceId return false for a stale or invalid handle. Nothing
-// throws for misuse; std::bad_alloc can propagate.
+// Failure: functions taking a VoiceId return false for a stale or invalid handle, or one from
+// another mixer. Nothing throws for misuse; std::bad_alloc can propagate.
 class Mixer {
 public:
     Mixer();
+    Mixer(const Mixer&) = delete;
+    Mixer& operator=(const Mixer&) = delete;
+    Mixer(Mixer&&) = delete;
+    Mixer& operator=(Mixer&&) = delete;
 
     // Starts a voice. Fails (nullopt, error filled) for a null sound, parameters out of range or
     // not finite, or when max_voices voices are already playing.
@@ -144,6 +153,7 @@ private:
     [[nodiscard]] const Voice* find(VoiceId voice) const;
     static void retarget(Voice& voice);
 
+    std::uint64_t owner_;
     std::vector<Voice> voices_;
     Ramp master_;
     std::uint64_t frames_rendered_ = 0;
