@@ -436,7 +436,7 @@ void test_external_buffers(const std::filesystem::path& directory)
 void test_valid_mesh()
 {
     std::string error;
-    MeshData mesh{{{0.F, 0.F, 0.F}, {1.F, 0.F, 0.F}, {0.F, 1.F, 0.F}}, {{0.F, 0.F, 1.F}, {0.F, 0.F, 1.F}, {0.F, 0.F, 1.F}}, {0, 1, 2}};
+    MeshData mesh{{{0.F, 0.F, 0.F}, {1.F, 0.F, 0.F}, {0.F, 1.F, 0.F}}, {{0.F, 0.F, 1.F}, {0.F, 0.F, 1.F}, {0.F, 0.F, 1.F}}, {0, 1, 2}, {}};
     expect(lykoware::valid_mesh(mesh, error), "a triangle is a valid mesh");
     mesh.indices = {0, 1, 3};
     expect(!lykoware::valid_mesh(mesh, error), "an index out of range is invalid");

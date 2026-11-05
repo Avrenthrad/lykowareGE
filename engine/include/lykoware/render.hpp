@@ -1,12 +1,14 @@
 #pragma once
 
 #include <lykoware/ecs.hpp>
+#include <lykoware/image_decode.hpp>
 #include <lykoware/math.hpp>
 #include <lykoware/mesh.hpp>
 #include <lykoware/rhi/device.hpp>
 #include <lykoware/rhi/pipeline.hpp>
 #include <lykoware/rhi/render_target.hpp>
 #include <lykoware/rhi/swapchain.hpp>
+#include <lykoware/rhi/texture.hpp>
 #include <lykoware/transform.hpp>
 
 #include <cstddef>
@@ -34,6 +36,23 @@ struct MeshId {
     friend bool operator==(const MeshId&, const MeshId&) = default;
 };
 
+// A texture uploaded with Renderer::add_texture (ADR 0037), valid only with the renderer that
+// made it. The default (0) means none: the colour alone, as if the texture were white.
+struct TextureId {
+    std::uint32_t value = 0;
+
+    friend bool operator==(const TextureId&, const TextureId&) = default;
+};
+
+// How a texture is stored and sampled.
+struct TextureSettings {
+    // Colour textures are sRGB; data textures (masks) are not.
+    rhi::TextureFormat format = rhi::TextureFormat::Rgba8Srgb;
+    rhi::TextureWrap wrap = rhi::TextureWrap::Repeat;
+    rhi::TextureFilter filter = rhi::TextureFilter::Linear;
+    bool mipmaps = true;
+};
+
 // ECS component: draw the entity's Transform with a built-in mesh, or with an added mesh.
 struct MeshRenderer {
     MeshShape shape = MeshShape::Cube;
@@ -43,6 +62,9 @@ struct MeshRenderer {
     math::Vec3 colour{0.8F, 0.8F, 0.8F};
     // When set, drawn instead of `shape`. An id this renderer did not make is not drawn.
     MeshId mesh{};
+    // Multiplies `colour`, read at the mesh's texture coordinates. An id this renderer did not
+    // make is not drawn.
+    TextureId texture{};
 };
 
 // Where the view comes from. Positions are world positions in double precision; everything is
@@ -58,8 +80,8 @@ struct Camera {
 
 // Draws ECS scenes. One renderer per colour format.
 //
-// Ownership: create() returns the sole owner of its pipeline and mesh buffers. Copy and move
-// are not provided. Lifetime: destroy it before the Device, and after any Swapchain it drew to
+// Ownership: create() returns the sole owner of its pipeline, mesh buffers and textures. Copy
+// and move are not provided. Lifetime: destroy it before the Device, and after any Swapchain it drew to
 // (the swapchain's destructor waits for the GPU). Threading: the Device's thread.
 //
 // Failure: create() returns nullptr and fills error (bad SPIR-V, driver refusals). draw()
@@ -90,6 +112,12 @@ public:
     // is destroyed. Fails (nullopt, error filled) for a mesh valid_mesh() refuses (InvalidArgument)
     // or when the driver refuses the buffers.
     [[nodiscard]] std::optional<MeshId> add_mesh(const MeshData& mesh, rhi::RhiError& error);
+
+    // Uploads a texture (a decoded image, say) for MeshRenderer::texture. It stays until the
+    // renderer is destroyed. Fails (nullopt, error filled) for an empty or oversized image
+    // (InvalidArgument) or when the driver refuses it.
+    [[nodiscard]] std::optional<TextureId> add_texture(const RgbaImage& image, const TextureSettings& settings,
+                                                       rhi::RhiError& error);
 
     // Entities drawn by the last draw().
     [[nodiscard]] std::size_t last_draw_count() const;

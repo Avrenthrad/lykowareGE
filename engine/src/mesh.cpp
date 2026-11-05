@@ -30,6 +30,14 @@ bool valid_mesh(const MeshData& mesh, std::string& error)
         error = "a mesh needs one normal per position";
         return false;
     }
+    if (!mesh.uvs.empty() && mesh.uvs.size() != mesh.positions.size()) {
+        error = "a mesh needs no texture coordinates or one per position";
+        return false;
+    }
+    if (!std::all_of(mesh.uvs.begin(), mesh.uvs.end(), [](math::Vec2 uv) { return std::isfinite(uv.x) && std::isfinite(uv.y); })) {
+        error = "a mesh texture coordinate is not finite";
+        return false;
+    }
     if (mesh.indices.size() % 3 != 0) {
         error = "a mesh's indices must be whole triangles";
         return false;

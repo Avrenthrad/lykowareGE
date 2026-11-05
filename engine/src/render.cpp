@@ -1,6 +1,7 @@
 #include <lykoware/render.hpp>
 
 #include <lykoware/rhi/buffer.hpp>
+#include <lykoware/rhi/texture.hpp>
 
 #include <array>
 #include <cmath>
@@ -24,11 +25,13 @@ static_assert(sizeof(Constants) == rhi::push_constant_max_bytes);
 struct Vertex {
     math::Vec3 position;
     math::Vec3 normal;
+    math::Vec2 uv;
 };
-static_assert(sizeof(Vertex) == rhi::position_normal_stride);
+static_assert(sizeof(Vertex) == rhi::position_normal_uv_stride);
 
 // A unit cube centred on the origin: four vertices per face with the face normal, two
-// triangles per face, counter-clockwise when seen from outside (u x v = n for each face).
+// triangles per face, counter-clockwise when seen from outside (u x v = n for each face). Each
+// face shows the whole texture, upright when the face's v axis points up.
 void build_cube(std::vector<Vertex>& vertices, std::vector<std::uint32_t>& indices)
 {
     struct Face {
@@ -48,7 +51,7 @@ void build_cube(std::vector<Vertex>& vertices, std::vector<std::uint32_t>& indic
     for (const Face& face : faces) {
         const auto base = static_cast<std::uint32_t>(vertices.size());
         for (const auto& [su, sv] : corners) {
-            vertices.push_back({face.n * 0.5F + face.u * su + face.v * sv, face.n});
+            vertices.push_back({face.n * 0.5F + face.u * su + face.v * sv, face.n, {su + 0.5F, 0.5F - sv}});
         }
         for (const std::uint32_t corner : {0U, 1U, 2U, 0U, 2U, 3U}) {
             indices.push_back(base + corner);
@@ -77,9 +80,21 @@ struct Renderer::Impl {
     GpuMesh cube;
     // Added meshes; MeshId::value is the position here plus one.
     std::vector<GpuMesh> meshes;
+    // A 1x1 white texture for entities without one, and added textures (TextureId::value is the
+    // position here plus one).
+    std::unique_ptr<rhi::Texture> white;
+    std::vector<std::unique_ptr<rhi::Texture>> textures;
     std::vector<Constants> constants;
-    std::vector<const GpuMesh*> drawn;
+    std::vector<std::pair<const GpuMesh*, const rhi::Texture*>> drawn;
     std::vector<rhi::MeshDraw> draws;
+
+    const rhi::Texture* texture_for(const MeshRenderer& renderer) const
+    {
+        if (renderer.texture == TextureId{}) {
+            return white.get();
+        }
+        return renderer.texture.value <= textures.size() ? textures[renderer.texture.value - 1].get() : nullptr;
+    }
 
     const GpuMesh* mesh_for(const MeshRenderer& renderer) const
     {
@@ -101,8 +116,9 @@ struct Renderer::Impl {
         const math::Mat4 view_projection = projection * view;
         entities.each<Transform, MeshRenderer>([&](ecs::Entity, const Transform& transform, const MeshRenderer& mesh) {
             const GpuMesh* gpu = mesh_for(mesh);
-            if (gpu == nullptr) {
-                return; // a mesh id this renderer did not make
+            const rhi::Texture* texture = texture_for(mesh);
+            if (gpu == nullptr || texture == nullptr) {
+                return; // a mesh or texture id this renderer did not make
             }
             const math::Mat4 model =
                 math::trs(math::relative_to(transform.position, camera.eye), transform.rotation, mesh.scale);
@@ -121,11 +137,12 @@ struct Renderer::Impl {
             }
             c.colour = {mesh.colour.x, mesh.colour.y, mesh.colour.z, 1.F};
             constants.push_back(c);
-            drawn.push_back(gpu);
+            drawn.emplace_back(gpu, texture);
         });
         // Push-constant spans point into `constants`, so build them after it stops growing.
         for (std::size_t i = 0; i < constants.size(); ++i) {
-            draws.push_back({drawn[i]->vertices.get(), drawn[i]->indices.get(), 0, std::as_bytes(std::span(&constants[i], 1))});
+            draws.push_back({drawn[i].first->vertices.get(), drawn[i].first->indices.get(), 0,
+                             std::as_bytes(std::span(&constants[i], 1)), drawn[i].second});
         }
     }
 };
@@ -153,10 +170,11 @@ std::unique_ptr<Renderer> Renderer::create(const rhi::Device& device, rhi::Color
         desc.vertex = vertex.get();
         desc.fragment = fragment.get();
         desc.color_format = color_format;
-        desc.vertex_layout = rhi::VertexLayout::PositionNormal;
+        desc.vertex_layout = rhi::VertexLayout::PositionNormalUv;
         desc.depth = true;
         desc.cull_back_faces = true;
         desc.push_constant_bytes = rhi::push_constant_max_bytes;
+        desc.texture = true;
         impl->pipeline = rhi::GraphicsPipeline::create(device, desc, error);
         if (!impl->pipeline) {
             return nullptr;
@@ -166,6 +184,15 @@ std::unique_ptr<Renderer> Renderer::create(const rhi::Device& device, rhi::Color
     std::vector<std::uint32_t> indices;
     build_cube(vertices, indices);
     if (!upload(device, vertices, indices, impl->cube, error)) {
+        return nullptr;
+    }
+    rhi::TextureDesc white;
+    white.width = 1;
+    white.height = 1;
+    white.mipmaps = false;
+    const std::byte texel[4] = {std::byte{255}, std::byte{255}, std::byte{255}, std::byte{255}};
+    impl->white = rhi::Texture::create(device, white, texel, error);
+    if (!impl->white) {
         return nullptr;
     }
     return std::unique_ptr<Renderer>(new Renderer(std::move(impl)));
@@ -197,7 +224,7 @@ std::optional<MeshId> Renderer::add_mesh(const MeshData& mesh, rhi::RhiError& er
     }
     std::vector<Vertex> vertices(mesh.positions.size());
     for (std::size_t i = 0; i < vertices.size(); ++i) {
-        vertices[i] = {mesh.positions[i], mesh.normals[i]};
+        vertices[i] = {mesh.positions[i], mesh.normals[i], mesh.uvs.empty() ? math::Vec2{} : mesh.uvs[i]};
     }
     GpuMesh gpu;
     if (!upload(*impl_->device, vertices, mesh.indices, gpu, error)) {
@@ -205,6 +232,24 @@ std::optional<MeshId> Renderer::add_mesh(const MeshData& mesh, rhi::RhiError& er
     }
     impl_->meshes.push_back(std::move(gpu));
     return MeshId{static_cast<std::uint32_t>(impl_->meshes.size())};
+}
+
+std::optional<TextureId> Renderer::add_texture(const RgbaImage& image, const TextureSettings& settings,
+                                               rhi::RhiError& error)
+{
+    rhi::TextureDesc desc;
+    desc.width = image.width;
+    desc.height = image.height;
+    desc.format = settings.format;
+    desc.wrap = settings.wrap;
+    desc.filter = settings.filter;
+    desc.mipmaps = settings.mipmaps;
+    auto texture = rhi::Texture::create(*impl_->device, desc, std::as_bytes(std::span(image.pixels)), error);
+    if (!texture) {
+        return std::nullopt;
+    }
+    impl_->textures.push_back(std::move(texture));
+    return TextureId{static_cast<std::uint32_t>(impl_->textures.size())};
 }
 
 std::size_t Renderer::last_draw_count() const

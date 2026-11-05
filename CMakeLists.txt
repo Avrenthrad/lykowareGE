@@ -180,6 +180,15 @@ if(BUILD_TESTING)
         COMMAND lykoware_rhi_texture_test "${textured_vert_spv}" "${textured_frag_spv}" "${mesh_vert_spv}" "${mesh_frag_spv}")
     set_tests_properties(rhi.texture PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
 
+    # The renderer drawing a textured mesh (ADR 0037).
+    add_executable(lykoware_render_texture_test tests/render_texture.cpp)
+    target_link_libraries(lykoware_render_texture_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_render_texture_test)
+    add_dependencies(lykoware_render_texture_test lykoware_test_shaders)
+    add_test(NAME render.texture
+        COMMAND lykoware_render_texture_test "${lit_vert_spv}" "${lit_frag_spv}" "${CMAKE_CURRENT_BINARY_DIR}/render-texture")
+    set_tests_properties(render.texture PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
+
     # A glTF model loaded, uploaded and drawn (ADR 0035), on lavapipe in CI.
     add_executable(lykoware_render_model_test tests/render_model.cpp)
     target_link_libraries(lykoware_render_model_test PRIVATE lykoware::engine)
@@ -215,6 +224,7 @@ if(BUILD_TESTING)
         # deliberate-leak check).
         set_property(TEST rhi.instance rhi.instance.no_driver rhi.device rhi.render_target rhi.swapchain
                           sandbox.vulkan_window rhi.pipeline rhi.mesh rhi.texture render.scene render.model
+                          render.texture
             APPEND PROPERTY ENVIRONMENT "VK_LOADER_DISABLE_DYNAMIC_LIBRARY_UNLOADING=1")
     endif()
 
