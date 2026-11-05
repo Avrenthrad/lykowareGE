@@ -217,6 +217,19 @@ if(BUILD_TESTING)
             "-DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/sandbox-missing-shaders/$<CONFIG>"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/sandbox_missing_shaders.cmake")
     set_tests_properties(sandbox.missing_shaders PROPERTIES TIMEOUT 60)
+    # The engine shuts down completely and starts again, three times in one process (ADR 0040):
+    # window, audio, physics and ECS everywhere; the whole Vulkan stack where it is available.
+    add_executable(lykoware_lifecycle_test tests/lifecycle_restart.cpp)
+    target_link_libraries(lykoware_lifecycle_test PRIVATE lykoware::engine)
+    target_include_directories(lykoware_lifecycle_test SYSTEM PRIVATE
+        "${CMAKE_SOURCE_DIR}/third_party/sdl3/include")
+    lykoware_configure_target(lykoware_lifecycle_test)
+    add_dependencies(lykoware_lifecycle_test lykoware_test_shaders)
+    add_test(NAME lifecycle.restart COMMAND lykoware_lifecycle_test core)
+    set_tests_properties(lifecycle.restart PROPERTIES TIMEOUT 60)
+    add_test(NAME lifecycle.restart_vulkan
+        COMMAND lykoware_lifecycle_test vulkan "${lit_vert_spv}" "${lit_frag_spv}")
+    set_tests_properties(lifecycle.restart_vulkan PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
     # The sandbox's Vulkan window writes a CPU and GPU trace (ADR 0039).
     add_test(NAME sandbox.gpu_trace
         COMMAND "${CMAKE_COMMAND}"
@@ -234,7 +247,7 @@ if(BUILD_TESTING)
         # deliberate-leak check).
         set_property(TEST rhi.instance rhi.instance.no_driver rhi.device rhi.render_target rhi.swapchain
                           sandbox.vulkan_window sandbox.gpu_trace rhi.pipeline rhi.mesh rhi.texture render.scene
-                          render.model render.texture
+                          render.model render.texture lifecycle.restart_vulkan
             APPEND PROPERTY ENVIRONMENT "VK_LOADER_DISABLE_DYNAMIC_LIBRARY_UNLOADING=1")
     endif()
 
