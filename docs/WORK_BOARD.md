@@ -15,7 +15,7 @@ Check latest main and open PRs before starting. Documents do not automatically s
 
 ## Active task: audio (Claude)
 
-- Owner/status: Claude, active. PR 1 (mixer and WAV reader, [ADR 0032](adr/0032-audio-mixer.md)) in review as #37 on `claude/audio-mixer`, based on `main` at `7616ce3`. PR 2 (SDL3 output, [ADR 0033](adr/0033-audio-output.md)) in review on `claude/audio-output`, stacked on PR 1. CI is blocked account-wide since 2026-11-05 (jobs fail before a runner starts); checks are local only until the owner restores it.
+- Owner/status: Claude, active. PR 1 (mixer and WAV reader, [ADR 0032](adr/0032-audio-mixer.md)) in review as #37 on `claude/audio-mixer`, based on `main` at `7616ce3`. PR 2 (SDL3 output, [ADR 0033](adr/0033-audio-output.md)) in review as #38 on `claude/audio-output`, stacked on PR 1. PR 3 (3D positional sound and sandbox crate knocks, [ADR 0034](adr/0034-spatial-audio.md)) in review on `claude/audio-spatial`, stacked on PR 2. CI is blocked account-wide since 2026-11-05 (jobs fail before a runner starts); checks are local only until the owner restores it.
 - Objective (owner's choice, 2026-11-05): sound playback through SDL3 (already vendored), our own mixer, 3D positional sound tied to ECS entities, deterministic tests.
 - Plan: PR 1 the mixer (`lykoware/audio.hpp`, no device); PR 2 output through SDL3 on its audio thread, with dummy-driver tests; PR 3 a listener and an ECS sound component, camera-relative, with procedurally made crate landing sounds in the sandbox (no binary assets).
 - Shared interfaces: new `lykoware::audio`; PR 2 turns on SDL's audio subsystem in `cmake/VendorSdl3.cmake`; PR 3 adds an ECS component next to `Transform`.
