@@ -245,6 +245,13 @@ if(BUILD_TESTING)
     add_test(NAME assets.gltf COMMAND lykoware_gltf_test "${CMAKE_BINARY_DIR}/test-output/gltf")
     set_tests_properties(assets.gltf PROPERTIES TIMEOUT 60 FIXTURES_SETUP gltf_models)
 
+    # PNG and JPEG decoding through Wuffs (ADR 0036). Encodes its own images; no files.
+    add_executable(lykoware_image_decode_test tests/image_decode.cpp)
+    target_link_libraries(lykoware_image_decode_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_image_decode_test)
+    add_test(NAME assets.image COMMAND lykoware_image_decode_test)
+    set_tests_properties(assets.image PROPERTIES TIMEOUT 60)
+
     # The sandbox shows a model written by assets.gltf (a CTest fixture), so the repository
     # holds no model files. Exit 3 without a usable Vulkan device is Skipped.
     add_test(NAME sandbox.model
