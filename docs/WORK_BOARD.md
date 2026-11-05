@@ -15,7 +15,7 @@ Check latest main and open PRs before starting. Documents do not automatically s
 
 ## Active task: Phase 2, character feel (Claude)
 
-- Owner/status: Claude, active. PR 1 (follow camera, [ADR 0044](adr/0044-follow-camera.md)) in review as #51 on `claude/follow-camera`, stacked on the capture golden. PR 2 (playable character and obstacle course, [ADR 0047](adr/0047-playable-character.md)) in review on `claude/playable-character`, stacked on PR 1. Next, after the owner has played it: skeletal animation, foot IK and ragdoll.
+- Owner/status: Claude, active. PR 1 (follow camera, [ADR 0044](adr/0044-follow-camera.md)) in review as #51 on `claude/follow-camera`, stacked on the capture golden. PR 2 (playable character and obstacle course, [ADR 0047](adr/0047-playable-character.md)) in review as #52 on `claude/playable-character`, stacked on PR 1. Next, after the owner has played it: skeletal animation, foot IK and ragdoll.
 - Objective (owner: "Continue", 2026-11-05): Phase 2, character feel on terrain, alongside the owner's reviews of #37–#50.
 - Shared interfaces: new `lykoware/follow_camera.hpp` (reads `physics::World::cast_ray`); new `lykoware/player.hpp`; `MouseState::move_x/move_y` and `Window::set_relative_mouse` (additions to the window/input API); the shared course `samples/course/obstacle_course.hpp`; sandbox `--play`.
 - Checks: `camera.follow`, `player.course`, deliberate breaks, five CI jobs once CI runs again. Feel is the owner's to judge in play.

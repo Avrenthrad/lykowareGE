@@ -142,7 +142,47 @@ Proposed:
       - the tunnel's ceiling pulls the camera in for most of it (95 of 98 frames).
     - The same seed repeats bit for bit. Another seed takes a different path and finishes too.
 - **`input.mapping` and `window.lifecycle`:** motion adds up and lasts one frame, through the pump too; relative mode turns on and off, or names why the driver refuses it.
-- **The sandbox:** `--window --offscreen --vulkan --play --frames 120` runs on lavapipe.
+- **`sandbox.play`** (new): `--play` without `--vulkan` is refused. `--window --offscreen --vulkan --play --frames 60` runs on lavapipe, and the player stands at the start.
 - **Rendered by hand:** the course was rendered by hand on lavapipe at each checkpoint and looked right.
-- **Deliberate breaks:** see the PR; each was run against `player.course`, `input.mapping` and `window.lifecycle`.
+- **Deliberate breaks:** 31 of 31 caught by `player.course`, `input.mapping` and `window.lifecycle`.
+  - **Movement:**
+    - not camera-relative;
+    - right reversed;
+    - running ignored;
+    - facing not updated.
+  - **Jumps:**
+    - no buffer;
+    - a buffer that never expires;
+    - passed in the air;
+    - never passed.
+  - **Sticks:**
+    - diagonals not limited;
+    - the dead zone not rescaled;
+    - no dead zone;
+    - the stick's forward reversed.
+  - **Looking:**
+    - mouse-look ignoring its flag;
+    - mouse yaw reversed;
+    - inverted pitch ignored;
+    - stick turning ignoring the frame length;
+    - arrow keys reversed.
+  - **Buttons:**
+    - jump only on Space;
+    - jump on a held Space.
+  - **Zoom:**
+    - sitting inside the head;
+    - unbounded.
+  - **The player:**
+    - the pivot at the feet;
+    - the character left behind;
+    - an eye above the capsule accepted;
+    - a negative speed accepted.
+  - **Input:**
+    - motion not cleared each frame;
+    - motion replacing instead of adding;
+    - non-finite motion kept;
+    - the window dropping motion;
+    - relative mode never set.
+  - **The camera:** obstruction handling off.
+- **Local results:** 59/59 pass in the Debug, ASan/UBSan and clang-tidy presets, with no skips. A GCC `-Wshadow -Wconversion -Wsign-conversion -Wold-style-cast -Wdouble-promotion` sweep finds nothing in the new code.
 - **CI:** blocked for the whole account since 2026-11-05 (failed payment or spending limit, see STATUS).
