@@ -45,6 +45,7 @@ Canonical directory: docs/adr. Decisions remain Proposed until resolved; disting
 | [0042](0042-script-driven-scenes.md) | Proposed | Lua scripts drive scenes through recorded commands: `scene::ScriptDriver` (`spawn`, `destroy`, `set_velocity`, `position`, `on_tick`), `Scene::position`, `lyko run --script FILE [--record FILE]`; a script's recording replays without it |
 | [0043](0043-renderer-golden-capture.md) | Proposed | A real `lyko screenshot` capture of the falling-crates scene compared with a committed 160x120 golden (tolerance 2, at most 16 pixels); software Vulkan only; `scene.capture_golden` |
 | [0044](0044-follow-camera.md) | Proposed | Phase 2: `FollowCamera`, a third-person orbit camera that probes the physics world with five rays from the pivot, pulls in at once and eases out, and never looks through walls; distance 0 is first person |
+| [0047](0047-playable-character.md) | Proposed | Phase 2: `PlayerCharacter` and `read_player_intent` (keyboard, mouse-look in relative mode, gamepad), camera-relative movement, a 0.1 s jump buffer, zoom to first person; a shared obstacle course played by the sandbox's `--play` and a fixed-seed bot in `player.course` |
 
 Use [the template](TEMPLATE.md). Record context, options, decision/status, contracts, consequences and verification. Use a new ADR to supersede an accepted choice; do not silently rewrite its history.
 
