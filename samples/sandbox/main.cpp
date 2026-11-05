@@ -149,6 +149,47 @@ struct WindowOptions {
     std::uint64_t frames = 0;
     // --model FILE: a glTF model shown beside the crates (ADR 0035).
     std::string model;
+    // --trace FILE: a Chrome trace of each frame's CPU zones and GPU time (ADR 0039).
+    std::string trace;
+};
+
+// GPU frame times from the swapchain, as spans on the trace's GPU track (when tracing) and as a
+// running total for the closing log line (ADR 0039).
+class GpuFrameLog {
+public:
+    explicit GpuFrameLog(lykoware::CpuTrace* trace)
+        : trace_{trace}
+    {
+    }
+
+    void collect(lykoware::rhi::Swapchain& swapchain)
+    {
+        const std::vector<lykoware::rhi::GpuFrameTime> times = swapchain.take_gpu_frame_times();
+        // The trace's clock now and the steady clock now, to place each frame where the CPU
+        // submitted it; the GPU starts on it no earlier.
+        const std::int64_t trace_now_us = trace_ != nullptr ? trace_->elapsed_us() : 0;
+        const auto now = std::chrono::steady_clock::now();
+        for (const lykoware::rhi::GpuFrameTime& time : times) {
+            total_ns_ += time.nanoseconds;
+            ++frames_;
+            if (trace_ != nullptr) {
+                const auto ago = std::chrono::duration_cast<std::chrono::microseconds>(now - time.submitted).count();
+                trace_->add_gpu_span("gpu.frame", trace_now_us - ago,
+                                     static_cast<std::int64_t>((time.nanoseconds + 500) / 1000));
+            }
+        }
+    }
+
+    [[nodiscard]] std::uint64_t frames() const { return frames_; }
+    [[nodiscard]] double average_ms() const
+    {
+        return frames_ == 0 ? 0.0 : static_cast<double>(total_ns_) / static_cast<double>(frames_) / 1e6;
+    }
+
+private:
+    lykoware::CpuTrace* trace_;
+    std::uint64_t total_ns_ = 0;
+    std::uint64_t frames_ = 0;
 };
 
 // The engine's lit shader compiled for the sandbox, deployed by the build and
@@ -500,14 +541,30 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
     }
     lykoware::FrameClock frame_clock;
 
+    // --trace: CPU zones for each frame's parts, and the GPU's time for each frame (ADR 0039).
+    std::unique_ptr<lykoware::CpuTrace> trace;
+    if (!options.trace.empty()) {
+        trace = std::make_unique<lykoware::CpuTrace>();
+    }
+    GpuFrameLog gpu_frames{trace.get()};
+    // A zone only while tracing.
+    const auto zone = [&trace](std::string_view name) {
+        return trace ? std::make_unique<lykoware::CpuTrace::Zone>(*trace, name) : nullptr;
+    };
+
     bool ok = true;
     std::uint64_t frame = 0;
     while (window.pump()) {
+        auto frame_zone = zone("sandbox.frame");
         const lykoware::FrameSteps steps = simulation->advance(frame_clock.lap());
-        for (std::uint32_t tick = 0; tick < steps.ticks; ++tick) {
-            scene->tick(static_cast<float>(simulation->tick_seconds()));
+        {
+            auto simulate_zone = zone("sandbox.simulate");
+            for (std::uint32_t tick = 0; tick < steps.ticks; ++tick) {
+                scene->tick(static_cast<float>(simulation->tick_seconds()));
+            }
         }
         if (audio) {
+            auto audio_zone = zone("sandbox.audio");
             const std::vector<CrateScene::Impact> impacts = scene->take_impacts();
             auto mixer = audio->lock();
             for (const CrateScene::Impact& impact : impacts) {
@@ -518,15 +575,23 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
             }
             spatial.update(scene->entities(), listener, *mixer);
         }
-        if (!renderer->draw(scene->entities(), camera, *swapchain, sky, error)) {
-            lykoware::log(lykoware::LogLevel::error, "Vulkan frame: " + error.message);
-            ok = false;
-            break;
+        {
+            auto render_zone = zone("sandbox.render");
+            if (!renderer->draw(scene->entities(), camera, *swapchain, sky, error)) {
+                lykoware::log(lykoware::LogLevel::error, "Vulkan frame: " + error.message);
+                ok = false;
+                break;
+            }
         }
+        gpu_frames.collect(*swapchain);
         ++frame;
         if (options.has_frames && frame >= options.frames) {
             break;
         }
+    }
+    // The last frames' GPU times, once the GPU has finished them.
+    if (device->wait_idle(error)) {
+        gpu_frames.collect(*swapchain);
     }
     const std::uint64_t presented = swapchain->frames_presented();
     const std::size_t drawn = renderer->last_draw_count();
@@ -552,10 +617,27 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
                       "The simulation fell behind and dropped "
                           + std::to_string(simulation->total_dropped_ns() / 1'000'000) + " ms.");
     }
+    if (gpu_frames.frames() > 0) {
+        char average[32] = {};
+        const auto written = std::to_chars(average, average + sizeof(average) - 1, gpu_frames.average_ms(),
+                                           std::chars_format::fixed, 3);
+        *written.ptr = '\0';
+        lykoware::log(lykoware::LogLevel::info, std::string{"GPU time per frame: "} + average + " ms on average over "
+                                                    + std::to_string(gpu_frames.frames()) + " frames.");
+    } else {
+        lykoware::log(lykoware::LogLevel::info, "No GPU frame times: the device has no timestamps.");
+    }
     if (instance->validation_error_count() != 0) {
         lykoware::log(lykoware::LogLevel::error,
                       std::to_string(instance->validation_error_count()) + " Vulkan validation errors.");
         return EXIT_FAILURE;
+    }
+    if (trace) {
+        if (!trace->write(utf8_path(options.trace))) {
+            lykoware::log(lykoware::LogLevel::error, "Could not write the trace.");
+            return EXIT_FAILURE;
+        }
+        lykoware::log(lykoware::LogLevel::info, "Wrote CPU and GPU trace.");
     }
     return EXIT_SUCCESS;
 }
@@ -599,6 +681,14 @@ int run_window(const std::vector<std::string>& args)
             }
             options.frames = parse_frames(args[++index]);
             options.has_frames = true;
+        } else if (option == "--trace") {
+            if (!options.trace.empty()) {
+                throw std::invalid_argument("Duplicate option: --trace");
+            }
+            if (index + 1 >= args.size() || args[index + 1].empty() || args[index + 1].starts_with("--")) {
+                throw std::invalid_argument("Missing value for --trace");
+            }
+            options.trace = args[++index];
         } else {
             throw std::invalid_argument("Unknown option: " + option + ". Use --help.");
         }
@@ -618,6 +708,9 @@ int run_window(const std::vector<std::string>& args)
 
     if (!options.model.empty() && !options.vulkan) {
         throw std::invalid_argument("--model needs --vulkan to draw it.");
+    }
+    if (!options.trace.empty() && (!options.vulkan || !options.has_frames)) {
+        throw std::invalid_argument("--window --trace needs --vulkan and --frames N.");
     }
 
     ShaderWords shaders;
@@ -699,7 +792,7 @@ int run(const std::vector<std::string>& args)
             std::cout << "Usage: lykoware_sandbox [--version|--help]\n"
                          "       lykoware_sandbox --frames N --trace FILE\n"
                          "       lykoware_sandbox --window [--dummy | --offscreen] [--vulkan] [--no-audio]\n"
-                         "                        [--model FILE] [--frames N]\n"
+                         "                        [--model FILE] [--frames N [--trace FILE]]\n"
                          "Without options, runs the console foundation check.\n"
                          "--frames with --trace runs N CPU iterations and writes a Chrome trace.\n"
                          "--window opens a window and pumps input until it closes.\n"
@@ -711,7 +804,10 @@ int run(const std::vector<std::string>& args)
                          "  through the default sound device (the dummy driver when headless).\n"
                          "--no-audio runs --vulkan without sound.\n"
                          "--model FILE shows a glTF model (.gltf or .glb) beside the crates, with its\n"
-                         "  base colour materials and textures (PNG or JPEG).\n";
+                         "  base colour materials and textures (PNG or JPEG).\n"
+                         "--trace FILE with --vulkan and --frames writes a Chrome trace of each frame's\n"
+                         "  CPU zones and, where the GPU has timestamps, its GPU time.\n"
+                         "--vulkan logs the average GPU time per frame on exit.\n";
             return EXIT_SUCCESS;
         }
         throw std::invalid_argument("Unknown option: " + std::string{option}

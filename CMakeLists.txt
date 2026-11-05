@@ -214,6 +214,13 @@ if(BUILD_TESTING)
             "-DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/sandbox-missing-shaders/$<CONFIG>"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/sandbox_missing_shaders.cmake")
     set_tests_properties(sandbox.missing_shaders PROPERTIES TIMEOUT 60)
+    # The sandbox's Vulkan window writes a CPU and GPU trace (ADR 0039).
+    add_test(NAME sandbox.gpu_trace
+        COMMAND "${CMAKE_COMMAND}"
+            "-DSAMPLE=$<TARGET_FILE:lykoware_sandbox>"
+            "-DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/sandbox-gpu-trace/$<CONFIG>"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/sandbox_gpu_trace.cmake")
+    set_tests_properties(sandbox.gpu_trace PROPERTIES TIMEOUT 60 SKIP_REGULAR_EXPRESSION "SKIP:")
 
     if(LYKOWARE_SANITIZERS)
         # The Vulkan loader unloads drivers at vkDestroyInstance. Memory a
@@ -223,8 +230,8 @@ if(BUILD_TESTING)
         # reports; leaks in Lykoware code are still caught (ADR 0015 records the
         # deliberate-leak check).
         set_property(TEST rhi.instance rhi.instance.no_driver rhi.device rhi.render_target rhi.swapchain
-                          sandbox.vulkan_window rhi.pipeline rhi.mesh rhi.texture render.scene render.model
-                          render.texture
+                          sandbox.vulkan_window sandbox.gpu_trace rhi.pipeline rhi.mesh rhi.texture render.scene
+                          render.model render.texture
             APPEND PROPERTY ENVIRONMENT "VK_LOADER_DISABLE_DYNAMIC_LIBRARY_UNLOADING=1")
     endif()
 
