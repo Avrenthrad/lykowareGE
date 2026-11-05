@@ -49,6 +49,8 @@ Proposed:
   - **Cube:** the built-in cube has texture coordinates, so each face shows the whole texture, upright on the side faces.
   - **`MeshData::uvs`** holds texture coordinates: none, or one per position, with (0, 0) the top-left as in glTF.
   - **`Renderer::add_texture(RgbaImage, TextureSettings)`** returns a `TextureId`, held until the renderer is destroyed.
+    - Like a `MeshId`, a `TextureId` carries its renderer's process-local owner token (ADR 0030), so another renderer's id is not drawn even when its position matches.
+    - Codex's health check (#47) found an id kept from a destroyed renderer drawing its replacement's texture before this rule existed.
   - **`MeshRenderer::texture`** (a new last field) multiplies `colour`. The default uses the 1×1 white texture. An id the renderer did not make is not drawn, as for meshes.
 
 ## Contracts and compatibility
@@ -86,6 +88,7 @@ Proposed:
   - a quad with a 2×1 red|blue texture shows red on its left half and blue on its right, each lit to the formula's value (115 = (0.25 + 0.75 × n·l) × 255);
   - an untextured cube keeps its colour;
   - an unknown texture id is not drawn;
+  - a texture id from a destroyed renderer is not drawn by its replacement, though both have the same position, while the replacement's own id is;
   - an empty image is refused.
 - **Unchanged pictures:** `render.scene`, `render.model` (the stretched ramp still measures 167), `scene.cli_capture`, `rhi.mesh` (on its kept untextured shader) and both sandbox tests pass as before.
 - **Deliberate breaks:** 12, each caught:

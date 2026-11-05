@@ -29,17 +29,21 @@ enum class MeshShape : std::uint32_t {
 };
 
 // A mesh uploaded with Renderer::add_mesh (ADR 0035), valid only with the renderer that made
-// it. The default (0) means none.
+// it: `owner` is that renderer's process-local token (ADR 0030), never to be persisted or
+// hashed. The default (value 0) means none.
 struct MeshId {
     std::uint32_t value = 0;
+    std::uint64_t owner = 0;
 
     friend bool operator==(const MeshId&, const MeshId&) = default;
 };
 
 // A texture uploaded with Renderer::add_texture (ADR 0037), valid only with the renderer that
-// made it. The default (0) means none: the colour alone, as if the texture were white.
+// made it: `owner` is that renderer's process-local token (ADR 0030), never to be persisted or
+// hashed. The default (value 0) means none: the colour alone, as if the texture were white.
 struct TextureId {
     std::uint32_t value = 0;
+    std::uint64_t owner = 0;
 
     friend bool operator==(const TextureId&, const TextureId&) = default;
 };

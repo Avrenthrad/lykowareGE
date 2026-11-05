@@ -132,6 +132,18 @@ void test_end_and_handles()
     expect(mixer.stop(a) && !mixer.playing(a) && !mixer.stop(a), "a voice can be stopped once");
     expect(!mixer.playing(audio::VoiceId{}), "the default handle is never valid");
 
+    // ADR 0030: a handle works only with its own mixer, even where index and generation match.
+    audio::Mixer first;
+    audio::Mixer second;
+    const audio::VoiceId mine = start(first, short_sound, {1.F, 0.F, 1.F, true});
+    const audio::VoiceId theirs = start(second, short_sound, {1.F, 0.F, 1.F, true});
+    expect(mine.index == theirs.index && mine.generation == theirs.generation && !(mine == theirs),
+           "two mixers' first voices differ only by owner");
+    expect(!second.playing(mine) && !second.stop(mine) && !second.set_gain(mine, 0.F) && !second.set_pan(mine, 0.F),
+           "a mixer refuses another mixer's handle");
+    expect(second.playing(theirs) && first.playing(mine), "and neither voice is touched");
+    expect(first.stop(mine) && second.stop(theirs), "each mixer stops its own voice");
+
     std::string error;
     expect(!mixer.play(nullptr, {}, error), "playing no sound is refused");
     expect(!mixer.play(short_sound, {17.F, 0.F, 1.F, false}, error), "gain above 16 is refused");
