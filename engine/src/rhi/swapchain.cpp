@@ -613,13 +613,19 @@ bool Swapchain::Impl::render_frame(const ClearColor& color, VkPipeline pipeline,
 {
     Impl& impl = *this;
 
+    // Minimised (ADR 0040): nothing is shown, and some platforms block presentation
+    // until the window is visible again, so skip the frame and keep the swapchain.
+    if (impl.window->minimized()) {
+        return true;
+    }
+
     VkExtent2D wanted{};
     if (!impl.desired_extent(wanted, error)) {
         return false;
     }
     if (wanted.width == 0 || wanted.height == 0) {
-        // Minimised: release the swapchain once, then skip frames until the
-        // window has an area again.
+        // No area (some platforms report a minimised window this way): release
+        // the swapchain once, then skip frames until the window has an area again.
         if (impl.swapchain != VK_NULL_HANDLE && !impl.rebuild(error)) {
             return false;
         }

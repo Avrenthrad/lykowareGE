@@ -584,6 +584,10 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
             }
         }
         gpu_frames.collect(*swapchain);
+        if (window.minimized()) {
+            // The swapchain draws nothing while minimised (ADR 0040), so don't spin.
+            std::this_thread::sleep_for(std::chrono::milliseconds(16));
+        }
         ++frame;
         if (options.has_frames && frame >= options.frames) {
             break;

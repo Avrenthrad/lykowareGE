@@ -130,6 +130,9 @@ if(BUILD_TESTING)
     # through the swapchain. Exit 77 is Skipped.
     add_executable(lykoware_rhi_swapchain_test tests/rhi_swapchain.cpp)
     target_link_libraries(lykoware_rhi_swapchain_test PRIVATE lykoware::engine)
+    # Pushes platform window events (minimise, restore) as the platform would (ADR 0040).
+    target_include_directories(lykoware_rhi_swapchain_test SYSTEM PRIVATE
+        "${CMAKE_SOURCE_DIR}/third_party/sdl3/include")
     lykoware_configure_target(lykoware_rhi_swapchain_test)
     add_dependencies(lykoware_rhi_swapchain_test lykoware_test_shaders)
     add_test(NAME rhi.swapchain

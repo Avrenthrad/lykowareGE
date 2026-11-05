@@ -62,8 +62,11 @@ struct SwapchainConfig {
 //
 // Resize: each frame compares the surface/window pixel size with the
 // swapchain extent and rebuilds the swapchain when they differ, or when the
-// driver reports it out of date or suboptimal. A zero-sized (minimised)
-// window skips presentation until it has an area again.
+// driver reports it out of date or suboptimal. A zero-sized window skips
+// presentation until it has an area again, and a minimised one
+// (Window::minimized()) until it is restored, keeping its swapchain
+// (ADR 0040). A skipped frame is neither submitted nor presented, and the
+// render call still returns true.
 //
 // Failure: create() returns nullptr and fills error. A device without the
 // extension is InvalidArgument; a queue that cannot present, or a surface

@@ -15,6 +15,8 @@
 #include <lykoware/rhi/swapchain.hpp>
 #include <lykoware/window.hpp>
 
+#include <SDL3/SDL.h>
+
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -85,6 +87,41 @@ void expect_frame_times(const lykoware::rhi::Device& device, lykoware::rhi::Swap
     expect(ordered, std::string{what} + ": submission times are in order, while the frames were rendered");
     expect(plausible, std::string{what} + ": GPU times are plausible");
     expect(swapchain.take_gpu_frame_times().empty(), std::string{what} + ": taken times are not returned again");
+}
+
+// The window's platform event for `type`, as the platform would send it.
+void push_window_event(SDL_EventType type)
+{
+    int count = 0;
+    SDL_Window** windows = SDL_GetWindows(&count);
+    expect(windows != nullptr && count == 1, "one platform window is open");
+    if (windows != nullptr && count == 1) {
+        SDL_Event event{};
+        event.type = type;
+        event.window.windowID = SDL_GetWindowID(windows[0]);
+        expect(SDL_PushEvent(&event), "push the window event");
+    }
+    SDL_free(windows);
+}
+
+// ADR 0040: frames while minimised are skipped, neither submitted nor presented, and
+// restoring resumes with the same swapchain.
+void expect_minimised_frames_skipped(const lykoware::rhi::Device& device, lykoware::rhi::Swapchain& swapchain,
+                                     lykoware::Window& window)
+{
+    lykoware::rhi::RhiError error;
+    expect(device.wait_idle(error), "the device goes idle");
+    (void)swapchain.take_gpu_frame_times();
+    const std::uint64_t presented = swapchain.frames_presented();
+    const std::uint32_t rebuilds = swapchain.rebuild_count();
+    push_window_event(SDL_EVENT_WINDOW_MINIMIZED);
+    expect(render(swapchain, window, 3, 0.3F) && window.minimized(), "frames while minimised succeed");
+    expect(swapchain.frames_presented() == presented, "a minimised window presents nothing");
+    expect(device.wait_idle(error) && swapchain.take_gpu_frame_times().empty(), "and submits nothing");
+    push_window_event(SDL_EVENT_WINDOW_RESTORED);
+    expect(render(swapchain, window, 2, 0.3F) && !window.minimized(), "frames render after a restore");
+    expect(swapchain.frames_presented() == presented + 2, "a restored window presents again");
+    expect(swapchain.rebuild_count() == rebuilds, "restoring keeps the swapchain");
 }
 
 std::unique_ptr<lykoware::rhi::GraphicsPipeline> triangle_pipeline(const lykoware::rhi::Device& device,
@@ -242,6 +279,7 @@ int main(int argc, char* argv[])
         expect(swapchain != nullptr, "a non-vsync swapchain is created after the first is destroyed");
         if (swapchain) {
             expect(render(*swapchain, *window, 4, 0.9F), "non-vsync frames render and present");
+            expect_minimised_frames_skipped(*device, *swapchain, *window);
         }
     }
 
