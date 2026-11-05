@@ -65,6 +65,13 @@ Owner: Claude. Done: #19 merged (ADR 0017, Proposed). `FixedStep` gives numbered
 
 Owner: Claude. Done: PRs #11–#14 and #16–#18 merged, with ADR 0013 in #15. First pixels through a Lykoware-owned Vulkan 1.3 RHI (ADR 0002): instance, device, offscreen render target read back into the image harness, swapchain on the SDL window, Slang shaders compiled and validated at build time, graphics pipelines, and the triangle drawn offscreen (pixel-checked) and in the sandbox window. GPU tests run on Mesa lavapipe in Linux CI and report Skipped on Windows runners, which have no Vulkan. The owner has not accepted ADRs 0009–0012 or 0014–0016; merging them did not accept them. Details and CI runs are in [STATUS.md](STATUS.md) and each pull request.
 
+## Active task: local validation evidence (Codex)
+
+- Owner/status: Codex, active on `codex/local-validation`, stacked on package PR #45 (`7f754b3`).
+- Scope: ADR 0046; local CMake/CTest/staging command, source provenance, honest test/skip reports and failure tests. No engine, audio, model, texture or GPU-timing API changes.
+- Related work: Claude retains #37–#44. CI is blocked by account billing/spending settings; this tool gathers local evidence without changing accounts, spending or weakening CI/merge rules.
+- Checks: failure-path tests, real Linux execution, local compatibility with Claude's stack. Windows code paths/results remain unverified until actual Windows execution.
+
 ## Task template
 
 Copy into an issue or PR before implementation:

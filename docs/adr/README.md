@@ -37,6 +37,8 @@ Canonical directory: docs/adr. Decisions remain Proposed until resolved; disting
 
 | [0045](0045-runtime-package-notices.md) | Proposed | Preserve runtime dependency notices in installed packages, with artifact checks |
 
+| [0046](0046-local-validation-evidence.md) | Proposed | Local preset validation with source provenance and explicit pass/skip/failure reports |
+
 Use [the template](TEMPLATE.md). Record context, options, decision/status, contracts, consequences and verification. Use a new ADR to supersede an accepted choice; do not silently rewrite its history.
 
 [Pre-brief records](../decisions/README.md) remain historical and are not part of this numbering sequence.
