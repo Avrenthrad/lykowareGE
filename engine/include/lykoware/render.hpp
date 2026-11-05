@@ -53,6 +53,16 @@ struct TextureSettings {
     bool mipmaps = true;
 };
 
+// One part of an added mesh with its own material (ADR 0038): the triangles from first_index
+// for index_count indices. Its colour multiplies MeshRenderer::colour; its texture, when set,
+// takes the place of MeshRenderer::texture.
+struct MeshPart {
+    std::uint32_t first_index = 0;
+    std::uint32_t index_count = 0;
+    math::Vec3 colour{1.F, 1.F, 1.F};
+    TextureId texture{};
+};
+
 // ECS component: draw the entity's Transform with a built-in mesh, or with an added mesh.
 struct MeshRenderer {
     MeshShape shape = MeshShape::Cube;
@@ -112,6 +122,10 @@ public:
     // is destroyed. Fails (nullopt, error filled) for a mesh valid_mesh() refuses (InvalidArgument)
     // or when the driver refuses the buffers.
     [[nodiscard]] std::optional<MeshId> add_mesh(const MeshData& mesh, rhi::RhiError& error);
+    // The same, drawn as parts with their own materials (a glTF model's primitives, say). Each
+    // part needs a non-zero, whole-triangle range inside the mesh's indices, and a texture id
+    // this renderer made (or none); otherwise InvalidArgument.
+    [[nodiscard]] std::optional<MeshId> add_mesh(const MeshData& mesh, std::span<const MeshPart> parts, rhi::RhiError& error);
 
     // Uploads a texture (a decoded image, say) for MeshRenderer::texture. It stays until the
     // renderer is destroyed. Fails (nullopt, error filled) for an empty or oversized image
@@ -119,7 +133,7 @@ public:
     [[nodiscard]] std::optional<TextureId> add_texture(const RgbaImage& image, const TextureSettings& settings,
                                                        rhi::RhiError& error);
 
-    // Entities drawn by the last draw().
+    // Entities drawn by the last draw() (a mesh of several parts counts once).
     [[nodiscard]] std::size_t last_draw_count() const;
 
 private:

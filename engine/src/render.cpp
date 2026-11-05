@@ -62,6 +62,15 @@ void build_cube(std::vector<Vertex>& vertices, std::vector<std::uint32_t>& indic
 struct GpuMesh {
     std::unique_ptr<rhi::Buffer> vertices;
     std::unique_ptr<rhi::Buffer> indices;
+    std::vector<MeshPart> parts;
+};
+
+// One draw: a part of a mesh with the texture it uses.
+struct Drawn {
+    const GpuMesh* mesh = nullptr;
+    const rhi::Texture* texture = nullptr;
+    std::uint32_t first_index = 0;
+    std::uint32_t index_count = 0;
 };
 
 bool upload(const rhi::Device& device, std::span<const Vertex> vertices, std::span<const std::uint32_t> indices,
@@ -85,8 +94,9 @@ struct Renderer::Impl {
     std::unique_ptr<rhi::Texture> white;
     std::vector<std::unique_ptr<rhi::Texture>> textures;
     std::vector<Constants> constants;
-    std::vector<std::pair<const GpuMesh*, const rhi::Texture*>> drawn;
+    std::vector<Drawn> drawn;
     std::vector<rhi::MeshDraw> draws;
+    std::size_t entities_drawn = 0;
 
     const rhi::Texture* texture_for(const MeshRenderer& renderer) const
     {
@@ -110,6 +120,7 @@ struct Renderer::Impl {
         constants.clear();
         drawn.clear();
         draws.clear();
+        entities_drawn = 0;
         const math::Mat4 view =
             math::look_at({0.F, 0.F, 0.F}, math::relative_to(camera.target, camera.eye), camera.up);
         const math::Mat4 projection = math::perspective(camera.vertical_fov, aspect, camera.near);
@@ -135,14 +146,19 @@ struct Renderer::Impl {
                 const float s = inverse[column];
                 c.normal[column] = {rotation.m[column][0] * s, rotation.m[column][1] * s, rotation.m[column][2] * s, 0.F};
             }
-            c.colour = {mesh.colour.x, mesh.colour.y, mesh.colour.z, 1.F};
-            constants.push_back(c);
-            drawn.emplace_back(gpu, texture);
+            for (const MeshPart& part : gpu->parts) {
+                c.colour = {mesh.colour.x * part.colour.x, mesh.colour.y * part.colour.y, mesh.colour.z * part.colour.z, 1.F};
+                constants.push_back(c);
+                const rhi::Texture* part_texture =
+                    part.texture == TextureId{} ? texture : textures[part.texture.value - 1].get();
+                drawn.push_back({gpu, part_texture, part.first_index, part.index_count});
+            }
+            ++entities_drawn;
         });
         // Push-constant spans point into `constants`, so build them after it stops growing.
         for (std::size_t i = 0; i < constants.size(); ++i) {
-            draws.push_back({drawn[i].first->vertices.get(), drawn[i].first->indices.get(), 0,
-                             std::as_bytes(std::span(&constants[i], 1)), drawn[i].second});
+            draws.push_back({drawn[i].mesh->vertices.get(), drawn[i].mesh->indices.get(), drawn[i].index_count,
+                             std::as_bytes(std::span(&constants[i], 1)), drawn[i].texture, drawn[i].first_index});
         }
     }
 };
@@ -186,6 +202,7 @@ std::unique_ptr<Renderer> Renderer::create(const rhi::Device& device, rhi::Color
     if (!upload(device, vertices, indices, impl->cube, error)) {
         return nullptr;
     }
+    impl->cube.parts.push_back({0, static_cast<std::uint32_t>(indices.size())});
     rhi::TextureDesc white;
     white.width = 1;
     white.height = 1;
@@ -217,10 +234,31 @@ bool Renderer::draw(const ecs::World& entities, const Camera& camera, rhi::Swapc
 
 std::optional<MeshId> Renderer::add_mesh(const MeshData& mesh, rhi::RhiError& error)
 {
+    const MeshPart whole{0, static_cast<std::uint32_t>(mesh.indices.size())};
+    return add_mesh(mesh, std::span(&whole, 1), error);
+}
+
+std::optional<MeshId> Renderer::add_mesh(const MeshData& mesh, std::span<const MeshPart> parts, rhi::RhiError& error)
+{
     std::string reason;
     if (!valid_mesh(mesh, reason)) {
         error = {rhi::RhiFailure::InvalidArgument, reason};
         return std::nullopt;
+    }
+    if (parts.empty()) {
+        error = {rhi::RhiFailure::InvalidArgument, "a mesh needs at least one part"};
+        return std::nullopt;
+    }
+    for (const MeshPart& part : parts) {
+        const std::size_t end = static_cast<std::size_t>(part.first_index) + part.index_count;
+        if (part.index_count == 0 || part.index_count % 3 != 0 || end > mesh.indices.size()) {
+            error = {rhi::RhiFailure::InvalidArgument, "a mesh part must be whole triangles inside the mesh's indices"};
+            return std::nullopt;
+        }
+        if (part.texture.value > impl_->textures.size()) {
+            error = {rhi::RhiFailure::InvalidArgument, "a mesh part names a texture this renderer did not make"};
+            return std::nullopt;
+        }
     }
     std::vector<Vertex> vertices(mesh.positions.size());
     for (std::size_t i = 0; i < vertices.size(); ++i) {
@@ -230,6 +268,7 @@ std::optional<MeshId> Renderer::add_mesh(const MeshData& mesh, rhi::RhiError& er
     if (!upload(*impl_->device, vertices, mesh.indices, gpu, error)) {
         return std::nullopt;
     }
+    gpu.parts.assign(parts.begin(), parts.end());
     impl_->meshes.push_back(std::move(gpu));
     return MeshId{static_cast<std::uint32_t>(impl_->meshes.size())};
 }
@@ -254,7 +293,7 @@ std::optional<TextureId> Renderer::add_texture(const RgbaImage& image, const Tex
 
 std::size_t Renderer::last_draw_count() const
 {
-    return impl_->draws.size();
+    return impl_->entities_drawn;
 }
 
 }
