@@ -219,11 +219,15 @@ if(BUILD_TESTING)
     add_test(NAME math.types COMMAND lykoware_math_test)
     set_tests_properties(math.types PROPERTIES TIMEOUT 60)
 
-    # The entity-component system (ADR 0023). Links only the engine.
+    # Scene capture through the CLI (ADR 0031). It renders on Vulkan, so sanitizer builds keep
+    # drivers loaded as for the GPU tests above (ADR 0015).
     add_test(NAME scene.cli_capture COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_SOURCE_DIR}/tests/scene_capture.py" "$<TARGET_FILE:lyko>"
         "${CMAKE_SOURCE_DIR}/samples/scenes" "${CMAKE_BINARY_DIR}/test-output/scene-cli")
     set_tests_properties(scene.cli_capture PROPERTIES TIMEOUT 240 SKIP_RETURN_CODE 77)
+    if(LYKOWARE_SANITIZERS)
+        set_property(TEST scene.cli_capture APPEND PROPERTY ENVIRONMENT "VK_LOADER_DISABLE_DYNAMIC_LIBRARY_UNLOADING=1")
+    endif()
 
     add_executable(lykoware_scene_replay_test tests/scene_replay.cpp)
     target_link_libraries(lykoware_scene_replay_test PRIVATE lykoware::engine)
