@@ -14,6 +14,8 @@
 #include <lykoware/rhi/pipeline.hpp>
 #include <lykoware/rhi/render_target.hpp>
 
+#include "support/png_writer.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -177,6 +179,102 @@ void check(const Frame& frame, math::DVec3 offset)
 
 }
 
+// Two quads in one glTF mesh, as two primitives with their own materials: the left one textured
+// red|blue (nearest, clamped, no mipmaps), the right one a plain green factor. Read with
+// gltf::read_model and uploaded as the sandbox does: textures first, then the mesh as parts.
+void test_materials(rhi::Device& device, render::Renderer& renderer, const std::filesystem::path& output)
+{
+    const float left[12] = {-2.2F, -1.F, 0.F, -0.2F, -1.F, 0.F, -0.2F, 1.F, 0.F, -2.2F, 1.F, 0.F};
+    const float right[12] = {0.2F, -1.F, 0.F, 2.2F, -1.F, 0.F, 2.2F, 1.F, 0.F, 0.2F, 1.F, 0.F};
+    const float normals[12] = {0.F, 0.F, 1.F, 0.F, 0.F, 1.F, 0.F, 0.F, 1.F, 0.F, 0.F, 1.F};
+    const float uvs[8] = {0.F, 1.F, 1.F, 1.F, 1.F, 0.F, 0.F, 0.F};
+    const std::uint32_t indices[6] = {0, 1, 2, 0, 2, 3};
+    const std::vector<std::byte> png = lykoware::test::png_rgba(2, 1, {255, 0, 0, 255, 0, 0, 255, 255});
+    std::vector<std::byte> bin(48 * 3 + 32 + 24);
+    std::memcpy(bin.data(), left, 48);
+    std::memcpy(bin.data() + 48, right, 48);
+    std::memcpy(bin.data() + 96, normals, 48);
+    std::memcpy(bin.data() + 144, uvs, 32);
+    std::memcpy(bin.data() + 176, indices, 24);
+    bin.insert(bin.end(), png.begin(), png.end());
+    const std::string json = std::string{"{\"asset\":{\"version\":\"2.0\"},\"scenes\":[{\"nodes\":[0]}],\"nodes\":[{\"mesh\":0}],"}
+        + "\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0,\"NORMAL\":2,\"TEXCOORD_0\":3},\"indices\":4,\"material\":0},"
+        + "{\"attributes\":{\"POSITION\":1,\"NORMAL\":2},\"indices\":4,\"material\":1}]}],"
+        + "\"materials\":[{\"pbrMetallicRoughness\":{\"baseColorTexture\":{\"index\":0}}},"
+        + "{\"pbrMetallicRoughness\":{\"baseColorFactor\":[0,1,0,1]}}],"
+        + "\"textures\":[{\"source\":0,\"sampler\":0}],\"samplers\":[{\"magFilter\":9728,\"minFilter\":9728,\"wrapS\":33071}],"
+        + "\"images\":[{\"bufferView\":5,\"mimeType\":\"image/png\"}],"
+        + "\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":4,\"type\":\"VEC3\"},"
+        + "{\"bufferView\":1,\"componentType\":5126,\"count\":4,\"type\":\"VEC3\"},"
+        + "{\"bufferView\":2,\"componentType\":5126,\"count\":4,\"type\":\"VEC3\"},"
+        + "{\"bufferView\":3,\"componentType\":5126,\"count\":4,\"type\":\"VEC2\"},"
+        + "{\"bufferView\":4,\"componentType\":5125,\"count\":6,\"type\":\"SCALAR\"}],"
+        + "\"bufferViews\":[{\"buffer\":0,\"byteLength\":48},{\"buffer\":0,\"byteOffset\":48,\"byteLength\":48},"
+        + "{\"buffer\":0,\"byteOffset\":96,\"byteLength\":48},{\"buffer\":0,\"byteOffset\":144,\"byteLength\":32},"
+        + "{\"buffer\":0,\"byteOffset\":176,\"byteLength\":24},{\"buffer\":0,\"byteOffset\":200,\"byteLength\":"
+        + std::to_string(png.size()) + "}],"
+        + "\"buffers\":[{\"byteLength\":" + std::to_string(bin.size()) + ",\"uri\":\"data:application/octet-stream;base64,"
+        + lykoware::test::base64(bin) + "\"}]}";
+    std::vector<std::byte> file(json.size());
+    std::memcpy(file.data(), json.data(), json.size());
+    std::string load_error;
+    const auto model = lykoware::gltf::read_model(file, {}, load_error);
+    expect(model && model->parts.size() == 2 && model->materials.size() == 2 && model->images.size() == 1,
+           "a model with two materials loads: " + load_error);
+    if (!model) {
+        return;
+    }
+    rhi::RhiError error;
+    render::TextureSettings settings;
+    settings.filter = rhi::TextureFilter::Nearest;
+    settings.wrap = rhi::TextureWrap::ClampToEdge;
+    settings.mipmaps = false;
+    const auto texture = renderer.add_texture(model->images[0], settings, error);
+    std::vector<render::MeshPart> parts;
+    for (const auto& part : model->parts) {
+        const auto& material = model->materials[*part.material];
+        render::MeshPart mesh_part{part.first_index, part.index_count, {material.base_colour.x, material.base_colour.y, material.base_colour.z}};
+        if (material.base_colour_texture && texture) {
+            mesh_part.texture = *texture;
+        }
+        parts.push_back(mesh_part);
+    }
+    const auto mesh = texture ? renderer.add_mesh(model->mesh, parts, error) : std::nullopt;
+    expect(mesh.has_value(), "the model's texture and parts are uploaded: " + error.message);
+    const render::MeshPart outside{6, 9}; // indices 6..14 of 12
+    expect(!renderer.add_mesh(model->mesh, std::span(&outside, 1), error) && error.failure == rhi::RhiFailure::InvalidArgument,
+           "a part outside the mesh's indices is refused");
+    const render::MeshPart unknown{0, 6, {1.F, 1.F, 1.F}, render::TextureId{77}};
+    expect(!renderer.add_mesh(model->mesh, std::span(&unknown, 1), error) && error.failure == rhi::RhiFailure::InvalidArgument,
+           "a part with an unknown texture is refused");
+    if (!mesh) {
+        return;
+    }
+    ecs::World entities;
+    const ecs::Entity entity = entities.create();
+    entities.add<lykoware::Transform>(entity, lykoware::Transform{});
+    entities.add<render::MeshRenderer>(entity, render::MeshRenderer{render::MeshShape::Cube, {1.F, 1.F, 1.F}, {1.F, 1.F, 1.F}, *mesh});
+    auto target = rhi::RenderTarget::create(device, {width, height, true}, error);
+    const render::Camera camera{{0.0, 0.0, 6.0}, {0.0, 0.0, 0.0}};
+    lykoware::Image image;
+    if (!target || !renderer.draw(entities, camera, *target, sky, error) || !rhi::RenderTargetCapture{*target}.capture(image)) {
+        expect(false, "the two-material model draws: " + error.message);
+        return;
+    }
+    expect(renderer.last_draw_count() == 1, "a mesh of two parts counts as one entity drawn");
+    const math::Vec3 light = math::normalize(math::Vec3{0.4F, 1.F, 0.3F});
+    const int lit = static_cast<int>(std::lround((0.25F + 0.75F * light.z) * 255.F));
+    auto near = [&](Pixel p, int r, int g, int b) { return std::abs(p.r - r) <= 2 && std::abs(p.g - g) <= 2 && std::abs(p.b - b) <= 2; };
+    expect(near(at(image, pixel_of(camera, {-1.7, 0.0, 0.0})), lit, 0, 0) && near(at(image, pixel_of(camera, {-0.7, 0.0, 0.0})), 0, 0, lit),
+           "the textured part shows its red|blue texture, lit");
+    expect(near(at(image, pixel_of(camera, {1.2, 0.0, 0.0})), 0, lit, 0), "the other part shows its green factor, lit");
+    std::error_code ignored;
+    std::filesystem::create_directories(output, ignored);
+    if (lykoware::write_ppm(image, output / "materials.ppm")) {
+        std::cout << "wrote " << (output / "materials.ppm").string() << '\n';
+    }
+}
+
 int main(int argc, char* argv[])
 {
     if (argc != 4) {
@@ -231,6 +329,7 @@ int main(int argc, char* argv[])
             expect(distant.image.width() == width && lykoware::compare_images(first.image, distant.image, 0).matches,
                    "the model 16 km from the origin gives exactly the same image");
         }
+        test_materials(*device, *renderer, argv[3]);
     }
     if (instance->validation_error_count() != 0) {
         expect(false, std::to_string(instance->validation_error_count()) + " Vulkan validation errors");
