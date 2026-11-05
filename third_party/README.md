@@ -13,6 +13,8 @@
 
 | [json/](json/) | nlohmann/json 3.11.3 | MIT | private scene parser and CLI report encoding | [PROVENANCE](json/PROVENANCE.md) |
 
+Installed runtime attributions are indexed in [RUNTIME_NOTICES.md](RUNTIME_NOTICES.md) and verified by `package.runtime_notices`. Source vendoring alone does not carry these files into a copied binary package.
+
 No other runtime source is vendored. Before adding a dependency, record:
 
 - Name, upstream URL, exact source commit/version and integrity hash.
