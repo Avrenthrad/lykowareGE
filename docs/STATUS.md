@@ -229,7 +229,7 @@ Owner: Claude. Branch `claude/gltf-materials`, stacked on textures PR 2. In revi
 
 ### GPU timings in traces
 
-Owner: Claude. Branch `claude/gpu-timings`, stacked on textures PR 3. In review.
+Owner: Claude. Branch `claude/gpu-timings`, stacked on textures PR 3. In review as [#44](https://github.com/Avrenthrad/lykowareGE/pull/44).
 
 - [ADR 0039](adr/0039-gpu-timings.md) (Proposed).
 - **RHI:** Vulkan timestamp queries time each `RenderTarget` render (`last_gpu_time_ns()`) and each swapchain frame (`take_gpu_frame_times()`, with the CPU submit time). `Device::gpu_timestamps()` says whether the GPU supports them.
@@ -239,7 +239,8 @@ Owner: Claude. Branch `claude/gpu-timings`, stacked on textures PR 3. In review.
   - `trace.api`, `rhi.render_target`, `rhi.mesh` and `rhi.swapchain` gain GPU timing checks;
   - new `sandbox.gpu_trace`;
   - `foundation.smoke` and `cli.commands` check the new options.
-- **Local checks:** see ADR 0039.
+- **Deliberate breaks:** 17 of 18 caught. The miss, the sandbox's last read after its loop, cannot be seen on lavapipe.
+- **Local checks:** 51/51 pass in Debug, ASan/UBSan and clang-tidy, with no validation errors.
 - **CI:** blocked for the whole account (see audio PR 1).
 
 ## Next
@@ -271,7 +272,7 @@ Owner order, set 2026-11-02. It replaces the earlier "clocks first" order.
 ## Handoff
 
 - State: `main` at 7616ce3 contains PRs #2, #4–#21, #23–#29 and #31–#36. The Vulkan RHI bring-up, Phase 1 clocks, the physics spike, double-precision positions, the ECS (with physics on entities), the first lit renderer (falling crates), contract hardening and versioned scenes with command replay and CLI capture are complete. Physics determinism is verified on MSVC, GCC and Clang.
-- In review: `claude/audio-mixer` (Audio PR 1, ADR 0032, [#37](https://github.com/Avrenthrad/lykowareGE/pull/37)) and, stacked on it, `claude/audio-output` (Audio PR 2, ADR 0033, [#38](https://github.com/Avrenthrad/lykowareGE/pull/38)) and `claude/audio-spatial` (Audio PR 3, ADR 0034, [#39](https://github.com/Avrenthrad/lykowareGE/pull/39)), then `claude/gltf-meshes` (model loading, ADR 0035, [#40](https://github.com/Avrenthrad/lykowareGE/pull/40)), then `claude/image-decode` (textures PR 1, ADR 0036, [#41](https://github.com/Avrenthrad/lykowareGE/pull/41)), then `claude/gpu-textures` (textures PR 2, ADR 0037, [#42](https://github.com/Avrenthrad/lykowareGE/pull/42)), then `claude/gltf-materials` (textures PR 3, ADR 0038, [#43](https://github.com/Avrenthrad/lykowareGE/pull/43)), then `claude/gpu-timings` (GPU timings in traces, ADR 0039). CI cannot run at the moment: since 2026-11-05 every job fails before a runner starts, an account-level block (likely the private repository's Actions minutes); both PRs are checked locally only. #30's fix reached `main` through #36 (80a0640), so the owner can close #30. Cursor's #22 is open.
+- In review: `claude/audio-mixer` (Audio PR 1, ADR 0032, [#37](https://github.com/Avrenthrad/lykowareGE/pull/37)) and, stacked on it, `claude/audio-output` (Audio PR 2, ADR 0033, [#38](https://github.com/Avrenthrad/lykowareGE/pull/38)) and `claude/audio-spatial` (Audio PR 3, ADR 0034, [#39](https://github.com/Avrenthrad/lykowareGE/pull/39)), then `claude/gltf-meshes` (model loading, ADR 0035, [#40](https://github.com/Avrenthrad/lykowareGE/pull/40)), then `claude/image-decode` (textures PR 1, ADR 0036, [#41](https://github.com/Avrenthrad/lykowareGE/pull/41)), then `claude/gpu-textures` (textures PR 2, ADR 0037, [#42](https://github.com/Avrenthrad/lykowareGE/pull/42)), then `claude/gltf-materials` (textures PR 3, ADR 0038, [#43](https://github.com/Avrenthrad/lykowareGE/pull/43)), then `claude/gpu-timings` (GPU timings in traces, ADR 0039, [#44](https://github.com/Avrenthrad/lykowareGE/pull/44)). CI cannot run at the moment: since 2026-11-05 every job fails before a runner starts, an account-level block (likely the private repository's Actions minutes); both PRs are checked locally only. #30's fix reached `main` through #36 (80a0640), so the owner can close #30. Cursor's #22 is open.
 - Open decisions for the owner: accepting or rejecting ADRs 0008–0012, 0014–0017, 0022–0026 and 0030–0039; how to restore CI (wait for the monthly Actions minutes, a self-hosted runner on the owner's PC, or a paid limit, which needs the owner's approval) (merging did not accept them); the working assumptions in ADR 0021 (2–4 player co-op, 6-core CPU, 8 GB VRAM at minimum settings, camera-relative rendering); Cursor's #22 (ADR 0019).
 - Next concrete action: once CI runs again, get the stacked PRs green (Windows/MSVC first). Then the next Phase 1 item the owner picks (scripting, or window lifecycle tests).
 - Owner checks wanted: run `lykoware_sandbox --window --vulkan` on the RTX 4070 desktop (a 5 × 5 grid of coloured crates tumbling onto a grey ground and dropping again every 8 seconds, each knocking as it lands, through the default sound device), `tools/validation/measure-scene.ps1` (ADR 0031), `lykoware_sandbox --window --vulkan --model FILE` with a textured .glb exported from Blender (ADR 0035, ADR 0038), and `lyko trace --gpu --frames 300` opened in Perfetto (ADR 0039).

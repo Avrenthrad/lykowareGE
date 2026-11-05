@@ -15,7 +15,7 @@ Check latest main and open PRs before starting. Documents do not automatically s
 
 ## Active task: GPU timings (Claude)
 
-- Owner/status: Claude, active. One PR ([ADR 0039](adr/0039-gpu-timings.md)) in review on `claude/gpu-timings`, stacked on textures PR 3.
+- Owner/status: Claude, active. One PR ([ADR 0039](adr/0039-gpu-timings.md)) in review as #44 on `claude/gpu-timings`, stacked on textures PR 3.
 - Objective (owner's choice, 2026-11-05): the Phase 1 exit item "traces report CPU/GPU timings where supported".
 - Shared interfaces: `Device::gpu_timestamps`, `RenderTarget::last_gpu_time_ns`, `Swapchain::take_gpu_frame_times`, `CpuTrace::add_gpu_span`/`elapsed_us`; sandbox `--window --vulkan --trace FILE`; `lyko trace --gpu`.
 - Checks: GPU timing checks in the RHI tests (lavapipe has timestamps), `sandbox.gpu_trace`, deliberate breaks, five CI jobs once CI runs again.

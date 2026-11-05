@@ -100,7 +100,7 @@ Proposed:
 - **`rhi.swapchain`:**
   - after the first five frames, and again after a resize and four triangle frames, each frame has one time;
   - frames are numbered in submission order;
-  - submit times are ordered and past;
+  - submit times are in order, within the time the frames were rendered;
   - times are plausible, and none is returned twice;
   - a refused draw times nothing;
   - the validation layer reports no errors.
@@ -112,7 +112,27 @@ Proposed:
 - **`cli.commands`:**
   - `trace --gpu` without `--frames`, and a duplicate `--gpu`, are refused;
   - `lyko trace --gpu --frames 2` exits 0 with two frames in the trace, or 3 without a display or Vulkan.
-- **Deliberate breaks:** each caught.
-- **Local results:** all tests pass in the Debug, ASan/UBSan and clang-tidy presets. lavapipe reports 64-bit timestamps, so GPU times are measured there.
+- **Deliberate breaks:** 17 of 18 caught:
+  - the end timestamp not written;
+  - the query pool never reset (caught by the validation layer);
+  - the interval reversed;
+  - `read_back` clearing the time;
+  - a refused mesh draw keeping the old time;
+  - mesh draws untimed;
+  - frame times not read at the fence wait;
+  - `take_gpu_frame_times` not reading finished frames;
+  - frames numbered from 1;
+  - frame slots sharing queries (validation layer);
+  - taken times returned again;
+  - the submit time not recorded;
+  - GPU spans on the CPU track;
+  - track names always written;
+  - a negative start kept;
+  - the sandbox adding no GPU spans;
+  - `lyko trace --gpu` without `--vulkan`.
+
+  Missed: the sandbox skipping its last read after the loop. lavapipe finishes each frame before the loop's own read, so on it nothing is left for the last read. On a real GPU the last one or two frames would be missing.
+- **Not caught on lavapipe:** a wrong tick mask or period. Its timestamps are 64-bit nanoseconds (period 1).
+- **Local results:** 51/51 pass in the Debug, ASan/UBSan and clang-tidy presets. A GCC `-Wshadow -Wconversion -Wsign-conversion -Wold-style-cast` sweep finds nothing in the new code. lavapipe reports 64-bit timestamps, so GPU times are measured there, under the validation layer.
 - **CI:** blocked for the whole account since 2026-11-05 (see ADR 0033); to be recorded.
 - **Owner check wanted:** `lyko trace --gpu --frames 300` on the RTX 4070 desktop. Open the trace in Perfetto (ui.perfetto.dev) and see the CPU and GPU tracks.
