@@ -6,6 +6,7 @@ configure_file(
 add_library(lykoware_engine STATIC
     src/audio.cpp
     src/audio_output.cpp
+    src/audio_spatial.cpp
     src/clock.cpp
     src/scene.cpp
     src/ecs.cpp
@@ -40,7 +41,7 @@ lykoware_configure_target(lykoware_engine)
 # fuse a multiply and an add into one instruction with a single rounding. MSVC's default
 # /fp:precise already does not.
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    set_source_files_properties(src/audio.cpp PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
+    set_source_files_properties(src/audio.cpp src/audio_spatial.cpp PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
 endif()
 
 # JSON stays private behind scene.hpp; upstream licence/notices are vendored.
