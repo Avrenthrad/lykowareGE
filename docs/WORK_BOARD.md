@@ -13,6 +13,13 @@ Owner rules for every task: small stacked PRs; commit small and often; keep all 
 
 Check latest main and open PRs before starting. Documents do not automatically synchronize assistants or reserve work.
 
+## Active task: window lifecycle (Claude)
+
+- Owner/status: Claude, active. One PR ([ADR 0040](adr/0040-window-lifecycle.md)) in review on `claude/window-lifecycle`, stacked on GPU timings.
+- Objective (owner's choice, 2026-11-05): the Phase 1 exit item "resize/focus/close and restart tests pass".
+- Shared interfaces: `Window::has_focus`/`minimized`, `release_keys_and_mouse_buttons`; the swapchain skips frames while minimised.
+- Checks: `window.lifecycle`, `rhi.swapchain`, new `lifecycle.restart` and `lifecycle.restart_vulkan`, deliberate breaks, five CI jobs once CI runs again.
+
 ## Active task: GPU timings (Claude)
 
 - Owner/status: Claude, active. One PR ([ADR 0039](adr/0039-gpu-timings.md)) in review as #44 on `claude/gpu-timings`, stacked on textures PR 3.
