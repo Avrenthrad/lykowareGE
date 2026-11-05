@@ -97,7 +97,10 @@ struct Renderer::Impl {
         if (renderer.texture == TextureId{}) {
             return white.get();
         }
-        return renderer.texture.value <= textures.size() ? textures[renderer.texture.value - 1].get() : nullptr;
+        if (renderer.texture.owner != owner || renderer.texture.value > textures.size()) {
+            return nullptr;
+        }
+        return textures[renderer.texture.value - 1].get();
     }
 
     const GpuMesh* mesh_for(const MeshRenderer& renderer) const
@@ -257,7 +260,7 @@ std::optional<TextureId> Renderer::add_texture(const RgbaImage& image, const Tex
         return std::nullopt;
     }
     impl_->textures.push_back(std::move(texture));
-    return TextureId{static_cast<std::uint32_t>(impl_->textures.size())};
+    return TextureId{static_cast<std::uint32_t>(impl_->textures.size()), impl_->owner};
 }
 
 std::size_t Renderer::last_draw_count() const
