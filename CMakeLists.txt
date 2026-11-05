@@ -13,6 +13,8 @@ include(cmake/VendorVulkan.cmake)
 lykoware_add_vulkan()
 include(cmake/VendorWuffs.cmake)
 lykoware_add_wuffs()
+include(cmake/VendorLua.cmake)
+lykoware_add_lua()
 include(cmake/VendorJolt.cmake)
 lykoware_add_jolt()
 include(cmake/HostTools.cmake)
@@ -469,3 +471,6 @@ install(FILES third_party/json/LICENSE.MIT third_party/json/PROVENANCE.md
 # Wuffs is compiled into the engine under its MIT option (ADR 0036); preserve its notice too.
 install(FILES third_party/wuffs/LICENSE-MIT third_party/wuffs/PROVENANCE.md
     DESTINATION share/lykoware/licenses/wuffs)
+# Lua is compiled into the engine under MIT (ADR 0041); its notice ships with it.
+install(FILES third_party/lua/LICENSE third_party/lua/PROVENANCE.md
+    DESTINATION share/lykoware/licenses/lua)
