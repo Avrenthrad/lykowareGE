@@ -15,7 +15,7 @@ Check latest main and open PRs before starting. Documents do not automatically s
 
 ## Active task: scripting (Claude)
 
-- Owner/status: Claude, active. PR 1 (sandboxed Lua 5.4, [ADR 0041](adr/0041-lua-scripting.md)) in review as #48 on `claude/script-lua`, stacked on window lifecycle. PR 2 (scripts drive scenes through recorded commands; `lyko run --script`, [ADR 0042](adr/0042-script-driven-scenes.md)) in review on `claude/script-commands`, stacked on PR 1.
+- Owner/status: Claude, active. PR 1 (sandboxed Lua 5.4, [ADR 0041](adr/0041-lua-scripting.md)) in review as #48 on `claude/script-lua`, stacked on window lifecycle. PR 2 (scripts drive scenes through recorded commands; `lyko run --script`, [ADR 0042](adr/0042-script-driven-scenes.md)) in review as #49 on `claude/script-commands`, stacked on PR 1.
 - Objective (owner's choice, 2026-11-05: "go with what you recommend"): the Phase 1 scripting entry point, in Lua.
 - Shared interfaces: new `lykoware/script.hpp`; new vendored `third_party/lua/` (MIT); `lykoware_lua` linked privately into the engine. PR 2 adds `lykoware/scene_script.hpp`, one read-only method on Codex's `scene::Scene` (`position(id)`, ADR 0031's module), and `lyko run --script/--record`.
 - Checks: `script.sandbox`, deliberate breaks, a local fuzz run under ASan/UBSan, five CI jobs once CI runs again.

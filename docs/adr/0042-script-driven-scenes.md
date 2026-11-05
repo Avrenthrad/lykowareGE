@@ -128,5 +128,5 @@ Proposed:
   - the CLI recording nothing;
   - the CLI allowing commands and a script together;
   - the CLI recording without a script.
-- **Local results:** to be recorded.
+- **Local results:** 55/55 pass in the Debug, ASan/UBSan and clang-tidy presets. A GCC `-Wshadow -Wconversion -Wsign-conversion -Wold-style-cast` sweep finds nothing in the new code.
 - **CI:** blocked for the whole account since 2026-11-05 (failed payment or spending limit, see STATUS).
