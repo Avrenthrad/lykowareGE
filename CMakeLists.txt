@@ -113,8 +113,18 @@ if(BUILD_TESTING)
         ENTRY vertexMain STAGE vertex NAME lit.vert)
     lykoware_compile_shader(lit_frag_spv SOURCE engine/shaders/lit.slang
         ENTRY fragmentMain STAGE fragment NAME lit.frag)
+    # rhi.mesh's untextured lit shader and rhi.texture's unlit textured shader (ADR 0037).
+    lykoware_compile_shader(mesh_vert_spv SOURCE tests/shaders/mesh.slang
+        ENTRY vertexMain STAGE vertex NAME mesh.vert)
+    lykoware_compile_shader(mesh_frag_spv SOURCE tests/shaders/mesh.slang
+        ENTRY fragmentMain STAGE fragment NAME mesh.frag)
+    lykoware_compile_shader(textured_vert_spv SOURCE tests/shaders/textured.slang
+        ENTRY vertexMain STAGE vertex NAME textured.vert)
+    lykoware_compile_shader(textured_frag_spv SOURCE tests/shaders/textured.slang
+        ENTRY fragmentMain STAGE fragment NAME textured.frag)
     add_custom_target(lykoware_test_shaders ALL DEPENDS "${triangle_vert_spv}" "${triangle_frag_spv}"
-        "${lit_vert_spv}" "${lit_frag_spv}")
+        "${lit_vert_spv}" "${lit_frag_spv}" "${mesh_vert_spv}" "${mesh_frag_spv}"
+        "${textured_vert_spv}" "${textured_frag_spv}")
 
     # The interactive path: present, resize, and the test triangle drawn
     # through the swapchain. Exit 77 is Skipped.
@@ -148,7 +158,7 @@ if(BUILD_TESTING)
     lykoware_configure_target(lykoware_rhi_mesh_test)
     add_dependencies(lykoware_rhi_mesh_test lykoware_test_shaders)
     add_test(NAME rhi.mesh
-        COMMAND lykoware_rhi_mesh_test "${lit_vert_spv}" "${lit_frag_spv}" "${triangle_vert_spv}" "${triangle_frag_spv}"
+        COMMAND lykoware_rhi_mesh_test "${mesh_vert_spv}" "${mesh_frag_spv}" "${triangle_vert_spv}" "${triangle_frag_spv}"
             "${CMAKE_CURRENT_BINARY_DIR}/rhi-mesh")
     set_tests_properties(rhi.mesh PROPERTIES TIMEOUT 60 SKIP_RETURN_CODE 77)
 
@@ -160,6 +170,15 @@ if(BUILD_TESTING)
     add_test(NAME render.scene
         COMMAND lykoware_render_scene_test "${lit_vert_spv}" "${lit_frag_spv}" "${CMAKE_CURRENT_BINARY_DIR}/render-scene")
     set_tests_properties(render.scene PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
+
+    # Sampled textures in the RHI (ADR 0037): exact texels, sRGB, mipmaps, wrapping, misuse.
+    add_executable(lykoware_rhi_texture_test tests/rhi_texture.cpp)
+    target_link_libraries(lykoware_rhi_texture_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_rhi_texture_test)
+    add_dependencies(lykoware_rhi_texture_test lykoware_test_shaders)
+    add_test(NAME rhi.texture
+        COMMAND lykoware_rhi_texture_test "${textured_vert_spv}" "${textured_frag_spv}" "${mesh_vert_spv}" "${mesh_frag_spv}")
+    set_tests_properties(rhi.texture PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
 
     # A glTF model loaded, uploaded and drawn (ADR 0035), on lavapipe in CI.
     add_executable(lykoware_render_model_test tests/render_model.cpp)
@@ -195,7 +214,7 @@ if(BUILD_TESTING)
         # reports; leaks in Lykoware code are still caught (ADR 0015 records the
         # deliberate-leak check).
         set_property(TEST rhi.instance rhi.instance.no_driver rhi.device rhi.render_target rhi.swapchain
-                          sandbox.vulkan_window rhi.pipeline rhi.mesh render.scene render.model
+                          sandbox.vulkan_window rhi.pipeline rhi.mesh rhi.texture render.scene render.model
             APPEND PROPERTY ENVIRONMENT "VK_LOADER_DISABLE_DYNAMIC_LIBRARY_UNLOADING=1")
     endif()
 

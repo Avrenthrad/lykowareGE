@@ -124,7 +124,7 @@ std::span<const std::byte> bytes_of(const std::vector<T>& values)
 
 // --- Camera and push constants --------------------------------------------------------------
 
-// Matches tests/shaders/lit.slang.
+// Matches tests/shaders/mesh.slang.
 struct Constants {
     math::Mat4 clip;
     math::Vec4 normal[3];
