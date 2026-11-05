@@ -58,9 +58,10 @@ bool render(lykoware::rhi::Swapchain& swapchain, lykoware::Window& window, int f
 }
 
 // ADR 0039: after the device is idle, the next `count` frames from `first` each have a GPU time
-// when the device has timestamps, submitted in order before now, and none are returned twice.
+// when the device has timestamps, submitted in order between `since` and now, and none are
+// returned twice.
 void expect_frame_times(const lykoware::rhi::Device& device, lykoware::rhi::Swapchain& swapchain, std::uint64_t first,
-                        std::uint64_t count, std::string_view what)
+                        std::uint64_t count, std::chrono::steady_clock::time_point since, std::string_view what)
 {
     lykoware::rhi::RhiError error;
     expect(device.wait_idle(error), "the device goes idle");
@@ -76,12 +77,12 @@ void expect_frame_times(const lykoware::rhi::Device& device, lykoware::rhi::Swap
     bool plausible = !times.empty();
     for (std::size_t index = 0; index < times.size(); ++index) {
         numbered = numbered && times[index].frame == first + index;
-        ordered = ordered && times[index].submitted <= now
+        ordered = ordered && times[index].submitted >= since && times[index].submitted <= now
             && (index == 0 || times[index - 1].submitted <= times[index].submitted);
         plausible = plausible && times[index].nanoseconds > 0 && times[index].nanoseconds < 10'000'000'000ULL;
     }
     expect(numbered, std::string{what} + ": frames are numbered in submission order");
-    expect(ordered, std::string{what} + ": submission times are in order and past");
+    expect(ordered, std::string{what} + ": submission times are in order, while the frames were rendered");
     expect(plausible, std::string{what} + ": GPU times are plausible");
     expect(swapchain.take_gpu_frame_times().empty(), std::string{what} + ": taken times are not returned again");
 }
@@ -188,10 +189,12 @@ int main(int argc, char* argv[])
         } else {
             expect(swapchain->width() == 64 && swapchain->height() == 48, "swapchain extent matches the window");
             expect(swapchain->image_count() >= 2, "swapchain has at least two images");
+            const auto first_frames = std::chrono::steady_clock::now();
             expect(render(*swapchain, *window, 5, 0.1F), "five frames render and present");
             expect(swapchain->frames_presented() == 5, "five frames are presented");
-            expect_frame_times(*device, *swapchain, 0, 5, "the first five frames");
+            expect_frame_times(*device, *swapchain, 0, 5, first_frames, "the first five frames");
 
+            const auto later_frames = std::chrono::steady_clock::now();
             std::string resize_error;
             expect(window->resize(80, 60, resize_error), "the window resizes");
             const std::uint32_t rebuilds_before = swapchain->rebuild_count();
@@ -215,7 +218,7 @@ int main(int argc, char* argv[])
                 }
                 expect(drawn, "the triangle draws through the swapchain");
                 expect(swapchain->frames_presented() == 12, "every drawn frame is presented");
-                expect_frame_times(*device, *swapchain, 5, 7, "frames across a resize and the triangle");
+                expect_frame_times(*device, *swapchain, 5, 7, later_frames, "frames across a resize and the triangle");
             }
 
             const ColorFormat other = format == ColorFormat::Bgra8Unorm ? ColorFormat::Rgba8Unorm
