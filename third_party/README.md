@@ -10,8 +10,8 @@
 | [spirv-tools/](spirv-tools/) | SPIRV-Tools v2026.4 (trimmed) | Apache-2.0 | Host tools `spirv-opt`, `spirv-val` (build time only) | [PROVENANCE](spirv-tools/PROVENANCE.md) |
 | [spirv-headers/](spirv-headers/) | SPIRV-Headers `4965431` | MIT | Shared by Slang and SPIRV-Tools | [PROVENANCE](spirv-headers/PROVENANCE.md) |
 | [jolt/](jolt/) | Jolt Physics v5.6.0 (library, build file, licence) | MIT; two *Numerical Recipes*-derived headers replaced by Lykoware code (ADR 0003) | `lykoware::physics` | [PROVENANCE](jolt/PROVENANCE.md) |
-
 | [json/](json/) | nlohmann/json 3.11.3 | MIT | private scene parser and CLI report encoding | [PROVENANCE](json/PROVENANCE.md) |
+| [wuffs/](wuffs/) | Wuffs v0.4.0-alpha.12 (`wuffs-v0.4.c`; PNG and JPEG modules compiled) | MIT option of `MIT OR Apache-2.0` | `lykoware::decode_image` (ADR 0036) | [PROVENANCE](wuffs/PROVENANCE.md) |
 
 No other runtime source is vendored. Before adding a dependency, record:
 

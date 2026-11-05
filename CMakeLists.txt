@@ -11,6 +11,8 @@ include(cmake/VendorSdl3.cmake)
 lykoware_add_sdl3()
 include(cmake/VendorVulkan.cmake)
 lykoware_add_vulkan()
+include(cmake/VendorWuffs.cmake)
+lykoware_add_wuffs()
 include(cmake/VendorJolt.cmake)
 lykoware_add_jolt()
 include(cmake/HostTools.cmake)
@@ -405,3 +407,6 @@ install(TARGETS lykoware_sandbox lyko RUNTIME DESTINATION bin)
 # nlohmann/json is compiled into runtime/tools; preserve its MIT notice in staged builds.
 install(FILES third_party/json/LICENSE.MIT third_party/json/PROVENANCE.md
     DESTINATION share/lykoware/licenses/json)
+# Wuffs is compiled into the engine under its MIT option (ADR 0036); preserve its notice too.
+install(FILES third_party/wuffs/LICENSE-MIT third_party/wuffs/PROVENANCE.md
+    DESTINATION share/lykoware/licenses/wuffs)
