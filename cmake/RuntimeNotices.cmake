@@ -28,6 +28,11 @@ function(lykoware_install_runtime_notices)
         DESTINATION "${destination}" RENAME README.md COMPONENT RuntimeNotices)
     install(FILES "${CMAKE_SOURCE_DIR}/LICENSE"
         DESTINATION "${destination}/lykoware" COMPONENT RuntimeNotices)
+    # Keep the existing full JSON install rule untouched, so concurrent root CMake
+    # additions (including Wuffs) compose cleanly. This rule is notice-component only.
+    install(FILES "${CMAKE_SOURCE_DIR}/third_party/json/LICENSE.MIT"
+        "${CMAKE_SOURCE_DIR}/third_party/json/PROVENANCE.md"
+        DESTINATION "${destination}/json" COMPONENT RuntimeNotices EXCLUDE_FROM_ALL)
     foreach(dependency IN ITEMS sdl3 jolt volk vma vulkan-headers)
         install(FILES "${CMAKE_SOURCE_DIR}/third_party/${dependency}/PROVENANCE.md"
             DESTINATION "${destination}/${dependency}" COMPONENT RuntimeNotices)
@@ -83,6 +88,6 @@ function(lykoware_install_runtime_notices)
     if(TARGET lykoware_wuffs)
         install(FILES "${CMAKE_SOURCE_DIR}/third_party/wuffs/LICENSE-MIT"
             "${CMAKE_SOURCE_DIR}/third_party/wuffs/PROVENANCE.md"
-            DESTINATION "${destination}/wuffs" COMPONENT RuntimeNotices)
+            DESTINATION "${destination}/wuffs" COMPONENT RuntimeNotices EXCLUDE_FROM_ALL)
     endif()
 endfunction()
