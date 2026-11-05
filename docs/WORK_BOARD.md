@@ -67,10 +67,11 @@ Owner: Claude. Done: PRs #11–#14 and #16–#18 merged, with ADR 0013 in #15. F
 
 ## Active task: local validation evidence (Codex)
 
-- Owner/status: Codex, active on `codex/local-validation`, stacked on package PR #45 (`7f754b3`).
+- Owner/status: Codex, implemented in draft #47 on `codex/local-validation`, stacked on package PR #45 (`7f754b3`).
 - Scope: ADR 0046; local CMake/CTest/staging command, source provenance, honest test/skip reports and failure tests. No engine, audio, model, texture or GPU-timing API changes.
 - Related work: Claude retains #37–#44. CI is blocked by account billing/spending settings; this tool gathers local evidence without changing accounts, spending or weakening CI/merge rules.
-- Checks: failure-path tests, real Linux execution, local compatibility with Claude's stack. Windows code paths/results remain unverified until actual Windows execution.
+- Checks: 11 runner tests with failure subcases; exact main 41/41 Debug; combined `48b0da9` 55/55 each Debug, ASan/UBSan and clang-tidy 18, no skips, clean unchanged source. Installation and real scene capture pass. [Health report](HEALTH_CHECK_2026-11-06.md) records two reproduced P2 audio/renderer ownership defects and manual repros. No engine fix applied in this task.
+- Handoff: `codex/health-full-stack` is a pushed integration snapshot through Claude #46, not merged main. Fix ownership on owning branches, restore CI through the owner, run actual Windows Debug/Release and hardware budgets. [Runner guide](LOCAL_VALIDATION.md). Joshua retains merge ownership; Phase 1 stays open.
 
 ## Task template
 

@@ -2,6 +2,12 @@
 
 Records what is implemented and verified on `main`. Plans live in [ROADMAP.md](ROADMAP.md); task ownership in [WORK_BOARD.md](WORK_BOARD.md). Older per-branch handoffs are in the merged pull requests and git history.
 
+## Current health evaluation and local validation: PR #47 (not merged)
+
+[Health report](HEALTH_CHECK_2026-11-06.md): exact merged main `7616ce3` passed 41/41 Linux Debug tests. Combined snapshot `48b0da9` on `codex/health-full-stack` passed 55/55 in each of Linux Debug, ASan/UBSan and clang-tidy 18, with no skips; both source trees stayed clean and unchanged. Installation and a real software-Vulkan scene capture passed. Additional probes reproduced two P2 ownership defects in pending audio and renderer APIs; see report and saved repros before merging those modules.
+
+Codex's draft #47, stacked on #45, adds [local validation](LOCAL_VALIDATION.md) and ADR 0046. Eleven runner unit tests include failure-path subcases. No pending engine module is merged by this work. Fresh Windows execution, target-GPU budgets and hosted CI remain blocked/unverified as detailed in the health report. Phase 1 remains open.
+
 ## Runtime package notices: PR #45 (not merged)
 
 Owner: Codex, branch `codex/runtime-package-notices`, based on `main` `7616ce3`. [ADR 0045](adr/0045-runtime-package-notices.md) adds installed runtime attributions and a readable index, including SDL subcomponent notices. Copied files preserve bytes; generated embedded excerpts normalize line endings. The `RuntimeNotices` install component supplements existing full JSON/Wuffs install rules without changing their ownership or adding dependencies.
