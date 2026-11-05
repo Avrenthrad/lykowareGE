@@ -155,6 +155,11 @@ bool event_target(const SDL_Event& event, SDL_WindowID& target) noexcept
         target = 0;
         return true;
     case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
+    case SDL_EVENT_WINDOW_FOCUS_GAINED:
+    case SDL_EVENT_WINDOW_FOCUS_LOST:
+    case SDL_EVENT_WINDOW_MINIMIZED:
+    case SDL_EVENT_WINDOW_MAXIMIZED:
+    case SDL_EVENT_WINDOW_RESTORED:
         target = event.window.windowID;
         return true;
     case SDL_EVENT_KEY_DOWN:
@@ -298,6 +303,21 @@ struct Window::Impl {
         case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
             close = true;
             break;
+        case SDL_EVENT_WINDOW_FOCUS_GAINED:
+            focused = true;
+            break;
+        case SDL_EVENT_WINDOW_FOCUS_LOST:
+            // Keys and buttons released elsewhere would otherwise stay down here.
+            focused = false;
+            release_keys_and_mouse_buttons(input);
+            break;
+        case SDL_EVENT_WINDOW_MINIMIZED:
+            minimized = true;
+            break;
+        case SDL_EVENT_WINDOW_MAXIMIZED:
+        case SDL_EVENT_WINDOW_RESTORED:
+            minimized = false;
+            break;
         case SDL_EVENT_KEY_DOWN:
         case SDL_EVENT_KEY_UP:
             if (!event.key.repeat) {
@@ -384,6 +404,8 @@ struct Window::Impl {
     bool registered = false;
     Mailbox mailbox;
     bool close = false;
+    bool focused = false;
+    bool minimized = false;
     bool vulkan = false;
     int width = 0;
     int height = 0;
@@ -441,6 +463,9 @@ std::unique_ptr<Window> Window::open(const WindowConfig& config, std::string& er
     impl->registered = true;
     impl->adopt_connected_gamepad(0);
     impl->refresh_metrics();
+    const SDL_WindowFlags state = SDL_GetWindowFlags(impl->window);
+    impl->focused = (state & SDL_WINDOW_INPUT_FOCUS) != 0;
+    impl->minimized = (state & SDL_WINDOW_MINIMIZED) != 0;
     if (config.vulkan) {
         impl->capture_extensions();
     }
@@ -480,6 +505,16 @@ float Window::dpi_y() const
 bool Window::close_requested() const
 {
     return impl_->close;
+}
+
+bool Window::has_focus() const
+{
+    return impl_->focused;
+}
+
+bool Window::minimized() const
+{
+    return impl_->minimized;
 }
 
 const InputState& Window::input() const

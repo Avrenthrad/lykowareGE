@@ -130,6 +130,11 @@ struct InputState {
 // Drops pressed, released, and wheel deltas. Levels are kept.
 void begin_input_frame(InputState& state) noexcept;
 
+// Releases every held key and mouse button, each with a released edge, as
+// when the window loses focus and will not see their key-up (ADR 0040).
+// Gamepad state is untouched: pads keep reporting in the background.
+void release_keys_and_mouse_buttons(InputState& state) noexcept;
+
 void note_key(InputState& state, Key key, bool down) noexcept;
 void note_mouse_button(InputState& state, MouseButton button, bool down) noexcept;
 void note_mouse_position(InputState& state, float x, float y) noexcept;
