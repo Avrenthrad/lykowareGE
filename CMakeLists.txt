@@ -227,6 +227,13 @@ if(BUILD_TESTING)
     add_test(NAME audio.spatial COMMAND lykoware_audio_spatial_test)
     set_tests_properties(audio.spatial PROPERTIES TIMEOUT 60)
 
+    # The glTF 2.0 reader (ADR 0035). Builds its models in memory and under the build directory.
+    add_executable(lykoware_gltf_test tests/gltf.cpp)
+    target_link_libraries(lykoware_gltf_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_gltf_test)
+    add_test(NAME assets.gltf COMMAND lykoware_gltf_test "${CMAKE_BINARY_DIR}/test-output/gltf")
+    set_tests_properties(assets.gltf PROPERTIES TIMEOUT 60 FIXTURES_SETUP gltf_models)
+
     # The maths module (ADR 0024). Links only the engine.
     add_executable(lykoware_math_test tests/math.cpp)
     target_link_libraries(lykoware_math_test PRIVATE lykoware::engine)
