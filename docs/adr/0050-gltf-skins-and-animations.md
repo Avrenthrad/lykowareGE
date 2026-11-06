@@ -116,5 +116,5 @@ Proposed:
     - flat normals dropping skin data;
     - a second mesh without the skin, or with another skin, accepted;
     - the joint limit unchecked.
-- **Local results:** the full preset runs follow in the next commit.
+- **Independent continuation results (Codex):** exact clean source `15383a27bcc788191bb6646f5d01f27a4673ea47` passed 61/61 CTests each Linux Debug, ASan/UBSan and clang-tidy 18, no skips; installation/installed CLI passed and source stayed unchanged. Draft #55 makes the pushed source reviewable; Claude's branch was not changed. Windows remains unverified.
 - **CI:** blocked for the whole account since 2026-11-05 (failed payment or spending limit, see STATUS).

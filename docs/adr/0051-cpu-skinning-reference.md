@@ -25,3 +25,17 @@ This is an offline/capture correctness slice. It adds no mutable GPU buffers, sh
 ## Next
 
 Use this as a reference when implementing a measured GPU palette/vertex path and playing clips on the sandbox character. CPU pose snapshots are not a substitute for those steps. Foot IK, animation/physics blending and ragdoll remain later tasks. Windows and target-hardware gates are unchanged.
+
+## Results and reproduction
+
+Runtime source `69612eb853fe6764555951b267edcb65cd19f174` (draft #56): 63/63 CTests each Linux Debug, ASan/UBSan and clang-tidy 18, no skips; configure/build/install/installed CLI passed; source clean and unchanged. GCC 14.2, CMake/CTest 3.31.6 and Mesa lavapipe LLVM 19. The preceding exact Claude source `15383a2` passed 61/61 each. Windows and physical GPU execution remain unverified.
+
+Six deliberate CPU faults were caught: missing X translation, normal using position matrix, ignored weights, dropped fourth influence, early output overwrite, and lost UVs. These mutations were external diagnostic builds; no broken/generated files are committed.
+
+After building a native preset, run the two new checks headlessly:
+
+```sh
+ctest --preset linux-debug -R '^(animation.deform|render.skinning)$' --output-on-failure
+```
+
+Use the corresponding Windows preset on Windows. The GPU test exits 77 if Vulkan is unavailable; a skip is not graphics verification. Diagnostic PPMs are saved in the build tree's `render-skinning/` directory: bind pose, sampled pose and two independent poses. Tests generate their glTF in memory; no external model or editor is required. These images show a test surface, not an animated game character.

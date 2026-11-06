@@ -6,7 +6,12 @@ Records what is implemented and verified on `main`. Plans live in [ROADMAP.md](R
 
 The owner asked Codex to check Claude's latest pushes and continue. Exact Claude glTF skins source `15383a27bcc788191bb6646f5d01f27a4673ea47` passed **61/61 CTests in each** Linux Debug, ASan/UBSan and clang-tidy 18, no skips, with clean unchanged repository inputs. Configure/build/install/installed CLI passed, using GCC 14.2, CMake/CTest 3.31.6 and Mesa lavapipe LLVM 19. The original audio/renderer ownership probes now both exit 0 and reject foreign/stale IDs. These are independent local results; current hosted CI still fails before steps execute, and Windows remains unverified.
 
-Next slice on `codex/skinned-rendering`: [ADR 0051](adr/0051-cpu-skinning-reference.md), a CPU deformation reference and real rendered pose captures. It will establish comparison results for a future GPU path, without adding a per-frame mesh-upload loop. No main merge or roadmap exit is claimed.
+Implemented in draft [#56](https://github.com/Avrenthrad/lykowareGE/pull/56), `codex/skinned-rendering`, stacked on Claude's [#55](https://github.com/Avrenthrad/lykowareGE/pull/55): [ADR 0051](adr/0051-cpu-skinning-reference.md), `animation::deform_mesh` and real rendered pose captures. Four-influence affine blends, inverse-transpose normals, validated inputs and transactional/alias-safe output; topology and UVs preserved. This is a CPU correctness/capture reference, with no per-frame upload path or production GPU-skinning claim.
+
+- **New source verified:** `69612eb853fe6764555951b267edcb65cd19f174`, clean and unchanged, passed **63/63 each** Linux Debug, ASan/UBSan and clang-tidy 18, no skips. Configure/build/install/installed CLI passed. Fingerprint `506a2bbba9ef8d77610d346bbe383d228e3fe73c79fe7e4f6fcd9e6062fb87a1`; raw local report `/workspace/lykoware-health-skinning-reference/report.json`. Subsequent handoff edits are documentation only.
+- **Checks:** `animation.deform` uses analytical values and failure/aliasing cases; `render.skinning` loads a generated glTF clip, samples and deforms it, captures actual Vulkan pixels, compares with independently calculated geometry, checks UV texture and independent poses. Existing static-scene golden still passes. Six deliberate CPU faults were all detected.
+- **Captures:** ignored `build/<preset>/render-skinning/skin-rest.ppm`, `skin-posed.ppm` and `skin-independent.ppm`.
+- **Next:** measured GPU palette/vertex path and animated sandbox character. Windows/MSVC, physical GPU performance and hosted CI remain unverified/blocked. Joshua retains merge ownership; no main merge or roadmap exit is claimed.
 
 ## Review follow-up verification
 
@@ -277,7 +282,7 @@ Owner: Claude. Branch `claude/window-lifecycle`, stacked on GPU timings. In revi
 
 ### Phase 2, PR 5: reading glTF skins and animations
 
-Owner: Claude. Branch `claude/gltf-skins`, stacked on the animation core. In review (PR link below).
+Owner: Claude. Branch `claude/gltf-skins`, stacked on the animation core. In review as [#55](https://github.com/Avrenthrad/lykowareGE/pull/55), opened by Codex during the continuation handoff; source unchanged.
 
 - [ADR 0050](adr/0050-gltf-skins-and-animations.md) (Proposed).
 - **`gltf::read_skinned`/`load_skinned`** read a skinned model:

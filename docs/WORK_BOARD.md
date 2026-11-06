@@ -5,7 +5,7 @@
 Canonical implementation status: [STATUS.md](STATUS.md).
 Canonical plan: [ROADMAP.md](ROADMAP.md).
 
-`main` at `7616ce3` includes Claude's #32–#34 math/mesh/renderer stack (alongside #31 ECS/physics) and Codex's #35 contract hardening and #36 scenes/command replay. Audio is the active task (Claude). Earlier per-task entries remain in pull requests/git history. Details: [STATUS](STATUS.md).
+`main` at `7616ce3` includes Claude's #32–#34 math/mesh/renderer stack (alongside #31 ECS/physics) and Codex's #35 contract hardening and #36 scenes/command replay. Claude's pending runtime/character stack reaches glTF skin/animation loading (#55). Codex continues with the CPU skinning reference (#56); main is unchanged. Earlier per-task entries remain in pull requests/git history. Details: [STATUS](STATUS.md).
 
 Owner-supplied vision is captured in [ENGINE_VISION.md](ENGINE_VISION.md).
 
@@ -15,10 +15,11 @@ Check latest main and open PRs before starting. Documents do not automatically s
 
 ## Active task: CPU skinning reference and rendered pose checks (Codex)
 
-- Owner/status: Codex, continuing the owner's handoff request on `codex/skinned-rendering`, based on Claude's glTF skins source `15383a27bcc788191bb6646f5d01f27a4673ea47`. Claude's branch remains unchanged.
+- Owner/status: Codex, implemented in draft [#56](https://github.com/Avrenthrad/lykowareGE/pull/56) on `codex/skinned-rendering`, based on Claude's glTF skins source `15383a27bcc788191bb6646f5d01f27a4673ea47`. Claude's branch remains unchanged.
 - Scope: [ADR 0051](adr/0051-cpu-skinning-reference.md), pure CPU deformation API and actual renderer capture checks. No mutable GPU buffer/descriptor/shader changes, editor or frame-loop upload path.
 - Baseline checked independently: exact clean Claude snapshot passes **61/61 each** Linux Debug, ASan/UBSan and clang-tidy 18, no skips; configure/build/install/installed CLI pass; source unchanged. Raw local report: `/workspace/lykoware-health-gltf-skins-vulkan/report.json`. The old health-check audio/renderer probes now reject foreign/stale handles.
-- Acceptance: analytical positions and inverse-transpose normals, invalid/late failure atomicity and aliasing, real glTF clip-to-pixel captures with independent poses, all three Linux profiles. Windows/MSVC and target hardware remain unverified; GitHub's current #54 run 42135354689 has five failed jobs with zero steps.
+- Checks completed on clean unchanged runtime source `69612eb853fe6764555951b267edcb65cd19f174`: **63/63 each** Linux Debug, ASan/UBSan and clang-tidy 18, no skips, including existing capture golden, new analytical/alias/failure checks and glTF clip-to-pixel captures with independent poses. Installation/installed CLI pass. Six deliberate faults caught. Report `/workspace/lykoware-health-skinning-reference/report.json`; fingerprint in STATUS. Later handoff edits are documentation only.
+- Windows/MSVC and target hardware remain unverified; GitHub's #54 run 42135354689 has five failed jobs with zero steps. No hosted gate was changed. Draft #55 makes Claude's final push reviewable without changing his branch.
 - Next after this slice: measured GPU skinning, then animated sandbox character. Phase 1 acceptance/hardware gates stay open; Joshua merges.
 
 ## Active task: Phase 2, character feel (Claude)

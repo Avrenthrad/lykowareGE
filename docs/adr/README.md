@@ -49,9 +49,9 @@ Canonical directory: docs/adr. Decisions remain Proposed until resolved; disting
 | [0048](0048-drawing-between-steps.md) | Proposed | Phase 2: the player, follow camera and sandbox crates are drawn between the last two physics steps by the clock's alpha (`PlayerCharacter::drawn_feet`, `view(seconds, alpha)`), so they move evenly at any frame rate, one step behind |
 | [0049](0049-skeletal-animation-core.md) | Proposed | Phase 2: `lykoware::animation`, our own skeletal animation core: skeletons, glTF-model clips (step, linear with slerp, cubic spline), sampling, pose blending and skinning matrices |
 | [0050](0050-gltf-skins-and-animations.md) | Proposed | Phase 2: `gltf::read_skinned`/`load_skinned`: a skinned mesh in bind space with per-vertex joints and weights, a skeleton of the skin's joints and every node above them, and animations as clips; `read`/`read_model` unchanged |
+| [0051](0051-cpu-skinning-reference.md) | Proposed | CPU skinning reference: validated affine blends, inverse-transpose normals, transactional output and real glTF pose captures; correctness slice before GPU skinning |
 
 Use [the template](TEMPLATE.md). Record context, options, decision/status, contracts, consequences and verification. Use a new ADR to supersede an accepted choice; do not silently rewrite its history.
 
 [Pre-brief records](../decisions/README.md) remain historical and are not part of this numbering sequence.
 
-- [0051: CPU skinning reference and rendered pose checks](0051-cpu-skinning-reference.md) — Proposed, Codex continuation of glTF skins; correctness/capture slice before GPU skinning.
