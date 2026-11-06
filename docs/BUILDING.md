@@ -188,3 +188,7 @@ An optional `bones` object in a character profile identifies exact unique joint 
 ```
 
 All seven entries are required when the object is present. Names must resolve uniquely to distinct joints; each hip must descend from pelvis, knee from hip, and foot from knee. Intermediate helper joints are allowed. The sandbox prints resolved skeleton indices. Omit `bones` for non-humanoid or unmapped playback. This validates mapping/topology only: it does not enable IK, validate limb lengths, retarget motion or change physics.
+
+### Two-bone IK geometry
+
+`lykoware/ik.hpp` provides a drawing-space position solver with no stretching. It returns knee/end positions, reach-clamp and fallback flags. This does not apply bone rotations or plant feet. Run `ctest --preset linux-debug -R animation.two_bone_ik --output-on-failure` after building (use the corresponding Windows preset on Windows). Inputs share a double-precision coordinate space; lengths must be 1e-6..1e6 metres. Nonfinite inputs and outputs that cannot preserve limb lengths are refused without changing the previous solution. See ADR 0057 for scope.

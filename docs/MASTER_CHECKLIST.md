@@ -16,7 +16,7 @@ Owner-requested living checklist, saved 6 November 2026. Permanent entry point: 
 
 Runtime/character work is in review through [#58](https://github.com/Avrenthrad/lykowareGE/pull/58): scripting, audio, model/material loading, GPU timing, character controls, animation sampling, CPU/GPU skinning and imported playable glTF clips. #58 source `aabb116` passed 66/66 tests each Linux Debug, ASan/UBSan and clang-tidy 18 without skips; imported playback also passed synchronization validation. See STATUS for exact scope and evidence. These results do not close Windows/hardware or merge gates.
 
-**Current work:** visual bind-size inspection and explicit height/origin fitting implemented in draft #59, with 66/66 tests each Linux Debug, ASan/UBSan and clang-tidy 18; synchronization-validation CLI check also passes. **Profile progress:** versioned idle/walk/model/height JSON implemented in draft #60; all three Linux profiles pass 66/66 tests. **Rig progress:** role mapping/inspection implemented in draft #61 and Linux-verified. **Next:** rest-length/bend-plane validation and two-bone IK, followed by terrain foot placement; broader locomotion remains open. All broad completion items below remain open; existing implemented pieces are tracked in STATUS rather than falsely marking whole features complete.
+**Current work:** visual bind-size inspection and explicit height/origin fitting implemented in draft #59, with 66/66 tests each Linux Debug, ASan/UBSan and clang-tidy 18; synchronization-validation CLI check also passes. **Profile progress:** versioned idle/walk/model/height JSON implemented in draft #60; all three Linux profiles pass 66/66 tests. **Rig progress:** role mapping/inspection implemented in draft #61 and Linux-verified. **IK progress:** position solver implemented in draft #62 and Linux-verified. **Next:** mapped rest-length/bend-plane validation and joint-rotation application, then terrain foot placement; broader locomotion remains open. All broad completion items below remain open; existing implemented pieces are tracked in STATUS rather than falsely marking whole features complete.
 
 ## Completed verification substeps
 
@@ -25,6 +25,7 @@ These checked items certify the stated local verification runs only; their paren
 - [x] **02.02a-Linux** Verify visual fitting on source `1aab213`: 66/66 each Debug, ASan/UBSan and clang-tidy 18, no skips; separate synchronization-validation CLI check passes.
 - [x] **02.03a-Linux** Verify authored profiles on source `c469c81`: 66/66 each of the same profiles, no skips; separate synchronization-validation CLI check passes.
 - [x] **02.02b-Linux** Verify role mapping on `1699fc8`: 66/66 each Debug, ASan/UBSan and clang-tidy 18, no skips; separate synchronization-validation playback passes.
+- [x] **02.11a-Linux** Verify IK geometry on `9fec633`: 67/67 each Debug, ASan/UBSan and clang-tidy 18, no skips; four deliberate geometry/atomicity faults caught.
 - [ ] **02.02a/02.03a-Windows** Run equivalent Windows Debug/Release and actual hardware checks.
 - [ ] **02.02a/02.03a-Merge** Complete review, required CI and owner merge for #59/#60.
 
@@ -62,6 +63,10 @@ These checked items certify the stated local verification runs only; their paren
 - [ ] **02.09** Add animation events and attachment sockets.
 - [ ] **02.10** Retarget between supported rigs.
 - [ ] **02.11** Add foot placement and foot IK.
+  - [ ] **02.11a** Two-bone position solver — **implemented/in review**, [#62](https://github.com/Avrenthrad/lykowareGE/pull/62), source `9fec633`; no stretch, reach/fallback flags and transactional failures.
+  - [ ] **02.11b** Validate mapped rest-pose limb lengths/bend planes and apply solved joint rotations.
+  - [ ] **02.11c** Terrain probes, foot planting, offsets and temporal smoothing.
+  - [ ] **02.11d** Integrate pelvis/body constraints and verify varied terrain/character rigs.
 - [ ] **02.12** Add ragdolls and animation/physics blending.
 - [ ] **02.13** Add stumble, recovery and active ragdoll.
 - [ ] **02.14** Refine first/third-person camera transitions.

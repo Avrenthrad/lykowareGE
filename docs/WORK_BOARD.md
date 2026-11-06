@@ -1,5 +1,14 @@
 # Shared work board
 
+## Two-bone IK geometry — draft #62
+
+Codex, `codex/two-bone-ik`, stacked on #61. ADR 0057 adds engine `animation::solve_two_bone` in `lykoware/ik.hpp`: double-space root/knee/end positions, no-stretch inner/outer reach clamping, explicit direction/bend-hint fallbacks and transactional errors for invalid or precision-collapsed geometry. No pose, joint rotation or physics mutation; no terrain-foot-placement claim.
+
+Clean unchanged source `9fec63321e6bd067bbd7f9d8e9873b8de80d2de0` passed 67/67 CTests each Linux Debug, ASan/UBSan and clang-tidy 18, no skips; configure/build/install/installed CLI pass. Report `/workspace/lykoware-two-bone-ik-validation/report.json`. Analytical 3D bends, both limb orderings/reach limits, explicit/collinear fallbacks, far origin, 200 varied targets, subnormal normalisation, length boundaries and failure atomicity pass. Four external deliberate faults were caught: removed clamp, ignored hint, ignored lower length and overwritten failure output. No faulty/generated artifacts committed.
+
+Next: validate mapped rest-pose limb lengths/bend planes, convert solved positions to joint rotations, then add terrain probes and foot planting. Master checklist 02.11 split into these steps; only Linux verification checked. Windows/hardware/hosted CI and owner merge remain open. Subsequent handoff edits are documentation only.
+
+
 ## Active task: two-bone IK geometry (Codex)
 
 - Branch `codex/two-bone-ik`, based on #61 `b4f0a8b`; ADR 0057.
