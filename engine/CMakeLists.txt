@@ -7,6 +7,7 @@ add_library(lykoware_engine STATIC
     src/audio.cpp
     src/audio_output.cpp
     src/animation.cpp
+    src/skinning.cpp
     src/audio_spatial.cpp
     src/clock.cpp
     src/scene.cpp

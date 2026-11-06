@@ -203,6 +203,15 @@ if(BUILD_TESTING)
         COMMAND lykoware_render_model_test "${lit_vert_spv}" "${lit_frag_spv}" "${CMAKE_CURRENT_BINARY_DIR}/render-model")
     set_tests_properties(render.model PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
 
+    # Reference skinning from a real glTF clip, rendered and compared with hand-calculated geometry.
+    add_executable(lykoware_render_skinning_test tests/render_skinning.cpp)
+    target_link_libraries(lykoware_render_skinning_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_render_skinning_test)
+    add_dependencies(lykoware_render_skinning_test lykoware_test_shaders)
+    add_test(NAME render.skinning
+        COMMAND lykoware_render_skinning_test "${lit_vert_spv}" "${lit_frag_spv}" "${CMAKE_CURRENT_BINARY_DIR}/render-skinning")
+    set_tests_properties(render.skinning PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
+
     # The sandbox's Vulkan window on the headless offscreen driver: it loads
     # its deployed shaders and draws the triangle. The sandbox exits 3
     # ("unsupported") without a usable Vulkan device, which CTest reports as
@@ -254,7 +263,7 @@ if(BUILD_TESTING)
         # deliberate-leak check).
         set_property(TEST rhi.instance rhi.instance.no_driver rhi.device rhi.render_target rhi.swapchain
                           sandbox.vulkan_window sandbox.gpu_trace sandbox.play rhi.pipeline rhi.mesh rhi.texture render.scene
-                          render.model render.texture lifecycle.restart_vulkan
+                          render.model render.skinning render.texture lifecycle.restart_vulkan
             APPEND PROPERTY ENVIRONMENT "VK_LOADER_DISABLE_DYNAMIC_LIBRARY_UNLOADING=1")
     endif()
 
@@ -347,6 +356,13 @@ if(BUILD_TESTING)
     lykoware_configure_target(lykoware_animation_test)
     add_test(NAME animation.pose COMMAND lykoware_animation_test)
     set_tests_properties(animation.pose PROPERTIES TIMEOUT 60)
+
+    # Pure CPU deformation: affine blends, correct normals, transactional output (ADR 0051).
+    add_executable(lykoware_skinning_test tests/skinning.cpp)
+    target_link_libraries(lykoware_skinning_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_skinning_test)
+    add_test(NAME animation.deform COMMAND lykoware_skinning_test)
+    set_tests_properties(animation.deform PROPERTIES TIMEOUT 60)
 
     # A player-steered character over a fixed-seed obstacle course: slopes, steps, a jump, a
     # fall and walls for the camera (ADR 0047). Physics and input only.
