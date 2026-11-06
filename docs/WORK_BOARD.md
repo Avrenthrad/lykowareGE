@@ -1,5 +1,14 @@
 # Shared work board
 
+## Authored character profiles — draft #60
+
+Codex, `codex/character-profiles`, stacked on #59. ADR 0055 adds versioned JSON model/idle/walk/optional-height setup through `--character-profile FILE`. Relative model paths resolve from the profile folder. Unknown/duplicate keys, unsupported versions, invalid types, excessive nesting, files over 64 KiB and mixed individual flags are refused. No bone-role mapping, retargeting or physics changes are claimed.
+
+Clean unchanged source `c469c81eb43c0640f50f3fd487fe96005936bb48` passed 66/66 each Linux Debug, ASan/UBSan and clang-tidy 18, no skips; configure/build/install/installed CLI pass. Report `/workspace/lykoware-character-profiles-validation/report.json`. Profile playback/refusals use an original generated one-joint glTF; the same CLI test also passes with synchronization validation enabled. Subsequent handoff changes are documentation only. Windows, target hardware and hosted CI gates stay open; Joshua merges.
+
+Master checklist now records completed Linux verification substeps for #59/#60 separately from pending feature/merge gates. Next: rig bone-role mapping and inspection, broader locomotion states, then foot IK. Main/Claude branches are unchanged.
+
+
 ## Character fitting continuation — draft #59
 
 Codex, `codex/character-fitting`, based on #58. ADR 0054 adds `--character-height METRES` and bind-height/joint-count diagnostics. A reusable sample helper uniformly scales and centres imported bind geometry, putting bind feet at the interpolated controller origin. Skeleton/clip data and physics/camera are unchanged. Authored placement remains default. This is partial visual fitting, not retargeting or automatic capsule fitting.

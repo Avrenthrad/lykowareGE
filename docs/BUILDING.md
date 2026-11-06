@@ -168,3 +168,13 @@ The local verification in STATUS also includes a separate run with Khronos synch
 After building, run the sandbox with `--window --vulkan --play --character character.glb --idle-clip Idle --walk-clip Walk`. Selectors are exact, unique clip names; omitted selectors use first clip for idle and second (or first) for walk. Clips are required. Assets must be authored in metres, with feet at origin and forward -Z; capsule fitting and root motion are not implemented. The default procedural mannequin remains available by omitting `--character`. Test `sandbox.imported_player` generates an original minimal glTF and checks playback plus refusal paths.
 
 Use `--character-height 1.8` with `--character` to fit the imported bind mesh visually to 1.8 metres, centre X/Z and put bind feet at the controller origin. Accepted target range is 0.1–10 metres. Without the flag authored placement is retained. The sandbox logs bind height, joint count and applied scale. This does not resize the physics capsule or correct forward orientation, and animated bounds can exceed bind bounds.
+
+### Authored character profile
+
+Instead of individual character flags, use `--window --vulkan --play --character-profile path/to/hero.character.json`:
+
+```json
+{"version":1,"model":"hero.glb","idle_clip":"Idle","walk_clip":"Walk","height":1.8}
+```
+
+The model path is relative to the profile folder; clip names and height are optional and follow the existing defaults. Do not mix a profile with individual character/clip/height flags. Use in-place locomotion clips: root-motion tracks currently affect the visual pose, not the controller. Bone-role mapping, retargeting and root-motion extraction are future work. Profiles are bounded to 64 KiB and shallow JSON; unknown and duplicate keys are errors.

@@ -16,7 +16,16 @@ Owner-requested living checklist, saved 6 November 2026. Permanent entry point: 
 
 Runtime/character work is in review through [#58](https://github.com/Avrenthrad/lykowareGE/pull/58): scripting, audio, model/material loading, GPU timing, character controls, animation sampling, CPU/GPU skinning and imported playable glTF clips. #58 source `aabb116` passed 66/66 tests each Linux Debug, ASan/UBSan and clang-tidy 18 without skips; imported playback also passed synchronization validation. See STATUS for exact scope and evidence. These results do not close Windows/hardware or merge gates.
 
-**Current work:** visual bind-size inspection and explicit height/origin fitting implemented in draft #59, with 66/66 tests each Linux Debug, ASan/UBSan and clang-tidy 18; synchronization-validation CLI check also passes. **Next:** authored character profiles, bone-role mapping and locomotion configuration, then foot IK. All broad completion items below remain open; existing implemented pieces are tracked in STATUS rather than falsely marking whole features complete.
+**Current work:** visual bind-size inspection and explicit height/origin fitting implemented in draft #59, with 66/66 tests each Linux Debug, ASan/UBSan and clang-tidy 18; synchronization-validation CLI check also passes. **Profile progress:** versioned idle/walk/model/height JSON implemented in draft #60; all three Linux profiles pass 66/66 tests. **Next:** bone-role mapping/inspection and broader locomotion configuration, then foot IK. All broad completion items below remain open; existing implemented pieces are tracked in STATUS rather than falsely marking whole features complete.
+
+## Completed verification substeps
+
+These checked items certify the stated local verification runs only; their parent features and merge/Windows gates above remain open.
+
+- [x] **02.02a-Linux** Verify visual fitting on source `1aab213`: 66/66 each Debug, ASan/UBSan and clang-tidy 18, no skips; separate synchronization-validation CLI check passes.
+- [x] **02.03a-Linux** Verify authored profiles on source `c469c81`: 66/66 each of the same profiles, no skips; separate synchronization-validation CLI check passes.
+- [ ] **02.02a/02.03a-Windows** Run equivalent Windows Debug/Release and actual hardware checks.
+- [ ] **02.02a/02.03a-Merge** Complete review, required CI and owner merge for #59/#60.
 
 ## 1. Consolidate the current engine
 
@@ -42,6 +51,8 @@ Runtime/character work is in review through [#58](https://github.com/Avrenthrad/
   - [ ] **02.02c** Orientation correction and capsule/camera alignment.
   - [ ] **02.02d** Retargeting and rig compatibility diagnostics.
 - [ ] **02.03** Configure clips through authored data.
+  - [ ] **02.03a** Model/idle/walk/visual-height JSON profiles — **implemented/in review**, [#60](https://github.com/Avrenthrad/lykowareGE/pull/60), source `c469c81`; merge/Windows gates open.
+  - [ ] **02.03b** Extend authored configuration to mapped rig roles and remaining locomotion states.
 - [ ] **02.04** Add idle, walk, run, jump, fall and landing states.
 - [ ] **02.05** Blend transitions without snapping.
 - [ ] **02.06** Handle turning, slopes, steps and uneven ground.
