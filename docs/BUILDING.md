@@ -178,3 +178,13 @@ Instead of individual character flags, use `--window --vulkan --play --character
 ```
 
 The model path is relative to the profile folder; clip names and height are optional and follow the existing defaults. Do not mix a profile with individual character/clip/height flags. Use in-place locomotion clips: root-motion tracks currently affect the visual pose, not the controller. Bone-role mapping, retargeting and root-motion extraction are future work. Profiles are bounded to 64 KiB and shallow JSON; unknown and duplicate keys are errors.
+
+### Humanoid leg roles
+
+An optional `bones` object in a character profile identifies exact unique joint names:
+
+```json
+"bones": {"pelvis":"Hips", "left_hip":"LeftUpLeg", "left_knee":"LeftLeg", "left_foot":"LeftFoot", "right_hip":"RightUpLeg", "right_knee":"RightLeg", "right_foot":"RightFoot"}
+```
+
+All seven entries are required when the object is present. Names must resolve uniquely to distinct joints; each hip must descend from pelvis, knee from hip, and foot from knee. Intermediate helper joints are allowed. The sandbox prints resolved skeleton indices. Omit `bones` for non-humanoid or unmapped playback. This validates mapping/topology only: it does not enable IK, validate limb lengths, retarget motion or change physics.

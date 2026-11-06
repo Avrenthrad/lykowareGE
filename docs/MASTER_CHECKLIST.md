@@ -16,7 +16,7 @@ Owner-requested living checklist, saved 6 November 2026. Permanent entry point: 
 
 Runtime/character work is in review through [#58](https://github.com/Avrenthrad/lykowareGE/pull/58): scripting, audio, model/material loading, GPU timing, character controls, animation sampling, CPU/GPU skinning and imported playable glTF clips. #58 source `aabb116` passed 66/66 tests each Linux Debug, ASan/UBSan and clang-tidy 18 without skips; imported playback also passed synchronization validation. See STATUS for exact scope and evidence. These results do not close Windows/hardware or merge gates.
 
-**Current work:** visual bind-size inspection and explicit height/origin fitting implemented in draft #59, with 66/66 tests each Linux Debug, ASan/UBSan and clang-tidy 18; synchronization-validation CLI check also passes. **Profile progress:** versioned idle/walk/model/height JSON implemented in draft #60; all three Linux profiles pass 66/66 tests. **Next:** bone-role mapping/inspection and broader locomotion configuration, then foot IK. All broad completion items below remain open; existing implemented pieces are tracked in STATUS rather than falsely marking whole features complete.
+**Current work:** visual bind-size inspection and explicit height/origin fitting implemented in draft #59, with 66/66 tests each Linux Debug, ASan/UBSan and clang-tidy 18; synchronization-validation CLI check also passes. **Profile progress:** versioned idle/walk/model/height JSON implemented in draft #60; all three Linux profiles pass 66/66 tests. **Rig progress:** role mapping/inspection implemented in draft #61 and Linux-verified. **Next:** rest-length/bend-plane validation and two-bone IK, followed by terrain foot placement; broader locomotion remains open. All broad completion items below remain open; existing implemented pieces are tracked in STATUS rather than falsely marking whole features complete.
 
 ## Completed verification substeps
 
@@ -24,6 +24,7 @@ These checked items certify the stated local verification runs only; their paren
 
 - [x] **02.02a-Linux** Verify visual fitting on source `1aab213`: 66/66 each Debug, ASan/UBSan and clang-tidy 18, no skips; separate synchronization-validation CLI check passes.
 - [x] **02.03a-Linux** Verify authored profiles on source `c469c81`: 66/66 each of the same profiles, no skips; separate synchronization-validation CLI check passes.
+- [x] **02.02b-Linux** Verify role mapping on `1699fc8`: 66/66 each Debug, ASan/UBSan and clang-tidy 18, no skips; separate synchronization-validation playback passes.
 - [ ] **02.02a/02.03a-Windows** Run equivalent Windows Debug/Release and actual hardware checks.
 - [ ] **02.02a/02.03a-Merge** Complete review, required CI and owner merge for #59/#60.
 
@@ -47,7 +48,7 @@ These checked items certify the stated local verification runs only; their paren
 - [ ] **02.01** Define character import conventions and validation.
 - [ ] **02.02** Add rig inspection, scale fitting and capsule alignment.
   - [ ] **02.02a** Visual bind-height inspection and explicit uniform height/feet-origin fitting — **implemented/in review**, [#59](https://github.com/Avrenthrad/lykowareGE/pull/59), source `1aab213`; Linux checks pass; merge and Windows gates remain open.
-  - [ ] **02.02b** Authored profile and humanoid bone-role mapping/inspection.
+  - [ ] **02.02b** Authored profile and humanoid bone-role mapping/inspection — **implemented/in review**, #60/#61; unique names and leg ancestry validated. Limb lengths, bend planes and IK remain separate.
   - [ ] **02.02c** Orientation correction and capsule/camera alignment.
   - [ ] **02.02d** Retargeting and rig compatibility diagnostics.
 - [ ] **02.03** Configure clips through authored data.

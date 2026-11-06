@@ -59,3 +59,4 @@ Use [the template](TEMPLATE.md). Record context, options, decision/status, contr
 - [0053: Imported playable character clips](0053-imported-player.md) — Proposed, #58.
 - [0054: Explicit visual character fitting](0054-character-fitting.md) — Proposed, #59.
 - [0055: Authored sample character profiles](0055-character-profiles.md) — Proposed, #60.
+- [0056: Explicit humanoid leg roles](0056-rig-roles.md) — Proposed, #61.

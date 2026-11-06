@@ -1,5 +1,14 @@
 # Shared work board
 
+## Humanoid leg-role mapping — draft #61
+
+Codex, `codex/rig-roles`, stacked on #60. ADR 0056 adds optional profile `bones`: seven exact unique names for pelvis and left/right hip, knee and foot. Mapping resolves loaded skeleton indices, requires distinct roles and correct ancestor chains, allows intermediate helper joints, and prints resolved names/indices. Invalid mappings are refused before character upload; no pose or physics mutation. Mapping does not enable IK or retargeting or certify usable limb lengths.
+
+Verified clean unchanged source `1699fc8ef43ebfbcc5dafb8df7fb564b59ef0ab4`: 66/66 CTests each Linux Debug, ASan/UBSan and clang-tidy 18, no skips; configure/build/install/installed CLI pass. Report `/workspace/lykoware-rig-roles-validation/report.json`. Generated seven-joint mapped playback and detached-foot refusal, lookup uniqueness/alias/ancestry/transactional tests pass. Existing unmapped one-joint playback remains supported. Imported-player check also passes Debug with synchronization validation enabled. Later handoff edits are documentation only. Windows/hardware/hosted CI gates remain open; Joshua merges.
+
+Next: rest-length/bend-plane validation and a tested two-bone IK solver before terrain foot placement. Orientation/capsule alignment and retargeting remain open. No main or Claude branch changes.
+
+
 ## Authored character profiles — draft #60
 
 Codex, `codex/character-profiles`, stacked on #59. ADR 0055 adds versioned JSON model/idle/walk/optional-height setup through `--character-profile FILE`. Relative model paths resolve from the profile folder. Unknown/duplicate keys, unsupported versions, invalid types, excessive nesting, files over 64 KiB and mixed individual flags are refused. No bone-role mapping, retargeting or physics changes are claimed.
