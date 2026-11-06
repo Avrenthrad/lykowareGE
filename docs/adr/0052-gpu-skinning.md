@@ -1,0 +1,15 @@
+# ADR 0052: GPU skinning with frame-owned palettes
+
+Status: Proposed. Codex continuation, based on CPU reference PR #56 (`7eaa2e3`).
+
+The renderer may be created with an additional skinned vertex shader. That renderer uses a 56-byte vertex layout (position, normal, UV, four uint16 joints, four float weights) for both static and skinned meshes. Static meshes use identity weights/palette; renderers created without the additional shader keep their existing pipeline/layout. Lit fragment shading is shared.
+
+Add `Renderer::add_skinned_mesh` and a separate ECS `render::SkinPose` matrix component. Mesh geometry is uploaded once, with validated weights/joint indices; draw-time poses upload only matrices. Pose palettes have 1..256 affine finite matrices; their count must match the uploaded mesh's joint count. Missing SkinPose draws the bind mesh. Invalid supplied poses fail drawing with InvalidArgument. No renderer dependency on glTF or game rules.
+
+The RHI exposes the skinned vertex layout and optional MeshDraw palette span. A dynamic uniform descriptor at set 1 reads 256 padded column-major matrices (16 KiB, within Vulkan's guaranteed uniform range). A private arena owns one buffer/set per offscreen target or swapchain frame slot. It grows to a bounded high-water capacity and is reused only after the slot's fence; offscreen submissions complete synchronously. Dynamic offsets respect device alignment. Growth happens before acquiring a swapchain image/resetting its fence, so a refused upload cannot strand an acquired semaphore. No vertex-buffer reupload, per-frame descriptor allocation, or new device-idle wait is introduced. A maximum of 4096 nonempty draw palettes bounds retained memory; unused capacity remains until target destruction.
+
+The shader blends affine matrices and applies the inverse-transpose cofactor normal transform, matching ADR 0051 for nonsingular blends. A singular blend falls back to the bind normal, avoiding NaNs; positions may collapse. This is a defined GPU fallback, not a successful CPU-reference deformation. Joint fetches clamp defensively to the fixed 256-entry palette. Renderer input validation remains authoritative.
+
+The sandbox's playable character will use a procedurally generated, original training mannequin rig and sampled idle/walk clips. It remains a drawing representation of the existing physics controller; no animation writes simulation state. Imported glTF playback and higher-quality assets can build on the same mesh/pose API. First-person hiding and interpolation remain intact.
+
+Verification: compare actual GPU captures with CPU-deformed meshes for translations, joint blending, rotation/non-uniform scale and independent instances; exercise static geometry, repeated updates, palette growth, last joint, invalid inputs, swapchain frames and restart. Run Debug, ASan/UBSan and clang-tidy with software Vulkan; keep static goldens passing. Physical Windows/GPU performance remains a separate gate. Record actual results in STATUS/WORK_BOARD before handoff; do not claim flagship budgets from this VM.

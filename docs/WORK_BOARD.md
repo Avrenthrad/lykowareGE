@@ -13,6 +13,12 @@ Owner rules for every task: small stacked PRs; commit small and often; keep all 
 
 Check latest main and open PRs before starting. Documents do not automatically synchronize assistants or reserve work.
 
+## Active task: GPU skinning and animated player (Codex)
+
+- Owner/status: Codex, implementing on `codex/gpu-skinning`, based on #56 `7eaa2e3`.
+- Scope: [ADR 0052](adr/0052-gpu-skinning.md), RHI frame-owned palettes, renderer skinned mesh/pose API, GPU/CPU comparison captures and procedural animated sandbox player. No editor or physics-controller rewrite.
+- Checks: GPU vs CPU captures, independent poses, repeated frame-slot reuse/growth, malformed inputs, restart, all three native Linux profiles. Windows and hardware budgets stay open; Joshua merges.
+
 ## Active task: CPU skinning reference and rendered pose checks (Codex)
 
 - Owner/status: Codex, implemented in draft [#56](https://github.com/Avrenthrad/lykowareGE/pull/56) on `codex/skinned-rendering`, based on Claude's glTF skins source `15383a27bcc788191bb6646f5d01f27a4673ea47`. Claude's branch remains unchanged.
