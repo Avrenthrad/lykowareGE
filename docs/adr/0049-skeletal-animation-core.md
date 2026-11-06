@@ -126,5 +126,5 @@ Proposed: `lykoware/animation.hpp` (`lykoware::animation`):
   - cubic value counts not checked;
   - duplicate targets accepted;
   - non-unit rotations accepted.
-- **Local results:** the full preset runs follow in the next commit.
+- **Local results:** 60/60 pass in the Debug, ASan/UBSan and clang-tidy presets, with no skips. A GCC `-Wshadow -Wconversion -Wsign-conversion -Wold-style-cast -Wdouble-promotion` sweep finds nothing in the new code.
 - **CI:** blocked for the whole account since 2026-11-05 (failed payment or spending limit, see STATUS).
