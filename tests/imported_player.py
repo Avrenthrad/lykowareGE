@@ -41,6 +41,11 @@ if r.returncode==3:
     print('SKIP: no usable Vulkan device');sys.exit(77)
 assert r.returncode==0, r.stdout+r.stderr
 assert 'imported character' in r.stdout+r.stderr
+r=run(base+['--character-height','1.8'])
+assert r.returncode==0 and 'visual scale 1.800000' in r.stdout+r.stderr, r.stdout+r.stderr
+for height in ['0', '-1', 'nan', 'inf', '11', '1.8junk']:
+    r=run(base+['--character-height',height])
+    assert r.returncode!=0 and '--character-height must be' in r.stdout+r.stderr
 r=run(base+['--idle-clip','missing'])
 assert r.returncode!=0 and 'Unknown character clip' in r.stdout+r.stderr, r.stdout+r.stderr
 model['animations']=[]

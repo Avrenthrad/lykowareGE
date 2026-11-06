@@ -1,4 +1,5 @@
 #include "animated_mannequin.hpp"
+#include "character_fit.hpp"
 
 #include <lykoware/skinning.hpp>
 
@@ -15,6 +16,19 @@ int main()
     auto expect = [&](bool ok, const char* why) {
         if (!ok) { std::cerr << "FAIL: " << why << '\n'; ++failures; }
     };
+    character_fit::Placement fit;
+    std::string fit_error;
+    const lykoware::Bounds authored{{10.F, -4.F, 20.F}, {14.F, 4.F, 26.F}};
+    expect(character_fit::fit(authored, 2.F, fit, fit_error) && fit.scale == 0.25F,
+           "authored height fits with uniform scale");
+    const auto feet = math::Vec3{12.F,-4.F,23.F} * fit.scale + fit.offset;
+    const auto head = math::Vec3{12.F,4.F,23.F} * fit.scale + fit.offset;
+    expect(math::length(feet) < 1e-6F && math::length(head - math::Vec3{0.F,2.F,0.F}) < 1e-6F,
+           "off-centre bind feet and head align to controller origin and target height");
+    const auto before_fit = fit;
+    expect(!character_fit::fit({}, 2.F, fit, fit_error) && fit.scale == before_fit.scale && fit.offset == before_fit.offset,
+           "zero-height fitting fails transactionally");
+    expect(!character_fit::fit(authored, std::numeric_limits<float>::quiet_NaN(), fit, fit_error), "nonfinite height refused");
     const auto asset = training_mannequin::make();
     std::string error;
     expect(lykoware::valid_mesh(asset.mesh, error) && animation::valid_skeleton(asset.skeleton, error)

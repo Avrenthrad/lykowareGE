@@ -1,4 +1,5 @@
 #include "animated_mannequin.hpp"
+#include "character_fit.hpp"
 
 #include <lykoware/audio.hpp>
 #include <lykoware/audio_output.hpp>
@@ -155,6 +156,7 @@ struct WindowOptions {
     // --model FILE: a glTF model shown beside the crates (ADR 0035).
     std::string model;
     std::string character, idle_clip, walk_clip;
+    std::optional<float> character_height;
     // --trace FILE: a Chrome trace of each frame's CPU zones and GPU time (ADR 0039).
     std::string trace;
     // --play: a character to walk round the obstacle course, with a follow camera (ADR 0047).
@@ -554,8 +556,10 @@ private:
 // Idle/walk blending never changes physics. Hidden in first person.
 class PlayerBody {
 public:
-    PlayerBody(lykoware::ecs::World& entities, lykoware::render::MeshId mesh, training_mannequin::Asset asset, bool imported)
-        : imported_{imported}
+    PlayerBody(lykoware::ecs::World& entities, lykoware::render::MeshId mesh, training_mannequin::Asset asset, bool imported, float scale, lykoware::math::Vec3 offset)
+        : visual_scale_{scale}
+        , visual_offset_{offset}
+        , imported_{imported}
         , asset_{std::move(asset)}
         , mesh_{mesh}
         , entities_{entities}
@@ -574,7 +578,7 @@ public:
         const lykoware::math::DVec3 feet = player.drawn_feet(alpha);
         const lykoware::math::Quat facing = lykoware::math::from_axis_angle({0.F, 1.F, 0.F}, player.facing());
         auto* body = entities_.get<lykoware::Transform>(body_);
-        body->position = feet;
+        body->position = feet + lykoware::math::rotate(facing, visual_offset_);
         body->rotation = facing;
         auto* visor = entities_.get<lykoware::Transform>(visor_);
         visor->rotation = facing;
@@ -590,7 +594,7 @@ public:
         const bool shown = player.camera().current_distance() >= 0.5F;
         if (shown && !entities_.has<lykoware::render::MeshRenderer>(body_)) {
             entities_.add<lykoware::render::MeshRenderer>(
-                body_, lykoware::render::MeshRenderer{lykoware::render::MeshShape::Cube, {1.F, 1.F, 1.F}, {1.F, 1.F, 1.F}, mesh_});
+                body_, lykoware::render::MeshRenderer{lykoware::render::MeshShape::Cube, {visual_scale_, visual_scale_, visual_scale_}, {1.F, 1.F, 1.F}, mesh_});
             if (!imported_) { entities_.add<lykoware::render::MeshRenderer>(
                 visor_, lykoware::render::MeshRenderer{lykoware::render::MeshShape::Cube, {0.3F, 0.08F, 0.06F}, {0.95F, 0.82F, 0.3F}}); }
         } else if (!shown && entities_.has<lykoware::render::MeshRenderer>(body_)) {
@@ -600,6 +604,8 @@ public:
     }
 
 private:
+    float visual_scale_ = 1.F;
+    lykoware::math::Vec3 visual_offset_{};
     bool imported_ = false;
     training_mannequin::Asset asset_;
     training_mannequin::Playback playback_;
@@ -767,13 +773,28 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
             if (!upload_model(*renderer, imported->model, error, &mannequin)) { return EXIT_FAILURE; }
         }
 
+        float visual_scale = 1.F;
+        lykoware::math::Vec3 visual_offset{};
+        const auto bounds = lykoware::bounds(mannequin.mesh);
+        if (options.character_height) {
+            character_fit::Placement placement;
+            std::string reason;
+            if (!character_fit::fit(bounds, *options.character_height, placement, reason)) {
+                throw std::invalid_argument(reason);
+            }
+            visual_scale = placement.scale;
+            visual_offset = placement.offset;
+        }
+        lykoware::log(lykoware::LogLevel::info, "Character inspection: " + std::to_string(mannequin.skeleton.joints.size())
+            + " joints; bind height " + std::to_string(static_cast<double>(bounds.max.y) - bounds.min.y)
+            + "; visual scale " + std::to_string(visual_scale));
         const auto mesh = renderer->add_skinned_mesh(mannequin.mesh, mannequin.joints, mannequin.weights,
                                                       mannequin.skeleton.joints.size(), mannequin.parts, error);
         if (!mesh) {
             lykoware::log(lykoware::LogLevel::error, "Mannequin upload: " + error.message);
             return EXIT_FAILURE;
         }
-        player_body.emplace(scene->entities(), *mesh, std::move(mannequin), !options.character.empty());
+        player_body.emplace(scene->entities(), *mesh, std::move(mannequin), !options.character.empty(), visual_scale, visual_offset);
         lykoware::log(lykoware::LogLevel::info, options.character.empty() ? "Animation: GPU-skinned training mannequin (7 joints), idle/walk clips." : "Animation: GPU-skinned imported character, selected idle/walk clips.");
         lykoware::log(lykoware::LogLevel::info,
                       "Play: WASD or the left stick to move, Shift or L3 to run, Space or South to jump, mouse wheel or "
@@ -966,6 +987,18 @@ int run_window(const std::vector<std::string>& args)
             flag(options.no_audio, option);
         } else if (option == "--play") {
             flag(options.play, option);
+        } else if (option == "--character-height") {
+            if (options.character_height || index + 1 >= args.size()) {
+                throw std::invalid_argument("Duplicate or missing --character-height");
+            }
+            const auto& text = args[++index];
+            float height = 0.F;
+            const auto parsed = std::from_chars(text.data(), text.data() + text.size(), height);
+            if (parsed.ec != std::errc{} || parsed.ptr != text.data() + text.size() || !std::isfinite(height)
+                || height < 0.1F || height > 10.F) {
+                throw std::invalid_argument("--character-height must be 0.1..10 metres");
+            }
+            options.character_height = height;
         } else if (option == "--character" || option == "--idle-clip" || option == "--walk-clip") {
             auto& value = option == "--character" ? options.character : (option == "--idle-clip" ? options.idle_clip : options.walk_clip);
             if (!value.empty() || index + 1 >= args.size() || args[index + 1].empty() || args[index + 1].starts_with("--")) {
@@ -1017,6 +1050,7 @@ int run_window(const std::vector<std::string>& args)
     if (!options.model.empty() && !options.vulkan) {
         throw std::invalid_argument("--model needs --vulkan to draw it.");
     }
+    if (options.character_height && options.character.empty()) { throw std::invalid_argument("--character-height requires --character"); }
     if ((!options.character.empty() && !options.play) || ((!options.idle_clip.empty() || !options.walk_clip.empty()) && options.character.empty())) {
         throw std::invalid_argument("--character requires --play; clip selectors require --character");
     }
