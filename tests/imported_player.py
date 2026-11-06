@@ -46,6 +46,23 @@ assert r.returncode==0 and 'visual scale 1.800000' in r.stdout+r.stderr, r.stdou
 for height in ['0', '-1', 'nan', 'inf', '11', '1.8junk']:
     r=run(base+['--character-height',height])
     assert r.returncode!=0 and '--character-height must be' in r.stdout+r.stderr
+profile = root / 'character.json'
+profile.write_text(json.dumps(dict(version=1, model=path.name, idle_clip='breathe', walk_clip='breathe', height=1.8)))
+profile_args=['--window','--offscreen','--vulkan','--play','--no-audio','--frames','8','--character-profile',str(profile)]
+r=run(profile_args)
+assert r.returncode==0 and 'visual scale 1.800000' in r.stdout+r.stderr, r.stdout+r.stderr
+r=run(profile_args+['--character',str(path)])
+assert r.returncode!=0 and 'cannot mix' in r.stdout+r.stderr
+for bad in [dict(version=2,model=path.name),dict(version=1,model=path.name,typo=True),dict(version=1,model=path.name,height='large')]:
+    profile.write_text(json.dumps(bad))
+    r=run(profile_args)
+    assert r.returncode!=0, r.stdout+r.stderr
+profile.write_text('{"version":1,"version":1,"model":"one joint.gltf"}')
+r=run(profile_args)
+assert r.returncode!=0 and 'Duplicate character profile key' in r.stdout+r.stderr
+profile.write_text(' '*65537)
+r=run(profile_args)
+assert r.returncode!=0 and 'exceeds 64 KiB' in r.stdout+r.stderr
 r=run(base+['--idle-clip','missing'])
 assert r.returncode!=0 and 'Unknown character clip' in r.stdout+r.stderr, r.stdout+r.stderr
 model['animations']=[]

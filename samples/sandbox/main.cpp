@@ -24,6 +24,10 @@
 #include <lykoware/version.hpp>
 #include <lykoware/window.hpp>
 
+#include <nlohmann/json.hpp>
+#include <fstream>
+#include <set>
+
 #include <algorithm>
 #include <charconv>
 #include <chrono>
@@ -155,7 +159,7 @@ struct WindowOptions {
     std::uint64_t frames = 0;
     // --model FILE: a glTF model shown beside the crates (ADR 0035).
     std::string model;
-    std::string character, idle_clip, walk_clip;
+    std::string character, idle_clip, walk_clip, character_profile;
     std::optional<float> character_height;
     // --trace FILE: a Chrome trace of each frame's CPU zones and GPU time (ADR 0039).
     std::string trace;
@@ -987,6 +991,11 @@ int run_window(const std::vector<std::string>& args)
             flag(options.no_audio, option);
         } else if (option == "--play") {
             flag(options.play, option);
+        } else if (option == "--character-profile") {
+            if (!options.character_profile.empty() || index + 1 >= args.size() || args[index + 1].empty() || args[index + 1].starts_with("--")) {
+                throw std::invalid_argument("Duplicate or missing --character-profile");
+            }
+            options.character_profile = args[++index];
         } else if (option == "--character-height") {
             if (options.character_height || index + 1 >= args.size()) {
                 throw std::invalid_argument("Duplicate or missing --character-height");
@@ -1049,6 +1058,59 @@ int run_window(const std::vector<std::string>& args)
 
     if (!options.model.empty() && !options.vulkan) {
         throw std::invalid_argument("--model needs --vulkan to draw it.");
+    }
+    if (!options.character_profile.empty()) {
+        if (!options.play || !options.character.empty() || !options.idle_clip.empty() || !options.walk_clip.empty() || options.character_height) {
+            throw std::invalid_argument("--character-profile requires --play and cannot mix with character flags");
+        }
+        const auto profile_path = utf8_path(options.character_profile);
+        std::ifstream input(profile_path, std::ios::binary);
+        if (!input) { throw std::invalid_argument("Cannot open character profile"); }
+        std::string text;
+        char byte = 0;
+        while (input.get(byte)) {
+            if (text.size() == 65536) { throw std::invalid_argument("Character profile exceeds 64 KiB"); }
+            text.push_back(byte);
+        }
+        if (!input.eof()) { throw std::invalid_argument("Cannot read character profile"); }
+        std::set<std::string> keys;
+        const auto profile = nlohmann::json::parse(text, [&](int depth, nlohmann::json::parse_event_t event, nlohmann::json& value) {
+            if (depth > 8) { throw std::invalid_argument("Character profile nesting exceeds limit"); }
+            if (depth == 1 && event == nlohmann::json::parse_event_t::key && !keys.insert(value.get<std::string>()).second) {
+                throw std::invalid_argument("Duplicate character profile key");
+            }
+            return true;
+        });
+        if (!profile.is_object() || !profile.contains("version") || !profile["version"].is_number_integer()
+            || profile["version"] != 1 || !profile.contains("model") || !profile["model"].is_string()) {
+            throw std::invalid_argument("Character profile requires version 1 and model string");
+        }
+        for (const auto& item : profile.items()) {
+            if (item.key() != "version" && item.key() != "model" && item.key() != "idle_clip"
+                && item.key() != "walk_clip" && item.key() != "height") {
+                throw std::invalid_argument("Unknown character profile key: " + item.key());
+            }
+        }
+        auto model_name = profile["model"].get<std::string>();
+        if (model_name.empty() || model_name.find('\0') != std::string::npos) { throw std::invalid_argument("Invalid profile model path"); }
+        auto model_path = utf8_path(model_name);
+        if (model_path.is_relative()) { model_path = profile_path.parent_path() / model_path; }
+        const auto encoded = model_path.u8string();
+        options.character.assign(encoded.begin(), encoded.end());
+        for (const auto* key : {"idle_clip", "walk_clip"}) {
+            if (profile.contains(key)) {
+                if (!profile[key].is_string() || profile[key].get<std::string>().empty()) {
+                    throw std::invalid_argument("Profile clip names must be nonempty strings");
+                }
+                (std::string(key) == "idle_clip" ? options.idle_clip : options.walk_clip) = profile[key].get<std::string>();
+            }
+        }
+        if (profile.contains("height")) {
+            if (!profile["height"].is_number()) { throw std::invalid_argument("Profile height must be numeric"); }
+            const double height = profile["height"].get<double>();
+            if (!std::isfinite(height) || height < 0.1 || height > 10.0) { throw std::invalid_argument("Profile height must be 0.1..10 metres"); }
+            options.character_height = static_cast<float>(height);
+        }
     }
     if (options.character_height && options.character.empty()) { throw std::invalid_argument("--character-height requires --character"); }
     if ((!options.character.empty() && !options.play) || ((!options.idle_clip.empty() || !options.walk_clip.empty()) && options.character.empty())) {

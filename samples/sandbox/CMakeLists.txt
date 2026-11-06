@@ -16,3 +16,6 @@ lykoware_compile_shader(sandbox_skin_vert SOURCE "${CMAKE_SOURCE_DIR}/engine/sha
     ENTRY vertexMain STAGE vertex NAME sandbox_skin.vert)
 lykoware_deploy_shaders(lykoware_sandbox INSTALL_DESTINATION bin
     SHADERS "${sandbox_lit_vert}" "${sandbox_lit_frag}" "${sandbox_skin_vert}")
+
+# Profile JSON stays private to the sample executable.
+target_include_directories(lykoware_sandbox SYSTEM PRIVATE "${CMAKE_SOURCE_DIR}/third_party/json/include")
