@@ -13,6 +13,14 @@ Owner rules for every task: small stacked PRs; commit small and often; keep all 
 
 Check latest main and open PRs before starting. Documents do not automatically synchronize assistants or reserve work.
 
+## Active task: CPU skinning reference and rendered pose checks (Codex)
+
+- Owner/status: Codex, continuing the owner's handoff request on `codex/skinned-rendering`, based on Claude's glTF skins source `15383a27bcc788191bb6646f5d01f27a4673ea47`. Claude's branch remains unchanged.
+- Scope: [ADR 0051](adr/0051-cpu-skinning-reference.md), pure CPU deformation API and actual renderer capture checks. No mutable GPU buffer/descriptor/shader changes, editor or frame-loop upload path.
+- Baseline checked independently: exact clean Claude snapshot passes **61/61 each** Linux Debug, ASan/UBSan and clang-tidy 18, no skips; configure/build/install/installed CLI pass; source unchanged. Raw local report: `/workspace/lykoware-health-gltf-skins-vulkan/report.json`. The old health-check audio/renderer probes now reject foreign/stale handles.
+- Acceptance: analytical positions and inverse-transpose normals, invalid/late failure atomicity and aliasing, real glTF clip-to-pixel captures with independent poses, all three Linux profiles. Windows/MSVC and target hardware remain unverified; GitHub's current #54 run 42135354689 has five failed jobs with zero steps.
+- Next after this slice: measured GPU skinning, then animated sandbox character. Phase 1 acceptance/hardware gates stay open; Joshua merges.
+
 ## Active task: Phase 2, character feel (Claude)
 
 - Owner/status: Claude, active. PR 1 (follow camera, [ADR 0044](adr/0044-follow-camera.md)) in review as #51 on `claude/follow-camera`, stacked on the capture golden. PR 2 (playable character and obstacle course, [ADR 0047](adr/0047-playable-character.md)) in review as #52 on `claude/playable-character`, stacked on PR 1. PR 3 (drawing between physics steps, [ADR 0048](adr/0048-drawing-between-steps.md)) in review as #53 on `claude/tick-smoothing`, stacked on PR 2. PR 4 (skeletal animation core, [ADR 0049](adr/0049-skeletal-animation-core.md)) in review as #54 on `claude/animation-core`, stacked on PR 3. PR 5 (glTF skins and animations, [ADR 0050](adr/0050-gltf-skins-and-animations.md)) in review on `claude/gltf-skins`, stacked on PR 4. Next: skinned drawing, an animated character; later foot IK and ragdoll.

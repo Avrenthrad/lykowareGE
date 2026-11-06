@@ -2,6 +2,12 @@
 
 Records what is implemented and verified on `main`. Plans live in [ROADMAP.md](ROADMAP.md); task ownership in [WORK_BOARD.md](WORK_BOARD.md). Older per-branch handoffs are in the merged pull requests and git history.
 
+## Current continuation: CPU skinning reference (Codex, not merged)
+
+The owner asked Codex to check Claude's latest pushes and continue. Exact Claude glTF skins source `15383a27bcc788191bb6646f5d01f27a4673ea47` passed **61/61 CTests in each** Linux Debug, ASan/UBSan and clang-tidy 18, no skips, with clean unchanged repository inputs. Configure/build/install/installed CLI passed, using GCC 14.2, CMake/CTest 3.31.6 and Mesa lavapipe LLVM 19. The original audio/renderer ownership probes now both exit 0 and reject foreign/stale IDs. These are independent local results; current hosted CI still fails before steps execute, and Windows remains unverified.
+
+Next slice on `codex/skinned-rendering`: [ADR 0051](adr/0051-cpu-skinning-reference.md), a CPU deformation reference and real rendered pose captures. It will establish comparison results for a future GPU path, without adding a per-frame mesh-upload loop. No main merge or roadmap exit is claimed.
+
 ## Review follow-up verification
 
 - Runtime PR [#35](https://github.com/Avrenthrad/lykowareGE/pull/35), `codex/core-contract-hardening`: [ADR 0030](adr/0030-runtime-contract-hardening.md), world-specific handles, transactional attachment/storage, exclusive cleanup hooks, world-local hook order and allocation-free moves. All five CI jobs passed on source `f113b45` in [run 41826863572](https://github.com/Avrenthrad/lykowareGE/actions/runs/41826863572), including Windows Debug/Release and 39 CTests; the follow-up commit changes handoff prose only.
@@ -281,7 +287,7 @@ Owner: Claude. Branch `claude/gltf-skins`, stacked on the animation core. In rev
 - **Unchanged:** `read` and `read_model`.
 - **New test `assets.gltf_skin`:** a skinned arm built in memory. Its animation swings the forearm vertex to exactly where hand-worked skinning puts it. Also covered: node matrices, flat-shaded vertices and every refusal.
 - **Deliberate breaks:** 31 of 31 caught. Two first exposed weak checks (a negative 16-bit rotation part, STEP mid-interval), which were strengthened.
-- **Local checks:** Debug passes `assets.gltf` and `assets.gltf_skin`; the full Debug, ASan/UBSan and clang-tidy runs follow in the next commit.
+- **Independent continuation check (Codex):** exact `15383a2` passes 61/61 each Linux Debug, ASan/UBSan and clang-tidy 18, no skips; source clean and unchanged. Includes build, installation and installed CLI. Windows remains unverified.
 - **CI:** blocked for the whole account (see audio PR 1).
 - **Next:** draw skinned meshes, then an animated character in the sandbox.
 
