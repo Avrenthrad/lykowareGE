@@ -1,5 +1,12 @@
 # Shared work board
 
+## Imported playable character continuation (Codex, draft #58)
+
+Branch `codex/imported-player`, stacked on #57. Source `aabb116afe40edc0a20652d190274606e963a42a` passed 66/66 each Linux Debug, ASan/UBSan and clang-tidy 18, no skips; configure/build/install/installed CLI pass, clean unchanged source. Report `/workspace/lykoware-imported-player-validation/report.json`. Additional Debug `sandbox.imported_player` passes with Khronos synchronization validation enabled. Windows/hardware and required hosted CI remain unverified/blocked; Joshua merges.
+
+Sandbox accepts `--play --character FILE [--idle-clip NAME] [--walk-clip NAME]`. Uses glTF skin/clip/material import and GPU poses; one-joint/one-clip generated character and refusal cases are checked. Clip clocks use authored duration. No procedural visor is attached to imported rigs. Models retain authored metres, feet origin and -Z forward; physics capsule is unchanged. No rig fitting, retargeting or root motion is claimed. ADR 0053 records defaults and limits. Next: rig fitting and locomotion setup before foot IK. No main merge or roadmap exit.
+
+
 ## Current state
 
 Canonical implementation status: [STATUS.md](STATUS.md).
