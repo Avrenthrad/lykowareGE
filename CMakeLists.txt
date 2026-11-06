@@ -370,6 +370,12 @@ if(BUILD_TESTING)
     add_test(NAME animation.pose COMMAND lykoware_animation_test)
     set_tests_properties(animation.pose PROPERTIES TIMEOUT 60)
 
+    add_executable(lykoware_ik_test tests/ik.cpp)
+    target_link_libraries(lykoware_ik_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_ik_test)
+    add_test(NAME animation.two_bone_ik COMMAND lykoware_ik_test)
+    set_tests_properties(animation.two_bone_ik PROPERTIES TIMEOUT 60)
+
     # Pure CPU deformation: affine blends, correct normals, transactional output (ADR 0051).
     add_executable(lykoware_skinning_test tests/skinning.cpp)
     target_link_libraries(lykoware_skinning_test PRIVATE lykoware::engine)

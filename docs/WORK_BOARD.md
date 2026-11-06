@@ -1,5 +1,12 @@
 # Shared work board
 
+## Active task: two-bone IK geometry (Codex)
+
+- Branch `codex/two-bone-ik`, based on #61 `b4f0a8b`; ADR 0057.
+- Scope: engine-owned double-coordinate position solver, reach clamping, bend/direction fallbacks, transactional failures and analytical/varied tests. No pose rotation application, physics mutation or terrain placement.
+- Acceptance: new geometry checks plus native Debug, ASan/UBSan and clang-tidy profiles; preserve current renderer/player checks. Windows/hardware gates and owner merge remain separate.
+
+
 ## Humanoid leg-role mapping — draft #61
 
 Codex, `codex/rig-roles`, stacked on #60. ADR 0056 adds optional profile `bones`: seven exact unique names for pelvis and left/right hip, knee and foot. Mapping resolves loaded skeleton indices, requires distinct roles and correct ancestor chains, allows intermediate helper joints, and prints resolved names/indices. Invalid mappings are refused before character upload; no pose or physics mutation. Mapping does not enable IK or retargeting or certify usable limb lengths.

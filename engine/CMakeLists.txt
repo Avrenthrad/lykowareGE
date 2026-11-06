@@ -6,6 +6,7 @@ configure_file(
 add_library(lykoware_engine STATIC
     src/audio.cpp
     src/audio_output.cpp
+    src/ik.cpp
     src/animation.cpp
     src/skinning.cpp
     src/audio_spatial.cpp
