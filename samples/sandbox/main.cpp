@@ -1,3 +1,5 @@
+#include "animated_mannequin.hpp"
+
 #include <lykoware/audio.hpp>
 #include <lykoware/audio_output.hpp>
 #include <lykoware/audio_spatial.hpp>
@@ -205,11 +207,12 @@ constexpr const char* fragment_shader_file = "sandbox_lit.frag.spv";
 struct ShaderWords {
     std::vector<std::uint32_t> vertex;
     std::vector<std::uint32_t> fragment;
+    std::vector<std::uint32_t> skin;
 };
 
 // Reads the shader files before any window or GPU work, so a broken install
 // fails clearly even on a machine without Vulkan.
-bool read_shaders(ShaderWords& shaders)
+bool read_shaders(ShaderWords& shaders, bool skinning)
 {
     const std::filesystem::path directory = lykoware::shader_directory();
     if (directory.empty()) {
@@ -222,6 +225,10 @@ bool read_shaders(ShaderWords& shaders)
         lykoware::log(lykoware::LogLevel::error,
                       "Sandbox shaders: " + error.message
                           + ". The build and cmake --install put them in the shaders folder beside the executable.");
+        return false;
+    }
+    if (skinning && !lykoware::rhi::read_spirv_file(directory / "sandbox_skin.vert.spv", shaders.skin, error)) {
+        lykoware::log(lykoware::LogLevel::error, "Sandbox skin shader: " + error.message);
         return false;
     }
     return true;
@@ -542,37 +549,48 @@ private:
     float model_turn_ = 0.F;
 };
 
-// The player's character as the renderer sees it (ADR 0047): a box the size of its capsule and a
-// visor on the side it faces. Hidden in first person, where the camera is inside it.
+// Drawing-only procedural mannequin (ADR 0052), driven by the existing controller's speed.
+// Idle/walk blending never changes physics. Hidden in first person.
 class PlayerBody {
 public:
-    explicit PlayerBody(lykoware::ecs::World& entities)
-        : entities_{entities}
+    PlayerBody(lykoware::ecs::World& entities, lykoware::render::MeshId mesh, training_mannequin::Asset asset)
+        : asset_{std::move(asset)}
+        , mesh_{mesh}
+        , entities_{entities}
         , body_{entities.create()}
         , visor_{entities.create()}
     {
         entities_.add<lykoware::Transform>(body_, lykoware::Transform{});
         entities_.add<lykoware::Transform>(visor_, lykoware::Transform{});
+        playback_.advance(asset_, 0.F, 0.F);
+        entities_.add<lykoware::render::SkinPose>(body_, lykoware::render::SkinPose{playback_.matrices});
     }
 
     // Draws the body `alpha` of the way between the last two steps (ADR 0048).
-    void place(const lykoware::PlayerCharacter& player, float alpha)
+    void place(const lykoware::PlayerCharacter& player, float alpha, float seconds)
     {
         const lykoware::math::DVec3 feet = player.drawn_feet(alpha);
         const lykoware::math::Quat facing = lykoware::math::from_axis_angle({0.F, 1.F, 0.F}, player.facing());
         auto* body = entities_.get<lykoware::Transform>(body_);
-        body->position = feet + lykoware::math::Vec3{0.F, height / 2.F, 0.F};
+        body->position = feet;
         body->rotation = facing;
         auto* visor = entities_.get<lykoware::Transform>(visor_);
-        visor->position = feet + lykoware::math::Vec3{0.F, height - 0.25F, 0.F} + lykoware::math::rotate(facing, {0.F, 0.F, -width / 2.F});
         visor->rotation = facing;
 
+        const auto state = player.state();
+        const float speed = state.ground == lykoware::physics::GroundState::OnGround
+            ? std::hypot(state.velocity.x, state.velocity.z) : 0.F;
+        playback_.advance(asset_, seconds, speed);
+        const auto face = lykoware::animation::skin_point(playback_.matrices, {2, 0, 0, 0}, {1.F, 0.F, 0.F, 0.F},
+                                                          {0.F, 1.58F, -0.18F});
+        visor->position = feet + lykoware::math::rotate(facing, face);
+        entities_.get<lykoware::render::SkinPose>(body_)->matrices = playback_.matrices;
         const bool shown = player.camera().current_distance() >= 0.5F;
         if (shown && !entities_.has<lykoware::render::MeshRenderer>(body_)) {
             entities_.add<lykoware::render::MeshRenderer>(
-                body_, lykoware::render::MeshRenderer{lykoware::render::MeshShape::Cube, {width, height, width}, {0.2F, 0.42F, 0.8F}});
+                body_, lykoware::render::MeshRenderer{lykoware::render::MeshShape::Cube, {1.F, 1.F, 1.F}, {1.F, 1.F, 1.F}, mesh_});
             entities_.add<lykoware::render::MeshRenderer>(
-                visor_, lykoware::render::MeshRenderer{lykoware::render::MeshShape::Cube, {0.42F, 0.14F, 0.1F}, {0.95F, 0.82F, 0.3F}});
+                visor_, lykoware::render::MeshRenderer{lykoware::render::MeshShape::Cube, {0.3F, 0.08F, 0.06F}, {0.95F, 0.82F, 0.3F}});
         } else if (!shown && entities_.has<lykoware::render::MeshRenderer>(body_)) {
             entities_.remove<lykoware::render::MeshRenderer>(body_);
             entities_.remove<lykoware::render::MeshRenderer>(visor_);
@@ -580,10 +598,9 @@ public:
     }
 
 private:
-    // The default capsule: 0.3 m radius, 1.8 m tall.
-    static constexpr float width = 0.6F;
-    static constexpr float height = 1.8F;
-
+    training_mannequin::Asset asset_;
+    training_mannequin::Playback playback_;
+    lykoware::render::MeshId mesh_;
     lykoware::ecs::World& entities_;
     lykoware::ecs::Entity body_;
     lykoware::ecs::Entity visor_;
@@ -653,7 +670,7 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
         return unavailable(error.failure) ? exit_unsupported : EXIT_FAILURE;
     }
     auto renderer = lykoware::render::Renderer::create(*device, swapchain->color_format(), shaders.vertex,
-                                                       shaders.fragment, error);
+                                                       shaders.fragment, error, shaders.skin);
     if (!renderer) {
         lykoware::log(lykoware::LogLevel::error, "Renderer: " + error.message);
         return EXIT_FAILURE;
@@ -717,7 +734,15 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
             lykoware::log(lykoware::LogLevel::error, "Player: " + player_error);
             return EXIT_FAILURE;
         }
-        player_body.emplace(scene->entities());
+        auto mannequin = training_mannequin::make();
+        const auto mesh = renderer->add_skinned_mesh(mannequin.mesh, mannequin.joints, mannequin.weights,
+                                                      mannequin.skeleton.joints.size(), mannequin.parts, error);
+        if (!mesh) {
+            lykoware::log(lykoware::LogLevel::error, "Mannequin upload: " + error.message);
+            return EXIT_FAILURE;
+        }
+        player_body.emplace(scene->entities(), *mesh, std::move(mannequin));
+        lykoware::log(lykoware::LogLevel::info, "Animation: GPU-skinned training mannequin (7 joints), idle/walk clips.");
         lykoware::log(lykoware::LogLevel::info,
                       "Play: WASD or the left stick to move, Shift or L3 to run, Space or South to jump, mouse wheel or "
                       "d-pad to zoom. Click to look with the mouse, Esc to let it go, R to start again.");
@@ -793,7 +818,7 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
         scene->present(alpha);
         if (player) {
             camera = player->view(frame_seconds, alpha);
-            player_body->place(*player, alpha);
+            player_body->place(*player, alpha, frame_seconds);
         }
         const auto listener = lykoware::audio::Listener::looking_at(camera.eye, camera.target, camera.up);
         if (audio) {
@@ -962,7 +987,7 @@ int run_window(const std::vector<std::string>& args)
     }
 
     ShaderWords shaders;
-    if (options.vulkan && !read_shaders(shaders)) {
+    if (options.vulkan && !read_shaders(shaders, options.play)) {
         return EXIT_FAILURE;
     }
     // The model is read before any window or GPU work, like the shaders, so a bad file fails

@@ -5,8 +5,10 @@
 
 #include "world_identity.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <string>
 #include <utility>
 #include <vector>
@@ -30,6 +32,14 @@ struct Vertex {
     math::Vec2 uv;
 };
 static_assert(sizeof(Vertex) == rhi::position_normal_uv_stride);
+struct SkinVertex {
+    Vertex base;
+    std::array<std::uint16_t, 4> joints{};
+    math::Vec4 weights{}; // static geometry takes the shader's zero-weight fast path
+};
+static_assert(sizeof(SkinVertex) == rhi::skinned_position_normal_uv_stride);
+static_assert(offsetof(SkinVertex, joints) == 32);
+static_assert(offsetof(SkinVertex, weights) == 40);
 
 // A unit cube centred on the origin: four vertices per face with the face normal, two
 // triangles per face, counter-clockwise when seen from outside (u x v = n for each face). Each
@@ -65,6 +75,7 @@ struct GpuMesh {
     std::unique_ptr<rhi::Buffer> vertices;
     std::unique_ptr<rhi::Buffer> indices;
     std::vector<MeshPart> parts;
+    std::size_t joint_count = 0;
 };
 
 // One draw: a part of a mesh with the texture it uses.
@@ -73,9 +84,11 @@ struct Drawn {
     const rhi::Texture* texture = nullptr;
     std::uint32_t first_index = 0;
     std::uint32_t index_count = 0;
+    std::span<const math::Mat4> skin{};
 };
 
-bool upload(const rhi::Device& device, std::span<const Vertex> vertices, std::span<const std::uint32_t> indices,
+template <typename T>
+bool upload(const rhi::Device& device, std::span<const T> vertices, std::span<const std::uint32_t> indices,
             GpuMesh& mesh, rhi::RhiError& error)
 {
     mesh.vertices = rhi::Buffer::create(device, rhi::BufferUsage::Vertex, std::as_bytes(vertices), error);
@@ -90,6 +103,7 @@ struct Renderer::Impl {
     // This renderer's identity; its ids carry it (ADR 0030).
     std::uint64_t owner = 0;
     std::unique_ptr<rhi::GraphicsPipeline> pipeline;
+    bool skinning = false;
     GpuMesh cube;
     // Added meshes; MeshId::value is the position here plus one.
     std::vector<GpuMesh> meshes;
@@ -107,7 +121,7 @@ struct Renderer::Impl {
         if (renderer.texture == TextureId{}) {
             return white.get();
         }
-        if (renderer.texture.owner != owner || renderer.texture.value > textures.size()) {
+        if (renderer.texture.value == 0 || renderer.texture.owner != owner || renderer.texture.value > textures.size()) {
             return nullptr;
         }
         return textures[renderer.texture.value - 1].get();
@@ -118,15 +132,17 @@ struct Renderer::Impl {
         if (renderer.mesh == MeshId{}) {
             return &cube;
         }
-        if (renderer.mesh.owner != owner || renderer.mesh.value > meshes.size()) {
+        if (renderer.mesh.value == 0 || renderer.mesh.owner != owner || renderer.mesh.value > meshes.size()) {
             return nullptr;
         }
         return &meshes[renderer.mesh.value - 1];
     }
 
     // Builds one draw per entity with Transform and MeshRenderer, relative to the camera.
-    void prepare(const ecs::World& entities, const Camera& camera, float aspect)
+    bool prepare(const ecs::World& entities, const Camera& camera, float aspect, rhi::RhiError& error)
     {
+        bool valid = true;
+        error = {};
         constants.clear();
         drawn.clear();
         draws.clear();
@@ -135,11 +151,22 @@ struct Renderer::Impl {
             math::look_at({0.F, 0.F, 0.F}, math::relative_to(camera.target, camera.eye), camera.up);
         const math::Mat4 projection = math::perspective(camera.vertical_fov, aspect, camera.near);
         const math::Mat4 view_projection = projection * view;
-        entities.each<Transform, MeshRenderer>([&](ecs::Entity, const Transform& transform, const MeshRenderer& mesh) {
+        entities.each<Transform, MeshRenderer>([&](ecs::Entity entity, const Transform& transform, const MeshRenderer& mesh) {
             const GpuMesh* gpu = mesh_for(mesh);
             const rhi::Texture* texture = texture_for(mesh);
             if (gpu == nullptr || texture == nullptr) {
                 return; // a mesh or texture id this renderer did not make
+            }
+            std::span<const math::Mat4> skin;
+            if (gpu->joint_count > 0) {
+                if (const auto* pose = entities.get<SkinPose>(entity)) {
+                    if (pose->matrices.size() != gpu->joint_count) {
+                        error = {rhi::RhiFailure::InvalidArgument, "SkinPose count differs from the mesh's joint count"};
+                        valid = false;
+                        return;
+                    }
+                    skin = pose->matrices;
+                }
             }
             const math::Mat4 model =
                 math::trs(math::relative_to(transform.position, camera.eye), transform.rotation, mesh.scale);
@@ -161,15 +188,16 @@ struct Renderer::Impl {
                 constants.push_back(c);
                 const rhi::Texture* part_texture =
                     part.texture == TextureId{} ? texture : textures[part.texture.value - 1].get();
-                drawn.push_back({gpu, part_texture, part.first_index, part.index_count});
+                drawn.push_back({gpu, part_texture, part.first_index, part.index_count, skin});
             }
             ++entities_drawn;
         });
         // Push-constant spans point into `constants`, so build them after it stops growing.
         for (std::size_t i = 0; i < constants.size(); ++i) {
             draws.push_back({drawn[i].mesh->vertices.get(), drawn[i].mesh->indices.get(), drawn[i].index_count,
-                             std::as_bytes(std::span(&constants[i], 1)), drawn[i].texture, drawn[i].first_index});
+                             std::as_bytes(std::span(&constants[i], 1)), drawn[i].texture, drawn[i].first_index, drawn[i].skin});
         }
+        return valid;
     }
 };
 
@@ -182,13 +210,15 @@ Renderer::~Renderer() = default;
 
 std::unique_ptr<Renderer> Renderer::create(const rhi::Device& device, rhi::ColorFormat color_format,
                                            std::span<const std::uint32_t> lit_vertex,
-                                           std::span<const std::uint32_t> lit_fragment, rhi::RhiError& error)
+                                           std::span<const std::uint32_t> lit_fragment, rhi::RhiError& error,
+                                           std::span<const std::uint32_t> skinned_vertex)
 {
     auto impl = std::make_unique<Impl>();
     impl->device = &device;
     impl->owner = detail::next_world_identity();
+    impl->skinning = !skinned_vertex.empty();
     {
-        const auto vertex = rhi::Shader::load(device, lit_vertex, rhi::ShaderStage::Vertex, error);
+        const auto vertex = rhi::Shader::load(device, impl->skinning ? skinned_vertex : lit_vertex, rhi::ShaderStage::Vertex, error);
         const auto fragment = vertex ? rhi::Shader::load(device, lit_fragment, rhi::ShaderStage::Fragment, error) : nullptr;
         if (!vertex || !fragment) {
             return nullptr;
@@ -197,7 +227,7 @@ std::unique_ptr<Renderer> Renderer::create(const rhi::Device& device, rhi::Color
         desc.vertex = vertex.get();
         desc.fragment = fragment.get();
         desc.color_format = color_format;
-        desc.vertex_layout = rhi::VertexLayout::PositionNormalUv;
+        desc.vertex_layout = impl->skinning ? rhi::VertexLayout::SkinnedPositionNormalUv : rhi::VertexLayout::PositionNormalUv;
         desc.depth = true;
         desc.cull_back_faces = true;
         desc.push_constant_bytes = rhi::push_constant_max_bytes;
@@ -210,9 +240,15 @@ std::unique_ptr<Renderer> Renderer::create(const rhi::Device& device, rhi::Color
     std::vector<Vertex> vertices;
     std::vector<std::uint32_t> indices;
     build_cube(vertices, indices);
-    if (!upload(device, vertices, indices, impl->cube, error)) {
-        return nullptr;
+    bool uploaded = false;
+    if (impl->skinning) {
+        std::vector<SkinVertex> skin_vertices;
+        for (const auto& vertex : vertices) { skin_vertices.push_back({vertex}); }
+        uploaded = upload(device, std::span<const SkinVertex>(skin_vertices), indices, impl->cube, error);
+    } else {
+        uploaded = upload(device, std::span<const Vertex>(vertices), indices, impl->cube, error);
     }
+    if (!uploaded) { return nullptr; }
     impl->cube.parts.push_back({0, static_cast<std::uint32_t>(indices.size())});
     rhi::TextureDesc white;
     white.width = 1;
@@ -229,7 +265,7 @@ std::unique_ptr<Renderer> Renderer::create(const rhi::Device& device, rhi::Color
 bool Renderer::draw(const ecs::World& entities, const Camera& camera, rhi::RenderTarget& target,
                     const rhi::ClearColor& clear, rhi::RhiError& error)
 {
-    impl_->prepare(entities, camera, static_cast<float>(target.width()) / static_cast<float>(target.height()));
+    if (!impl_->prepare(entities, camera, static_cast<float>(target.width()) / static_cast<float>(target.height()), error)) { return false; }
     return target.draw_meshes(clear, *impl_->pipeline, impl_->draws, error);
 }
 
@@ -239,7 +275,7 @@ bool Renderer::draw(const ecs::World& entities, const Camera& camera, rhi::Swapc
     const float aspect = swapchain.width() > 0 && swapchain.height() > 0
         ? static_cast<float>(swapchain.width()) / static_cast<float>(swapchain.height())
         : 1.F;
-    impl_->prepare(entities, camera, aspect);
+    if (!impl_->prepare(entities, camera, aspect, error)) { return false; }
     return swapchain.render_meshes(clear, *impl_->pipeline, impl_->draws, error);
 }
 
@@ -267,20 +303,91 @@ std::optional<MeshId> Renderer::add_mesh(const MeshData& mesh, std::span<const M
             return std::nullopt;
         }
         if (!(part.texture == TextureId{})
-            && (part.texture.owner != impl_->owner || part.texture.value > impl_->textures.size())) {
+            && (part.texture.value == 0 || part.texture.owner != impl_->owner || part.texture.value > impl_->textures.size())) {
             error = {rhi::RhiFailure::InvalidArgument, "a mesh part names a texture this renderer did not make"};
             return std::nullopt;
         }
+    }
+    const std::size_t stride = impl_->skinning ? sizeof(SkinVertex) : sizeof(Vertex);
+    if (mesh.positions.size() > rhi::buffer_max_bytes / stride) {
+        error = {rhi::RhiFailure::InvalidArgument, "mesh vertex data exceeds the buffer limit"};
+        return std::nullopt;
     }
     std::vector<Vertex> vertices(mesh.positions.size());
     for (std::size_t i = 0; i < vertices.size(); ++i) {
         vertices[i] = {mesh.positions[i], mesh.normals[i], mesh.uvs.empty() ? math::Vec2{} : mesh.uvs[i]};
     }
     GpuMesh gpu;
-    if (!upload(*impl_->device, vertices, mesh.indices, gpu, error)) {
+    bool uploaded = false;
+    if (impl_->skinning) {
+        std::vector<SkinVertex> skin_vertices;
+        skin_vertices.reserve(vertices.size());
+        for (const auto& vertex : vertices) { skin_vertices.push_back({vertex}); }
+        uploaded = upload(*impl_->device, std::span<const SkinVertex>(skin_vertices), mesh.indices, gpu, error);
+    } else {
+        uploaded = upload(*impl_->device, std::span<const Vertex>(vertices), mesh.indices, gpu, error);
+    }
+    if (!uploaded) { return std::nullopt; }
+    gpu.parts.assign(parts.begin(), parts.end());
+    impl_->meshes.push_back(std::move(gpu));
+    return MeshId{static_cast<std::uint32_t>(impl_->meshes.size()), impl_->owner};
+}
+
+std::optional<MeshId> Renderer::add_skinned_mesh(
+    const MeshData& mesh, std::span<const std::array<std::uint16_t, 4>> joints,
+    std::span<const math::Vec4> weights, std::size_t joint_count,
+    std::span<const MeshPart> parts, rhi::RhiError& error)
+{
+    error = {};
+    std::string reason;
+    if (!impl_->skinning || !valid_mesh(mesh, reason) || joint_count == 0 || joint_count > rhi::skin_palette_max_joints
+        || joints.size() != mesh.positions.size() || weights.size() != mesh.positions.size()
+        || mesh.positions.size() > rhi::buffer_max_bytes / sizeof(SkinVertex)) {
+        error = {rhi::RhiFailure::InvalidArgument, "invalid skinned mesh or renderer: " + reason};
         return std::nullopt;
     }
+    const MeshPart whole{0, static_cast<std::uint32_t>(mesh.indices.size())};
+    if (parts.empty()) { parts = std::span(&whole, 1); }
+    for (const auto& part : parts) {
+        const std::size_t end = static_cast<std::size_t>(part.first_index) + part.index_count;
+        if (part.index_count == 0 || part.index_count % 3 != 0 || end > mesh.indices.size()
+            || (!(part.texture == TextureId{}) && (part.texture.value == 0 || part.texture.owner != impl_->owner
+                                                   || part.texture.value > impl_->textures.size()))) {
+            error = {rhi::RhiFailure::InvalidArgument, "invalid skinned mesh part or foreign texture"};
+            return std::nullopt;
+        }
+    }
+    std::vector<SkinVertex> vertices(mesh.positions.size());
+    for (std::size_t i = 0; i < vertices.size(); ++i) {
+        const auto w = weights[i];
+        const double values[] = {w.x, w.y, w.z, w.w};
+        double sum = 0.0;
+        for (std::size_t slot = 0; slot < 4; ++slot) {
+            if (!std::isfinite(values[slot]) || values[slot] < 0.0
+                || (values[slot] > 0.0 && joints[i][slot] >= joint_count)) {
+                error = {rhi::RhiFailure::InvalidArgument, "invalid skin weight or joint index"};
+                return std::nullopt;
+            }
+            sum += values[slot];
+        }
+        if (std::abs(sum - 1.0) > 1e-4) {
+            error = {rhi::RhiFailure::InvalidArgument, "skin weights must sum to 1 within 1e-4"};
+            return std::nullopt;
+        }
+        auto& vertex = vertices[i];
+        vertex.base = {mesh.positions[i], mesh.normals[i], mesh.uvs.empty() ? math::Vec2{} : mesh.uvs[i]};
+        vertex.joints = joints[i];
+        // Unused indices need not exist in the source skin. Make their GPU fetch safe.
+        for (std::size_t slot = 0; slot < 4; ++slot) {
+            if (values[slot] == 0.0) { vertex.joints[slot] = 0; }
+        }
+        vertex.weights = {static_cast<float>(values[0] / sum), static_cast<float>(values[1] / sum),
+                          static_cast<float>(values[2] / sum), static_cast<float>(values[3] / sum)};
+    }
+    GpuMesh gpu;
+    if (!upload(*impl_->device, std::span<const SkinVertex>(vertices), mesh.indices, gpu, error)) { return std::nullopt; }
     gpu.parts.assign(parts.begin(), parts.end());
+    gpu.joint_count = joint_count;
     impl_->meshes.push_back(std::move(gpu));
     return MeshId{static_cast<std::uint32_t>(impl_->meshes.size()), impl_->owner};
 }

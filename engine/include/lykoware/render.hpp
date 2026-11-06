@@ -11,11 +11,13 @@
 #include <lykoware/rhi/texture.hpp>
 #include <lykoware/transform.hpp>
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <optional>
 #include <span>
+#include <vector>
 
 // The first renderer (ADR 0026): lit meshes for every ECS entity with a Transform and a
 // MeshRenderer, drawn camera-relative through the RHI.
@@ -81,6 +83,14 @@ struct MeshRenderer {
     TextureId texture{};
 };
 
+// Per-instance drawing pose for an uploaded skinned mesh (ADR 0052). Plain CPU matrices;
+// copied into the target/frame slot during draw. Missing component draws bind geometry.
+// When present, count must match the mesh's joint count; matrices must be finite affine.
+// Animation never changes the authoritative Transform or physics state.
+struct SkinPose {
+    std::vector<math::Mat4> matrices;
+};
+
 // Where the view comes from. Positions are world positions in double precision; everything is
 // made relative to `eye` before it becomes float, so the view is as sharp 16 km out as at
 // the origin (ADR 0021, ADR 0024).
@@ -103,10 +113,12 @@ struct Camera {
 class Renderer {
 public:
     // lit_vertex and lit_fragment are the SPIR-V of engine/shaders/lit.slang's vertexMain and
-    // fragmentMain. color_format must match the targets the renderer draws to.
+    // fragmentMain. Optional skinned_vertex is skinned.slang vertexMain; that renderer uses
+    // the skinned layout for static and animated geometry. color_format must match the targets the renderer draws to.
     [[nodiscard]] static std::unique_ptr<Renderer> create(
         const rhi::Device& device, rhi::ColorFormat color_format, std::span<const std::uint32_t> lit_vertex,
-        std::span<const std::uint32_t> lit_fragment, rhi::RhiError& error);
+        std::span<const std::uint32_t> lit_fragment, rhi::RhiError& error,
+        std::span<const std::uint32_t> skinned_vertex = {});
 
     ~Renderer();
     Renderer(const Renderer&) = delete;
@@ -130,6 +142,16 @@ public:
     // part needs a non-zero, whole-triangle range inside the mesh's indices, and a texture id
     // this renderer made (or none); otherwise InvalidArgument.
     [[nodiscard]] std::optional<MeshId> add_mesh(const MeshData& mesh, std::span<const MeshPart> parts, rhi::RhiError& error);
+
+    // Upload once, draw with SkinPose. Requires create()'s optional skinned vertex shader.
+    // Four joint/weight slots per vertex; weights finite/nonnegative, sum 1 within 1e-4;
+    // positive-weight indices less than joint_count (1..256). Normalises accepted weights.
+    // Parts follow add_mesh's rules; empty parts means the whole mesh. InvalidArgument on
+    // bad inputs, unsupported renderer or vertex data beyond the RHI buffer limit.
+    [[nodiscard]] std::optional<MeshId> add_skinned_mesh(
+        const MeshData& mesh, std::span<const std::array<std::uint16_t, 4>> joints,
+        std::span<const math::Vec4> weights, std::size_t joint_count,
+        std::span<const MeshPart> parts, rhi::RhiError& error);
 
     // Uploads a texture (a decoded image, say) for MeshRenderer::texture. It stays until the
     // renderer is destroyed. Fails (nullopt, error filled) for an empty or oversized image

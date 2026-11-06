@@ -12,5 +12,7 @@ lykoware_compile_shader(sandbox_lit_vert SOURCE "${CMAKE_SOURCE_DIR}/engine/shad
     ENTRY vertexMain STAGE vertex NAME sandbox_lit.vert)
 lykoware_compile_shader(sandbox_lit_frag SOURCE "${CMAKE_SOURCE_DIR}/engine/shaders/lit.slang"
     ENTRY fragmentMain STAGE fragment NAME sandbox_lit.frag)
+lykoware_compile_shader(sandbox_skin_vert SOURCE "${CMAKE_SOURCE_DIR}/engine/shaders/skinned.slang"
+    ENTRY vertexMain STAGE vertex NAME sandbox_skin.vert)
 lykoware_deploy_shaders(lykoware_sandbox INSTALL_DESTINATION bin
-    SHADERS "${sandbox_lit_vert}" "${sandbox_lit_frag}")
+    SHADERS "${sandbox_lit_vert}" "${sandbox_lit_frag}" "${sandbox_skin_vert}")

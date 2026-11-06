@@ -124,7 +124,9 @@ if(BUILD_TESTING)
         ENTRY vertexMain STAGE vertex NAME textured.vert)
     lykoware_compile_shader(textured_frag_spv SOURCE tests/shaders/textured.slang
         ENTRY fragmentMain STAGE fragment NAME textured.frag)
-    add_custom_target(lykoware_test_shaders ALL DEPENDS "${triangle_vert_spv}" "${triangle_frag_spv}"
+    lykoware_compile_shader(skinned_vert_spv SOURCE engine/shaders/skinned.slang
+        ENTRY vertexMain STAGE vertex NAME skinned.vert)
+    add_custom_target(lykoware_test_shaders ALL DEPENDS "${skinned_vert_spv}" "${triangle_vert_spv}" "${triangle_frag_spv}"
         "${lit_vert_spv}" "${lit_frag_spv}" "${mesh_vert_spv}" "${mesh_frag_spv}"
         "${textured_vert_spv}" "${textured_frag_spv}")
 
@@ -206,11 +208,17 @@ if(BUILD_TESTING)
     # Reference skinning from a real glTF clip, rendered and compared with hand-calculated geometry.
     add_executable(lykoware_render_skinning_test tests/render_skinning.cpp)
     target_link_libraries(lykoware_render_skinning_test PRIVATE lykoware::engine)
+    target_include_directories(lykoware_render_skinning_test PRIVATE "${CMAKE_SOURCE_DIR}/samples/course")
     lykoware_configure_target(lykoware_render_skinning_test)
     add_dependencies(lykoware_render_skinning_test lykoware_test_shaders)
     add_test(NAME render.skinning
         COMMAND lykoware_render_skinning_test "${lit_vert_spv}" "${lit_frag_spv}" "${CMAKE_CURRENT_BINARY_DIR}/render-skinning")
     set_tests_properties(render.skinning PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
+
+    add_test(NAME render.gpu_skinning
+        COMMAND lykoware_render_skinning_test "${lit_vert_spv}" "${lit_frag_spv}"
+            "${CMAKE_CURRENT_BINARY_DIR}/gpu-skinning" "${skinned_vert_spv}")
+    set_tests_properties(render.gpu_skinning PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
 
     # The sandbox's Vulkan window on the headless offscreen driver: it loads
     # its deployed shaders and draws the triangle. The sandbox exits 3
@@ -263,7 +271,7 @@ if(BUILD_TESTING)
         # deliberate-leak check).
         set_property(TEST rhi.instance rhi.instance.no_driver rhi.device rhi.render_target rhi.swapchain
                           sandbox.vulkan_window sandbox.gpu_trace sandbox.play rhi.pipeline rhi.mesh rhi.texture render.scene
-                          render.model render.skinning render.texture lifecycle.restart_vulkan
+                          render.model render.skinning render.gpu_skinning render.texture lifecycle.restart_vulkan
             APPEND PROPERTY ENVIRONMENT "VK_LOADER_DISABLE_DYNAMIC_LIBRARY_UNLOADING=1")
     endif()
 
@@ -372,6 +380,13 @@ if(BUILD_TESTING)
     lykoware_configure_target(lykoware_player_course_test)
     add_test(NAME player.course COMMAND lykoware_player_course_test)
     set_tests_properties(player.course PROPERTIES TIMEOUT 120)
+
+    add_executable(lykoware_mannequin_test tests/mannequin.cpp)
+    target_link_libraries(lykoware_mannequin_test PRIVATE lykoware::engine)
+    target_include_directories(lykoware_mannequin_test PRIVATE "${CMAKE_SOURCE_DIR}/samples/course")
+    lykoware_configure_target(lykoware_mannequin_test)
+    add_test(NAME animation.mannequin COMMAND lykoware_mannequin_test)
+    set_tests_properties(animation.mannequin PROPERTIES TIMEOUT 60)
 
     # The maths module (ADR 0024). Links only the engine.
     add_executable(lykoware_math_test tests/math.cpp)

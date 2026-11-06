@@ -39,3 +39,7 @@ endif()
 if(NOT output MATCHES "The player ended at \\(-?0\\.00[0-9]*, -?0\\.0[0-1][0-9]*, 21\\.00[0-9]*\\)")
     message(FATAL_ERROR "the player did not land and stand at the start")
 endif()
+
+if(NOT output MATCHES "Animation: GPU-skinned training mannequin")
+    message(FATAL_ERROR "the GPU-skinned mannequin did not initialise")
+endif()
