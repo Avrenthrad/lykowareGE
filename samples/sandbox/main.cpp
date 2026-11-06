@@ -154,6 +154,7 @@ struct WindowOptions {
     std::uint64_t frames = 0;
     // --model FILE: a glTF model shown beside the crates (ADR 0035).
     std::string model;
+    std::string character, idle_clip, walk_clip;
     // --trace FILE: a Chrome trace of each frame's CPU zones and GPU time (ADR 0039).
     std::string trace;
     // --play: a character to walk round the obstacle course, with a follow camera (ADR 0047).
@@ -553,8 +554,9 @@ private:
 // Idle/walk blending never changes physics. Hidden in first person.
 class PlayerBody {
 public:
-    PlayerBody(lykoware::ecs::World& entities, lykoware::render::MeshId mesh, training_mannequin::Asset asset)
-        : asset_{std::move(asset)}
+    PlayerBody(lykoware::ecs::World& entities, lykoware::render::MeshId mesh, training_mannequin::Asset asset, bool imported)
+        : imported_{imported}
+        , asset_{std::move(asset)}
         , mesh_{mesh}
         , entities_{entities}
         , body_{entities.create()}
@@ -581,16 +583,16 @@ public:
         const float speed = state.ground == lykoware::physics::GroundState::OnGround
             ? std::hypot(state.velocity.x, state.velocity.z) : 0.F;
         playback_.advance(asset_, seconds, speed);
-        const auto face = lykoware::animation::skin_point(playback_.matrices, {2, 0, 0, 0}, {1.F, 0.F, 0.F, 0.F},
+        if (!imported_) { const auto face = lykoware::animation::skin_point(playback_.matrices, {2, 0, 0, 0}, {1.F, 0.F, 0.F, 0.F},
                                                           {0.F, 1.58F, -0.18F});
-        visor->position = feet + lykoware::math::rotate(facing, face);
+        visor->position = feet + lykoware::math::rotate(facing, face); }
         entities_.get<lykoware::render::SkinPose>(body_)->matrices = playback_.matrices;
         const bool shown = player.camera().current_distance() >= 0.5F;
         if (shown && !entities_.has<lykoware::render::MeshRenderer>(body_)) {
             entities_.add<lykoware::render::MeshRenderer>(
                 body_, lykoware::render::MeshRenderer{lykoware::render::MeshShape::Cube, {1.F, 1.F, 1.F}, {1.F, 1.F, 1.F}, mesh_});
-            entities_.add<lykoware::render::MeshRenderer>(
-                visor_, lykoware::render::MeshRenderer{lykoware::render::MeshShape::Cube, {0.3F, 0.08F, 0.06F}, {0.95F, 0.82F, 0.3F}});
+            if (!imported_) { entities_.add<lykoware::render::MeshRenderer>(
+                visor_, lykoware::render::MeshRenderer{lykoware::render::MeshShape::Cube, {0.3F, 0.08F, 0.06F}, {0.95F, 0.82F, 0.3F}}); }
         } else if (!shown && entities_.has<lykoware::render::MeshRenderer>(body_)) {
             entities_.remove<lykoware::render::MeshRenderer>(body_);
             entities_.remove<lykoware::render::MeshRenderer>(visor_);
@@ -598,6 +600,7 @@ public:
     }
 
 private:
+    bool imported_ = false;
     training_mannequin::Asset asset_;
     training_mannequin::Playback playback_;
     lykoware::render::MeshId mesh_;
@@ -608,7 +611,7 @@ private:
 
 // Uploads a glTF model's textures and its mesh as parts with their materials (ADR 0038).
 std::optional<lykoware::render::MeshId> upload_model(lykoware::render::Renderer& renderer, const lykoware::gltf::Model& model,
-                                                     lykoware::rhi::RhiError& error)
+                                                     lykoware::rhi::RhiError& error, training_mannequin::Asset* skin = nullptr)
 {
     std::vector<lykoware::render::TextureId> textures;
     for (const lykoware::gltf::Texture& texture : model.textures) {
@@ -636,6 +639,7 @@ std::optional<lykoware::render::MeshId> upload_model(lykoware::render::Renderer&
         }
         parts.push_back(mesh_part);
     }
+    if (skin) { skin->parts = std::move(parts); return lykoware::render::MeshId{}; }
     return renderer.add_mesh(model.mesh, parts, error);
 }
 
@@ -735,14 +739,42 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
             return EXIT_FAILURE;
         }
         auto mannequin = training_mannequin::make();
+        if (!options.character.empty()) {
+            std::string reason;
+            auto imported = lykoware::gltf::load_skinned(utf8_path(options.character), reason);
+            if (!imported || imported->clips.empty()) {
+                lykoware::log(lykoware::LogLevel::error, "Character: " + reason + " (requires animation clips)");
+                return EXIT_FAILURE;
+            }
+            auto choose = [&](const std::string& name, std::size_t fallback) -> lykoware::animation::Clip {
+                if (name.empty()) { return imported->clips[fallback]; }
+                const lykoware::animation::Clip* found = nullptr;
+                for (const auto& clip : imported->clips) {
+                    if (clip.name == name) {
+                        if (found) { throw std::invalid_argument("Ambiguous character clip: " + name); }
+                        found = &clip;
+                    }
+                }
+                if (!found) { throw std::invalid_argument("Unknown character clip: " + name); }
+                return *found;
+            };
+            mannequin.idle = choose(options.idle_clip, 0);
+            mannequin.walk = choose(options.walk_clip, imported->clips.size() > 1 ? 1 : 0);
+            mannequin.mesh = imported->model.mesh;
+            mannequin.joints = imported->joints;
+            mannequin.weights = imported->weights;
+            mannequin.skeleton = imported->skeleton;
+            if (!upload_model(*renderer, imported->model, error, &mannequin)) { return EXIT_FAILURE; }
+        }
+
         const auto mesh = renderer->add_skinned_mesh(mannequin.mesh, mannequin.joints, mannequin.weights,
                                                       mannequin.skeleton.joints.size(), mannequin.parts, error);
         if (!mesh) {
             lykoware::log(lykoware::LogLevel::error, "Mannequin upload: " + error.message);
             return EXIT_FAILURE;
         }
-        player_body.emplace(scene->entities(), *mesh, std::move(mannequin));
-        lykoware::log(lykoware::LogLevel::info, "Animation: GPU-skinned training mannequin (7 joints), idle/walk clips.");
+        player_body.emplace(scene->entities(), *mesh, std::move(mannequin), !options.character.empty());
+        lykoware::log(lykoware::LogLevel::info, options.character.empty() ? "Animation: GPU-skinned training mannequin (7 joints), idle/walk clips." : "Animation: GPU-skinned imported character, selected idle/walk clips.");
         lykoware::log(lykoware::LogLevel::info,
                       "Play: WASD or the left stick to move, Shift or L3 to run, Space or South to jump, mouse wheel or "
                       "d-pad to zoom. Click to look with the mouse, Esc to let it go, R to start again.");
@@ -934,6 +966,12 @@ int run_window(const std::vector<std::string>& args)
             flag(options.no_audio, option);
         } else if (option == "--play") {
             flag(options.play, option);
+        } else if (option == "--character" || option == "--idle-clip" || option == "--walk-clip") {
+            auto& value = option == "--character" ? options.character : (option == "--idle-clip" ? options.idle_clip : options.walk_clip);
+            if (!value.empty() || index + 1 >= args.size() || args[index + 1].empty() || args[index + 1].starts_with("--")) {
+                throw std::invalid_argument("Duplicate or missing value: " + std::string(option));
+            }
+            value = args[++index];
         } else if (option == "--model") {
             if (!options.model.empty()) {
                 throw std::invalid_argument("Duplicate option: --model");
@@ -978,6 +1016,9 @@ int run_window(const std::vector<std::string>& args)
 
     if (!options.model.empty() && !options.vulkan) {
         throw std::invalid_argument("--model needs --vulkan to draw it.");
+    }
+    if ((!options.character.empty() && !options.play) || ((!options.idle_clip.empty() || !options.walk_clip.empty()) && options.character.empty())) {
+        throw std::invalid_argument("--character requires --play; clip selectors require --character");
     }
     if (options.play && !options.vulkan) {
         throw std::invalid_argument("--play needs --vulkan to draw it.");
@@ -1065,7 +1106,7 @@ int run(const std::vector<std::string>& args)
             std::cout << "Usage: lykoware_sandbox [--version|--help]\n"
                          "       lykoware_sandbox --frames N --trace FILE\n"
                          "       lykoware_sandbox --window [--dummy | --offscreen] [--vulkan] [--no-audio]\n"
-                         "                        [--model FILE] [--play] [--frames N [--trace FILE]]\n"
+                         "                        [--model FILE] [--play [--character FILE --idle-clip NAME --walk-clip NAME]] [--frames N [--trace FILE]]\n"
                          "Without options, runs the console foundation check.\n"
                          "--frames with --trace runs N CPU iterations and writes a Chrome trace.\n"
                          "--window opens a window and pumps input until it closes.\n"

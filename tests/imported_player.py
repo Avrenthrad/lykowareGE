@@ -1,0 +1,52 @@
+"""Generate an original one-joint glTF and exercise real sandbox playback."""
+import base64
+import json
+import pathlib
+import struct
+import subprocess
+import sys
+
+exe, directory = sys.argv[1:]
+root = pathlib.Path(directory)
+root.mkdir(parents=True, exist_ok=True)
+blob = bytearray()
+views, accessors = [], []
+def add(fmt, values, component, count, kind):
+    while len(blob) % 4:
+        blob.append(0)
+    data = struct.pack('<' + fmt, *values)
+    views.append(dict(buffer=0, byteOffset=len(blob), byteLength=len(data)))
+    blob.extend(data)
+    accessors.append(dict(bufferView=len(views)-1, componentType=component, count=count, type=kind))
+    return len(accessors)-1
+p = add('9f', [-.2,0,0,.2,0,0,0,1,0], 5126, 3, 'VEC3')
+n = add('9f', [0,0,1]*3, 5126, 3, 'VEC3')
+j = add('12H', [0]*12, 5123, 3, 'VEC4')
+w = add('12f', [1,0,0,0]*3, 5126, 3, 'VEC4')
+i = add('3H', [0,1,2], 5123, 3, 'SCALAR')
+t = add('2f', [0,3], 5126, 2, 'SCALAR')
+v = add('6f', [0,0,0,0,.1,0], 5126, 2, 'VEC3')
+model = dict(asset=dict(version='2.0'), scenes=[dict(nodes=[0,1])], nodes=[dict(mesh=0,skin=0),{}],
+    skins=[dict(joints=[1])], meshes=[dict(primitives=[dict(attributes=dict(POSITION=p,NORMAL=n,JOINTS_0=j,WEIGHTS_0=w),indices=i)])],
+    buffers=[dict(byteLength=len(blob),uri='data:application/octet-stream;base64,'+base64.b64encode(blob).decode())],
+    bufferViews=views, accessors=accessors,
+    animations=[dict(name='breathe',samplers=[dict(input=t,output=v)],channels=[dict(sampler=0,target=dict(node=1,path='translation'))])])
+path = root / 'one joint.gltf'
+path.write_text(json.dumps(model))
+def run(args):
+    return subprocess.run([exe,*args],capture_output=True,text=True,timeout=60)
+base=['--window','--offscreen','--vulkan','--play','--no-audio','--frames','8','--character',str(path)]
+r=run(base+['--idle-clip','breathe','--walk-clip','breathe'])
+if r.returncode==3:
+    print('SKIP: no usable Vulkan device');sys.exit(77)
+assert r.returncode==0, r.stdout+r.stderr
+assert 'imported character' in r.stdout+r.stderr
+r=run(base+['--idle-clip','missing'])
+assert r.returncode!=0 and 'Unknown character clip' in r.stdout+r.stderr, r.stdout+r.stderr
+model['animations']=[]
+path.write_text(json.dumps(model))
+r=run(base)
+assert r.returncode!=0 and 'requires animation clips' in r.stdout+r.stderr
+r=run(['--window','--dummy','--frames','1','--character',str(path)])
+assert r.returncode!=0 and '--character requires --play' in r.stdout+r.stderr
+print('Imported character playback and refusals pass')

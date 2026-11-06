@@ -115,8 +115,8 @@ struct Playback {
     {
         seconds = std::isfinite(seconds) ? std::clamp(seconds, 0.F, 0.1F) : 0.F;
         speed = std::isfinite(speed) ? std::max(0.F, speed) : 0.F;
-        idle_seconds = std::fmod(idle_seconds + seconds, 2.F);
-        walk_seconds = std::fmod(walk_seconds + seconds * std::min(4.F, speed / 2.F), 1.F);
+        idle_seconds = std::fmod(idle_seconds + seconds, std::max(0.001F, animation::duration(asset.idle)));
+        walk_seconds = std::fmod(walk_seconds + seconds * std::min(4.F, speed / 2.F), std::max(0.001F, animation::duration(asset.walk)));
         const float target = std::clamp(speed / 2.F, 0.F, 1.F);
         walk_weight = target + (walk_weight - target) * std::exp(-8.F * seconds);
         idle = animation::rest_pose(asset.skeleton);

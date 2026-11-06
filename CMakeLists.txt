@@ -262,6 +262,11 @@ if(BUILD_TESTING)
             -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/sandbox_play.cmake")
     set_tests_properties(sandbox.play PROPERTIES TIMEOUT 120 SKIP_REGULAR_EXPRESSION "SKIP:")
 
+    add_test(NAME sandbox.imported_player COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_SOURCE_DIR}/tests/imported_player.py" "$<TARGET_FILE:lykoware_sandbox>"
+        "${CMAKE_BINARY_DIR}/test-output/imported-player")
+    set_tests_properties(sandbox.imported_player PROPERTIES TIMEOUT 180 SKIP_RETURN_CODE 77)
+
     if(LYKOWARE_SANITIZERS)
         # The Vulkan loader unloads drivers at vkDestroyInstance. Memory a
         # driver's own threads still hold (Mesa lavapipe's LLVM compiler
@@ -270,7 +275,7 @@ if(BUILD_TESTING)
         # reports; leaks in Lykoware code are still caught (ADR 0015 records the
         # deliberate-leak check).
         set_property(TEST rhi.instance rhi.instance.no_driver rhi.device rhi.render_target rhi.swapchain
-                          sandbox.vulkan_window sandbox.gpu_trace sandbox.play rhi.pipeline rhi.mesh rhi.texture render.scene
+                          sandbox.vulkan_window sandbox.gpu_trace sandbox.play sandbox.imported_player rhi.pipeline rhi.mesh rhi.texture render.scene
                           render.model render.skinning render.gpu_skinning render.texture lifecycle.restart_vulkan
             APPEND PROPERTY ENVIRONMENT "VK_LOADER_DISABLE_DYNAMIC_LIBRARY_UNLOADING=1")
     endif()
