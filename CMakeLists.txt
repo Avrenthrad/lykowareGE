@@ -335,6 +335,13 @@ if(BUILD_TESTING)
     add_test(NAME camera.follow COMMAND lykoware_follow_camera_test)
     set_tests_properties(camera.follow PROPERTIES TIMEOUT 60)
 
+    # Skeletal animation: skeletons, clip sampling, pose blending and skinning (ADR 0049).
+    add_executable(lykoware_animation_test tests/animation.cpp)
+    target_link_libraries(lykoware_animation_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_animation_test)
+    add_test(NAME animation.pose COMMAND lykoware_animation_test)
+    set_tests_properties(animation.pose PROPERTIES TIMEOUT 60)
+
     # A player-steered character over a fixed-seed obstacle course: slopes, steps, a jump, a
     # fall and walls for the camera (ADR 0047). Physics and input only.
     add_executable(lykoware_player_course_test tests/player_course.cpp)
