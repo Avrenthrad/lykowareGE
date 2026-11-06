@@ -17,6 +17,8 @@ Every tool/content operation must be reachable through CLI and scripting, with d
 
 ## Start here
 
+- **[Master completion checklist — keep updated as we build](docs/MASTER_CHECKLIST.md)**
+
 - [Status: implemented, current, next, known issues](docs/STATUS.md)
 - [Owner vision and remaining questions](docs/ENGINE_VISION.md)
 - [Roadmap and exit criteria](docs/ROADMAP.md)

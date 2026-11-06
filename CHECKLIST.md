@@ -1,5 +1,7 @@
 # Lykoware build checklist
 
+Full owner-requested completion list: **[MASTER_CHECKLIST.md](docs/MASTER_CHECKLIST.md)**. Keep both consistent; this file preserves verified build milestones.
+
 Canonical scope: [ROADMAP.md](docs/ROADMAP.md). Actual implementation status: [STATUS.md](docs/STATUS.md).
 This replaces the old module ordering while preserving verified Module 01 history.
 
