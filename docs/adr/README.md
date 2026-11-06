@@ -48,6 +48,7 @@ Canonical directory: docs/adr. Decisions remain Proposed until resolved; disting
 | [0047](0047-playable-character.md) | Proposed | Phase 2: `PlayerCharacter` and `read_player_intent` (keyboard, mouse-look in relative mode, gamepad), camera-relative movement, a 0.1 s jump buffer, zoom to first person; a shared obstacle course played by the sandbox's `--play` and a fixed-seed bot in `player.course` |
 | [0048](0048-drawing-between-steps.md) | Proposed | Phase 2: the player, follow camera and sandbox crates are drawn between the last two physics steps by the clock's alpha (`PlayerCharacter::drawn_feet`, `view(seconds, alpha)`), so they move evenly at any frame rate, one step behind |
 | [0049](0049-skeletal-animation-core.md) | Proposed | Phase 2: `lykoware::animation`, our own skeletal animation core: skeletons, glTF-model clips (step, linear with slerp, cubic spline), sampling, pose blending and skinning matrices |
+| [0050](0050-gltf-skins-and-animations.md) | Proposed | Phase 2: `gltf::read_skinned`/`load_skinned`: a skinned mesh in bind space with per-vertex joints and weights, a skeleton of the skin's joints and every node above them, and animations as clips; `read`/`read_model` unchanged |
 
 Use [the template](TEMPLATE.md). Record context, options, decision/status, contracts, consequences and verification. Use a new ADR to supersede an accepted choice; do not silently rewrite its history.
 
