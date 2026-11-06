@@ -1,5 +1,6 @@
 #include "animated_mannequin.hpp"
 #include "character_fit.hpp"
+#include "rig_roles.hpp"
 
 #include <lykoware/skinning.hpp>
 
@@ -29,6 +30,26 @@ int main()
     expect(!character_fit::fit({}, 2.F, fit, fit_error) && fit.scale == before_fit.scale && fit.offset == before_fit.offset,
            "zero-height fitting fails transactionally");
     expect(!character_fit::fit(authored, std::numeric_limits<float>::quiet_NaN(), fit, fit_error), "nonfinite height refused");
+    lykoware::animation::Skeleton rig;
+    for (const auto* name : rig_roles::names) {
+        lykoware::animation::Joint joint{}; joint.name = name; rig.joints.push_back(joint);
+    }
+    rig.joints[1].parent=0;rig.joints[2].parent=1;rig.joints[3].parent=2;
+    rig.joints[4].parent=0;rig.joints[5].parent=4;rig.joints[6].parent=5;
+    rig_roles::Names names;
+    for (std::size_t i=0;i<names.size();++i) { names[i]=rig_roles::names[i]; }
+    rig_roles::Indices roles{};
+    std::string rig_error;
+    expect(rig_roles::resolve(rig,names,roles,rig_error) && roles[6]==6, "explicit leg roles resolve by name");
+    const auto before_roles=roles;
+    auto wrong=names;wrong[1]="missing";
+    expect(!rig_roles::resolve(rig,wrong,roles,rig_error) && roles==before_roles, "missing role fails transactionally");
+    wrong=names;wrong[2]=names[1];
+    expect(!rig_roles::resolve(rig,wrong,roles,rig_error), "aliased roles refused");
+    rig.joints[3].parent=0;
+    expect(!rig_roles::resolve(rig,names,roles,rig_error), "incorrect leg ancestry refused");
+    rig.joints[3].parent=2;rig.joints[6].name=rig.joints[5].name;
+    expect(!rig_roles::resolve(rig,names,roles,rig_error), "ambiguous names refused");
     const auto asset = training_mannequin::make();
     std::string error;
     expect(lykoware::valid_mesh(asset.mesh, error) && animation::valid_skeleton(asset.skeleton, error)

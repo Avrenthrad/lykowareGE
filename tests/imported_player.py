@@ -65,6 +65,20 @@ r=run(profile_args)
 assert r.returncode!=0 and 'exceeds 64 KiB' in r.stdout+r.stderr
 r=run(base+['--idle-clip','missing'])
 assert r.returncode!=0 and 'Unknown character clip' in r.stdout+r.stderr, r.stdout+r.stderr
+role_names=['pelvis','left_hip','left_knee','left_foot','right_hip','right_knee','right_foot']
+model['nodes']=[dict(mesh=0,skin=0),dict(name='pelvis',children=[2,5]),dict(name='left_hip',children=[3]),
+                dict(name='left_knee',children=[4]),dict(name='left_foot'),dict(name='right_hip',children=[6]),
+                dict(name='right_knee',children=[7]),dict(name='right_foot')]
+model['skins']=[dict(joints=list(range(1,8)))]
+path.write_text(json.dumps(model))
+profile.write_text(json.dumps(dict(version=1,model=path.name,bones={name:name for name in role_names})))
+r=run(profile_args)
+assert r.returncode==0 and 'Rig role right_foot = right_foot [6]' in r.stdout+r.stderr, r.stdout+r.stderr
+model['nodes'][3]['children']=[]
+model['nodes'][1]['children'].append(4)
+path.write_text(json.dumps(model))
+r=run(profile_args)
+assert r.returncode!=0 and 'ancestry' in r.stdout+r.stderr, r.stdout+r.stderr
 model['animations']=[]
 path.write_text(json.dumps(model))
 r=run(base)

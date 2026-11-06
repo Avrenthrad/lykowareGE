@@ -1,5 +1,6 @@
 #include "animated_mannequin.hpp"
 #include "character_fit.hpp"
+#include "rig_roles.hpp"
 
 #include <lykoware/audio.hpp>
 #include <lykoware/audio_output.hpp>
@@ -161,6 +162,7 @@ struct WindowOptions {
     std::string model;
     std::string character, idle_clip, walk_clip, character_profile;
     std::optional<float> character_height;
+    std::optional<rig_roles::Names> bones;
     // --trace FILE: a Chrome trace of each frame's CPU zones and GPU time (ADR 0039).
     std::string trace;
     // --play: a character to walk round the obstacle course, with a follow camera (ADR 0047).
@@ -774,6 +776,15 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
             mannequin.joints = imported->joints;
             mannequin.weights = imported->weights;
             mannequin.skeleton = imported->skeleton;
+            if (options.bones) {
+                rig_roles::Indices roles;
+                if (!rig_roles::resolve(mannequin.skeleton, *options.bones, roles, reason)) { throw std::invalid_argument(reason); }
+                for (std::size_t role = 0; role < roles.size(); ++role) {
+                    lykoware::log(lykoware::LogLevel::info, "Rig role " + std::string(rig_roles::names[role])
+                        + " = " + (*options.bones)[role] + " [" + std::to_string(roles[role]) + "]");
+                }
+            }
+
             if (!upload_model(*renderer, imported->model, error, &mannequin)) { return EXIT_FAILURE; }
         }
 
@@ -1074,8 +1085,12 @@ int run_window(const std::vector<std::string>& args)
         }
         if (!input.eof()) { throw std::invalid_argument("Cannot read character profile"); }
         std::set<std::string> keys;
+        std::set<std::string> bone_keys;
         const auto profile = nlohmann::json::parse(text, [&](int depth, nlohmann::json::parse_event_t event, nlohmann::json& value) {
             if (depth > 8) { throw std::invalid_argument("Character profile nesting exceeds limit"); }
+            if (depth == 2 && event == nlohmann::json::parse_event_t::key && !bone_keys.insert(value.get<std::string>()).second) {
+                throw std::invalid_argument("Duplicate character bone key");
+            }
             if (depth == 1 && event == nlohmann::json::parse_event_t::key && !keys.insert(value.get<std::string>()).second) {
                 throw std::invalid_argument("Duplicate character profile key");
             }
@@ -1087,9 +1102,22 @@ int run_window(const std::vector<std::string>& args)
         }
         for (const auto& item : profile.items()) {
             if (item.key() != "version" && item.key() != "model" && item.key() != "idle_clip"
-                && item.key() != "walk_clip" && item.key() != "height") {
+                && item.key() != "walk_clip" && item.key() != "height" && item.key() != "bones") {
                 throw std::invalid_argument("Unknown character profile key: " + item.key());
             }
+        }
+        if (profile.contains("bones")) {
+            const auto& bones = profile["bones"];
+            if (!bones.is_object() || bones.size() != rig_roles::names.size()) { throw std::invalid_argument("Profile bones requires seven leg roles"); }
+            rig_roles::Names requested;
+            for (std::size_t role = 0; role < rig_roles::names.size(); ++role) {
+                const auto* name = rig_roles::names[role];
+                if (!bones.contains(name) || !bones[name].is_string() || bones[name].get<std::string>().empty()) {
+                    throw std::invalid_argument("Invalid profile bone role: " + std::string(name));
+                }
+                requested[role] = bones[name].get<std::string>();
+            }
+            options.bones = requested;
         }
         auto model_name = profile["model"].get<std::string>();
         if (model_name.empty() || model_name.find('\0') != std::string::npos) { throw std::invalid_argument("Invalid profile model path"); }
