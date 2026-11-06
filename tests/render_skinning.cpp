@@ -129,6 +129,13 @@ bool exercise(rhi::Device& device, render::Renderer& renderer, const std::filesy
     if (!source || source->clips.size() != 1) {
         return false;
     }
+    if (!gpu) {
+        rhi::RhiError refusal;
+        expect(!renderer.add_skinned_mesh(source->model.mesh, source->joints, source->weights,
+                                          source->skeleton.joints.size(), {}, refusal)
+                   && refusal.failure == rhi::RhiFailure::InvalidArgument,
+               "a static-only renderer refuses skinned registration");
+    }
     const auto bind_before = source->model.mesh.positions;
     auto pose = animation::rest_pose(source->skeleton);
     std::vector<math::Mat4> matrices;
@@ -220,7 +227,7 @@ bool exercise(rhi::Device& device, render::Renderer& renderer, const std::filesy
         pose = animation::rest_pose(source->skeleton);
         pose[0].scale = {1.2F, 0.8F, 1.F};
         pose[0].rotation = math::from_axis_angle({0.F, 1.F, 0.F}, 0.4F);
-        pose[1].rotation = math::from_axis_angle({0.F, 0.F, 1.F}, 0.35F);
+        pose[1].rotation = math::from_axis_angle({1.F, 0.F, 0.F}, 0.35F);
         animation::skinning_matrices(source->skeleton, pose, matrices);
         if (!animation::deform_mesh(source->model.mesh, source->joints, source->weights, matrices, moved, error)) {
             expect(false, error); return false;
@@ -269,6 +276,15 @@ bool exercise(rhi::Device& device, render::Renderer& renderer, const std::filesy
         bad_weights = source->weights; bad_weights[0].x = -1.F;
         expect(!renderer.add_skinned_mesh(source->model.mesh, source->joints, bad_weights, matrices.size(), {}, gpu_error),
                "negative weights are refused");
+        bad_weights = source->weights; bad_weights[0].x = std::numeric_limits<float>::quiet_NaN();
+        expect(!renderer.add_skinned_mesh(source->model.mesh, source->joints, bad_weights, matrices.size(), {}, gpu_error),
+               "non-finite weights are refused");
+        bad_weights = source->weights; bad_weights[0].x = 1.F;
+        expect(!renderer.add_skinned_mesh(source->model.mesh, source->joints, bad_weights, matrices.size(), {}, gpu_error),
+               "non-unit weights are refused");
+        expect(!renderer.add_skinned_mesh(source->model.mesh, source->joints, source->weights, 0, {}, gpu_error)
+            && !renderer.add_skinned_mesh(source->model.mesh, source->joints, source->weights, 257, {}, gpu_error),
+               "zero and oversized joint counts are refused");
         auto bad_joints = source->joints; bad_joints[0][0] = 256;
         expect(!renderer.add_skinned_mesh(source->model.mesh, bad_joints, source->weights, matrices.size(), {}, gpu_error),
                "out-of-range joints are refused");
@@ -291,13 +307,16 @@ bool exercise(rhi::Device& device, render::Renderer& renderer, const std::filesy
                                           std::span(&malformed_part, 1), gpu_error), "zero-valued owned part textures are refused");
         // Slot 255 must reach the final uniform matrix, not a truncated byte offset.
         auto last_joints = source->joints;
-        for (auto& ids : last_joints) { ids[1] = 255; }
-        const auto last_mesh = renderer.add_skinned_mesh(source->model.mesh, last_joints, source->weights, 256, {}, gpu_error);
+        for (auto& ids : last_joints) { ids = {0, 1, 2, 255}; }
+        const std::vector<math::Vec4> four_weights(source->weights.size(), {0.125F, 0.125F, 0.25F, 0.5F});
+        const auto last_mesh = renderer.add_skinned_mesh(source->model.mesh, last_joints, four_weights, 256, {}, gpu_error);
         expect(last_mesh.has_value(), "256-joint mesh uploads");
         if (!last_mesh) { return false; }
-        palette.assign(256, math::Mat4{}); palette[255] = math::translation({3.F, 0.F, 0.F});
+        palette.assign(256, math::Mat4{});
+        palette[2] = math::translation({2.F, 0.F, 0.F});
+        palette[255] = math::translation({2.F, 0.F, 0.F});
         if (!capture(*last_mesh, gpu_image)) { return false; }
-        expect(lykoware::compare_images(moved_image, gpu_image, 2).matches, "joint 255 reads the final palette matrix");
+        expect(lykoware::compare_images(moved_image, gpu_image, 2).matches, "four influences, including joint 255, produce the expected weighted displacement");
         // Grow the arena, and then shrink the draw list without retaining another instance's pose.
         std::vector<lykoware::ecs::Entity> extras;
         component.mesh = *skinned;
