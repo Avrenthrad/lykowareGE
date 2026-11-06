@@ -138,8 +138,8 @@ struct Arm {
 // An arm: an "Armature" node 5 m up holds a shoulder joint and, 1 m along +X from it, an elbow
 // joint. Three vertices, in bind space: one on the upper arm (shoulder), one on the forearm
 // (elbow), one at the elbow shared half and half (weights as normalised bytes). The mesh node's
-// own translation must be ignored. Animations: "wave" turns the shoulder a quarter turn about Z
-// over a second (keys as normalised 16-bit integers), and also keys the mesh node (not in the
+// own translation must be ignored. Animations: "wave" turns the shoulder a quarter turn clockwise
+// about Z over a second (keys as normalised 16-bit integers), and also keys the mesh node (not in the
 // skeleton) and morph weights, both left out; the unnamed second one steps the elbow and scales
 // it on a cubic spline.
 Arm arm()
@@ -159,7 +159,8 @@ Arm arm()
     binds.insert(binds.end(), elbow_bind.begin(), elbow_bind.end());
     a.inverse_binds = floats(m, binds, "MAT4", 16);
     a.wave_times = floats(m, {0.F, 1.F}, "SCALAR", 1);
-    const math::Quat turned = math::from_axis_angle({0.F, 0.F, 1.F}, pi / 2.F);
+    // A quarter turn clockwise about Z: its Z component is negative, so a misread sign shows.
+    const math::Quat turned = math::from_axis_angle({0.F, 0.F, 1.F}, -pi / 2.F);
     a.wave_rotations = normalised(m,
                                   m.view(std::vector<std::int16_t>{0, 0, 0, 32767, snorm16(turned.x), snorm16(turned.y),
                                                                    snorm16(turned.z), snorm16(turned.w)}),
@@ -237,19 +238,19 @@ void test_arm()
         std::string clip_error;
         expect(anim::valid_clip(*wave, skeleton, clip_error), "and samples on the skeleton: " + clip_error);
         anim::sample(*wave, 1.F, false, pose);
-        expect(same_rotation(pose[1].rotation, math::from_axis_angle({0.F, 0.F, 1.F}, pi / 2.F)),
-               "rotation keys stored as normalised 16-bit integers are read");
+        expect(same_rotation(pose[1].rotation, math::from_axis_angle({0.F, 0.F, 1.F}, -pi / 2.F)),
+               "rotation keys stored as normalised 16-bit integers, negative parts included, are read");
         anim::skinning_matrices(skeleton, pose, matrices);
         const Vec3 forearm = anim::skin_point(matrices, model->joints[1], model->weights[1], mesh.positions[1]);
-        expect(near(forearm, {0.F, 6.5F, 0.F}, 1e-3F),
-               "a quarter turn of the shoulder swings the forearm vertex up to (0, 6.5, 0): " + text(forearm));
+        expect(near(forearm, {0.F, 3.5F, 0.F}, 1e-3F),
+               "a quarter turn of the shoulder swings the forearm vertex down to (0, 3.5, 0): " + text(forearm));
     }
     const anim::Clip* second = clip_named(*model, "animation 1");
     expect(second != nullptr && second->channels.size() == 2, "an unnamed animation is named by its index");
     if (second != nullptr) {
         pose = anim::rest_pose(skeleton);
-        anim::sample(*second, 0.75F, false, pose);
-        expect(near(pose[2].translation, {2.F, 0.F, 0.F}), "a STEP sampler is read as step");
+        anim::sample(*second, 0.25F, false, pose);
+        expect(near(pose[2].translation, {1.F, 0.F, 0.F}), "a STEP sampler is read as step: it holds its first key");
         anim::sample(*second, 1.F, false, pose);
         expect(near(pose[2].scale, {2.F, 2.F, 2.F}), "a CUBICSPLINE sampler is read with its tangents: halfway from 1 to 3 is 2");
     }
