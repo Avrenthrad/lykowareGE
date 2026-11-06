@@ -302,6 +302,11 @@ if(BUILD_TESTING)
     target_link_libraries(lykoware_gltf_test PRIVATE lykoware::engine)
     lykoware_configure_target(lykoware_gltf_test)
     add_test(NAME assets.gltf COMMAND lykoware_gltf_test "${CMAKE_BINARY_DIR}/test-output/gltf")
+    # Skinned, animated glTF models: skeletons, joints and weights, and clips (ADR 0050).
+    add_executable(lykoware_gltf_skin_test tests/gltf_skin.cpp)
+    target_link_libraries(lykoware_gltf_skin_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_gltf_skin_test)
+    add_test(NAME assets.gltf_skin COMMAND lykoware_gltf_skin_test)
     set_tests_properties(assets.gltf PROPERTIES TIMEOUT 60 FIXTURES_SETUP gltf_models)
 
     # PNG and JPEG decoding through Wuffs (ADR 0036). Encodes its own images; no files.

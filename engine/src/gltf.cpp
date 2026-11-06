@@ -183,7 +183,9 @@ std::string percent_decode(std::string_view uri, const std::string& where)
 }
 
 constexpr std::uint32_t component_float = 5126;
+constexpr std::uint32_t component_s8 = 5120;
 constexpr std::uint32_t component_u8 = 5121;
+constexpr std::uint32_t component_s16 = 5122;
 constexpr std::uint32_t component_u16 = 5123;
 constexpr std::uint32_t component_u32 = 5125;
 
@@ -310,6 +312,105 @@ public:
                 value |= static_cast<std::uint32_t>(bytes[i * size + b]) << (8U * b);
             }
             out[i] = value;
+        }
+        return out;
+    }
+
+    // `width` components an element, as floats: float, or with `normalised` also the normalised 8-
+    // and 16-bit integer forms glTF allows for weights and rotation keys, signed or not.
+    std::vector<float> components(std::size_t index, std::string_view type, std::size_t width, bool normalised,
+                                  std::string_view purpose)
+    {
+        const Accessor a = accessor(index);
+        const std::string where = name("accessor", index);
+        const std::size_t size = a.component == component_float                         ? 4
+            : a.component == component_s8 || a.component == component_u8   ? 1
+            : a.component == component_s16 || a.component == component_u16 ? 2
+                                                                           : 0;
+        if (size == 0 || a.type != type || (size != 4 && !(normalised && a.normalized))) {
+            refuse(where + ": " + std::string{purpose} + " must be float"
+                   + (normalised ? std::string{", or normalised 8- or 16-bit integers,"} : std::string{}) + " "
+                   + std::string{type});
+        }
+        if (a.count > mesh_max_vertices) {
+            refuse(where + ": more than " + std::to_string(mesh_max_vertices) + " elements");
+        }
+        std::vector<float> out(a.count * width);
+        if (!a.view) {
+            return out;
+        }
+        const View v = view(*a.view);
+        const std::span<const std::byte> bytes = elements(v, a, width * size, where);
+        const std::size_t stride = v.stride != 0 ? v.stride : width * size;
+        for (std::size_t i = 0; i < a.count; ++i) {
+            for (std::size_t c = 0; c < width; ++c) {
+                const std::byte* at = bytes.data() + i * stride + c * size;
+                float value = 0.F;
+                if (size == 4) {
+                    std::memcpy(&value, at, 4);
+                } else {
+                    const unsigned raw = size == 1 ? std::to_integer<unsigned>(at[0])
+                                                   : std::to_integer<unsigned>(at[0]) | (std::to_integer<unsigned>(at[1]) << 8U);
+                    if (a.component == component_u8) {
+                        value = static_cast<float>(raw) / 255.F;
+                    } else if (a.component == component_u16) {
+                        value = static_cast<float>(raw) / 65535.F;
+                    } else if (a.component == component_s8) {
+                        value = std::max(static_cast<float>(static_cast<std::int8_t>(raw)) / 127.F, -1.F);
+                    } else {
+                        value = std::max(static_cast<float>(static_cast<std::int16_t>(raw)) / 32767.F, -1.F);
+                    }
+                }
+                if (!std::isfinite(value)) {
+                    refuse(where + " has a value that is not finite");
+                }
+                out[i * width + c] = value;
+            }
+        }
+        return out;
+    }
+
+    // JOINTS_0: unsigned 8- or 16-bit VEC4, not normalised.
+    std::vector<std::array<std::uint16_t, 4>> joint_sets(std::size_t index)
+    {
+        const Accessor a = accessor(index);
+        const std::string where = name("accessor", index);
+        const std::size_t size = a.component == component_u8 ? 1 : a.component == component_u16 ? 2 : 0;
+        if (size == 0 || a.type != "VEC4" || a.normalized) {
+            refuse(where + ": JOINTS_0 must be unsigned 8- or 16-bit VEC4");
+        }
+        if (a.count > mesh_max_vertices) {
+            refuse(where + ": more than " + std::to_string(mesh_max_vertices) + " vertices");
+        }
+        std::vector<std::array<std::uint16_t, 4>> out(a.count);
+        if (!a.view) {
+            return out;
+        }
+        const View v = view(*a.view);
+        const std::span<const std::byte> bytes = elements(v, a, 4 * size, where);
+        const std::size_t stride = v.stride != 0 ? v.stride : 4 * size;
+        for (std::size_t i = 0; i < a.count; ++i) {
+            for (std::size_t c = 0; c < 4; ++c) {
+                const std::byte* at = bytes.data() + i * stride + c * size;
+                const unsigned raw = size == 1 ? std::to_integer<unsigned>(at[0])
+                                               : std::to_integer<unsigned>(at[0]) | (std::to_integer<unsigned>(at[1]) << 8U);
+                out[i][c] = static_cast<std::uint16_t>(raw);
+            }
+        }
+        return out;
+    }
+
+    // Float MAT4s, column by column as glTF stores them.
+    std::vector<math::Mat4> mat4s(std::size_t index, std::string_view purpose)
+    {
+        const std::vector<float> values = components(index, "MAT4", 16, false, purpose);
+        std::vector<math::Mat4> out(values.size() / 16);
+        for (std::size_t i = 0; i < out.size(); ++i) {
+            for (std::size_t column = 0; column < 4; ++column) {
+                for (std::size_t row = 0; row < 4; ++row) {
+                    out[i].m[column][row] = values[i * 16 + column * 4 + row];
+                }
+            }
         }
         return out;
     }
@@ -487,6 +588,9 @@ math::Vec3 unit_or_up(math::Vec3 v)
 struct Built {
     MeshData mesh;
     std::vector<Part> parts;
+    // Skinned models only: each vertex's skeleton joints and weights.
+    std::vector<std::array<std::uint16_t, 4>> joints;
+    std::vector<math::Vec4> weights;
 };
 
 constexpr std::size_t gl_nearest = 9728;
@@ -627,10 +731,312 @@ private:
     std::uint64_t pixels_ = 0;
 };
 
+// --- Skins and animations (ADR 0050) -------------------------------------------------------
+
+// How a skinned primitive's joint indices (into the skin's joint list) map to the skeleton.
+struct SkinBinding {
+    std::size_t skin = 0;
+    std::vector<std::uint16_t> skeleton_joint;
+};
+
+// The model's one skin, as a skeleton, and which skeleton joint each node is.
+struct SkinSetup {
+    SkinBinding binding;
+    animation::Skeleton skeleton;
+    std::map<std::size_t, std::uint16_t> node_joint;
+};
+
+// A node matrix as translation, rotation and scale; false when it shears, projects or has a
+// zero scale. A mirror becomes a negative X scale.
+bool decompose(const math::Mat4& m, animation::JointPose& pose)
+{
+    if (m.m[0][3] != 0.F || m.m[1][3] != 0.F || m.m[2][3] != 0.F || m.m[3][3] != 1.F) {
+        return false;
+    }
+    math::Vec3 x = column(m, 0);
+    math::Vec3 y = column(m, 1);
+    math::Vec3 z = column(m, 2);
+    float sx = math::length(x);
+    const float sy = math::length(y);
+    const float sz = math::length(z);
+    if (!(sx > 0.F) || !(sy > 0.F) || !(sz > 0.F) || !std::isfinite(sx) || !std::isfinite(sy) || !std::isfinite(sz)) {
+        return false;
+    }
+    if (math::dot(x, math::cross(y, z)) < 0.F) {
+        sx = -sx;
+    }
+    x = x * (1.F / sx);
+    y = y * (1.F / sy);
+    z = z * (1.F / sz);
+    if (std::abs(math::dot(x, y)) > 1e-3F || std::abs(math::dot(x, z)) > 1e-3F || std::abs(math::dot(y, z)) > 1e-3F) {
+        return false;
+    }
+    // The rotation matrix's columns are x, y and z; R[row][column].
+    const float r00 = x.x;
+    const float r10 = x.y;
+    const float r20 = x.z;
+    const float r01 = y.x;
+    const float r11 = y.y;
+    const float r21 = y.z;
+    const float r02 = z.x;
+    const float r12 = z.y;
+    const float r22 = z.z;
+    math::Quat q;
+    const float trace = r00 + r11 + r22;
+    if (trace > 0.F) {
+        const float k = std::sqrt(trace + 1.F) * 2.F;
+        q = {(r21 - r12) / k, (r02 - r20) / k, (r10 - r01) / k, 0.25F * k};
+    } else if (r00 > r11 && r00 > r22) {
+        const float k = std::sqrt(1.F + r00 - r11 - r22) * 2.F;
+        q = {0.25F * k, (r01 + r10) / k, (r02 + r20) / k, (r21 - r12) / k};
+    } else if (r11 > r22) {
+        const float k = std::sqrt(1.F + r11 - r00 - r22) * 2.F;
+        q = {(r01 + r10) / k, 0.25F * k, (r12 + r21) / k, (r02 - r20) / k};
+    } else {
+        const float k = std::sqrt(1.F + r22 - r00 - r11) * 2.F;
+        q = {(r02 + r20) / k, (r12 + r21) / k, 0.25F * k, (r10 - r01) / k};
+    }
+    pose.translation = column(m, 3);
+    pose.rotation = math::normalize(q);
+    pose.scale = {sx, sy, sz};
+    return true;
+}
+
+// A node's own transform as translation, rotation and scale.
+animation::JointPose node_pose(const Json& node, const std::string& where)
+{
+    animation::JointPose pose;
+    if (member(node, "matrix") != nullptr) {
+        if (!decompose(node_matrix(node, where), pose)) {
+            refuse(where + ": a skeleton node's matrix must be a translation, rotation and scale (no shear)");
+        }
+        return pose;
+    }
+    if (const Json* value = member(node, "translation")) {
+        const auto v = numbers<3>(*value, where + ".translation");
+        pose.translation = {v[0], v[1], v[2]};
+    }
+    if (const Json* value = member(node, "rotation")) {
+        const auto v = numbers<4>(*value, where + ".rotation");
+        if (v[0] == 0.F && v[1] == 0.F && v[2] == 0.F && v[3] == 0.F) {
+            refuse(where + ".rotation is zero");
+        }
+        pose.rotation = math::normalize(math::Quat{v[0], v[1], v[2], v[3]});
+    }
+    if (const Json* value = member(node, "scale")) {
+        const auto v = numbers<3>(*value, where + ".scale");
+        pose.scale = {v[0], v[1], v[2]};
+    }
+    return pose;
+}
+
+// Finds the one skin the model's meshes use and makes its skeleton: the skin's joints and every
+// node above them, parents first (by depth, then node index).
+SkinSetup prepare_skin(const Json& root, Document& document)
+{
+    const Json& nodes = array_field(root, "nodes", "the model");
+    std::optional<std::size_t> used;
+    for (std::size_t i = 0; i < nodes.size(); ++i) {
+        const Json& node = element(nodes, i, "node");
+        if (member(node, "mesh") == nullptr) {
+            continue;
+        }
+        if (const auto skin = optional_index(node, "skin", name("node", i))) {
+            if (used && *used != *skin) {
+                refuse("the model's meshes use more than one skin, which is not read yet");
+            }
+            used = skin;
+        }
+    }
+    if (!used) {
+        refuse("the model has no skinned mesh");
+    }
+    const std::string where = name("skin", *used);
+    const Json& skin = element(array_field(root, "skins", "the model"), *used, "skin");
+    const Json& joints = array_field(skin, "joints", where);
+    if (joints.empty()) {
+        refuse(where + " has no joints");
+    }
+
+    std::vector<std::optional<std::size_t>> parent(nodes.size());
+    for (std::size_t i = 0; i < nodes.size(); ++i) {
+        const Json& children = array_field(element(nodes, i, "node"), "children", name("node", i));
+        for (const Json& child : children) {
+            if (!child.is_number_unsigned() || child.get<std::uint64_t>() >= nodes.size()) {
+                refuse(name("node", i) + ": children must be node indices");
+            }
+            const auto c = static_cast<std::size_t>(child.get<std::uint64_t>());
+            if (parent[c]) {
+                refuse("the node graph is not a tree: " + name("node", c) + " has two parents");
+            }
+            parent[c] = i;
+        }
+    }
+    const auto depth = [&](std::size_t node) {
+        std::size_t steps = 0;
+        for (std::optional<std::size_t> at = parent[node]; at; at = parent[*at]) {
+            if (++steps > nodes.size()) {
+                refuse("the node graph has a cycle through " + name("node", node));
+            }
+        }
+        return steps;
+    };
+
+    std::vector<std::size_t> skin_nodes;
+    std::vector<bool> needed(nodes.size(), false);
+    for (const Json& joint : joints) {
+        if (!joint.is_number_unsigned() || joint.get<std::uint64_t>() >= nodes.size()) {
+            refuse(where + ": joints must be node indices");
+        }
+        const auto node = static_cast<std::size_t>(joint.get<std::uint64_t>());
+        if (std::find(skin_nodes.begin(), skin_nodes.end(), node) != skin_nodes.end()) {
+            refuse(where + ": " + name("node", node) + " is a joint twice");
+        }
+        skin_nodes.push_back(node);
+        (void)depth(node); // refuses a cycle before the walk below
+        for (std::optional<std::size_t> at = node; at; at = parent[*at]) {
+            needed[*at] = true;
+        }
+    }
+    std::vector<std::pair<std::size_t, std::size_t>> order;
+    for (std::size_t i = 0; i < nodes.size(); ++i) {
+        if (needed[i]) {
+            order.emplace_back(depth(i), i);
+        }
+    }
+    if (order.size() > animation::max_joints) {
+        refuse(where + ": its skeleton has " + std::to_string(order.size()) + " joints, more than "
+               + std::to_string(animation::max_joints));
+    }
+    std::sort(order.begin(), order.end());
+
+    SkinSetup setup;
+    for (const auto& [level, node_index] : order) {
+        (void)level;
+        const Json& node = element(nodes, node_index, "node");
+        animation::Joint joint;
+        if (const Json* label = member(node, "name"); label != nullptr && label->is_string()) {
+            joint.name = label->get<std::string>();
+        }
+        if (parent[node_index]) {
+            joint.parent = setup.node_joint.at(*parent[node_index]);
+        }
+        joint.rest = node_pose(node, name("node", node_index));
+        setup.node_joint.emplace(node_index, static_cast<std::uint16_t>(setup.skeleton.joints.size()));
+        setup.skeleton.joints.push_back(std::move(joint));
+    }
+    std::vector<math::Mat4> inverse_binds;
+    if (const auto accessor = optional_index(skin, "inverseBindMatrices", where)) {
+        inverse_binds = document.mat4s(*accessor, "inverseBindMatrices");
+        if (inverse_binds.size() < skin_nodes.size()) {
+            refuse(where + ": fewer inverse bind matrices than joints");
+        }
+    }
+    setup.binding.skin = *used;
+    for (std::size_t i = 0; i < skin_nodes.size(); ++i) {
+        const std::uint16_t joint = setup.node_joint.at(skin_nodes[i]);
+        setup.binding.skeleton_joint.push_back(joint);
+        if (!inverse_binds.empty()) {
+            setup.skeleton.joints[joint].inverse_bind = inverse_binds[i];
+        }
+    }
+    std::string error;
+    if (!animation::valid_skeleton(setup.skeleton, error)) {
+        refuse(where + ": " + error);
+    }
+    return setup;
+}
+
+// Each animation as a clip on the skeleton. Channels for nodes outside it, and morph-target
+// weights, are left out.
+std::vector<animation::Clip> read_clips(const Json& root, Document& document, const SkinSetup& setup)
+{
+    std::vector<animation::Clip> clips;
+    const Json& animations = array_field(root, "animations", "the model");
+    for (std::size_t a = 0; a < animations.size(); ++a) {
+        const Json& source = element(animations, a, "animation");
+        const std::string where = name("animation", a);
+        animation::Clip clip;
+        const Json* label = member(source, "name");
+        clip.name = label != nullptr && label->is_string() && !label->get<std::string>().empty() ? label->get<std::string>()
+                                                                                              : where;
+        const Json& samplers = array_field(source, "samplers", where);
+        const Json& channels = array_field(source, "channels", where);
+        for (std::size_t c = 0; c < channels.size(); ++c) {
+            const std::string at = where + " channel " + std::to_string(c);
+            const Json& channel = element(channels, c, where + " channel");
+            const Json* target = member(channel, "target");
+            if (target == nullptr || !target->is_object()) {
+                refuse(at + " has no target");
+            }
+            const Json* path = member(*target, "path");
+            if (path == nullptr || !path->is_string()) {
+                refuse(at + " has no target path");
+            }
+            const std::string kind = path->get<std::string>();
+            if (kind == "weights") {
+                continue; // morph targets are not read yet
+            }
+            animation::Channel out;
+            if (kind == "translation") {
+                out.target = animation::Target::Translation;
+            } else if (kind == "rotation") {
+                out.target = animation::Target::Rotation;
+            } else if (kind == "scale") {
+                out.target = animation::Target::Scale;
+            } else {
+                refuse(at + ": unknown target path " + kind);
+            }
+            const auto node = optional_index(*target, "node", at + ".target");
+            if (!node) {
+                continue; // allowed when an extension names the target
+            }
+            const auto joint = setup.node_joint.find(*node);
+            if (joint == setup.node_joint.end()) {
+                continue; // not part of the skeleton
+            }
+            out.joint = joint->second;
+            const std::size_t sampler_index = required_index(channel, "sampler", at);
+            const std::string sampler_where = where + " sampler " + std::to_string(sampler_index);
+            const Json& sampler = element(samplers, sampler_index, where + " sampler");
+            if (const Json* interpolation = member(sampler, "interpolation")) {
+                const std::string mode = interpolation->is_string() ? interpolation->get<std::string>() : std::string{};
+                if (mode == "LINEAR") {
+                    out.interpolation = animation::Interpolation::Linear;
+                } else if (mode == "STEP") {
+                    out.interpolation = animation::Interpolation::Step;
+                } else if (mode == "CUBICSPLINE") {
+                    out.interpolation = animation::Interpolation::CubicSpline;
+                } else {
+                    refuse(sampler_where + ": unknown interpolation " + mode);
+                }
+            }
+            out.times = document.components(required_index(sampler, "input", sampler_where), "SCALAR", 1, false,
+                                            "an animation's input");
+            const bool rotation = out.target == animation::Target::Rotation;
+            const std::size_t width = rotation ? 4 : 3;
+            const std::vector<float> values = document.components(required_index(sampler, "output", sampler_where),
+                                                                  rotation ? "VEC4" : "VEC3", width, rotation,
+                                                                  "an animation's output");
+            for (std::size_t i = 0; i < values.size(); i += width) {
+                out.values.push_back({values[i], values[i + 1], values[i + 2], rotation ? values[i + 3] : 0.F});
+            }
+            clip.channels.push_back(std::move(out));
+        }
+        std::string error;
+        if (!animation::valid_clip(clip, setup.skeleton, error)) {
+            refuse(where + ": " + error);
+        }
+        clips.push_back(std::move(clip));
+    }
+    return clips;
+}
+
 // Appends one primitive's triangles, transformed by `world`, to `built`, as one part. With
-// `materials`, the primitive's material is resolved too.
+// `materials`, the primitive's material is resolved too. With `skin`, its joints and weights are
+// read and mapped to the skeleton.
 void add_primitive(Document& model, const Json& primitive, const math::Mat4& world, const std::string& where, Built& built,
-                   Materials* materials)
+                   Materials* materials, const SkinBinding* skin)
 {
     const std::size_t mode = optional_index(primitive, "mode", where).value_or(4);
     if (mode < 4) {
@@ -660,6 +1066,50 @@ void add_primitive(Document& model, const Json& primitive, const math::Mat4& wor
         normals = model.vec3s(*normal_accessor, "NORMAL");
         if (normals.size() != positions.size()) {
             refuse(where + ": NORMAL and POSITION have different counts");
+        }
+    }
+    std::vector<std::array<std::uint16_t, 4>> joints;
+    std::vector<math::Vec4> weights;
+    if (skin != nullptr) {
+        const auto joints_accessor = optional_index(*attributes, "JOINTS_0", where + ".attributes");
+        const auto weights_accessor = optional_index(*attributes, "WEIGHTS_0", where + ".attributes");
+        if (!joints_accessor || !weights_accessor) {
+            refuse(where + ": a skinned primitive needs JOINTS_0 and WEIGHTS_0");
+        }
+        if (member(*attributes, "JOINTS_1") != nullptr || member(*attributes, "WEIGHTS_1") != nullptr) {
+            refuse(where + ": more than four joints a vertex (JOINTS_1) is not read yet");
+        }
+        joints = model.joint_sets(*joints_accessor);
+        const std::vector<float> raw = model.components(*weights_accessor, "VEC4", 4, true, "WEIGHTS_0");
+        if (joints.size() != positions.size() || raw.size() != positions.size() * 4) {
+            refuse(where + ": JOINTS_0, WEIGHTS_0 and POSITION have different counts");
+        }
+        weights.resize(positions.size());
+        for (std::size_t i = 0; i < positions.size(); ++i) {
+            std::array<float, 4> w{raw[4 * i], raw[4 * i + 1], raw[4 * i + 2], raw[4 * i + 3]};
+            float sum = 0.F;
+            for (const float value : w) {
+                if (value < 0.F) {
+                    refuse(where + ": vertex " + std::to_string(i) + " has a negative weight");
+                }
+                sum += value;
+            }
+            if (!(sum > 0.F)) {
+                refuse(where + ": vertex " + std::to_string(i) + "'s weights sum to 0");
+            }
+            for (std::size_t k = 0; k < 4; ++k) {
+                if (w[k] == 0.F) {
+                    joints[i][k] = 0; // unused; any index will do
+                    continue;
+                }
+                if (joints[i][k] >= skin->skeleton_joint.size()) {
+                    refuse(where + ": vertex " + std::to_string(i) + " names joint " + std::to_string(joints[i][k])
+                           + ", outside the skin");
+                }
+                joints[i][k] = skin->skeleton_joint[joints[i][k]];
+                w[k] /= sum;
+            }
+            weights[i] = {w[0], w[1], w[2], w[3]};
         }
     }
     std::vector<std::uint32_t> order;
@@ -753,6 +1203,10 @@ void add_primitive(Document& model, const Json& primitive, const math::Mat4& wor
                 if (!uvs.empty()) {
                     out.uvs.push_back(uvs[corner[k]]);
                 }
+                if (skin != nullptr) {
+                    built.joints.push_back(joints[corner[k]]);
+                    built.weights.push_back(weights[corner[k]]);
+                }
             }
         }
     } else {
@@ -762,6 +1216,8 @@ void add_primitive(Document& model, const Json& primitive, const math::Mat4& wor
             out.normals.push_back(unit_or_up(nx * n.x + ny * n.y + nz * n.z));
         }
         out.uvs.insert(out.uvs.end(), uvs.begin(), uvs.end());
+        built.joints.insert(built.joints.end(), joints.begin(), joints.end());
+        built.weights.insert(built.weights.end(), weights.begin(), weights.end());
         for (std::size_t t = 0; t < triangles.size(); t += 3) {
             out.indices.push_back(base + triangles[t]);
             out.indices.push_back(base + triangles[mirrored ? t + 2 : t + 1]);
@@ -774,7 +1230,8 @@ void add_primitive(Document& model, const Json& primitive, const math::Mat4& wor
     built.parts.push_back({first_index, static_cast<std::uint32_t>(out.indices.size() - first_index), material});
 }
 
-Built read_scene(const Json& root, Document& model, Materials* materials)
+// With `skin`, every mesh in the scene must use that skin, and is read in bind space.
+Built read_scene(const Json& root, Document& model, Materials* materials, const SkinBinding* skin)
 {
     if (!root.is_object()) {
         refuse("the glTF JSON is not an object");
@@ -825,12 +1282,20 @@ Built read_scene(const Json& root, Document& model, Materials* materials)
         visited[index] = true;
         const math::Mat4 world = parent * node_matrix(node, where);
         if (const auto mesh_index = optional_index(node, "mesh", where)) {
+            math::Mat4 placed = world;
+            if (skin != nullptr) {
+                const auto node_skin = optional_index(node, "skin", where);
+                if (!node_skin || *node_skin != skin->skin) {
+                    refuse(where + ": a mesh without the model's skin, which is not read yet in a skinned model");
+                }
+                placed = math::Mat4{}; // glTF: a skinned mesh's own node transform is ignored
+            }
             const Json& mesh = element(meshes, *mesh_index, "mesh");
             const Json& primitives = array_field(mesh, "primitives", name("mesh", *mesh_index));
             for (std::size_t p = 0; p < primitives.size(); ++p) {
                 const Json& primitive = element(primitives, p, name("mesh", *mesh_index) + " primitive");
-                add_primitive(model, primitive, world, name("mesh", *mesh_index) + " primitive " + std::to_string(p), out,
-                              materials);
+                add_primitive(model, primitive, placed, name("mesh", *mesh_index) + " primitive " + std::to_string(p), out,
+                              materials, skin);
             }
         }
         const Json& children = array_field(node, "children", where);
@@ -890,49 +1355,62 @@ bool inside_folder(std::string_view uri)
 
 namespace {
 
+// A .gltf or .glb file's JSON, and the .glb binary chunk if there is one.
+struct Parsed {
+    Json root;
+    std::optional<std::span<const std::byte>> binary;
+};
+
+Parsed parse(std::span<const std::byte> file)
+{
+    std::span<const std::byte> json = file;
+    std::optional<std::span<const std::byte>> binary;
+    if (file.size() >= 4 && std::memcmp(file.data(), "glTF", 4) == 0) {
+        // .glb: a 12-byte header, then a JSON chunk and an optional binary chunk, each with
+        // an 8-byte length-and-type header.
+        if (file.size() < 20) {
+            refuse("the .glb file is too short");
+        }
+        if (u32_at(file, 4) != 2) {
+            refuse("only .glb version 2 is read");
+        }
+        const std::size_t length = u32_at(file, 8);
+        if (length > file.size() || length < 20) {
+            refuse("the .glb header's length does not match the file");
+        }
+        const std::size_t json_length = u32_at(file, 12);
+        if (u32_at(file, 16) != 0x4E4F534AU || json_length > length - 20) {
+            refuse("the .glb file's first chunk is not a whole JSON chunk");
+        }
+        json = file.subspan(20, json_length);
+        const std::size_t next = 20 + json_length;
+        if (next + 8 <= length && u32_at(file, next + 4) == 0x004E4942U) {
+            const std::size_t binary_length = u32_at(file, next);
+            if (binary_length > length - next - 8) {
+                refuse("the .glb binary chunk runs past the end of the file");
+            }
+            binary = file.subspan(next + 8, binary_length);
+        }
+    }
+    const auto* text = reinterpret_cast<const char*>(json.data());
+    Parsed parsed{Json::parse(text, text + json.size(), nullptr, false), binary};
+    if (parsed.root.is_discarded()) {
+        refuse("the glTF JSON is malformed");
+    }
+    return parsed;
+}
+
 // Both reads: the shape, and with `with_materials` the materials and images too.
 std::optional<Model> read_any(std::span<const std::byte> file, const BufferReader& external, std::string& error,
                               bool with_materials)
 {
     try {
-        std::span<const std::byte> json = file;
-        std::optional<std::span<const std::byte>> binary;
-        if (file.size() >= 4 && std::memcmp(file.data(), "glTF", 4) == 0) {
-            // .glb: a 12-byte header, then a JSON chunk and an optional binary chunk, each with
-            // an 8-byte length-and-type header.
-            if (file.size() < 20) {
-                refuse("the .glb file is too short");
-            }
-            if (u32_at(file, 4) != 2) {
-                refuse("only .glb version 2 is read");
-            }
-            const std::size_t length = u32_at(file, 8);
-            if (length > file.size() || length < 20) {
-                refuse("the .glb header's length does not match the file");
-            }
-            const std::size_t json_length = u32_at(file, 12);
-            if (u32_at(file, 16) != 0x4E4F534AU || json_length > length - 20) {
-                refuse("the .glb file's first chunk is not a whole JSON chunk");
-            }
-            json = file.subspan(20, json_length);
-            const std::size_t next = 20 + json_length;
-            if (next + 8 <= length && u32_at(file, next + 4) == 0x004E4942U) {
-                const std::size_t binary_length = u32_at(file, next);
-                if (binary_length > length - next - 8) {
-                    refuse("the .glb binary chunk runs past the end of the file");
-                }
-                binary = file.subspan(next + 8, binary_length);
-            }
-        }
-        const auto* text = reinterpret_cast<const char*>(json.data());
-        const Json root = Json::parse(text, text + json.size(), nullptr, false);
-        if (root.is_discarded()) {
-            refuse("the glTF JSON is malformed");
-        }
-        Document document(root, binary, external);
+        const Parsed parsed = parse(file);
+        const Json& root = parsed.root;
+        Document document(root, parsed.binary, external);
         Model model;
         Materials materials(root, document, model);
-        Built built = read_scene(root, document, with_materials ? &materials : nullptr);
+        Built built = read_scene(root, document, with_materials ? &materials : nullptr, nullptr);
         if (!valid_mesh(built.mesh, error)) {
             return std::nullopt;
         }
@@ -996,6 +1474,41 @@ std::optional<Model> load_model(const std::filesystem::path& file, std::string& 
 {
     return load_any(file, error, [&](std::span<const std::byte> bytes, const BufferReader& external) {
         return read_model(bytes, external, error);
+    });
+}
+
+std::optional<SkinnedModel> read_skinned(std::span<const std::byte> file, const BufferReader& external, std::string& error)
+{
+    try {
+        const Parsed parsed = parse(file);
+        Document document(parsed.root, parsed.binary, external);
+        SkinnedModel out;
+        Materials materials(parsed.root, document, out.model);
+        SkinSetup setup = prepare_skin(parsed.root, document);
+        Built built = read_scene(parsed.root, document, &materials, &setup.binding);
+        if (!valid_mesh(built.mesh, error)) {
+            return std::nullopt;
+        }
+        out.model.mesh = std::move(built.mesh);
+        out.model.parts = std::move(built.parts);
+        out.joints = std::move(built.joints);
+        out.weights = std::move(built.weights);
+        out.clips = read_clips(parsed.root, document, setup);
+        out.skeleton = std::move(setup.skeleton);
+        error.clear();
+        return out;
+    } catch (const Refusal& refusal) {
+        error = refusal.reason;
+    } catch (const Json::exception&) {
+        error = "the glTF JSON has a value of an unexpected type";
+    }
+    return std::nullopt;
+}
+
+std::optional<SkinnedModel> load_skinned(const std::filesystem::path& file, std::string& error)
+{
+    return load_any(file, error, [&](std::span<const std::byte> bytes, const BufferReader& external) {
+        return read_skinned(bytes, external, error);
     });
 }
 

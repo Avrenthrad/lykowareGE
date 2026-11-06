@@ -1,8 +1,10 @@
 #pragma once
 
+#include <lykoware/animation.hpp>
 #include <lykoware/image_decode.hpp>
 #include <lykoware/mesh.hpp>
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -16,8 +18,9 @@
 // Lykoware's glTF 2.0 reader (ADR 0035, ADR 0038). Reads a model's shape: every triangle mesh
 // in its default scene, with each node's transform applied, merged into one MeshData. read_model
 // and load_model also read texture coordinates (TEXCOORD_0) and base colour materials, with
-// their textures decoded (PNG and JPEG, ADR 0036). Skins, morph targets, animation, cameras and
-// the other material maps are ignored for now.
+// their textures decoded (PNG and JPEG, ADR 0036). read_skinned and load_skinned read a skinned
+// model with its skeleton and animations (ADR 0050); read and read_model ignore skins and
+// animations. Morph targets, cameras and the other material maps are ignored for now.
 //
 // Read: .gltf (JSON) and .glb (binary) files; buffers inside a .glb, in base64 data URIs, or in
 // separate files; float positions and normals (flat normals are made when a primitive has
@@ -100,5 +103,35 @@ struct Model {
 [[nodiscard]] std::optional<Model> read_model(std::span<const std::byte> file, const BufferReader& external,
                                               std::string& error);
 [[nodiscard]] std::optional<Model> load_model(const std::filesystem::path& file, std::string& error);
+
+// A skinned, animated model (ADR 0050).
+struct SkinnedModel {
+    // The mesh in bind space (the skinned mesh nodes' own transforms are ignored, as glTF
+    // requires), with its parts and base colour materials as read_model gives them.
+    Model model;
+    // For each vertex of model.mesh: up to four skeleton joints and their weights, which sum to 1
+    // (normalised on reading); an unused slot has weight 0.
+    std::vector<std::array<std::uint16_t, 4>> joints;
+    std::vector<math::Vec4> weights;
+    // The skin's joints and every node above them, parents first, so transforms above the joints
+    // (an exporter's armature node, say) are kept. A skin joint's inverse bind matrix is the
+    // skin's (the identity when the skin gives none); the nodes above have the identity.
+    animation::Skeleton skeleton;
+    // The model's animations, one clip each, named as in the file ("animation N" when unnamed).
+    // Channels for nodes outside the skeleton and morph-target weights are left out.
+    std::vector<animation::Clip> clips;
+};
+
+// As read_model, for a model whose meshes are skinned. Also refused: a model with no skin or more
+// than one; a mesh in the scene without the skin; a skinned primitive without JOINTS_0 and
+// WEIGHTS_0, or with JOINTS_1 (more than four joints a vertex); a joint index outside the skin;
+// negative weights or weights summing to 0; more than animation::max_joints skeleton joints; a
+// skeleton node whose matrix is not translation, rotation and scale; fewer inverse bind matrices
+// than joints; and animations that would not sample (animation::valid_clip), have an unknown
+// interpolation or path, or keys in an unsupported form. Joint indices may be unsigned 8- or
+// 16-bit; weights and rotation keys float or normalised integers, as glTF allows.
+[[nodiscard]] std::optional<SkinnedModel> read_skinned(std::span<const std::byte> file, const BufferReader& external,
+                                                       std::string& error);
+[[nodiscard]] std::optional<SkinnedModel> load_skinned(const std::filesystem::path& file, std::string& error);
 
 }
