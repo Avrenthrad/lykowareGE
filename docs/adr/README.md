@@ -50,6 +50,7 @@ Canonical directory: docs/adr. Decisions remain Proposed until resolved; disting
 | [0049](0049-skeletal-animation-core.md) | Proposed | Phase 2: `lykoware::animation`, our own skeletal animation core: skeletons, glTF-model clips (step, linear with slerp, cubic spline), sampling, pose blending and skinning matrices |
 | [0050](0050-gltf-skins-and-animations.md) | Proposed | Phase 2: `gltf::read_skinned`/`load_skinned`: a skinned mesh in bind space with per-vertex joints and weights, a skeleton of the skin's joints and every node above them, and animations as clips; `read`/`read_model` unchanged |
 | [0051](0051-cpu-skinning-reference.md) | Proposed | CPU skinning reference: validated affine blends, inverse-transpose normals, transactional output and real glTF pose captures; correctness slice before GPU skinning |
+| [0052](0052-gpu-skinning.md) | Proposed | GPU skinned meshes and per-instance poses; fenced dynamic-uniform arenas, static fast path and procedural animated playable mannequin |
 
 Use [the template](TEMPLATE.md). Record context, options, decision/status, contracts, consequences and verification. Use a new ADR to supersede an accepted choice; do not silently rewrite its history.
 

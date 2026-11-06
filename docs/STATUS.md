@@ -2,7 +2,22 @@
 
 Records what is implemented and verified on `main`. Plans live in [ROADMAP.md](ROADMAP.md); task ownership in [WORK_BOARD.md](WORK_BOARD.md). Older per-branch handoffs are in the merged pull requests and git history.
 
-## Current continuation: CPU skinning reference (Codex, not merged)
+## Current continuation: GPU skinning and animated player (Codex, not merged)
+
+Draft [#57](https://github.com/Avrenthrad/lykowareGE/pull/57), `codex/gpu-skinning`, stacked on #56. [ADR 0052](adr/0052-gpu-skinning.md) adds an optional skinned shader/layout, `Renderer::add_skinned_mesh`, per-instance `render::SkinPose`, and reusable dynamic-uniform arenas owned by offscreen targets or fenced swapchain frame slots. Geometry uploads once; poses copy matrices. Static geometry has a shader fast path; static-only renderers retain their original format/shader.
+
+The sandbox's `--play` now draws an original procedural seven-joint mannequin with sampled idle/walk clips, smooth speed-based blending, interpolated placement and first-person hiding. Its visor follows the animated head. Animation does not write the physics controller. No external model, editor or paid service is needed.
+
+- **Frozen source:** `1ef0bbbe45cf9dacf83e593aa009a6f3948f7da5`, clean and unchanged, passed **65/65 CTests each** Linux Debug, ASan/UBSan and clang-tidy 18, no skips. Configure/build/install/installed CLI passed. GCC 14.2, CMake/CTest 3.31.6, Mesa lavapipe LLVM 19. Fingerprint `623c653e9e0ae35038c6948ba4c027a76e3c4cbe4a2683bd6f6e1c6a5469f0a3`. Report: `/workspace/lykoware-health-gpu-skinning-final/report.json`. Subsequent handoff edits are documentation only.
+- **GPU checks:** actual CPU/GPU image comparisons cover blended translation, out-of-plane rotation/non-uniform scale and lit normals, four active influences including joint 255, independent instances, missing-pose bind geometry, singular-normal fallback, repeated updates, arena growth/cap refusal/recovery and renderer recreation. Malformed zero-valued owned mesh/texture IDs are now rejected without slot underflow. Static fast-path captures match the original pipeline; existing scene golden passes.
+- **Test-strength evidence:** an initial flat-normal case missed a shader using the position matrix for normals. The out-of-plane case was added and demonstrably rejects that valid-but-wrong shader. The final suite also rejects a shader dropping the fourth influence. Fault shaders/captures are external diagnostic artifacts, never committed.
+- **Validation layers:** the 65-test matrix ran without a validation layer. A local development copy of Khronos validation 1.4.309 was then enabled, with its log confirming `VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT`. `render.gpu_skinning`, `lifecycle.restart_vulkan` and the 60-frame `sandbox.play` all passed in Debug, no skips or reported validation errors. Supplemental output: `/workspace/gpu-sync-validation-tests.log`. This is software Vulkan coverage, not physical GPU proof.
+- **Captures:** ignored `build/<preset>/gpu-skinning/mannequin.ppm` and pose diagnostics. They show actual GPU-rendered test content, not finished character art.
+- **Costs/limits:** palettes copy 16 KiB per mesh part, bounded at 4096 nonempty draw palettes; arenas retain high-water capacity. Animation-enabled static meshes use a larger stride. These costs need profiling before crowds/world budgets. Windows/MSVC and physical-GPU performance remain unverified; [CI run 42161276822](https://github.com/Avrenthrad/lykowareGE/actions/runs/42161276822) failed five jobs with zero steps, with GitHub citing failed payments/spending limit. No billing or gate change was made.
+
+Next: imported character/clip playback, locomotion setup and foot IK, followed by animation/physics blending and ragdoll. Joshua retains merge ownership; main, Phase 1 acceptance and hardware gates are unchanged.
+
+## CPU skinning reference: PR #56 (not merged)
 
 The owner asked Codex to check Claude's latest pushes and continue. Exact Claude glTF skins source `15383a27bcc788191bb6646f5d01f27a4673ea47` passed **61/61 CTests in each** Linux Debug, ASan/UBSan and clang-tidy 18, no skips, with clean unchanged repository inputs. Configure/build/install/installed CLI passed, using GCC 14.2, CMake/CTest 3.31.6 and Mesa lavapipe LLVM 19. The original audio/renderer ownership probes now both exit 0 and reject foreign/stale IDs. These are independent local results; current hosted CI still fails before steps execute, and Windows remains unverified.
 

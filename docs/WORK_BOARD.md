@@ -5,7 +5,7 @@
 Canonical implementation status: [STATUS.md](STATUS.md).
 Canonical plan: [ROADMAP.md](ROADMAP.md).
 
-`main` at `7616ce3` includes Claude's #32–#34 math/mesh/renderer stack (alongside #31 ECS/physics) and Codex's #35 contract hardening and #36 scenes/command replay. Claude's pending runtime/character stack reaches glTF skin/animation loading (#55). Codex continues with the CPU skinning reference (#56); main is unchanged. Earlier per-task entries remain in pull requests/git history. Details: [STATUS](STATUS.md).
+`main` at `7616ce3` includes Claude's #32–#34 math/mesh/renderer stack (alongside #31 ECS/physics) and Codex's #35 contract hardening and #36 scenes/command replay. Claude's pending runtime/character stack reaches glTF skin/animation loading (#55). Codex has continued through the CPU reference (#56) and GPU skinning/animated player (#57); main is unchanged. Earlier per-task entries remain in pull requests/git history. Details: [STATUS](STATUS.md).
 
 Owner-supplied vision is captured in [ENGINE_VISION.md](ENGINE_VISION.md).
 
@@ -15,9 +15,13 @@ Check latest main and open PRs before starting. Documents do not automatically s
 
 ## Active task: GPU skinning and animated player (Codex)
 
-- Owner/status: Codex, implementing on `codex/gpu-skinning`, based on #56 `7eaa2e3`.
+- Owner/status: Codex, implemented in draft [#57](https://github.com/Avrenthrad/lykowareGE/pull/57) on `codex/gpu-skinning`, based on #56 `7eaa2e3`.
 - Scope: [ADR 0052](adr/0052-gpu-skinning.md), RHI frame-owned palettes, renderer skinned mesh/pose API, GPU/CPU comparison captures and procedural animated sandbox player. No editor or physics-controller rewrite.
-- Checks: GPU vs CPU captures, independent poses, repeated frame-slot reuse/growth, malformed inputs, restart, all three native Linux profiles. Windows and hardware budgets stay open; Joshua merges.
+- Verified runtime/test source: `1ef0bbbe45cf9dacf83e593aa009a6f3948f7da5`, clean unchanged source; 65/65 each Debug, ASan/UBSan and clang-tidy 18, no skips; build/staging/installed CLI pass. Report/fingerprint and exact scope in STATUS. Subsequent handoff edits are documentation only.
+- New checks: GPU vs CPU captures, independent poses, four influence slots/joint 255, normal transform/singular fallback, arena growth/cap refusal/recovery, malformed IDs, restart, mannequin motion and headless play. Wrong-normal and missing-fourth-influence shader mutations were caught; the first exposed and closed a flat-normal coverage gap.
+- Supplemental Debug checks with Khronos 1.4.309 synchronization validation enabled: GPU skinning, Vulkan restart and sandbox play all pass, no skips/errors reported. No validation tool binary was committed.
+- Limits: per-part padded palette copies, retained arena capacity, larger static stride in animation-enabled renderers; no crowd/flagship budget claim. Hosted CI fails before steps (42161276822, billing/spend-limit annotation); Windows and target hardware remain unverified. Joshua merges.
+- Next: imported character/clip integration and foot IK, then animation/physics blending/ragdoll. No main merge or roadmap exit.
 
 ## Active task: CPU skinning reference and rendered pose checks (Codex)
 
