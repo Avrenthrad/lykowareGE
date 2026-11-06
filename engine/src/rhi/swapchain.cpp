@@ -3,6 +3,7 @@
 #include "common.hpp"
 #include "device_access.hpp"
 #include "pipeline_access.hpp"
+#include "skin_arena.hpp"
 
 #include <volk.h>
 
@@ -34,6 +35,7 @@ constexpr std::uint64_t wait_timeout_ns = 10'000'000'000ULL;
 constexpr std::size_t gpu_frame_time_capacity = 1024;
 
 struct Frame {
+    detail::SkinArena skin;
     VkCommandPool pool = VK_NULL_HANDLE;
     VkCommandBuffer commands = VK_NULL_HANDLE;
     VkFence in_flight = VK_NULL_HANDLE;
@@ -344,9 +346,10 @@ struct Swapchain::Impl {
     // vertex_count vertices with `pipeline` (when not null); otherwise draws
     // the meshes, with depth when `depth` is set.
     bool render_frame(const ClearColor& color, VkPipeline pipeline, std::uint32_t vertex_count, RhiError& error,
-                      const std::vector<detail::PreparedDraw>* meshes = nullptr, VkPipelineLayout layout = VK_NULL_HANDLE,
+                      std::vector<detail::PreparedDraw>* meshes = nullptr, VkPipelineLayout layout = VK_NULL_HANDLE,
                       bool depth = false);
 
+    const Device* owner_device = nullptr;
     const Instance* instance = nullptr;
     Window* window = nullptr;
     VmaAllocator allocator = VK_NULL_HANDLE;
@@ -397,6 +400,7 @@ std::unique_ptr<Swapchain> Swapchain::create(
     }
 
     auto impl = std::make_unique<Impl>();
+    impl->owner_device = &device;
     impl->instance = &instance;
     impl->window = &window;
     impl->physical = static_cast<VkPhysicalDevice>(device.native_physical_device());
@@ -608,7 +612,7 @@ bool Swapchain::render_meshes(const ClearColor& clear, const GraphicsPipeline& p
 }
 
 bool Swapchain::Impl::render_frame(const ClearColor& color, VkPipeline pipeline, std::uint32_t vertex_count,
-                                   RhiError& error, const std::vector<detail::PreparedDraw>* meshes,
+                                   RhiError& error, std::vector<detail::PreparedDraw>* meshes,
                                    VkPipelineLayout layout, bool depth)
 {
     Impl& impl = *this;
@@ -642,6 +646,10 @@ bool Swapchain::Impl::render_frame(const ClearColor& color, VkPipeline pipeline,
         return fail(error, RhiFailure::DriverError, driver_failure("vkWaitForFences", result));
     }
     impl.collect_gpu_time(impl.frame_index);
+    // The slot is idle. Upload before acquiring an image/resetting the fence, so an upload
+    // refusal leaves synchronization reusable on the next call.
+    if (meshes != nullptr && !frame.skin.prepare(*impl.owner_device, *meshes, error)) { return false; }
+
 
     std::uint32_t image_index = 0;
     result = vkAcquireNextImageKHR(impl.device, impl.swapchain, wait_timeout_ns, frame.image_available,

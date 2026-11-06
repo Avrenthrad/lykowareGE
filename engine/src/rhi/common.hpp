@@ -51,6 +51,10 @@ struct PreparedDraw {
     // The texture's descriptor set (set 0), or null for a pipeline without one.
     VkDescriptorSet texture = VK_NULL_HANDLE;
     std::uint32_t first_index = 0;
+    bool skinned = false;
+    std::span<const math::Mat4> skin_matrices{};
+    VkDescriptorSet skin = VK_NULL_HANDLE;
+    std::uint32_t skin_offset = 0;
 };
 
 // Checks `meshes` against the pipeline and the target being drawn to (the

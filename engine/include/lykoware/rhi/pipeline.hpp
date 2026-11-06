@@ -3,6 +3,7 @@
 #include <lykoware/rhi/device.hpp>
 #include <lykoware/rhi/instance.hpp>
 
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <memory>
@@ -88,12 +89,19 @@ enum class VertexLayout {
     // One vertex buffer of 32-byte vertices: float3 position at location 0,
     // float3 normal at location 1, float2 texture coordinate at location 2 (ADR 0037).
     PositionNormalUv,
+    // PositionNormalUv plus uint16x4 joints at location 3 and float4 weights at location 4.
+    // Weights are normalised/nonnegative (all zero selects static geometry); joints < 256.
+    SkinnedPositionNormalUv,
 };
 
 // Size in bytes of one VertexLayout::PositionNormal vertex.
 inline constexpr std::uint32_t position_normal_stride = 24;
 // Size in bytes of one VertexLayout::PositionNormalUv vertex.
 inline constexpr std::uint32_t position_normal_uv_stride = 32;
+
+inline constexpr std::uint32_t skinned_position_normal_uv_stride = 56;
+inline constexpr std::size_t skin_palette_max_joints = 256;
+inline constexpr std::size_t skin_palette_max_draws = 4096;
 
 // Largest push-constant block, the size every Vulkan device guarantees.
 inline constexpr std::uint32_t push_constant_max_bytes = 128;

@@ -30,6 +30,7 @@ add_library(lykoware_engine STATIC
     src/input.cpp
     src/platform_map.cpp
     src/window.cpp
+    src/rhi/skin_arena.cpp
     src/rhi/buffer.cpp
     src/rhi/common.cpp
     src/rhi/instance.cpp

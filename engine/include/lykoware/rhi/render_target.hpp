@@ -87,14 +87,15 @@ public:
     // One dynamic-rendering pass: clear colour to `clear` and depth to far,
     // then draw each mesh in order with `pipeline`, then wait. Refused with
     // InvalidArgument, nothing submitted, when: the pipeline's colour format
-    // differs; it has no mesh vertex layout (PositionNormal or
-    // PositionNormalUv); it uses depth and this target has none; a mesh lacks
+    // differs; it has no mesh vertex layout; it uses depth and this target has none; a mesh lacks
     // a vertex or index buffer of the right usage; the indices it draws
     // (first_index, index_count) are none, not a multiple of 3 or past the
     // end of the buffer; an index reaches past
     // the last vertex; its push constants are not exactly the pipeline's
     // push_constant_bytes; or it names no texture for a pipeline that reads
-    // one, or names one for a pipeline that does not.
+    // one, or names one for a pipeline that does not; or supplies a skin palette to a
+    // static pipeline, more than 256/non-affine/non-finite matrices, or more than 4096
+    // nonempty draw palettes. Skinned vertex data follows VertexLayout's contract.
     [[nodiscard]] bool draw_meshes(const ClearColor& clear, const GraphicsPipeline& pipeline,
                                    std::span<const MeshDraw> meshes, RhiError& error);
 

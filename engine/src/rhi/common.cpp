@@ -118,8 +118,9 @@ bool prepare_mesh_draws(const GraphicsPipeline& pipeline, ColorFormat target_for
         return fail(error, RhiFailure::InvalidArgument,
                     "drawing meshes needs a pipeline with a mesh vertex layout (PositionNormal or PositionNormalUv)");
     }
-    const std::size_t stride =
-        pipeline.vertex_layout() == VertexLayout::PositionNormalUv ? position_normal_uv_stride : position_normal_stride;
+    const bool skinned = pipeline.vertex_layout() == VertexLayout::SkinnedPositionNormalUv;
+    const std::size_t stride = skinned ? skinned_position_normal_uv_stride
+        : (pipeline.vertex_layout() == VertexLayout::PositionNormalUv ? position_normal_uv_stride : position_normal_stride);
     if (pipeline.depth() && !target_has_depth) {
         return fail(error, RhiFailure::InvalidArgument, "the pipeline uses depth but the target has none");
     }
@@ -155,12 +156,27 @@ bool prepare_mesh_draws(const GraphicsPipeline& pipeline, ColorFormat target_for
         if (!pipeline.texture() && mesh.texture != nullptr) {
             return fail(error, RhiFailure::InvalidArgument, which + "the mesh names a texture but the pipeline reads none");
         }
+        if ((!skinned && !mesh.skin_matrices.empty()) || mesh.skin_matrices.size() > skin_palette_max_joints) {
+            return fail(error, RhiFailure::InvalidArgument, which + "invalid skin palette for this pipeline");
+        }
+        for (const auto& matrix : mesh.skin_matrices) {
+            for (const auto& column : matrix.m) {
+                for (float value : column) {
+                    if (!std::isfinite(value)) {
+                        return fail(error, RhiFailure::InvalidArgument, which + "skin matrices must be finite");
+                    }
+                }
+            }
+            if (matrix.m[0][3] != 0.F || matrix.m[1][3] != 0.F || matrix.m[2][3] != 0.F || matrix.m[3][3] != 1.F) {
+                return fail(error, RhiFailure::InvalidArgument, which + "skin matrices must be affine");
+            }
+        }
         draws.push_back({static_cast<VkBuffer>(mesh.vertices->native_handle()),
                          static_cast<VkBuffer>(mesh.indices->native_handle()), static_cast<std::uint32_t>(count),
                          mesh.push_constants.data(), static_cast<std::uint32_t>(mesh.push_constants.size()),
                          mesh.texture != nullptr ? static_cast<VkDescriptorSet>(mesh.texture->native_descriptor_set())
                                                  : VK_NULL_HANDLE,
-                         mesh.first_index});
+                         mesh.first_index, skinned, mesh.skin_matrices});
     }
     return true;
 }
@@ -232,6 +248,10 @@ void record_mesh_pass(VkCommandBuffer commands, VkImageView colour_view, VkImage
         if (draw.texture != VK_NULL_HANDLE && draw.texture != bound) {
             vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &draw.texture, 0, nullptr);
             bound = draw.texture;
+        }
+        if (draw.skin != VK_NULL_HANDLE) {
+            vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 1, 1, &draw.skin,
+                                    1, &draw.skin_offset);
         }
         if (draw.push_constant_bytes > 0) {
             vkCmdPushConstants(commands, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,

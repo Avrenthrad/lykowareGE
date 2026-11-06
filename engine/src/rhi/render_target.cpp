@@ -3,6 +3,7 @@
 #include "common.hpp"
 #include "device_access.hpp"
 #include "pipeline_access.hpp"
+#include "skin_arena.hpp"
 
 #include <lykoware/log.hpp>
 
@@ -32,6 +33,7 @@ constexpr std::uint32_t bytes_per_texel = 4;
 }
 
 struct RenderTarget::Impl {
+    detail::SkinArena skin;
     ~Impl()
     {
         if (view != VK_NULL_HANDLE) {
@@ -245,6 +247,7 @@ bool RenderTarget::draw_meshes(const ClearColor& clear, const GraphicsPipeline& 
     }
 
     Impl& impl = *impl_;
+    if (!impl.skin.prepare(*impl.device, draws, error)) { return false; }
     const VkImageView depth_view = pipeline.depth() ? impl.depth_view : VK_NULL_HANDLE;
     const auto vk_pipeline = static_cast<VkPipeline>(pipeline.native_handle());
     const auto vk_layout = static_cast<VkPipelineLayout>(pipeline.native_layout());

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <lykoware/math.hpp>
 #include <lykoware/rhi/device.hpp>
 #include <lykoware/rhi/instance.hpp>
 
@@ -74,6 +75,10 @@ struct MeshDraw {
     // The first index drawn, so one index buffer can hold several parts (ADR 0038). With
     // index_count 0, the draw runs from here to the end of the buffer.
     std::uint32_t first_index = 0;
+    // Skinned pipelines only: 1..256 finite affine matrices, copied during the draw call.
+    // Empty uses the identity palette. Other pipelines require empty. The caller retains no
+    // GPU lifetime obligation for this span after draw returns.
+    std::span<const math::Mat4> skin_matrices{};
 };
 
 }

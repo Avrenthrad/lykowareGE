@@ -244,6 +244,9 @@ struct Device::Impl {
             if (command_pool != VK_NULL_HANDLE) {
                 vkDestroyCommandPool(device, command_pool, nullptr);
             }
+            if (skin_layout != VK_NULL_HANDLE) {
+                vkDestroyDescriptorSetLayout(device, skin_layout, nullptr);
+            }
             if (texture_layout != VK_NULL_HANDLE) {
                 vkDestroyDescriptorSetLayout(device, texture_layout, nullptr);
             }
@@ -270,6 +273,8 @@ struct Device::Impl {
     VkCommandBuffer command_buffer = VK_NULL_HANDLE;
     VkFence fence = VK_NULL_HANDLE;
     VkDescriptorSetLayout texture_layout = VK_NULL_HANDLE;
+    VkDescriptorSetLayout skin_layout = VK_NULL_HANDLE;
+    VkDeviceSize uniform_alignment = 1;
     std::uint32_t max_image_dimension = 0;
     // GPU timestamps (ADR 0039): the graphics queue's valid bits (0 means none), nanoseconds
     // per tick, and two queries for timing one-shot submissions.
@@ -434,9 +439,18 @@ std::unique_ptr<Device> Device::create(const Instance& instance, const DeviceCon
         fail(error, RhiFailure::DriverError, driver_failure("vkCreateDescriptorSetLayout", result));
         return nullptr;
     }
+    texture_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+    texture_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    result = vkCreateDescriptorSetLayout(impl->device, &layout_info, nullptr, &impl->skin_layout);
+    if (result != VK_SUCCESS) {
+        impl->skin_layout = VK_NULL_HANDLE;
+        fail(error, RhiFailure::DriverError, driver_failure("skin descriptor layout", result));
+        return nullptr;
+    }
     VkPhysicalDeviceProperties properties{};
     vkGetPhysicalDeviceProperties(impl->physical, &properties);
     impl->max_image_dimension = properties.limits.maxImageDimension2D;
+    impl->uniform_alignment = properties.limits.minUniformBufferOffsetAlignment;
 
     // GPU timestamps, when the graphics queue writes them (ADR 0039).
     std::uint32_t family_count = 0;
@@ -537,6 +551,16 @@ float DeviceAccess::timestamp_period(const Device& device)
 VkDescriptorSetLayout DeviceAccess::texture_set_layout(const Device& device)
 {
     return device.impl_->texture_layout;
+}
+
+VkDescriptorSetLayout DeviceAccess::skin_set_layout(const Device& device)
+{
+    return device.impl_->skin_layout;
+}
+
+VkDeviceSize DeviceAccess::uniform_alignment(const Device& device)
+{
+    return device.impl_->uniform_alignment;
 }
 
 std::uint32_t DeviceAccess::max_image_dimension(const Device& device)
