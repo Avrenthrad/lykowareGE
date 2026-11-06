@@ -55,3 +55,6 @@ Canonical directory: docs/adr. Decisions remain Proposed until resolved; disting
 Use [the template](TEMPLATE.md). Record context, options, decision/status, contracts, consequences and verification. Use a new ADR to supersede an accepted choice; do not silently rewrite its history.
 
 [Pre-brief records](../decisions/README.md) remain historical and are not part of this numbering sequence.
+
+- [0053: Imported playable character clips](0053-imported-player.md) — Proposed, #58.
+- [0054: Explicit visual character fitting](0054-character-fitting.md) — Proposed, #59.

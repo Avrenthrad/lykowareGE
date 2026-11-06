@@ -16,7 +16,7 @@ Owner-requested living checklist, saved 6 November 2026. Permanent entry point: 
 
 Runtime/character work is in review through [#58](https://github.com/Avrenthrad/lykowareGE/pull/58): scripting, audio, model/material loading, GPU timing, character controls, animation sampling, CPU/GPU skinning and imported playable glTF clips. #58 source `aabb116` passed 66/66 tests each Linux Debug, ASan/UBSan and clang-tidy 18 without skips; imported playback also passed synchronization validation. See STATUS for exact scope and evidence. These results do not close Windows/hardware or merge gates.
 
-**Next work:** rig inspection/fitting and locomotion configuration for imported characters, then foot IK. All broad completion items below remain open; existing implemented pieces are tracked in STATUS rather than falsely marking whole features complete.
+**Current work:** visual bind-size inspection and explicit height/origin fitting implemented in draft #59, with 66/66 tests each Linux Debug, ASan/UBSan and clang-tidy 18; synchronization-validation CLI check also passes. **Next:** authored character profiles, bone-role mapping and locomotion configuration, then foot IK. All broad completion items below remain open; existing implemented pieces are tracked in STATUS rather than falsely marking whole features complete.
 
 ## 1. Consolidate the current engine
 
@@ -37,6 +37,10 @@ Runtime/character work is in review through [#58](https://github.com/Avrenthrad/
 
 - [ ] **02.01** Define character import conventions and validation.
 - [ ] **02.02** Add rig inspection, scale fitting and capsule alignment.
+  - [ ] **02.02a** Visual bind-height inspection and explicit uniform height/feet-origin fitting — **implemented/in review**, [#59](https://github.com/Avrenthrad/lykowareGE/pull/59), source `1aab213`; Linux checks pass; merge and Windows gates remain open.
+  - [ ] **02.02b** Authored profile and humanoid bone-role mapping/inspection.
+  - [ ] **02.02c** Orientation correction and capsule/camera alignment.
+  - [ ] **02.02d** Retargeting and rig compatibility diagnostics.
 - [ ] **02.03** Configure clips through authored data.
 - [ ] **02.04** Add idle, walk, run, jump, fall and landing states.
 - [ ] **02.05** Blend transitions without snapping.

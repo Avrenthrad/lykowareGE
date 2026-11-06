@@ -1,5 +1,14 @@
 # Lykoware status
 
+## Character fitting continuation — draft #59
+
+Codex, `codex/character-fitting`, based on #58. ADR 0054 adds `--character-height METRES` and bind-height/joint-count diagnostics. A reusable sample helper uniformly scales and centres imported bind geometry, putting bind feet at the interpolated controller origin. Skeleton/clip data and physics/camera are unchanged. Authored placement remains default. This is partial visual fitting, not retargeting or automatic capsule fitting.
+
+Verified clean unchanged source `1aab2131ee4c745f552dd75500e18d3b114608b9`: 66/66 CTests each Linux Debug, ASan/UBSan and clang-tidy 18, no skips; configure/build/install/installed CLI pass. Report `/workspace/lykoware-character-fitting-validation/report.json`. Analytical off-centre feet/head placement, transactional failure, invalid numeric flags and real CLI playback are checked. Imported-player test also passes with Khronos synchronization validation enabled. Windows, hardware and hosted CI gates remain open. No merge; Joshua retains merge ownership.
+
+Checklist 02.02 is split into explicit substeps; visual fitting marked implemented/in review, remaining profiles, bone mapping, orientation/capsule alignment and retargeting open. Next: authored character profiles and locomotion configuration before foot IK. Later handoff edits are documentation only.
+
+
 ## Imported playable character continuation (Codex, draft #58)
 
 Branch `codex/imported-player`, stacked on #57. Source `aabb116afe40edc0a20652d190274606e963a42a` passed 66/66 each Linux Debug, ASan/UBSan and clang-tidy 18, no skips; configure/build/install/installed CLI pass, clean unchanged source. Report `/workspace/lykoware-imported-player-validation/report.json`. Additional Debug `sandbox.imported_player` passes with Khronos synchronization validation enabled. Windows/hardware and required hosted CI remain unverified/blocked; Joshua merges.
