@@ -79,7 +79,9 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
   - [ ] **02.11b** Validate mapped rest-pose limb lengths/bend planes and apply solved joint rotations.
     - [ ] **02.11b-engine** Validated direct-chain pose operation — **implemented/in review**, #63 `fbf7468`; unit scales only, no helper chains.
     - [ ] **02.11b-integration** Bridge mapped roles, rest/bend calibration and actor-world/model coordinates.
-    - [ ] **02.11b-runtime** Prepare validated chains/reusable scratch and measure runtime costs.
+    - [ ] **02.11b-runtime** Prepare validated chains/reusable scratch and measure runtime costs. **In progress:** ADR 0061 adds immutable prepared chains, bounded scratch and retained controller/body buffers. Local Debug 72/72 passed; 128 varied cases match the reference exactly, 1,000 prepared solves record zero ordinary C++ heap allocations versus 7,000 in the reference fixture. Windows/sanitizer/analysis and target-PC/crowd budgets remain separate.
+      - [ ] **02.11b-runtime-prepared** Integrate prepared direct-chain solver and retained foot-placement storage after native/hosted checks.
+      - [ ] **02.11b-runtime-scale** Profile representative rigs/crowds and remaining animation/palette allocations on target hardware.
   - [ ] **02.11c** Terrain probes, foot planting, offsets and temporal smoothing. **Partial:** stationary probes/clearance/smoothing/resets implemented in #64; walking locks and orientation remain open.
   - [ ] **02.11d** Integrate pelvis/body constraints and verify varied terrain/character rigs.
 - [ ] **02.12** Add ragdolls and animation/physics blending.

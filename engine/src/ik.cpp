@@ -186,3 +186,112 @@ bool pose_two_bone(const Skeleton& skeleton, const Pose& pose,
     out=std::move(candidate); solution=solved; error.clear(); return true;
 }
 }
+
+namespace lykoware::animation {
+std::optional<PreparedTwoBone> PreparedTwoBone::prepare(const Skeleton& skeleton,
+    std::size_t root, std::size_t knee, std::size_t end, std::string& error)
+{
+    if (!valid_skeleton(skeleton, error)) { return std::nullopt; }
+    const auto count = skeleton.joints.size();
+    if (root >= count || knee >= count || end >= count
+        || skeleton.joints[knee].parent != root || skeleton.joints[end].parent != knee) {
+        refuse(error, "Prepared IK requires a direct root/knee/end chain");
+        return std::nullopt;
+    }
+    PreparedTwoBone plan;
+    plan.count_ = count;
+    plan.root_ = root; plan.knee_ = knee; plan.end_ = end;
+    for (std::size_t i = 0; i < count; ++i) {
+        if (skeleton.joints[i].rest.scale != math::Vec3{1, 1, 1}) {
+            refuse(error, "Prepared IK requires unit rest scales");
+            return std::nullopt;
+        }
+        plan.parents_[i] = skeleton.joints[i].parent.value_or(static_cast<std::uint16_t>(max_joints));
+    }
+    std::vector<math::Mat4> rest;
+    global_transforms(skeleton, rest_pose(skeleton), rest);
+    plan.upper_ = length(position(rest[knee]) - position(rest[root]));
+    plan.lower_ = length(position(rest[end]) - position(rest[knee]));
+    if (!(plan.upper_ >= 1e-6 && plan.upper_ <= 1e6 && plan.lower_ >= 1e-6 && plan.lower_ <= 1e6)) {
+        refuse(error, "Prepared IK requires representable nonzero rest segments");
+        return std::nullopt;
+    }
+    error.clear();
+    return plan;
+}
+
+bool PreparedTwoBone::valid_pose(std::span<const JointPose> pose, std::string& error) const
+{
+    if (pose.size() != count_) { return refuse(error, "Prepared IK requires a complete pose"); }
+    for (const auto& joint : pose) {
+        const auto t = joint.translation;
+        const auto q = joint.rotation;
+        const double norm = std::sqrt(static_cast<double>(q.x)*q.x + static_cast<double>(q.y)*q.y
+            + static_cast<double>(q.z)*q.z + static_cast<double>(q.w)*q.w);
+        if (!finite(V{t.x, t.y, t.z}) || !std::isfinite(norm) || std::abs(norm - 1.0) > 1e-3
+            || joint.scale != math::Vec3{1, 1, 1}) {
+            return refuse(error, "Prepared IK requires finite local poses, unit rotations and unit scales");
+        }
+    }
+    error.clear();
+    return true;
+}
+
+bool PreparedTwoBone::evaluate(TwoBoneScratch& scratch, std::string& error) const
+{
+    for (std::size_t i = 0; i < count_; ++i) {
+        const auto& local = scratch.candidate_[i];
+        const auto own = math::trs(local.translation, local.rotation, local.scale);
+        const auto parent = parents_[i];
+        scratch.global_[i] = parent < count_ ? scratch.global_[parent] * own : own;
+        scratch.rotations_[i] = math::normalize(parent < count_
+            ? scratch.rotations_[parent] * local.rotation : local.rotation);
+        for (const auto& column : scratch.global_[i].m) {
+            for (const float value : column) {
+                if (!std::isfinite(value)) { return refuse(error, "Prepared IK transforms overflow"); }
+            }
+        }
+    }
+    return true;
+}
+
+bool PreparedTwoBone::apply(std::span<const JointPose> pose, math::DVec3 target,
+    math::DVec3 hint, TwoBoneScratch& scratch, std::span<JointPose> out,
+    TwoBoneSolution& solution, std::string& error) const
+{
+    if (out.size() != count_) { return refuse(error, "Prepared IK requires complete output storage"); }
+    if (!valid_pose(pose, error)) { return false; }
+    std::copy(pose.begin(), pose.end(), scratch.candidate_.begin());
+    if (!evaluate(scratch, error)) { return false; }
+    auto& current = scratch.global_;
+    auto& rotation = scratch.rotations_;
+    const double upper = length(position(current[knee_]) - position(current[root_]));
+    const double lower = length(position(current[end_]) - position(current[knee_]));
+    if (!std::isfinite(upper) || !std::isfinite(lower)
+        || std::abs(upper - upper_) > upper_*1e-4 || std::abs(lower - lower_) > lower_*1e-4) {
+        return refuse(error, "Prepared IK requires unchanged rest segment lengths");
+    }
+    TwoBoneRequest request;
+    request.root = position(current[root_]); request.target = target; request.bend_hint = hint;
+    request.upper_length = upper; request.lower_length = lower;
+    request.fallback_forward = position(current[knee_]) - request.root;
+    TwoBoneSolution solved;
+    if (!solve_two_bone(request, solved, error)) { return false; }
+    const auto parent = parents_[root_];
+    const auto parent_rotation = parent < count_ ? rotation[parent] : math::Quat{};
+    const auto change = between(unit(position(current[knee_]) - request.root), unit(solved.knee - solved.root));
+    scratch.candidate_[root_].rotation = math::normalize(math::conjugate(parent_rotation)*change*rotation[root_]);
+    if (!evaluate(scratch, error)) { return false; }
+    const auto knee_position = position(current[knee_]);
+    const auto lower_change = between(unit(position(current[end_]) - knee_position), unit(solved.end - solved.knee));
+    scratch.candidate_[knee_].rotation = math::normalize(math::conjugate(rotation[root_])*lower_change*rotation[knee_]);
+    if (!evaluate(scratch, error)) { return false; }
+    const double tolerance = 1e-5 + (upper_ + lower_)*1e-4;
+    if (!(length(position(current[knee_]) - solved.knee) <= tolerance)
+        || !(length(position(current[end_]) - solved.end) <= tolerance)) {
+        return refuse(error, "Prepared IK failed forward-kinematic verification");
+    }
+    std::copy_n(scratch.candidate_.begin(), count_, out.begin());
+    solution = solved; error.clear(); return true;
+}
+}
