@@ -1,5 +1,10 @@
 # Shared work board
 
+## Active ten-step batch: stationary terrain alignment (Codex)
+
+Branch `codex/stationary-foot-placement`, based on #63 `d43b0f9`; ADR 0059. S01 calibration; S02 coordinate conversion; S03 opt-in profile; S04 retained roles; S05 physics probes; S06 bounded corrections; S07 smoothing/resets; S08 bilateral pose transaction; S09 diagnostics; S10 verification/checklist. All pending verification. This is stationary vertical alignment only, not dynamic foot locking, orientation or pelvis balancing. No physics writes or new performance claim; Windows/hardware/owner gates remain separate.
+
+
 ## Two-bone pose application — draft #63
 
 Codex, `codex/pose-ik`, stacked on #62. ADR 0058 adds `animation::pose_two_bone`: validates skeleton/pose, direct chain, unit scales and unchanged rest lengths; applies global shortest-arc root/knee corrections through parent rotations; verifies FK before committing pose and geometry outputs. Supports pose/output aliasing, preserves local translations/scales, ancestor/sibling/end local rotations and writes no physics. Targets and hints are skeleton model coordinates, not actor/world coordinates.

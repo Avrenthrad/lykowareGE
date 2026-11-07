@@ -1,0 +1,7 @@
+# ADR 0059: Opt-in stationary terrain foot alignment
+
+Status: Proposed. Continue #63 with ten bounded implementation steps: (1) calibrate mapped direct/unit-scale legs; (2) double-space actor/model conversion including fitting offset/scale; (3) profile opt-in; (4) retain resolved roles; (5) read-only physics rays; (6) bound corrections; (7) smooth/reset contact state; (8) bilateral transactional pose application; (9) diagnostics; (10) automated verification and checklist evidence.
+
+Scope: opt-in imported humanoids while grounded, stationary and visible. Probe vertically from 0.35 m above each animated foot, 1 m down. Keep contacts within 0.3 m of animated height, target configurable `foot_clearance` (0..0.3 m, default 0.03) above surface, exponentially smooth vertical corrections. Reset on inactive/missing contacts, invalid/long frame delta or actor teleport. No horizontal foot locking, surface-normal rotation, slope classification, moving-platform anchoring, walking IK, pelvis balancing or physics writes. Retain #63's direct-link/unit-scale limits and allocation costs. Unsupported rigs refuse opt-in; runtime failure preserves animation and resets alignment. Explicitly a correctness prototype, not a crowd/zero-stutter budget claim.
+
+Clearance measures the mapped foot-joint height above terrain in world metres after visual fitting; artists must calibrate it to their ankle/sole convention. This is not automatic mesh-sole detection.
