@@ -2,7 +2,7 @@
 
 ## Active: hardware evidence assessment (Codex)
 
-Branch `codex/hardware-evidence`, base main `992e791`; ADR 0060. Scope: Windows GPU inventory, fresh measurement directories, cross-run integrity and optional explicit offscreen budget assessment. No runtime API changes or calibrated performance claims. Completion: failure-path tests, native CTest and hosted Windows/Linux checks; target-PC measurements remain open.
+Branch `codex/hardware-evidence`, base main `992e791`; ADR 0060. Scope: Windows GPU inventory, fresh measurement directories, cross-run integrity and optional explicit offscreen budget assessment. No runtime API changes or calibrated performance claims. Draft [#66](https://github.com/Avrenthrad/lykowareGE/pull/66). Local Debug suite passes 71/71 with software Vulkan; the assessor has nine passing tests with failure-path subcases, including replacement of stale success evidence after an invalid budget. Final regression also passes its targeted CTest. Hosted Windows/Linux checks remain pending; target-PC measurements remain open.
 
 ## Current consolidation — accepted integration, 8 November 2026
 

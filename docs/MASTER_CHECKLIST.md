@@ -50,7 +50,7 @@ These checked items certify the stated local verification runs only; their paren
 - [ ] **01.11** Agree measurable quality/performance budgets.
 - [ ] **01.12** Close remaining Phase 1 acceptance gates.
 
-Hardware evidence tooling in progress (`codex/hardware-evidence`, ADR 0060): versioned GPU inventory and offscreen assessment with optional fixture-bound provisional budgets. These helpers do not tick 01.09–01.12 without actual hardware results. Missing GPU inventory, presentation pacing and memory-residency evidence remain explicit.
+Hardware evidence tooling in draft [#66](https://github.com/Avrenthrad/lykowareGE/pull/66) (`codex/hardware-evidence`, ADR 0060): versioned GPU inventory and offscreen assessment with optional fixture-bound provisional budgets. These helpers do not tick 01.09–01.12 without actual hardware results. Missing GPU inventory, presentation pacing and memory-residency evidence remain explicit.
 
 
 ## 2. Character and terrain slice

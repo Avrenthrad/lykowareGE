@@ -118,6 +118,17 @@ class Assessment(unittest.TestCase):
         self.assertTrue(report['errors'])
         self.assertFalse(report['phase1_accepted'])
 
+    def test_bad_budget_replaces_prior_success_report(self):
+        command = [sys.executable, str(ROOT / 'tools/validation/assess_scene.py'), str(self.folder)]
+        self.assertEqual(subprocess.run(command, capture_output=True).returncode, 0)
+        for text in ('null', '[]', '{bad'):
+            policy = self.folder / 'policy.json'
+            policy.write_text(text, encoding='utf-8')
+            self.assertEqual(subprocess.run(command + ['--budget', str(policy)], capture_output=True).returncode, 1)
+            result = json.loads((self.folder / 'assessment.json').read_text())
+            self.assertEqual(result['status'], 'failed')
+            self.assertFalse(result['phase1_accepted'])
+
 
 if __name__ == '__main__':
     unittest.main()

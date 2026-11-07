@@ -26,7 +26,7 @@ def assess(directory, budget=None):
         hardware = load(directory / "hardware.json")
         if not isinstance(hardware, dict):
             raise ValueError("hardware must be an object")
-        if hardware["format"] != "lykoware.hardware-evidence" or hardware["schema_version"] != 2:
+        if hardware["format"] != "lykoware.hardware-evidence" or type(hardware["schema_version"]) is not int or hardware["schema_version"] != 2:
             raise ValueError("hardware schema must be version 2")
         config = hardware["fixture"]
         if not isinstance(config, dict):
@@ -61,7 +61,7 @@ def assess(directory, budget=None):
             scene = load(directory / f"scene-{index}.json")
             if not isinstance(scene, dict):
                 raise ValueError(f"run {index}: scene must be an object")
-            if scene["format"] != "lykoware.measurement" or scene["schema_version"] != 1:
+            if scene["format"] != "lykoware.measurement" or type(scene["schema_version"]) is not int or scene["schema_version"] != 1:
                 raise ValueError(f"run {index}: unsupported scene schema")
             if scene.get("hardware_gpu") is not True:
                 raise ValueError(f"run {index}: physical GPU required")
@@ -105,7 +105,7 @@ def assess(directory, budget=None):
         if len(matches) != 1:
             result["remaining"].append("Unambiguous selected-GPU VRAM/driver inventory")
         if budget is not None:
-            if not isinstance(budget, dict) or budget.get("format") != "lykoware.offscreen-budget" or budget.get("schema_version") != 1 or budget.get("status") != "provisional":
+            if not isinstance(budget, dict) or budget.get("format") != "lykoware.offscreen-budget" or type(budget.get("schema_version")) is not int or budget.get("schema_version") != 1 or budget.get("status") != "provisional":
                 raise ValueError("budget must be version 1 and explicitly provisional")
             if budget.get("fixture") != config:
                 raise ValueError("budget fixture must match hashes and run configuration")
@@ -140,6 +140,11 @@ def main():
         if args.budget and not isinstance(budget, dict):
             raise ValueError("budget must be an object")
         result = assess(args.directory, budget)
+    except (OSError, ValueError) as error:
+        result = {"format": "lykoware.offscreen-assessment", "schema_version": 1,
+                  "status": "failed", "errors": [str(error)], "budget_passed": None,
+                  "phase1_accepted": False, "recommended_profile_validated": False}
+    try:
         (args.directory / "assessment.json").write_text(json.dumps(result, indent=2, allow_nan=False) + "\n", encoding="utf-8")
     except (OSError, ValueError) as error:
         parser.exit(1, f"assessment failed: {error}\n")
