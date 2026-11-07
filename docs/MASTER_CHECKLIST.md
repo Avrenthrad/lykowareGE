@@ -18,6 +18,10 @@ Runtime/character work is in review through [#58](https://github.com/Avrenthrad/
 
 **Current work:** visual bind-size inspection and explicit height/origin fitting implemented in draft #59, with 66/66 tests each Linux Debug, ASan/UBSan and clang-tidy 18; synchronization-validation CLI check also passes. **Profile progress:** versioned idle/walk/model/height JSON implemented in draft #60; all three Linux profiles pass 66/66 tests. **Rig progress:** role mapping/inspection implemented in draft #61 and Linux-verified. **IK progress:** position solver implemented in draft #62 and Linux-verified. **Pose progress:** direct-chain rest validation and joint rotations implemented in draft #63, Linux-verified. **Next:** mapped-role/calibration bridge, world-to-model targets and reusable runtime scratch, then terrain foot placement; broader locomotion remains open. All broad completion items below remain open; existing implemented pieces are tracked in STATUS rather than falsely marking whole features complete.
 
+## Latest ten-step batch
+
+**[Stationary terrain alignment — ten checked local steps](FOOT_ALIGNMENT_BATCH.md)**, draft #64. Source `2cc97b5` passed 68/68 each Linux Debug, ASan/UBSan and clang-tidy 18, no skips, plus synchronization-validation CLI. This does not complete the broad foot-IK milestone or its Windows/merge/hardware gates. Next: reusable runtime chains/scratch, then foot orientation/stance/body constraints and broader terrain tests.
+
 ## Completed verification substeps
 
 These checked items certify the stated local verification runs only; their parent features and merge/Windows gates above remain open.
@@ -27,6 +31,7 @@ These checked items certify the stated local verification runs only; their paren
 - [x] **02.02b-Linux** Verify role mapping on `1699fc8`: 66/66 each Debug, ASan/UBSan and clang-tidy 18, no skips; separate synchronization-validation playback passes.
 - [x] **02.11a-Linux** Verify IK geometry on `9fec633`: 67/67 each Debug, ASan/UBSan and clang-tidy 18, no skips; four deliberate geometry/atomicity faults caught.
 - [x] **02.11b-engine-Linux** Verify pose application on `fbf7468`: 67/67 each Debug, ASan/UBSan and clang-tidy 18, no skips; near-180 regression fixed and four deliberate pose faults caught.
+- [x] **02.11c-stationary-Linux** Complete the ten-step stationary vertical foot-joint batch on `2cc97b5`: 68/68 each native Linux profile, no skips; synchronization CLI and five external faults checked.
 - [ ] **02.02a/02.03a-Windows** Run equivalent Windows Debug/Release and actual hardware checks.
 - [ ] **02.02a/02.03a-Merge** Complete review, required CI and owner merge for #59/#60.
 
@@ -69,7 +74,7 @@ These checked items certify the stated local verification runs only; their paren
     - [ ] **02.11b-engine** Validated direct-chain pose operation — **implemented/in review**, #63 `fbf7468`; unit scales only, no helper chains.
     - [ ] **02.11b-integration** Bridge mapped roles, rest/bend calibration and actor-world/model coordinates.
     - [ ] **02.11b-runtime** Prepare validated chains/reusable scratch and measure runtime costs.
-  - [ ] **02.11c** Terrain probes, foot planting, offsets and temporal smoothing.
+  - [ ] **02.11c** Terrain probes, foot planting, offsets and temporal smoothing. **Partial:** stationary probes/clearance/smoothing/resets implemented in #64; walking locks and orientation remain open.
   - [ ] **02.11d** Integrate pelvis/body constraints and verify varied terrain/character rigs.
 - [ ] **02.12** Add ragdolls and animation/physics blending.
 - [ ] **02.13** Add stumble, recovery and active ragdoll.

@@ -1,5 +1,14 @@
 # Lykoware status
 
+## Ten-step stationary terrain alignment batch — draft #64
+
+Codex, `codex/stationary-foot-placement`, based on #63. [Batch checklist](FOOT_ALIGNMENT_BATCH.md) records all ten locally implemented/verified steps; ADR 0059 records the contract. Opt-in imported humanoids retain mapped independent direct legs, convert actor/fitting/world targets correctly, query physics without writes, bound/smooth/reset vertical contacts, apply poses bilaterally and report applied ECS render palettes. Profiles accept `foot_ik` and rig-specific `foot_clearance`.
+
+Clean unchanged source `2cc97b5dc055323a14db12a952f940f524c1a8aa` passed 68/68 CTests each Linux Debug, ASan/UBSan and clang-tidy 18, no skips; configure/build/install/installed CLI pass. Report `/workspace/lykoware-foot-placement-validation/report.json`; fingerprint `278304d59bfa728ca68305b7534f1f179bf15731bda778dfb6dc6ec908e9706c`. Real Jolt contacts, fitted/yawed 64 km bridge, bounded corrections, 30/60 Hz smoothing, lost/teleport/nonfinite/long-delta resets, transactional second-leg failure, custom clearance and unchanged physics hash pass. Generated glTF CLI requires actual contacts, no runtime failures and changed render palettes; it also passes with synchronization validation enabled. Five external mutants were caught, including a missing render-palette update that still reported contacts. No faulty/generated artifacts committed. Later handoff edits are documentation only.
+
+Stationary vertical foot-joint alignment only: no walking locks, foot orientation/normals, slope classification, platform anchors, pelvis balancing or broader helper/scale support. Reference validation/temporary allocations remain; prepare chains/scratch and measure before crowd use. Full foot IK, Windows/hardware, hosted CI and owner merge stay open. Main/Claude branches unchanged.
+
+
 ## Two-bone pose application — draft #63
 
 Codex, `codex/pose-ik`, stacked on #62. ADR 0058 adds `animation::pose_two_bone`: validates skeleton/pose, direct chain, unit scales and unchanged rest lengths; applies global shortest-arc root/knee corrections through parent rotations; verifies FK before committing pose and geometry outputs. Supports pose/output aliasing, preserves local translations/scales, ancestor/sibling/end local rotations and writes no physics. Targets and hints are skeleton model coordinates, not actor/world coordinates.

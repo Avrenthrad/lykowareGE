@@ -62,3 +62,4 @@ Use [the template](TEMPLATE.md). Record context, options, decision/status, contr
 - [0056: Explicit humanoid leg roles](0056-rig-roles.md) — Proposed, #61.
 - [0057: Two-bone position IK reference](0057-two-bone-ik.md) — Proposed, #62.
 - [0058: Apply two-bone position IK to poses](0058-pose-ik.md) — Proposed, #63.
+- [0059: Opt-in stationary terrain foot alignment](0059-stationary-foot-placement.md) — Proposed, #64.
