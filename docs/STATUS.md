@@ -1,16 +1,12 @@
 # Lykoware status
 
-## Current consolidation — 7 November 2026
+## Current consolidation — accepted integration, 8 November 2026
 
-Codex owns `codex/consolidation`, PR [#65](https://github.com/Avrenthrad/lykowareGE/pull/65), based on main `7616ce3`. It preserves all pending heads #37–64 in ancestry: the runtime/character chain through #64 and the independent #45/#47 packaging/validation branch. Only documentation conflicted; both histories were retained. Lua now appears in the notice-only package component, and packaging verifies the installed GPU-skinning shader. No Claude branch was rewritten.
+PR [#65](https://github.com/Avrenthrad/lykowareGE/pull/65) merged as `aacff25`, retaining all runtime/character and notices/validation heads #37–64. Validated source `13c097d` passed all five hosted jobs (Windows Debug/Release and three Linux profiles). Independent clean-checkout validation passed 70/70 in each Linux profile, zero skips, with install/staged execution. [Consolidation evidence and limitations](CONSOLIDATION_2026-11-08.md) records exact hashes, CI, fixes and the Windows GPU skips. Stacked PRs are closed as incorporated, with contributor branches retained. Older blocked-CI/unmerged/next-task notes below are historical.
 
-Windows CI exposed MSVC C4244 in four animation/IK test fixtures: integer literals forwarded through `optional<uint16_t>`. Explicitly typed joint indices fix the conversions without weakening warnings-as-errors. Both Windows configurations must pass again before merge.
+**Open acceptance:** NVIDIA RTX 4070 is owner-reported; actual VRAM/driver, target-PC desktop behavior, frame pacing, RAM/VRAM and calibrated budgets remain unverified. Phase 1 remains open. Existing local Windows validation and offscreen measurement commands are in the evidence document. Proposed ADRs remain Proposed until separately accepted.
 
-Joshua authorized retrying validation and merging on 7 November. Hosted runners execute again; the previous account rejection is historical. Check the final PR head's five jobs before merge: Windows Debug/Release and Linux Debug/ASan/UBSan/clang-tidy 18. The fresh-checkout report is `/workspace/lykoware-consolidation-clean-final/report.json`; it records exact source, fingerprints, tests, skips, installation and staged execution. Reused pinned host tools are an ignored cache; native build trees started fresh.
-
-**Open acceptance:** owner reports an NVIDIA RTX 4070; actual VRAM, driver, target-PC execution, frame pacing, RAM/VRAM measurements and calibrated budgets are not verified. Run [local Windows validation](LOCAL_VALIDATION.md) and `tools/validation/measure-scene.ps1` on that PC. The latter measures an offscreen fixture only; it cannot close presentation/streaming/AI budgets. Phase 1 remains open. The older ownership defects were fixed and their probes rechecked in the later stack; see the historical records below. Merging implementations does not automatically accept Proposed ADRs or subjective character feel.
-
-**Next engineering work:** prepare reusable validated IK chains/scratch and measure allocations, then add locomotion/foot orientation and body constraints. Existing terrain alignment is stationary vertical correction, not full walking foot locking.
+**Next engineering work:** reusable validated IK chains/scratch and allocation measurements, followed by locomotion, foot orientation and body constraints. Existing terrain alignment is stationary vertical correction, not full walking foot locking. Target-PC evidence can proceed in parallel.
 
 ## Historical implementation and verification records
 

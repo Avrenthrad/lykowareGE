@@ -8,7 +8,7 @@ On Windows, use Developer PowerShell for Visual Studio:
 python tools/validation/verify.py
 ```
 
-This runs both Windows Debug and Release by default. The Windows execution path has orchestration tests, but actual execution on Windows remains pending.
+This runs both Windows Debug and Release by default. The Windows execution path has orchestration tests; hosted Windows Debug/Release build/test/install/staged execution passed in consolidation run 42386213427. Running this validator on the owner’s target PC and hardware measurements remain pending.
 
 On Linux, the default is Debug. For the complete Linux matrix:
 

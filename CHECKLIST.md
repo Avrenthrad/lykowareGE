@@ -29,6 +29,12 @@ This replaces the old module ordering while preserving verified Module 01 histor
 - [ ] Introduce actual image/performance gates as renderer and calibrated fixtures become available.
 - [ ] Pass the full Phase 0 exit criteria.
 
+## Consolidated validation — 8 November 2026
+
+- [x] Merge the runtime/character stack through #64 and notices/local validation in #65; all five exact-head hosted jobs pass.
+- [x] Independent Linux checkout: 70/70 each Debug, ASan/UBSan and clang-tidy 18, with installation/staged execution.
+- [ ] Verify owner RTX 4070 VRAM/driver and measured target-PC budgets; [evidence and remaining gates](docs/CONSOLIDATION_2026-11-08.md).
+
 ## Runtime
 
 - [ ] Phase 1 — Core runtime and headless/command/capture path.

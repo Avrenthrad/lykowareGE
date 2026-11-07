@@ -14,7 +14,7 @@ Owner-requested living checklist, saved 6 November 2026. Permanent entry point: 
 
 ## Current position
 
-PR [#65](https://github.com/Avrenthrad/lykowareGE/pull/65) consolidates all runtime/character work #37–64 with packaging and local validation. Source `3be5b17` is being checked from a clean checkout and in all five hosted profiles; consult STATUS and the final PR checks for completed evidence. Earlier per-slice Linux results remain below. Hardware and Phase 1 acceptance stay open independently of merge.
+PR [#65](https://github.com/Avrenthrad/lykowareGE/pull/65) merged all runtime/character work #37–64 with packaging and local validation as `aacff25`. Exact source `13c097d` passed all five hosted jobs and 70/70 tests in each local Linux profile, with installation and staged execution. See [consolidation evidence](CONSOLIDATION_2026-11-08.md) for Windows GPU skips and remaining hardware limits. Hardware and Phase 1 acceptance remain open. Earlier per-slice results below describe their historical sources.
 
 Owner reports an NVIDIA RTX 4070. Actual VRAM/driver and measurements are still needed; do not infer them from the model name. Current character progress includes fitting, profiles, bone-role mapping, two-bone geometry/pose operations and stationary vertical terrain alignment. Walking foot locks, orientation and body constraints remain open.
 
@@ -33,19 +33,19 @@ These checked items certify the stated local verification runs only; their paren
 - [x] **02.11b-engine-Linux** Verify pose application on `fbf7468`: 67/67 each Debug, ASan/UBSan and clang-tidy 18, no skips; near-180 regression fixed and four deliberate pose faults caught.
 - [x] **02.11c-stationary-Linux** Complete the ten-step stationary vertical foot-joint batch on `2cc97b5`: 68/68 each native Linux profile, no skips; synchronization CLI and five external faults checked.
 - [ ] **02.02a/02.03a-Windows** Run equivalent Windows Debug/Release and actual hardware checks.
-- [ ] **02.02a/02.03a-Merge** Complete review, required CI and owner merge for #59/#60.
+- [x] **02.02a/02.03a-Merge** Complete review, required CI and owner-authorized merge for #59/#60 — integrated by #65.
 
 ## 1. Consolidate the current engine
 
-- [ ] **01.01** Review pending PRs in dependency order.
-- [ ] **01.02** Resolve review findings and integration conflicts.
-- [ ] **01.03** Restore hosted CI through the account owner.
-- [ ] **01.04** Pass Windows Debug/Release and all Linux checks.
-- [ ] **01.05** Merge approved work in dependency order.
-- [ ] **01.06** Verify a fresh checkout builds and installs.
-- [ ] **01.07** Reconcile STATUS, roadmap, checklist and ADRs.
-- [ ] **01.08** Establish repeatable Windows testing.
-- [ ] **01.09** Confirm target GPU and VRAM.
+- [x] **01.01** Review pending PRs in dependency order.
+- [x] **01.02** Resolve review findings and integration conflicts.
+- [x] **01.03** Restore hosted CI through the account owner.
+- [x] **01.04** Pass Windows Debug/Release and all Linux checks — hosted run 42386213427; Windows Vulkan skips remain a hardware gate.
+- [x] **01.05** Merge approved work in dependency order.
+- [x] **01.06** Verify a fresh checkout builds and installs.
+- [x] **01.07** Reconcile STATUS, roadmap, checklist and ADRs.
+- [x] **01.08** Establish repeatable Windows testing — hosted Debug/Release and local validator/measurement instructions; target-PC execution is separate.
+- [ ] **01.09** Confirm target GPU and VRAM — RTX 4070 owner-reported; VRAM/driver still unmeasured.
 - [ ] **01.10** Measure frame times, hitches, memory and GPU usage.
 - [ ] **01.11** Agree measurable quality/performance budgets.
 - [ ] **01.12** Close remaining Phase 1 acceptance gates.
