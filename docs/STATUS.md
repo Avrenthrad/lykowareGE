@@ -1,8 +1,12 @@
 # Lykoware status
 
-## Active: hardware evidence assessment (Codex)
+## Hardware evidence tooling — merged #66, 8 November 2026
 
-Branch `codex/hardware-evidence`, base main `992e791`; ADR 0060. Scope: Windows GPU inventory, fresh measurement directories, cross-run integrity and optional explicit offscreen budget assessment. No runtime API changes or calibrated performance claims. Draft [#66](https://github.com/Avrenthrad/lykowareGE/pull/66). Local Debug suite passes 71/71 with software Vulkan; the assessor has nine passing tests with failure-path subcases, including replacement of stale success evidence after an invalid budget. Final regression also passes its targeted CTest. Windows CI additionally exercises the actual PowerShell runner with synthetic NVIDIA inventory (>4 GiB), expected Vulkan unavailability and existing-directory refusal. Hosted Windows/Linux checks remain pending; target-PC measurements remain open.
+PR [#66](https://github.com/Avrenthrad/lykowareGE/pull/66) merged as `32261bf`; exact source `e803335` passed [all five hosted jobs](https://github.com/Avrenthrad/lykowareGE/actions/runs/42425150706). Local Debug passed 71/71; nine assessor tests with failure-path subcases pass. Windows Debug/Release also exercised the actual runner in PowerShell 7 and Windows PowerShell 5: synthetic >4 GiB inventory, failed optional driver queries, unavailable Vulkan and refusal to overwrite evidence. These synthetic/hosted results are not target-PC measurements; Windows Vulkan tests still skip without a device.
+
+`tools/validation/measure-scene.ps1` now records version 2 source/executable/fixture provenance and optional NVIDIA VRAM/driver inventory, runs three fresh offscreen samples and writes `assessment.json`. Invalid data/overruns fail; missing or ambiguous inventory is incomplete. Optional provisional budgets bind to fixture hashes/configuration. No thresholds default silently. Invalid policy input replaces stale success evidence. Phase 1/recommended-profile acceptance stays false. [Usage and evidence scope](LOCAL_VALIDATION.md#rtx-4070-evidence-and-assessment); ADR 0060 remains Proposed.
+
+**Next acceptance action:** run the measurement script on the owner’s Windows PC. RTX 4070 is still owner-reported; actual VRAM/driver, desktop behavior, presentation pacing, RAM/VRAM residency and calibrated budgets remain open. No connected Windows executor is available in this workspace. Engineering can continue with prepared IK chains/scratch while target-PC evidence is collected.
 
 ## Current consolidation — accepted integration, 8 November 2026
 

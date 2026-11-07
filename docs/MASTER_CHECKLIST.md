@@ -50,8 +50,11 @@ These checked items certify the stated local verification runs only; their paren
 - [ ] **01.11** Agree measurable quality/performance budgets.
 - [ ] **01.12** Close remaining Phase 1 acceptance gates.
 
-Hardware evidence tooling in draft [#66](https://github.com/Avrenthrad/lykowareGE/pull/66) (`codex/hardware-evidence`, ADR 0060): versioned GPU inventory and offscreen assessment with optional fixture-bound provisional budgets. These helpers do not tick 01.09–01.12 without actual hardware results. Missing GPU inventory, presentation pacing and memory-residency evidence remain explicit.
+Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykowareGE/pull/66), `32261bf`, ADR 0060. Exact source `e803335` passed all five hosted jobs; local Debug 71/71 and nine assessor tests passed. The four parent acceptance gates remain open pending actual PC evidence.
 
+- [x] **01.09a-tooling** Capture optional NVIDIA name/VRAM/driver inventory and source/executable/fixture provenance; test >4 GiB values and failed driver queries in both Windows PowerShell hosts.
+- [x] **01.10a-tooling** Validate three offscreen runs, raw duration distributions, physical-device flags and consistent replay/device/configuration; preserve incomplete/failed evidence.
+- [x] **01.11a-tooling** Enforce explicitly supplied provisional fixture-bound budgets; test equality, overruns, malformed policies and stale-success replacement. This does not agree or calibrate the target-PC budgets.
 
 ## 2. Character and terrain slice
 
