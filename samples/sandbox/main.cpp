@@ -1,6 +1,7 @@
 #include "animated_mannequin.hpp"
 #include "character_fit.hpp"
 #include "rig_roles.hpp"
+#include "foot_placement.hpp"
 
 #include <lykoware/audio.hpp>
 #include <lykoware/audio_output.hpp>
@@ -29,6 +30,7 @@
 #include <fstream>
 #include <set>
 
+#include <bit>
 #include <algorithm>
 #include <charconv>
 #include <chrono>
@@ -163,6 +165,8 @@ struct WindowOptions {
     std::string character, idle_clip, walk_clip, character_profile;
     std::optional<float> character_height;
     std::optional<rig_roles::Names> bones;
+    bool foot_ik = false;
+    double foot_clearance = 0.03;
     // --trace FILE: a Chrome trace of each frame's CPU zones and GPU time (ADR 0039).
     std::string trace;
     // --play: a character to walk round the obstacle course, with a follow camera (ADR 0047).
@@ -562,7 +566,7 @@ private:
 // Idle/walk blending never changes physics. Hidden in first person.
 class PlayerBody {
 public:
-    PlayerBody(lykoware::ecs::World& entities, lykoware::render::MeshId mesh, training_mannequin::Asset asset, bool imported, float scale, lykoware::math::Vec3 offset)
+    PlayerBody(lykoware::ecs::World& entities, lykoware::render::MeshId mesh, training_mannequin::Asset asset, bool imported, float scale, lykoware::math::Vec3 offset, std::optional<rig_roles::Indices> foot_roles, double clearance)
         : visual_scale_{scale}
         , visual_offset_{offset}
         , imported_{imported}
@@ -572,6 +576,11 @@ public:
         , body_{entities.create()}
         , visor_{entities.create()}
     {
+        if (foot_roles) {
+            foot_.emplace();
+            std::string reason;
+            if (!foot_->configure(asset_.skeleton,*foot_roles,reason,clearance)) { throw std::invalid_argument("Foot IK calibration: "+reason); }
+        }
         entities_.add<lykoware::Transform>(body_, lykoware::Transform{});
         entities_.add<lykoware::Transform>(visor_, lykoware::Transform{});
         playback_.advance(asset_, 0.F, 0.F);
@@ -579,7 +588,7 @@ public:
     }
 
     // Draws the body `alpha` of the way between the last two steps (ADR 0048).
-    void place(const lykoware::PlayerCharacter& player, float alpha, float seconds)
+    void place(const lykoware::PlayerCharacter& player, float alpha, float seconds, const lykoware::physics::World& world)
     {
         const lykoware::math::DVec3 feet = player.drawn_feet(alpha);
         const lykoware::math::Quat facing = lykoware::math::from_axis_angle({0.F, 1.F, 0.F}, player.facing());
@@ -593,10 +602,31 @@ public:
         const float speed = state.ground == lykoware::physics::GroundState::OnGround
             ? std::hypot(state.velocity.x, state.velocity.z) : 0.F;
         playback_.advance(asset_, seconds, speed);
+        const auto base_palette = foot_ ? palette_hash(playback_.matrices) : 0;
+        if (foot_) {
+            const foot_placement::Placement placement{feet,facing,visual_scale_,
+                {visual_offset_.x,visual_offset_.y,visual_offset_.z}};
+            lykoware::animation::Pose corrected;
+            std::string reason;
+            const bool active=state.ground==lykoware::physics::GroundState::OnGround && speed<0.2F
+                && player.camera().current_distance()>=0.5F;
+            if (foot_->update(playback_.blended,placement,world,seconds,active,corrected,reason)) {
+                lykoware::animation::skinning_matrices(asset_.skeleton,corrected,playback_.matrices);
+            } else {
+                ++foot_failures_;
+                foot_->reset();
+                if (foot_failures_==1) { lykoware::log(lykoware::LogLevel::warning,"Foot IK fallback: "+reason); }
+            }
+        }
         if (!imported_) { const auto face = lykoware::animation::skin_point(playback_.matrices, {2, 0, 0, 0}, {1.F, 0.F, 0.F, 0.F},
                                                           {0.F, 1.58F, -0.18F});
         visor->position = feet + lykoware::math::rotate(facing, face); }
         entities_.get<lykoware::render::SkinPose>(body_)->matrices = playback_.matrices;
+        if (foot_) {
+            const auto expected=palette_hash(playback_.matrices);
+            const auto actual=palette_hash(entities_.get<lykoware::render::SkinPose>(body_)->matrices);
+            if (expected!=base_palette && actual==expected) { ++foot_applied_frames_; }
+        }
         const bool shown = player.camera().current_distance() >= 0.5F;
         if (shown && !entities_.has<lykoware::render::MeshRenderer>(body_)) {
             entities_.add<lykoware::render::MeshRenderer>(
@@ -609,7 +639,30 @@ public:
         }
     }
 
+    void report() const
+    {
+        if (foot_) {
+            const auto& s=foot_->stats();
+            lykoware::log(lykoware::LogLevel::info,"Foot IK diagnostics: frames="+std::to_string(s.frames)
+                +" contacts="+std::to_string(s.contacts)+" misses="+std::to_string(s.misses)
+                +" clamped="+std::to_string(s.clamped)+" resets="+std::to_string(s.resets)
+                +" failures="+std::to_string(foot_failures_)+" applied_frames="+std::to_string(foot_applied_frames_));
+        }
+    }
 private:
+    static std::uint64_t palette_hash(const std::vector<lykoware::math::Mat4>& matrices)
+    {
+        std::uint64_t hash=14695981039346656037ULL;
+        for (const auto& matrix:matrices) {
+            for (const auto& column:matrix.m) {
+                for (float value:column) { hash^=std::bit_cast<std::uint32_t>(value);hash*=1099511628211ULL; }
+            }
+        }
+        return hash;
+    }
+    std::uint64_t foot_applied_frames_=0;
+    std::optional<foot_placement::Controller> foot_;
+    std::uint64_t foot_failures_=0;
     float visual_scale_ = 1.F;
     lykoware::math::Vec3 visual_offset_{};
     bool imported_ = false;
@@ -751,6 +804,7 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
             return EXIT_FAILURE;
         }
         auto mannequin = training_mannequin::make();
+        std::optional<rig_roles::Indices> resolved_roles;
         if (!options.character.empty()) {
             std::string reason;
             auto imported = lykoware::gltf::load_skinned(utf8_path(options.character), reason);
@@ -779,6 +833,7 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
             if (options.bones) {
                 rig_roles::Indices roles;
                 if (!rig_roles::resolve(mannequin.skeleton, *options.bones, roles, reason)) { throw std::invalid_argument(reason); }
+                resolved_roles=roles;
                 for (std::size_t role = 0; role < roles.size(); ++role) {
                     lykoware::log(lykoware::LogLevel::info, "Rig role " + std::string(rig_roles::names[role])
                         + " = " + (*options.bones)[role] + " [" + std::to_string(roles[role]) + "]");
@@ -809,7 +864,8 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
             lykoware::log(lykoware::LogLevel::error, "Mannequin upload: " + error.message);
             return EXIT_FAILURE;
         }
-        player_body.emplace(scene->entities(), *mesh, std::move(mannequin), !options.character.empty(), visual_scale, visual_offset);
+        player_body.emplace(scene->entities(), *mesh, std::move(mannequin), !options.character.empty(), visual_scale, visual_offset, options.foot_ik ? resolved_roles : std::nullopt, options.foot_clearance);
+        if (options.foot_ik) { lykoware::log(lykoware::LogLevel::info,"Foot IK: stationary terrain alignment enabled"); }
         lykoware::log(lykoware::LogLevel::info, options.character.empty() ? "Animation: GPU-skinned training mannequin (7 joints), idle/walk clips." : "Animation: GPU-skinned imported character, selected idle/walk clips.");
         lykoware::log(lykoware::LogLevel::info,
                       "Play: WASD or the left stick to move, Shift or L3 to run, Space or South to jump, mouse wheel or "
@@ -886,7 +942,7 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
         scene->present(alpha);
         if (player) {
             camera = player->view(frame_seconds, alpha);
-            player_body->place(*player, alpha, frame_seconds);
+            player_body->place(*player, alpha, frame_seconds, *physics);
         }
         const auto listener = lykoware::audio::Listener::looking_at(camera.eye, camera.target, camera.up);
         if (audio) {
@@ -925,6 +981,7 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
     }
     const std::uint64_t presented = swapchain->frames_presented();
     const std::size_t drawn = renderer->last_draw_count();
+    if (player_body) { player_body->report(); }
     if (player) {
         const lykoware::math::DVec3 feet = player->state().position;
         lykoware::log(lykoware::LogLevel::info, "The player ended at (" + std::to_string(feet.x) + ", " + std::to_string(feet.y)
@@ -1102,7 +1159,7 @@ int run_window(const std::vector<std::string>& args)
         }
         for (const auto& item : profile.items()) {
             if (item.key() != "version" && item.key() != "model" && item.key() != "idle_clip"
-                && item.key() != "walk_clip" && item.key() != "height" && item.key() != "bones") {
+                && item.key() != "walk_clip" && item.key() != "height" && item.key() != "bones" && item.key() != "foot_ik" && item.key() != "foot_clearance") {
                 throw std::invalid_argument("Unknown character profile key: " + item.key());
             }
         }
@@ -1118,6 +1175,17 @@ int run_window(const std::vector<std::string>& args)
                 requested[role] = bones[name].get<std::string>();
             }
             options.bones = requested;
+        }
+        if (profile.contains("foot_ik")) {
+            if (!profile["foot_ik"].is_boolean()) { throw std::invalid_argument("Profile foot_ik must be boolean"); }
+            options.foot_ik=profile["foot_ik"].get<bool>();
+            if (options.foot_ik && !options.bones) { throw std::invalid_argument("Profile foot_ik requires bones"); }
+        }
+        if (profile.contains("foot_clearance")) {
+            if (!options.foot_ik || !profile["foot_clearance"].is_number()) { throw std::invalid_argument("foot_clearance requires foot_ik and a numeric value"); }
+            const double clearance=profile["foot_clearance"].get<double>();
+            if (!std::isfinite(clearance)||clearance<0.0||clearance>0.3) { throw std::invalid_argument("foot_clearance must be 0..0.3 metres"); }
+            options.foot_clearance=clearance;
         }
         auto model_name = profile["model"].get<std::string>();
         if (model_name.empty() || model_name.find('\0') != std::string::npos) { throw std::invalid_argument("Invalid profile model path"); }
