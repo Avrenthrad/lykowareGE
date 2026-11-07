@@ -67,3 +67,4 @@ Use [the template](TEMPLATE.md). Record context, options, decision/status, contr
 - [0057: Two-bone position IK reference](0057-two-bone-ik.md) — Proposed, #62.
 - [0058: Apply two-bone position IK to poses](0058-pose-ik.md) — Proposed, #63.
 - [0059: Opt-in stationary terrain foot alignment](0059-stationary-foot-placement.md) — Proposed, #64.
+- [0060: Local hardware evidence and offscreen assessment](0060-hardware-evidence-assessment.md) — Proposed; metadata version 2, optional GPU inventory and explicit fixture-bound provisional budgets.

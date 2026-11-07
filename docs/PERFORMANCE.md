@@ -76,9 +76,9 @@ Local, GCC 13 Release, one thread: about 4 ns per entity per frame. 1000 entitie
 
 "Zero stutter" guides engineering. [ADR 0002](adr/0002-graphics.md) accepts ahead-of-time SPIR-V and device/driver-keyed pipeline caches as the approach. Precompiled shaders, cache invalidation, background streaming and bounded workloads reduce causes; they do not prove universal hitch-free operation. Record failed hardware runs and known limits rather than declaring the goal achieved.
 
-## Repeatable scene measurement (review branch)
+## Repeatable scene measurement
 
-The owner supplied Windows 11 Home build 26300, Intel Core i7-14700F (20 cores / 28 logical processors), and 16 GB RAM. GPU/VRAM are unconfirmed; no personal host/user identifiers are recorded. This is context for a future local run, not measured performance.
+The owner supplied Windows 11 Home build 26300, Intel Core i7-14700F (20 cores / 28 logical processors), and 16 GB RAM. The owner reports an NVIDIA RTX 4070; exact VRAM/driver remain unmeasured. No personal host/user identifiers are recorded. This is context for a future local run, not measured performance.
 
 From a Visual Studio developer PowerShell with CMake, Python and Git available:
 
@@ -86,6 +86,8 @@ From a Visual Studio developer PowerShell with CMake, Python and Git available:
 ./tools/validation/measure-scene.ps1
 ```
 
-The runner builds/tests Release, records CPU/OS/RAM and GPU driver metadata, then runs the same versioned box scene/commands three times at 2560×1440, warming 120 draws and measuring 600 simulation+offscreen-draw frames. Local outputs stay in ignored `build/measurements`; nothing uploads. `-SkipBuild`, `-Executable PATH`, `-OutputDirectory PATH` and `-Frames N` customize it. A software GPU is explicitly refused as hardware evidence.
+The runner builds/tests Release, records CPU/OS/RAM and GPU driver metadata, then runs the same versioned box scene/commands three times at 2560×1440, warming 120 draws and measuring 600 simulation+offscreen-draw frames. Local outputs stay in a new ignored subdirectory of `build/measurements`; nothing uploads. `-SkipBuild`, `-Executable PATH`, `-OutputDirectory PATH` and `-Frames N` customize it. A software GPU is explicitly refused as hardware evidence.
 
 Each report contains the simulation replay hash, final hash/tick, active entities, CPU simulation percentiles, end-to-end synchronous offscreen frame percentiles/raw samples, device/driver and peak process resident bytes. Capture is a PPM of the real renderer. Timings exclude pipeline creation and final screenshot readback; snapshot preparation and GPU completion wait are included. These times are not GPU timestamp measurements or swapchain frame pacing. GPU timestamps and VRAM residency are null rather than invented. This four-box fixture cannot establish the flagship or 16 km streaming budget; the recommended-profile gate remains open until the actual PC report and later representative loads are reviewed.
+
+See [hardware evidence and assessment](LOCAL_VALIDATION.md#rtx-4070-evidence-and-assessment) for version 2 GPU inventory, integrity checks, raw-sample percentiles and optional explicitly provisional fixture-bound budget enforcement. No calibrated target-hardware budget is claimed.

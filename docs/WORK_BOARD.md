@@ -1,5 +1,9 @@
 # Shared work board
 
+## Active: hardware evidence assessment (Codex)
+
+Branch `codex/hardware-evidence`, base main `992e791`; ADR 0060. Scope: Windows GPU inventory, fresh measurement directories, cross-run integrity and optional explicit offscreen budget assessment. No runtime API changes or calibrated performance claims. Draft [#66](https://github.com/Avrenthrad/lykowareGE/pull/66). Local Debug suite passes 71/71 with software Vulkan; the assessor has nine passing tests with failure-path subcases, including replacement of stale success evidence after an invalid budget. Final regression also passes its targeted CTest. Windows CI additionally exercises the actual PowerShell runner with synthetic NVIDIA inventory (>4 GiB), expected Vulkan unavailability and existing-directory refusal. Hosted Windows/Linux checks remain pending; target-PC measurements remain open.
+
 ## Current consolidation — accepted integration, 8 November 2026
 
 PR [#65](https://github.com/Avrenthrad/lykowareGE/pull/65) merged as `aacff25`, retaining all runtime/character and notices/validation heads #37–64. Validated source `13c097d` passed all five hosted jobs (Windows Debug/Release and three Linux profiles). Independent clean-checkout validation passed 70/70 in each Linux profile, zero skips, with install/staged execution. [Consolidation evidence and limitations](CONSOLIDATION_2026-11-08.md) records exact hashes, CI, fixes and the Windows GPU skips. Stacked PRs are closed as incorporated, with contributor branches retained. Older blocked-CI/unmerged/next-task notes below are historical.

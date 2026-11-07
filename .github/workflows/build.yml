@@ -81,6 +81,10 @@ jobs:
           Assert-Exit 0
           # Parse the Windows-only local measurement runner without executing hardware checks.
           [scriptblock]::Create((Get-Content -Raw tools/validation/measure-scene.ps1)) | Out-Null
+          ./tests/hardware_runner.ps1 -Executable (Join-Path $PWD 'out/windows-${{ matrix.configuration }}/bin/lyko.exe')
+          Assert-Exit 0
+          powershell -NoProfile -File ./tests/hardware_runner.ps1 -Executable (Join-Path $PWD 'out/windows-${{ matrix.configuration }}/bin/lyko.exe')
+          Assert-Exit 0
           # The installed sandbox reads its shaders from bin/shaders before any
           # Vulkan work (ADR 0016): exit 1 would mean they were not installed.
           # Hosted Windows runners have no Vulkan, so 3 ("unsupported") is the
