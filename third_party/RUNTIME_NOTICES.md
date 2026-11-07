@@ -42,3 +42,5 @@ cmake --install BUILD_DIRECTORY --prefix PREFIX --component RuntimeNotices
 Configuration is required first; add `--config Release` for a multi-config build.
 The normal full install includes these notices too. When adding/updating a runtime
 dependency, update its provenance, installation rules and installed-tree tests.
+
+Lua (when built): `lua/LICENSE` and `lua/PROVENANCE.md`, MIT, included in full and RuntimeNotices component installs.

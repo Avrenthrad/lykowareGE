@@ -90,4 +90,9 @@ function(lykoware_install_runtime_notices)
             "${CMAKE_SOURCE_DIR}/third_party/wuffs/PROVENANCE.md"
             DESTINATION "${destination}/wuffs" COMPONENT RuntimeNotices EXCLUDE_FROM_ALL)
     endif()
+    if(TARGET lykoware_lua)
+        install(FILES "${CMAKE_SOURCE_DIR}/third_party/lua/LICENSE"
+            "${CMAKE_SOURCE_DIR}/third_party/lua/PROVENANCE.md"
+            DESTINATION "${destination}/lua" COMPONENT RuntimeNotices EXCLUDE_FROM_ALL)
+    endif()
 endfunction()

@@ -47,6 +47,10 @@ if has_wuffs == "1":
     files["wuffs/LICENSE-MIT"] = "third_party/wuffs/LICENSE-MIT"
     files["wuffs/PROVENANCE.md"] = "third_party/wuffs/PROVENANCE.md"
 
+if (source / "third_party/lua/LICENSE").exists():
+    files["lua/LICENSE"] = "third_party/lua/LICENSE"
+    files["lua/PROVENANCE.md"] = "third_party/lua/PROVENANCE.md"
+
 
 def excerpt(relative, start, end):
     text = (source / relative).read_bytes().decode("utf-8").replace("\r\n", "\n")
@@ -91,7 +95,7 @@ with tempfile.TemporaryDirectory(prefix="package notices Ω ", dir=build) as tem
     suffix = ".exe" if os.name == "nt" else ""
     for program in ("lyko", "lykoware_sandbox"):
         assert (full / "bin" / (program + suffix)).is_file(), program
-    for shader in ("cli_lit.vert.spv", "cli_lit.frag.spv", "sandbox_lit.vert.spv", "sandbox_lit.frag.spv"):
+    for shader in ("cli_lit.vert.spv", "cli_lit.frag.spv", "sandbox_lit.vert.spv", "sandbox_lit.frag.spv", "sandbox_skin.vert.spv"):
         assert (full / "bin/shaders" / shader).stat().st_size > 0, shader
 
     notices_only = work / "notices only"
