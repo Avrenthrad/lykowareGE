@@ -1,5 +1,6 @@
 #pragma once
 #include <lykoware/math.hpp>
+#include <lykoware/animation.hpp>
 #include <string>
 
 namespace lykoware::animation {
@@ -25,4 +26,11 @@ struct TwoBoneSolution {
 // Does not compute joint rotations or modify poses/physics. Trig/sqrt rounding is visual,
 // not a cross-platform bit-identical simulation guarantee.
 [[nodiscard]] bool solve_two_bone(const TwoBoneRequest& request, TwoBoneSolution& out, std::string& error);
+// ADR 0058: direct-chain, unit-scale pose IK in skeleton model coordinates. Refuses helper
+// links, invalid/changed rest segment lengths, unsupported scales and inaccurate FK results.
+// Preserves translations/scales and all rotations except root and knee. out may alias pose;
+// out and solution are replaced only on success. Allocations may throw with outputs unchanged.
+[[nodiscard]] bool pose_two_bone(const Skeleton& skeleton, const Pose& pose,
+    std::size_t root, std::size_t knee, std::size_t end, math::DVec3 target, math::DVec3 bend_hint,
+    Pose& out, TwoBoneSolution& solution, std::string& error);
 }

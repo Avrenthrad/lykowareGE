@@ -1,0 +1,3 @@
+# ADR 0058: Apply two-bone position IK to poses
+
+Status: Proposed. Continue #62. Add pure pose operation for a direct root→knee→end joint chain. Validate skeleton, pose, rest lengths, and unchanged segment lengths. This first implementation requires unit joint scales and direct chain links; role mapping can still inspect helper chains, but pose IK refuses them explicitly. Targets/hints are in skeleton model space, not actor/world space. Rotate root then knee with shortest-arc global corrections converted through parent rotations. Preserve local translations/scales, unrelated joints and end local rotation. Recompute FK and verify solved knee/end before committing both output pose and geometric result. No physics, terrain probes, foot orientation or planting yet.

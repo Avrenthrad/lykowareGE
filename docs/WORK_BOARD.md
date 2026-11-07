@@ -1,5 +1,12 @@
 # Shared work board
 
+## Active task: apply two-bone IK to poses (Codex)
+
+- Branch `codex/pose-ik`, based on #62 `98e0025`; ADR 0058.
+- Scope: validate direct chain/unit scales/rest lengths, convert position solution to root/knee local rotations, verify FK and commit outputs transactionally. No terrain or physics mutation.
+- Checks: independent targets under rotated parents, aliases, near/exact opposite directions, malformed/unsupported rigs, preservation and native full matrix. Windows/hardware/owner gates remain open.
+
+
 ## Two-bone IK geometry — draft #62
 
 Codex, `codex/two-bone-ik`, stacked on #61. ADR 0057 adds engine `animation::solve_two_bone` in `lykoware/ik.hpp`: double-space root/knee/end positions, no-stretch inner/outer reach clamping, explicit direction/bend-hint fallbacks and transactional errors for invalid or precision-collapsed geometry. No pose, joint rotation or physics mutation; no terrain-foot-placement claim.
