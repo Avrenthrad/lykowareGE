@@ -50,7 +50,7 @@ Later Track C provides original modelling, sculpting, UV/texturing/material pain
 
 ## Confirmed implementation versus proposals
 
-Implemented on main: native C++20/CMake tools, SDL input/windowing, Vulkan RHI, clocks, Jolt physics and the owned ECS/physics link. Claude's PRs #32–#34 add math, depth/meshes and the first camera-relative renderer. Codex's review branches add isolated handles, exception safety and versioned scene/command/capture tooling. See STATUS for exact branch and verification evidence.
+The foundation includes native C++20/CMake tools, SDL input/windowing, Vulkan RHI, clocks, Jolt physics and the owned ECS/physics link. Consolidation PR #65 includes audio, scripts, command replay/capture, models/materials, GPU timing, character controls, skeletal animation, GPU skinning, imported profiles and stationary terrain alignment. See STATUS and GitHub for exact integration state and verification; implementation does not close hardware or phase gates.
 Not implemented: the full editor/content suite, large-world streaming, gameplay systems and local AI.
 Language/graphics: accepted C++20/CMake and Vulkan 1.3 behind owned APIs; no Rust migration. D3D12 remains a measurement-driven contingency.
 Physics: Jolt v5.6.0 accepted (ADR 0003), native C++ API (0020), double-precision positions (0022).

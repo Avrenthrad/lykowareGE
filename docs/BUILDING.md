@@ -19,7 +19,7 @@ ctest --preset windows-debug
 .\build\windows\samples\sandbox\Debug\lykoware_sandbox.exe
 ```
 
-The current program prints startup messages and exits. It has no 3D graphics yet. `lykoware_sandbox --window` opens a window until it is closed. `lykoware_sandbox --window --dummy --frames N` uses the headless video driver and exits after N pumps.
+The default program prints startup messages and exits. The Vulkan path supports 3D meshes, materials and skinned animation; use the options below. `lykoware_sandbox --window` opens a window until it is closed. `lykoware_sandbox --window --dummy --frames N` uses the headless video driver and exits after N pumps.
 
 For Release:
 
@@ -62,7 +62,7 @@ sudo apt-get install libvulkan1 mesa-vulkan-drivers vulkan-validationlayers
 
 `mesa-vulkan-drivers` includes lavapipe, a CPU Vulkan driver for machines without a GPU. Without a loader or a driver, the RHI tests are reported by CTest as Skipped, not Passed.
 
-To see the Vulkan path on a desktop, run the sandbox with a window and Vulkan. It draws a red, green and blue triangle over a slowly changing background until the window is closed:
+To see the Vulkan path on a desktop, run the sandbox with a window and Vulkan. It renders the 3D sandbox until the window is closed:
 
 ```powershell
 .\build\windows\samples\sandbox\Debug\lykoware_sandbox.exe --window --vulkan
@@ -70,7 +70,7 @@ To see the Vulkan path on a desktop, run the sandbox with a window and Vulkan. I
 
 It exits 3 if no usable Vulkan device exists. `--window --offscreen --vulkan --frames N` is the headless form used by CTest.
 
-The playable character is an original procedural training mannequin, GPU-skinned with seven joints and idle/walk clips (ADR 0052). Its pose follows the controller's speed, blends back to idle when stopped, and hides in first person. Animation is drawing-only; foot IK, ragdoll, finished character art and target-GPU budgets remain future work. It needs no downloaded model or external editor.
+The playable character is an original procedural training mannequin, GPU-skinned with seven joints and idle/walk clips (ADR 0052). Its pose follows the controller's speed, blends back to idle when stopped, and hides in first person. Animation is drawing-only. Opt-in mapped imported rigs support stationary vertical terrain alignment; walking foot locks, ragdoll, finished character art and target-GPU budgets remain future work. It needs no downloaded model or external editor.
 
 To walk a character round the Phase 2 obstacle course, add `--play`: WASD or the left stick to move, Shift or L3 to run, Space or South to jump, the mouse wheel or d-pad to zoom (in to first person). Click the window to look with the mouse, Esc to let it go, R to start again (ADR 0047):
 
@@ -89,7 +89,7 @@ The sandbox loads its shaders from the `shaders` folder beside its executable. T
 - third_party/: vendored, pinned upstream sources (SDL3, Vulkan-Headers, volk, Vulkan Memory Allocator, and the host tools Slang, SPIRV-Tools and SPIRV-Headers) with provenance records.
 - .lykoware-tools/ (not committed): host tools built from third_party on first configure and shared by every preset.
 - assets/brand/: Lykoware logo vector set (SVG logo, icon, wordmark, mono variants), .ico, 512 px icon, preview sheet, BRAND.md guidelines and PROVENANCE.md.
-- .github/workflows/build.yml: clean Windows Debug/Release builds, tests, staged execution, and downloadable artifacts; also Linux validation.
+- .github/workflows/build.yml: clean Windows Debug/Release builds, tests, staged execution, and opt-in artifact uploads; also Linux validation.
 
 Build output is ignored by Git. CMakeUserPresets.json is available for local overrides.
 

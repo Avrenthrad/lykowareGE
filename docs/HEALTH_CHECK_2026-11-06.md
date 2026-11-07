@@ -1,5 +1,7 @@
 # Engine health check — 6 November 2026
 
+**Historical report:** the findings and account failure below apply to the frozen snapshots named here. Later stack fixes reject foreign mixer/renderer handles; the original probes were rechecked successfully (see STATUS). Hosted jobs resumed on 7 November; current consolidation and platform evidence live in PR #65 and STATUS. Target-PC performance acceptance remains separate.
+
 The Linux foundation builds and runs successfully. The pending stack is not yet merge-ready: additional ownership probes reproduced two correctness defects, and fresh Windows/hardware validation is missing. Phase 1 remains open.
 
 ## Frozen source and results
