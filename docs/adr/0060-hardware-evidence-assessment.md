@@ -12,4 +12,4 @@ Optional `--budget FILE` / PowerShell `-BudgetFile` accepts versioned provisiona
 
 ## Verification
 
-Exercise malformed/missing reports, software GPU, nonfinite/negative samples, count/configuration mismatch, replay/device mismatch, absent GPU inventory, and exact-boundary/overrun budget cases. Register with CTest; Windows CI also parses the PowerShell runner. Physical GPU inventory/measurements remain target-PC work.
+Exercise malformed/missing reports, software GPU, nonfinite/negative samples, count/configuration mismatch, replay/device mismatch, absent GPU inventory, and exact-boundary/overrun budget cases. Register with CTest; Windows CI also runs the PowerShell runner with synthetic NVIDIA inventory, verifies >4 GiB memory metadata, and requires unavailable Vulkan to remain pending and existing directories to be refused. Physical GPU inventory/measurements remain target-PC work.
