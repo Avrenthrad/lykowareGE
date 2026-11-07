@@ -38,6 +38,21 @@ try {
         $refused = $true
     }
     if (-not $refused) { throw 'Existing evidence directory was overwritten' }
+    # Driver tools can exist but fail. In Windows PowerShell 5, native stderr
+    # may throw even when redirected; optional inventory must still stay unknown.
+    Set-Content -Encoding ASCII -LiteralPath (Join-Path $temporary 'nvidia-smi.cmd') -Value @('@echo off', 'echo Driver unavailable 1>&2', 'exit /b 1')
+    $missingOutput = Join-Path $temporary 'unknown-inventory'
+    $missingPending = $false
+    try {
+        & (Join-Path $repository 'tools/validation/measure-scene.ps1') -Executable $Executable -OutputDirectory $missingOutput -SkipBuild -Frames 1
+    } catch {
+        if ($_.Exception.Message -notlike '*GPU unavailable; hardware validation is pending*') { throw }
+        $missingPending = $true
+    }
+    $unknown = Get-Content -Raw -LiteralPath (Join-Path $missingOutput 'hardware.json') | ConvertFrom-Json
+    if (-not $missingPending -or $unknown.nvidia_gpus.Count -ne 0 -or $unknown.nvidia_inventory_status -eq 'collected') {
+        throw 'Failed driver inventory must remain unknown without hiding GPU unavailability'
+    }
     Write-Host 'Windows runner integration passed (synthetic inventory; Vulkan unavailable as expected).'
 } finally {
     $env:PATH = $previousPath

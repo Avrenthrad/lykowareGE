@@ -41,9 +41,9 @@ $inventory = @()
 $inventoryStatus = 'unavailable'
 $nvidia = Get-Command nvidia-smi -ErrorAction SilentlyContinue
 if ($nvidia) {
-    $rows = & $nvidia.Source --query-gpu=name,memory.total,driver_version --format=csv,noheader,nounits 2>$null
-    if ($LASTEXITCODE -eq 0) {
-        try {
+    try {
+        $rows = & $nvidia.Source --query-gpu=name,memory.total,driver_version --format=csv,noheader,nounits 2>$null
+        if ($LASTEXITCODE -eq 0) {
             $parsed = @($rows | ConvertFrom-Csv -Header Name, MemoryMiB, Driver)
             foreach ($gpu in $parsed) {
                 $memory = [double]::Parse($gpu.MemoryMiB.Trim(), [Globalization.CultureInfo]::InvariantCulture)
@@ -51,8 +51,8 @@ if ($nvidia) {
                 $inventory += [ordered]@{ name = $gpu.Name.Trim(); total_memory_mib = $memory; driver_version = $gpu.Driver.Trim() }
             }
             if ($inventory.Count -gt 0) { $inventoryStatus = 'collected' }
-        } catch { $inventory = @(); $inventoryStatus = 'invalid' }
-    }
+        }
+    } catch { $inventory = @(); $inventoryStatus = 'unavailable-or-invalid' }
 }
 $system = Get-CimInstance Win32_ComputerSystem
 $os = Get-CimInstance Win32_OperatingSystem
