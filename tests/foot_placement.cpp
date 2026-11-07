@@ -1,4 +1,5 @@
 #include "foot_placement.hpp"
+#include <cstdint>
 #include <cmath>
 #include <iostream>
 #include <limits>
@@ -22,12 +23,12 @@ int main()
     a::Skeleton skeleton;
     for(const auto* name:rig_roles::names){a::Joint j{};j.name=name;skeleton.joints.push_back(j);}
     skeleton.joints[0].rest.translation={0,1.6F,0};
-    skeleton.joints[1].parent=0;skeleton.joints[1].rest.translation={-.2F,0,0};
-    skeleton.joints[2].parent=1;skeleton.joints[2].rest.translation={0,-.8F,0};
-    skeleton.joints[3].parent=2;skeleton.joints[3].rest.translation={0,-.8F,0};
-    skeleton.joints[4].parent=0;skeleton.joints[4].rest.translation={.2F,0,0};
-    skeleton.joints[5].parent=4;skeleton.joints[5].rest.translation={0,-.8F,0};
-    skeleton.joints[6].parent=5;skeleton.joints[6].rest.translation={0,-.8F,0};
+    skeleton.joints[1].parent=std::uint16_t{0};skeleton.joints[1].rest.translation={-.2F,0,0};
+    skeleton.joints[2].parent=std::uint16_t{1};skeleton.joints[2].rest.translation={0,-.8F,0};
+    skeleton.joints[3].parent=std::uint16_t{2};skeleton.joints[3].rest.translation={0,-.8F,0};
+    skeleton.joints[4].parent=std::uint16_t{0};skeleton.joints[4].rest.translation={.2F,0,0};
+    skeleton.joints[5].parent=std::uint16_t{4};skeleton.joints[5].rest.translation={0,-.8F,0};
+    skeleton.joints[6].parent=std::uint16_t{5};skeleton.joints[6].rest.translation={0,-.8F,0};
     const rig_roles::Indices roles{0,1,2,3,4,5,6};
     const auto rest=a::rest_pose(skeleton);
     std::string error;
@@ -38,7 +39,7 @@ int main()
     expect(!refused.configure(invalid,roles,error),"collapsed mapped limb refused");
     invalid=skeleton;invalid.joints[2].rest.scale={2,1,1};
     expect(!refused.configure(invalid,roles,error),"unsupported mapped scales refused");
-    invalid=skeleton;invalid.joints[4].parent=3;
+    invalid=skeleton;invalid.joints[4].parent=std::uint16_t{3};
     expect(!refused.configure(invalid,roles,error),"interdependent leg branches refused");
     auto world=p::World::create({},error);
     if(!world){std::cerr<<error;return 1;}

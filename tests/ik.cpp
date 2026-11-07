@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <lykoware/ik.hpp>
 #include <cmath>
 #include <iostream>
@@ -60,7 +61,7 @@ int main()
     expect(!animation::solve_two_bone(r,s,error),"coordinate precision collapse refused");
     animation::Skeleton rig;
     for (int i=0;i<4;++i) { animation::Joint joint{};joint.name=std::to_string(i);rig.joints.push_back(joint); }
-    rig.joints[1].parent=0;rig.joints[2].parent=1;rig.joints[3].parent=0;
+    rig.joints[1].parent=std::uint16_t{0};rig.joints[2].parent=std::uint16_t{1};rig.joints[3].parent=std::uint16_t{0};
     rig.joints[1].rest.translation={1,0,0};rig.joints[2].rest.translation={1,0,0};
     const auto pose=animation::rest_pose(rig);
     animation::Pose posed;
@@ -91,10 +92,10 @@ int main()
     for (int i=0;i<5;++i) { animation::Joint joint{};joint.name=std::to_string(i);parented.joints.push_back(joint); }
     parented.joints[0].rest.rotation=math::from_axis_angle({0,0,1},0.7F);
     parented.joints[0].rest.translation={4,1,0};
-    parented.joints[1].parent=0;parented.joints[1].rest.translation={0.2F,0.1F,0};
-    parented.joints[2].parent=1;parented.joints[2].rest.translation={1,0,0};
-    parented.joints[3].parent=2;parented.joints[3].rest.translation={1,0,0};
-    parented.joints[4].parent=0;
+    parented.joints[1].parent=std::uint16_t{0};parented.joints[1].rest.translation={0.2F,0.1F,0};
+    parented.joints[2].parent=std::uint16_t{1};parented.joints[2].rest.translation={1,0,0};
+    parented.joints[3].parent=std::uint16_t{2};parented.joints[3].rest.translation={1,0,0};
+    parented.joints[4].parent=std::uint16_t{0};
     expect(animation::pose_two_bone(parented,animation::rest_pose(parented),1,2,3,{4.5,2.2,0.3},{4,3,1},posed,geometry,error),
            "rotated translated ancestor is accounted for in local rotations");
     animation::global_transforms(parented,posed,fk);

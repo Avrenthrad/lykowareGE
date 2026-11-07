@@ -2,6 +2,7 @@
 #include "character_fit.hpp"
 #include "rig_roles.hpp"
 
+#include <cstdint>
 #include <lykoware/skinning.hpp>
 
 #include <cmath>
@@ -34,8 +35,8 @@ int main()
     for (const auto* name : rig_roles::names) {
         lykoware::animation::Joint joint{}; joint.name = name; rig.joints.push_back(joint);
     }
-    rig.joints[1].parent=0;rig.joints[2].parent=1;rig.joints[3].parent=2;
-    rig.joints[4].parent=0;rig.joints[5].parent=4;rig.joints[6].parent=5;
+    rig.joints[1].parent=std::uint16_t{0};rig.joints[2].parent=std::uint16_t{1};rig.joints[3].parent=std::uint16_t{2};
+    rig.joints[4].parent=std::uint16_t{0};rig.joints[5].parent=std::uint16_t{4};rig.joints[6].parent=std::uint16_t{5};
     rig_roles::Names names;
     for (std::size_t i=0;i<names.size();++i) { names[i]=rig_roles::names[i]; }
     rig_roles::Indices roles{};
@@ -46,9 +47,9 @@ int main()
     expect(!rig_roles::resolve(rig,wrong,roles,rig_error) && roles==before_roles, "missing role fails transactionally");
     wrong=names;wrong[2]=names[1];
     expect(!rig_roles::resolve(rig,wrong,roles,rig_error), "aliased roles refused");
-    rig.joints[3].parent=0;
+    rig.joints[3].parent=std::uint16_t{0};
     expect(!rig_roles::resolve(rig,names,roles,rig_error), "incorrect leg ancestry refused");
-    rig.joints[3].parent=2;rig.joints[6].name=rig.joints[5].name;
+    rig.joints[3].parent=std::uint16_t{2};rig.joints[6].name=rig.joints[5].name;
     expect(!rig_roles::resolve(rig,names,roles,rig_error), "ambiguous names refused");
     const auto asset = training_mannequin::make();
     std::string error;

@@ -1,6 +1,7 @@
 // animation.pose (ADR 0049): skeletons, clip sampling, pose blending and skinning, checked against
 // values worked out by hand. No files, window or GPU.
 
+#include <cstdint>
 #include <lykoware/animation.hpp>
 
 #include <cmath>
@@ -71,8 +72,8 @@ anim::Skeleton arm()
 {
     anim::Skeleton skeleton;
     skeleton.joints.push_back({"shoulder", std::nullopt, {}, {}});
-    skeleton.joints.push_back({"elbow", 0, {{1.F, 0.F, 0.F}, {}, {1.F, 1.F, 1.F}}, translation(-1.F, 0.F, 0.F)});
-    skeleton.joints.push_back({"hand", 1, {{1.F, 0.F, 0.F}, {}, {1.F, 1.F, 1.F}}, translation(-2.F, 0.F, 0.F)});
+    skeleton.joints.push_back({"elbow", std::uint16_t{0}, {{1.F, 0.F, 0.F}, {}, {1.F, 1.F, 1.F}}, translation(-1.F, 0.F, 0.F)});
+    skeleton.joints.push_back({"hand", std::uint16_t{1}, {{1.F, 0.F, 0.F}, {}, {1.F, 1.F, 1.F}}, translation(-2.F, 0.F, 0.F)});
     return skeleton;
 }
 
@@ -269,10 +270,10 @@ void test_refusals()
     big.joints.resize(anim::max_joints + 1);
     refused_skeleton(big, "too many joints are refused");
     anim::Skeleton skeleton = arm();
-    skeleton.joints[1].parent = 2;
+    skeleton.joints[1].parent = std::uint16_t{2};
     refused_skeleton(skeleton, "a parent after its child is refused");
     skeleton = arm();
-    skeleton.joints[1].parent = 1;
+    skeleton.joints[1].parent = std::uint16_t{1};
     refused_skeleton(skeleton, "a joint that is its own parent is refused");
     skeleton = arm();
     skeleton.joints[2].rest.translation.x = std::nanf("");
