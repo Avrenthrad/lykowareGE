@@ -585,6 +585,9 @@ if(BUILD_TESTING)
     add_test(NAME validation.runner COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_SOURCE_DIR}/tests/validation_runner.py" "${CMAKE_COMMAND}" "${CMAKE_CTEST_COMMAND}")
     set_tests_properties(validation.runner PROPERTIES TIMEOUT 120)
+    add_test(NAME validation.hardware_assessment COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_SOURCE_DIR}/tests/hardware_assessment.py")
+    set_tests_properties(validation.hardware_assessment PROPERTIES TIMEOUT 30)
 
 endif()
 
