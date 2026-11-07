@@ -1,5 +1,16 @@
 # Shared work board
 
+## Two-bone pose application — draft #63
+
+Codex, `codex/pose-ik`, stacked on #62. ADR 0058 adds `animation::pose_two_bone`: validates skeleton/pose, direct chain, unit scales and unchanged rest lengths; applies global shortest-arc root/knee corrections through parent rotations; verifies FK before committing pose and geometry outputs. Supports pose/output aliasing, preserves local translations/scales, ancestor/sibling/end local rotations and writes no physics. Targets and hints are skeleton model coordinates, not actor/world coordinates.
+
+Clean unchanged source `fbf7468a384179aa21aa175b183474cd4214171b` passed 67/67 CTests each Linux Debug, ASan/UBSan and clang-tidy 18, no skips; configure/build/install/installed CLI pass. Report `/workspace/lykoware-pose-ik-validation/report.json`. Independent FK targets under rotated/translated ancestors, varied 3D targets, aliases, exact/near-antiparallel corrections and unsupported/stretched/collapsed chains pass. A near-180-degree case exposed rounding to an exact half-turn; double shortest-arc construction fixed it. Four external faults (ignored parent, skipped root/knee correction, early failure overwrite) were caught. No faulty artifacts committed.
+
+Limits: direct links only, unit scales, no foot world-orientation/joint limits or terrain integration. Helper chains accepted for mapping/inspection remain unsupported by pose application. This correctness-first operation validates the whole pose/skeleton and uses temporary vectors/copies; prepared chains and reusable scratch are needed before per-frame crowd budget claims. No allocation-free claim. Windows/hardware/hosted CI gates and owner merge remain open. Subsequent handoff edits are documentation only.
+
+Next: bridge mapped leg roles, rest/bend calibration and world→model targets, then terrain probes/foot planting and smoothing. Master checklist separates verified engine operation from unimplemented runtime integration.
+
+
 ## Active task: apply two-bone IK to poses (Codex)
 
 - Branch `codex/pose-ik`, based on #62 `98e0025`; ADR 0058.
