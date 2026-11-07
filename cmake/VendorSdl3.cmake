@@ -11,7 +11,16 @@ function(lykoware_add_sdl3)
     set(SDL_INSTALL OFF CACHE BOOL "Do not install SDL with Lykoware" FORCE)
     set(SDL_INSTALL_CPACK OFF CACHE BOOL "Do not package SDL" FORCE)
     set(SDL_UNINSTALL OFF CACHE BOOL "Do not add an SDL uninstall target" FORCE)
-    set(SDL_AUDIO OFF CACHE BOOL "Window and input do not use SDL audio" FORCE)
+    # Audio output (ADR 0033): Lykoware's mixer renders the samples; SDL only plays them.
+    # The dummy and disk drivers let tests run without a sound card. Windows uses WASAPI;
+    # Linux loads PipeWire, PulseAudio or ALSA at run time when their headers were found at
+    # configure time. Backends Lykoware does not target are off.
+    set(SDL_AUDIO ON CACHE BOOL "Audio output plays the Lykoware mixer" FORCE)
+    set(SDL_DUMMYAUDIO ON CACHE BOOL "Tests use the dummy audio driver" FORCE)
+    set(SDL_DISKAUDIO ON CACHE BOOL "Tests capture device bytes with the disk audio driver" FORCE)
+    set(SDL_JACK OFF CACHE BOOL "Lykoware does not target JACK" FORCE)
+    set(SDL_SNDIO OFF CACHE BOOL "Lykoware does not target sndio" FORCE)
+    set(SDL_OSS OFF CACHE BOOL "Lykoware does not target OSS" FORCE)
     set(SDL_CAMERA OFF CACHE BOOL "Window and input do not use SDL camera" FORCE)
     set(SDL_GPU OFF CACHE BOOL "The Vulkan RHI is not SDL's GPU API" FORCE)
     set(SDL_RENDER OFF CACHE BOOL "Window and input do not use SDL's renderer" FORCE)

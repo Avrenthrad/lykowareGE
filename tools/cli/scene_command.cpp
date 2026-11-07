@@ -4,6 +4,7 @@
 #include <lykoware/paths.hpp>
 #include <lykoware/rhi/pipeline.hpp>
 #include <lykoware/scene.hpp>
+#include <lykoware/scene_script.hpp>
 #include <lykoware/version.hpp>
 
 #include <nlohmann/json.hpp>
@@ -15,6 +16,7 @@
 #include <fstream>
 #include <iostream>
 #include <iterator>
+#include <memory>
 #include <optional>
 #include <set>
 #include <stdexcept>
@@ -90,7 +92,7 @@ std::uint64_t peak_memory_bytes()
 
 int scene_command(std::span<const std::string> arguments, bool screenshot)
 {
-    std::filesystem::path source, replay, capture, report;
+    std::filesystem::path source, replay, capture, report, script_file, record;
     std::uint32_t ticks = 120, frames = 0, warmup = 30, width = 1280, height = 720;
     std::set<std::string> seen;
     for (std::size_t i = 0; i < arguments.size(); ++i) {
@@ -101,6 +103,8 @@ int scene_command(std::span<const std::string> arguments, bool screenshot)
         const auto& value = arguments[++i];
         if (option == "--scene") { source = path(value); }
         else if (option == "--commands") { replay = path(value); }
+        else if (option == "--script") { script_file = path(value); }
+        else if (option == "--record") { record = path(value); }
         else if (option == "--capture" || (screenshot && option == "--output")) { capture = path(value); }
         else if (option == "--report") { report = path(value); }
         else if (option == "--ticks") { ticks = integer(value, 36000); }
@@ -112,6 +116,12 @@ int scene_command(std::span<const std::string> arguments, bool screenshot)
     }
     if (source.empty() || (screenshot && capture.empty())) {
         throw std::invalid_argument("requires --scene FILE; screenshot also requires --output FILE");
+    }
+    if (!script_file.empty() && !replay.empty()) {
+        throw std::invalid_argument("use --commands or --script, not both");
+    }
+    if (!record.empty() && script_file.empty()) {
+        throw std::invalid_argument("--record writes a script's commands; it requires --script");
     }
     if (static_cast<std::uint64_t>(width)*height > 16777216U) {
         throw std::invalid_argument("capture exceeds 16 megapixel limit");
@@ -130,12 +140,22 @@ int scene_command(std::span<const std::string> arguments, bool screenshot)
     }
     auto world = scene::Scene::create(description, error);
     if (!world) { throw std::runtime_error(error); }
+    // A script issues commands each tick instead of a command file (ADR 0042).
+    std::unique_ptr<scene::ScriptDriver> driver;
+    if (!script_file.empty()) {
+        const std::string name = script_file.filename().string();
+        driver = scene::ScriptDriver::create(*world, read(script_file), name, {}, error);
+        if (!driver) { throw std::runtime_error("script: " + error); }
+    }
     std::size_t next = 0;
     const auto step = [&] {
         while (next < commands.size() && commands[next].tick == world->tick()) {
             if (!world->dispatch(commands[next++], error)) {
                 throw std::runtime_error("command failed: " + error);
             }
+        }
+        if (driver && !driver->run_tick(error)) {
+            throw std::runtime_error("script: " + error);
         }
         if (!world->advance_tick(error)) { throw std::runtime_error(error); }
     };
@@ -151,7 +171,7 @@ int scene_command(std::span<const std::string> arguments, bool screenshot)
     }
     result["simulation"] = summary(simulation);
     result["replay_state_hash"] = world->state_hash();
-    result["commands_applied"] = next;
+    result["commands_applied"] = driver ? driver->commands().size() : next;
     result["scene_entities"] = world->entities().size();
     if (!capture.empty() || frames > 0) {
         rhi::RhiError failure;
@@ -205,6 +225,12 @@ int scene_command(std::span<const std::string> arguments, bool screenshot)
                 throw std::runtime_error("screenshot capture/write failed");
             }
         }
+    }
+    if (!record.empty()) {
+        std::ofstream output(record, std::ios::binary);
+        output << scene::encode_commands(driver->commands());
+        output.close();
+        if (!output) { throw std::runtime_error("command recording write failed"); }
     }
     result["final_tick"] = world->tick();
     result["final_state_hash"] = world->state_hash();

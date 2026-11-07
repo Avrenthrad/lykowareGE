@@ -430,6 +430,19 @@ bool Scene::advance_tick(std::string& error)
 
 std::uint64_t Scene::tick() const { return impl_->tick; }
 const ecs::World& Scene::entities() const { return impl_->entities; }
+
+std::optional<physics::DVec3> Scene::position(std::string_view id) const
+{
+    const auto entry = impl_->ids.find(id);
+    if (entry == impl_->ids.end()) {
+        return std::nullopt;
+    }
+    const auto* transform = impl_->entities.get<Transform>(entry->second.entity);
+    if (transform == nullptr) {
+        return std::nullopt;
+    }
+    return transform->position;
+}
 const render::Camera& Scene::camera() const { return impl_->camera; }
 
 std::uint64_t Scene::state_hash() const

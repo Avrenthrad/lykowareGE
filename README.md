@@ -17,6 +17,8 @@ Every tool/content operation must be reachable through CLI and scripting, with d
 
 ## Start here
 
+- **[Master completion checklist — keep updated as we build](docs/MASTER_CHECKLIST.md)**
+
 - [Status: implemented, current, next, known issues](docs/STATUS.md)
 - [Owner vision and remaining questions](docs/ENGINE_VISION.md)
 - [Roadmap and exit criteria](docs/ROADMAP.md)
@@ -28,7 +30,7 @@ Every tool/content operation must be reachable through CLI and scripting, with d
 
 ## What actually runs
 
-A C++20/CMake engine library, console sandbox, and native **lyko** CLI. `lyko build` and `lyko test` call the CMake/CTest presets without a shell. `lyko run` launches the console sandbox. `lyko trace --frames N` writes a CPU Chrome trace of that sandbox loop. `lyko run --scene` and `screenshot` return an explicit unsupported-renderer error. The engine also has a GPU-free image harness used by CTest; it is a software pattern and PPM comparison, not a renderer screenshot. Compiler warnings are errors by default; Linux ASan/UBSan and clang-tidy 18 presets are available. Provisional CPU-only budgets run in CTest for the pinned hosted runners.
+A C++20/CMake engine library, console sandbox, and native **lyko** CLI. `lyko build` and `lyko test` call the CMake/CTest presets without a shell. `lyko run` launches the console sandbox. `lyko trace --frames N` writes a CPU Chrome trace of that sandbox loop; `lyko trace --gpu --frames N` traces the sandbox's Vulkan window with GPU frame times. `lyko run --scene` runs authored fixtures and `lyko screenshot` captures them through the owned renderer. The engine also has a GPU-free image harness used by CTest; it is a software pattern and PPM comparison, not a renderer screenshot. Compiler warnings are errors by default; Linux ASan/UBSan and clang-tidy 18 presets are available. Provisional CPU-only budgets run in CTest for the pinned hosted runners.
 
 See [build instructions](docs/BUILDING.md), [CLI contract](docs/CLI.md), and [STATUS](docs/STATUS.md) for current verification. The engine can open a window and read keyboard, mouse, and gamepad state through its own API. SDL3 is vendored for that and is not part of the public headers. The runtime has a Vulkan RHI, fixed-step clocks, Jolt physics and an owned ECS. This branch adds versioned scenes, deterministic command replay and headless scene screenshots; see STATUS for branch/CI evidence. The full editor remains later work.
 

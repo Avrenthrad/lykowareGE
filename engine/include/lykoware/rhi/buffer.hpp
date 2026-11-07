@@ -1,5 +1,6 @@
 #pragma once
 
+#include <lykoware/math.hpp>
 #include <lykoware/rhi/device.hpp>
 #include <lykoware/rhi/instance.hpp>
 
@@ -60,12 +61,24 @@ private:
 // One indexed mesh to draw: a VertexLayout::PositionNormal vertex buffer,
 // a buffer of 32-bit triangle indices, and the bytes the pipeline's push
 // constants hold for this mesh.
+class Texture;
+
 struct MeshDraw {
     const Buffer* vertices = nullptr;
     const Buffer* indices = nullptr;
     // Indices to draw from the start of the index buffer; 0 means all.
     std::uint32_t index_count = 0;
     std::span<const std::byte> push_constants;
+    // Required when the pipeline reads a texture (GraphicsPipelineDesc::texture), and must be
+    // null otherwise.
+    const Texture* texture = nullptr;
+    // The first index drawn, so one index buffer can hold several parts (ADR 0038). With
+    // index_count 0, the draw runs from here to the end of the buffer.
+    std::uint32_t first_index = 0;
+    // Skinned pipelines only: 1..256 finite affine matrices, copied during the draw call.
+    // Empty uses the identity palette. Other pipelines require empty. The caller retains no
+    // GPU lifetime obligation for this span after draw returns.
+    std::span<const math::Mat4> skin_matrices{};
 };
 
 }

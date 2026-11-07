@@ -12,7 +12,9 @@ namespace lykoware {
 // Coordinates: mouse position is window-relative pixels. The origin is the
 // top-left of the client area. X increases to the right. Y increases downward.
 // Wheel X is positive to the right. Wheel Y is positive away from the user.
-// Values may lie outside the window.
+// Values may lie outside the window. Motion (move_x, move_y) is the distance
+// the mouse moved this frame, in the same axes; it keeps arriving when the
+// window holds the mouse in relative mode and the position stops (ADR 0047).
 //
 // Gamepad axes are normalised. Sticks are -1..1. Triggers are 0..1.
 // The raw platform axis is a 16-bit signed value, -32768..32767.
@@ -20,8 +22,8 @@ namespace lykoware {
 // Ownership: InputState owns only its own fields. note_* and begin_input_frame
 // do not retain pointers. A caller that passes InputState& keeps it.
 //
-// Lifetime: the functions are synchronous. Edges (pressed, released) and the
-// wheel deltas last until the next begin_input_frame. Level state (down,
+// Lifetime: the functions are synchronous. Edges (pressed, released), the
+// wheel deltas and the motion last until the next begin_input_frame. Level state (down,
 // position, axes, connection) persists across frames.
 //
 // Threading: one InputState is used from one thread. There is no lock.
@@ -110,6 +112,8 @@ struct MouseState {
     float y = 0.f;
     float wheel_x = 0.f;
     float wheel_y = 0.f;
+    float move_x = 0.f;
+    float move_y = 0.f;
 };
 
 // One pad. Additional pads are ignored until this one disconnects; then the
@@ -127,13 +131,20 @@ struct InputState {
     GamepadState gamepad{};
 };
 
-// Drops pressed, released, and wheel deltas. Levels are kept.
+// Drops pressed, released, wheel deltas and motion. Levels are kept.
 void begin_input_frame(InputState& state) noexcept;
+
+// Releases every held key and mouse button, each with a released edge, as
+// when the window loses focus and will not see their key-up (ADR 0040).
+// Gamepad state is untouched: pads keep reporting in the background.
+void release_keys_and_mouse_buttons(InputState& state) noexcept;
 
 void note_key(InputState& state, Key key, bool down) noexcept;
 void note_mouse_button(InputState& state, MouseButton button, bool down) noexcept;
 void note_mouse_position(InputState& state, float x, float y) noexcept;
 void note_mouse_wheel(InputState& state, float delta_x, float delta_y) noexcept;
+// Adds relative motion; non-finite values are ignored.
+void note_mouse_motion(InputState& state, float delta_x, float delta_y) noexcept;
 void note_gamepad_connection(InputState& state, bool connected) noexcept;
 void note_gamepad_button(InputState& state, GamepadButton button, bool down) noexcept;
 void note_gamepad_axis(InputState& state, GamepadAxis axis, float value) noexcept;

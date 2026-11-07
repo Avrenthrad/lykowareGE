@@ -96,6 +96,15 @@ struct WindowConfig {
 // throw for a platform refusal. std::bad_alloc can propagate from allocation.
 // pump() returns false when close was requested. It still updates input
 // and size before returning.
+//
+// Focus, minimise and close (ADR 0040): has_focus() and minimized() follow
+// the platform's window events as pump() applies them. Losing focus releases
+// every held key and mouse button with a released edge, because their key-up
+// may go to another window or application. A platform close request for this
+// window, or a quit for the whole application, makes pump() return false;
+// only request_close() and those events close a window, and nothing reopens
+// it. The platform may not report every state: Wayland compositors do not
+// tell applications that they are minimised.
 class Window {
 public:
     [[nodiscard]] static std::unique_ptr<Window> open(const WindowConfig& config, std::string& error);
@@ -113,7 +122,18 @@ public:
     [[nodiscard]] float dpi_x() const;
     [[nodiscard]] float dpi_y() const;
     [[nodiscard]] bool close_requested() const;
+    // Whether this window has keyboard focus, and whether it is minimised.
+    [[nodiscard]] bool has_focus() const;
+    [[nodiscard]] bool minimized() const;
     [[nodiscard]] const InputState& input() const;
+
+    // Relative mouse mode (ADR 0047): the cursor is hidden and held in the
+    // window, and input().mouse.move_x/move_y keep reporting motion, for
+    // mouse-look. The platform releases the mouse while the window does not
+    // have focus and holds it again when focus returns. set_relative_mouse()
+    // fails, with a reason in error, where the platform cannot do it.
+    [[nodiscard]] bool set_relative_mouse(bool enabled, std::string& error);
+    [[nodiscard]] bool relative_mouse() const;
 
     // Poll platform events, start a new input frame, then apply those events.
     // Returns false after request_close() or a platform close/quit.

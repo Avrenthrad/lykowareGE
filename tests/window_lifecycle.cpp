@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -85,7 +86,10 @@ void test_lifecycle()
     motion.type = SDL_EVENT_MOUSE_MOTION;
     motion.motion.x = 8.f;
     motion.motion.y = 9.f;
+    motion.motion.xrel = 2.5f;
+    motion.motion.yrel = -1.5f;
     expect(SDL_PushEvent(&motion), "push motion");
+    expect(SDL_PushEvent(&motion), "push motion again");
     SDL_Event click{};
     click.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
     click.button.button = SDL_BUTTON_LEFT;
@@ -105,6 +109,23 @@ void test_lifecycle()
     expect(window->input().mouse.buttons[static_cast<std::size_t>(lykoware::MouseButton::Left)].pressed,
            "left button maps through the pump");
     expect(window->input().mouse.wheel_y == 1.f, "wheel maps through the pump");
+    expect(window->input().mouse.move_x == 5.f && window->input().mouse.move_y == -3.f,
+           "relative motion adds up over a pump");
+    expect(window->pump(), "pump without motion");
+    expect(window->input().mouse.move_x == 0.f && window->input().mouse.move_y == 0.f,
+           "motion lasts one input frame");
+
+    // Relative mode for mouse-look (ADR 0047). A driver may refuse it, but then it says why
+    // and stays off.
+    expect(!window->relative_mouse(), "a new window does not hold the mouse");
+    std::string relative_error;
+    if (window->set_relative_mouse(true, relative_error)) {
+        expect(relative_error.empty() && window->relative_mouse(), "relative mode turns on");
+        expect(window->set_relative_mouse(false, relative_error) && !window->relative_mouse(),
+               "and off again");
+    } else {
+        expect(!relative_error.empty() && !window->relative_mouse(), "a refusal names a reason and stays off");
+    }
 
     SDL_VirtualJoystickDesc desc;
     SDL_INIT_INTERFACE(&desc);
@@ -284,6 +305,130 @@ void test_events_reach_their_window()
            "an event with no window reaches every window");
 }
 
+void push_window_event(SDL_EventType type, SDL_WindowID id)
+{
+    SDL_Event event{};
+    event.type = type;
+    event.window.windowID = id;
+    expect(SDL_PushEvent(&event), "push window event");
+}
+
+// Opens a dummy window and finds its platform ID: the one that was not open before.
+std::unique_ptr<lykoware::Window> open_with_id(SDL_WindowID& id)
+{
+    const std::vector<SDL_WindowID> before = open_window_ids();
+    std::string error;
+    auto window = lykoware::Window::open(dummy_config(), error);
+    id = 0;
+    for (const SDL_WindowID candidate : open_window_ids()) {
+        if (std::find(before.begin(), before.end(), candidate) == before.end()) {
+            id = candidate;
+        }
+    }
+    expect(window != nullptr && id != 0, "a window opens with its own platform ID");
+    return window;
+}
+
+// ADR 0040: focus follows its window's events, and losing it releases held keys and buttons.
+void test_focus()
+{
+    SDL_WindowID first_id = 0;
+    SDL_WindowID second_id = 0;
+    auto first = open_with_id(first_id);
+    auto second = open_with_id(second_id);
+    if (!first || !second) {
+        return;
+    }
+    expect(!first->has_focus() && !second->has_focus(), "hidden headless windows start without focus");
+
+    push_window_event(SDL_EVENT_WINDOW_FOCUS_GAINED, first_id);
+    first->pump();
+    second->pump();
+    expect(first->has_focus() && !second->has_focus(), "focus reaches only its own window");
+
+    SDL_Event key{};
+    key.type = SDL_EVENT_KEY_DOWN;
+    key.key.windowID = first_id;
+    key.key.scancode = SDL_SCANCODE_A;
+    key.key.down = true;
+    expect(SDL_PushEvent(&key), "push key for the focused window");
+    SDL_Event click{};
+    click.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
+    click.button.windowID = first_id;
+    click.button.button = SDL_BUTTON_LEFT;
+    click.button.down = true;
+    expect(SDL_PushEvent(&click), "push click for the focused window");
+    first->pump();
+    second->pump();
+    const auto a = static_cast<std::size_t>(lykoware::Key::A);
+    const auto left = static_cast<std::size_t>(lykoware::MouseButton::Left);
+    expect(first->input().keys[a].down && first->input().mouse.buttons[left].down, "the key and button are held");
+
+    // Focus moves to the other window, which receives the key-up instead.
+    push_window_event(SDL_EVENT_WINDOW_FOCUS_LOST, first_id);
+    push_window_event(SDL_EVENT_WINDOW_FOCUS_GAINED, second_id);
+    key.type = SDL_EVENT_KEY_UP;
+    key.key.windowID = second_id;
+    key.key.down = false;
+    expect(SDL_PushEvent(&key), "push the key-up to the newly focused window");
+    first->pump();
+    second->pump();
+    expect(!first->has_focus() && second->has_focus(), "focus moves to the second window");
+    const lykoware::ButtonState& held_key = first->input().keys[a];
+    const lykoware::ButtonState& held_button = first->input().mouse.buttons[left];
+    expect(!held_key.down && held_key.released, "losing focus releases a held key, with an edge");
+    expect(!held_button.down && held_button.released, "losing focus releases a held mouse button, with an edge");
+    const lykoware::ButtonState& other_key = second->input().keys[a];
+    expect(!other_key.down && !other_key.released, "a key-up for a key never seen down has no edge");
+    first->pump();
+    expect(!held_key.released && !held_button.released, "the release edges last one pump");
+}
+
+// ADR 0040: minimised follows its window's events; maximise or restore ends it.
+void test_minimise()
+{
+    SDL_WindowID id = 0;
+    auto window = open_with_id(id);
+    if (!window) {
+        return;
+    }
+    expect(!window->minimized(), "a new window is not minimised");
+    push_window_event(SDL_EVENT_WINDOW_MINIMIZED, id);
+    window->pump();
+    expect(window->minimized(), "a minimise event minimises the window");
+    expect(window->width() == 320 && window->height() == 240, "a minimised window keeps its size");
+    push_window_event(SDL_EVENT_WINDOW_RESTORED, id);
+    window->pump();
+    expect(!window->minimized(), "a restore event ends it");
+    push_window_event(SDL_EVENT_WINDOW_MINIMIZED, id);
+    window->pump();
+    push_window_event(SDL_EVENT_WINDOW_MAXIMIZED, id);
+    window->pump();
+    expect(!window->minimized(), "a maximise event ends it too");
+}
+
+// ADR 0040: a platform close request closes only its window; quit closes every window.
+void test_close_events()
+{
+    SDL_WindowID first_id = 0;
+    SDL_WindowID second_id = 0;
+    auto first = open_with_id(first_id);
+    auto second = open_with_id(second_id);
+    if (!first || !second) {
+        return;
+    }
+    push_window_event(SDL_EVENT_WINDOW_CLOSE_REQUESTED, second_id);
+    expect(first->pump(), "a close request for another window leaves this one open");
+    expect(!second->pump() && second->close_requested(), "a platform close request closes its window");
+    expect(!first->close_requested(), "the other window is still open");
+
+    SDL_Event quit{};
+    quit.type = SDL_EVENT_QUIT;
+    expect(SDL_PushEvent(&quit), "push quit");
+    expect(!first->pump() && first->close_requested(), "quit closes every window");
+    expect(!first->pump(), "a closed window stays closed");
+}
+
 void test_offscreen_driver()
 {
     // Headless like Dummy, but able to host a Vulkan surface (rhi.swapchain
@@ -326,6 +471,9 @@ int main()
     test_lifecycle();
     test_second_gamepad_takes_over();
     test_events_reach_their_window();
+    test_focus();
+    test_minimise();
+    test_close_events();
     test_offscreen_driver();
     test_vulkan_without_loader();
     if (g_failures != 0) {

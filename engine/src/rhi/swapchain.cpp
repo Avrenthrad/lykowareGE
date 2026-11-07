@@ -3,6 +3,7 @@
 #include "common.hpp"
 #include "device_access.hpp"
 #include "pipeline_access.hpp"
+#include "skin_arena.hpp"
 
 #include <volk.h>
 
@@ -10,7 +11,9 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -28,11 +31,19 @@ using detail::fail;
 // Far beyond any frame; a timeout means the GPU or compositor hung.
 constexpr std::uint64_t wait_timeout_ns = 10'000'000'000ULL;
 
+// Frame times kept for take_gpu_frame_times(); older ones are dropped.
+constexpr std::size_t gpu_frame_time_capacity = 1024;
+
 struct Frame {
+    detail::SkinArena skin;
     VkCommandPool pool = VK_NULL_HANDLE;
     VkCommandBuffer commands = VK_NULL_HANDLE;
     VkFence in_flight = VK_NULL_HANDLE;
     VkSemaphore image_available = VK_NULL_HANDLE;
+    // The frame last submitted from this slot has timestamps to read (ADR 0039).
+    bool timing_pending = false;
+    std::uint64_t timed_frame = 0;
+    std::chrono::steady_clock::time_point submitted_at{};
 };
 
 bool has_extension(const Device& device, std::string_view name)
@@ -97,6 +108,9 @@ struct Swapchain::Impl {
             destroy_images();
             if (swapchain != VK_NULL_HANDLE) {
                 vkDestroySwapchainKHR(device, swapchain, nullptr);
+            }
+            if (timestamps != VK_NULL_HANDLE) {
+                vkDestroyQueryPool(device, timestamps, nullptr);
             }
             for (Frame& frame : frames) {
                 if (frame.image_available != VK_NULL_HANDLE) {
@@ -308,13 +322,34 @@ struct Swapchain::Impl {
         return build(error);
     }
 
+    // Reads the timestamps of the frame last submitted from slot `index`, whose fence has
+    // signalled, into gpu_times.
+    void collect_gpu_time(std::uint32_t index)
+    {
+        Frame& frame = frames[index];
+        if (!frame.timing_pending) {
+            return;
+        }
+        frame.timing_pending = false;
+        const std::optional<std::uint64_t> nanoseconds =
+            detail::read_gpu_interval(device, timestamps, index * 2, timestamp_bits, timestamp_period);
+        if (!nanoseconds) {
+            return;
+        }
+        if (gpu_times.size() >= gpu_frame_time_capacity) {
+            gpu_times.erase(gpu_times.begin());
+        }
+        gpu_times.push_back(GpuFrameTime{frame.timed_frame, *nanoseconds, frame.submitted_at});
+    }
+
     // One acquire, clear, draw, present cycle. With `meshes` null, draws
     // vertex_count vertices with `pipeline` (when not null); otherwise draws
     // the meshes, with depth when `depth` is set.
     bool render_frame(const ClearColor& color, VkPipeline pipeline, std::uint32_t vertex_count, RhiError& error,
-                      const std::vector<detail::PreparedDraw>* meshes = nullptr, VkPipelineLayout layout = VK_NULL_HANDLE,
+                      std::vector<detail::PreparedDraw>* meshes = nullptr, VkPipelineLayout layout = VK_NULL_HANDLE,
                       bool depth = false);
 
+    const Device* owner_device = nullptr;
     const Instance* instance = nullptr;
     Window* window = nullptr;
     VmaAllocator allocator = VK_NULL_HANDLE;
@@ -338,6 +373,13 @@ struct Swapchain::Impl {
     std::uint64_t presented = 0;
     std::uint32_t rebuilds = 0;
     bool needs_rebuild = false;
+    // GPU frame timing (ADR 0039): two timestamp queries per frame slot, or none when the device
+    // has no timestamps.
+    VkQueryPool timestamps = VK_NULL_HANDLE;
+    std::uint32_t timestamp_bits = 0;
+    float timestamp_period = 0.F;
+    std::uint64_t submitted = 0;
+    std::vector<GpuFrameTime> gpu_times;
 };
 
 Swapchain::Swapchain(std::unique_ptr<Impl> impl)
@@ -358,6 +400,7 @@ std::unique_ptr<Swapchain> Swapchain::create(
     }
 
     auto impl = std::make_unique<Impl>();
+    impl->owner_device = &device;
     impl->instance = &instance;
     impl->window = &window;
     impl->physical = static_cast<VkPhysicalDevice>(device.native_physical_device());
@@ -464,6 +507,21 @@ std::unique_ptr<Swapchain> Swapchain::create(
         }
     }
 
+    if (device.gpu_timestamps()) {
+        VkQueryPoolCreateInfo query_info{};
+        query_info.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+        query_info.queryType = VK_QUERY_TYPE_TIMESTAMP;
+        query_info.queryCount = 2 * frames_in_flight;
+        result = vkCreateQueryPool(impl->device, &query_info, nullptr, &impl->timestamps);
+        if (result != VK_SUCCESS) {
+            impl->timestamps = VK_NULL_HANDLE;
+            fail(error, RhiFailure::DriverError, driver_failure("vkCreateQueryPool", result));
+            return nullptr;
+        }
+        impl->timestamp_bits = DeviceAccess::timestamp_bits(device);
+        impl->timestamp_period = DeviceAccess::timestamp_period(device);
+    }
+
     if (!impl->build(error)) {
         return nullptr;
     }
@@ -493,6 +551,25 @@ std::uint64_t Swapchain::frames_presented() const
 std::uint32_t Swapchain::rebuild_count() const
 {
     return impl_->rebuilds;
+}
+
+std::vector<GpuFrameTime> Swapchain::take_gpu_frame_times()
+{
+    Impl& impl = *impl_;
+    if (impl.timestamps != VK_NULL_HANDLE) {
+        // Frames whose fence has signalled are done; the rest are read later.
+        for (std::uint32_t index = 0; index < frames_in_flight; ++index) {
+            const Frame& frame = impl.frames[index];
+            if (frame.timing_pending && vkGetFenceStatus(impl.device, frame.in_flight) == VK_SUCCESS) {
+                impl.collect_gpu_time(index);
+            }
+        }
+    }
+    std::vector<GpuFrameTime> taken = std::move(impl.gpu_times);
+    impl.gpu_times.clear();
+    std::sort(taken.begin(), taken.end(),
+              [](const GpuFrameTime& a, const GpuFrameTime& b) { return a.frame < b.frame; });
+    return taken;
 }
 
 ColorFormat Swapchain::color_format() const
@@ -535,18 +612,24 @@ bool Swapchain::render_meshes(const ClearColor& clear, const GraphicsPipeline& p
 }
 
 bool Swapchain::Impl::render_frame(const ClearColor& color, VkPipeline pipeline, std::uint32_t vertex_count,
-                                   RhiError& error, const std::vector<detail::PreparedDraw>* meshes,
+                                   RhiError& error, std::vector<detail::PreparedDraw>* meshes,
                                    VkPipelineLayout layout, bool depth)
 {
     Impl& impl = *this;
+
+    // Minimised (ADR 0040): nothing is shown, and some platforms block presentation
+    // until the window is visible again, so skip the frame and keep the swapchain.
+    if (impl.window->minimized()) {
+        return true;
+    }
 
     VkExtent2D wanted{};
     if (!impl.desired_extent(wanted, error)) {
         return false;
     }
     if (wanted.width == 0 || wanted.height == 0) {
-        // Minimised: release the swapchain once, then skip frames until the
-        // window has an area again.
+        // No area (some platforms report a minimised window this way): release
+        // the swapchain once, then skip frames until the window has an area again.
         if (impl.swapchain != VK_NULL_HANDLE && !impl.rebuild(error)) {
             return false;
         }
@@ -562,6 +645,11 @@ bool Swapchain::Impl::render_frame(const ClearColor& color, VkPipeline pipeline,
     if (result != VK_SUCCESS) {
         return fail(error, RhiFailure::DriverError, driver_failure("vkWaitForFences", result));
     }
+    impl.collect_gpu_time(impl.frame_index);
+    // The slot is idle. Upload before acquiring an image/resetting the fence, so an upload
+    // refusal leaves synchronization reusable on the next call.
+    if (meshes != nullptr && !frame.skin.prepare(*impl.owner_device, *meshes, error)) { return false; }
+
 
     std::uint32_t image_index = 0;
     result = vkAcquireNextImageKHR(impl.device, impl.swapchain, wait_timeout_ns, frame.image_available,
@@ -588,6 +676,11 @@ bool Swapchain::Impl::render_frame(const ClearColor& color, VkPipeline pipeline,
     if (result != VK_SUCCESS) {
         return fail(error, RhiFailure::DriverError, driver_failure("frame command setup", result));
     }
+    const std::uint32_t first_query = impl.frame_index * 2;
+    if (impl.timestamps != VK_NULL_HANDLE) {
+        vkCmdResetQueryPool(frame.commands, impl.timestamps, first_query, 2);
+        detail::write_timestamp(frame.commands, impl.timestamps, first_query, false);
+    }
 
     const VkImage image = impl.images[image_index];
     detail::image_barrier(frame.commands, image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
@@ -607,6 +700,9 @@ bool Swapchain::Impl::render_frame(const ClearColor& color, VkPipeline pipeline,
     detail::image_barrier(frame.commands, image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
                           VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
                           VK_PIPELINE_STAGE_2_NONE, VK_ACCESS_2_NONE);
+    if (impl.timestamps != VK_NULL_HANDLE) {
+        detail::write_timestamp(frame.commands, impl.timestamps, first_query + 1, true);
+    }
     result = vkEndCommandBuffer(frame.commands);
     if (result != VK_SUCCESS) {
         return fail(error, RhiFailure::DriverError, driver_failure("vkEndCommandBuffer", result));
@@ -635,6 +731,9 @@ bool Swapchain::Impl::render_frame(const ClearColor& color, VkPipeline pipeline,
     if (result != VK_SUCCESS) {
         return fail(error, RhiFailure::DriverError, driver_failure("vkQueueSubmit2", result));
     }
+    frame.timing_pending = impl.timestamps != VK_NULL_HANDLE;
+    frame.timed_frame = impl.submitted++;
+    frame.submitted_at = std::chrono::steady_clock::now();
 
     VkPresentInfoKHR present{};
     present.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;

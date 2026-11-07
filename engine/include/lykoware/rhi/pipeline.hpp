@@ -3,6 +3,7 @@
 #include <lykoware/rhi/device.hpp>
 #include <lykoware/rhi/instance.hpp>
 
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <memory>
@@ -85,10 +86,22 @@ enum class VertexLayout {
     // One vertex buffer of 24-byte vertices: float3 position at location 0,
     // float3 normal at location 1 (ADR 0025).
     PositionNormal,
+    // One vertex buffer of 32-byte vertices: float3 position at location 0,
+    // float3 normal at location 1, float2 texture coordinate at location 2 (ADR 0037).
+    PositionNormalUv,
+    // PositionNormalUv plus uint16x4 joints at location 3 and float4 weights at location 4.
+    // Weights are normalised/nonnegative (all zero selects static geometry); joints < 256.
+    SkinnedPositionNormalUv,
 };
 
 // Size in bytes of one VertexLayout::PositionNormal vertex.
 inline constexpr std::uint32_t position_normal_stride = 24;
+// Size in bytes of one VertexLayout::PositionNormalUv vertex.
+inline constexpr std::uint32_t position_normal_uv_stride = 32;
+
+inline constexpr std::uint32_t skinned_position_normal_uv_stride = 56;
+inline constexpr std::size_t skin_palette_max_joints = 256;
+inline constexpr std::size_t skin_palette_max_draws = 4096;
 
 // Largest push-constant block, the size every Vulkan device guarantees.
 inline constexpr std::uint32_t push_constant_max_bytes = 128;
@@ -110,12 +123,15 @@ struct GraphicsPipelineDesc {
     // Bytes of push constants the shaders read, 0..push_constant_max_bytes,
     // a multiple of 4; visible to both stages.
     std::uint32_t push_constant_bytes = 0;
+    // The fragment shader reads one texture: a combined image sampler at set 0,
+    // binding 0 (ADR 0037). Every mesh drawn then names its Texture.
+    bool texture = false;
 };
 
 // A graphics pipeline for dynamic rendering: one colour attachment, triangle
 // lists, no blending, dynamic viewport and scissor; vertex input, depth,
-// culling and push constants as the desc says. Later RHI changes add
-// descriptors (textures) and blending.
+// culling, push constants and an optional texture as the desc says. Later
+// RHI changes add blending.
 //
 // Ownership: create() returns the sole owner of the pipeline and its
 // (empty) pipeline layout. Copy and move are not provided.
@@ -143,6 +159,7 @@ public:
     [[nodiscard]] VertexLayout vertex_layout() const;
     [[nodiscard]] bool depth() const;
     [[nodiscard]] std::uint32_t push_constant_bytes() const;
+    [[nodiscard]] bool texture() const;
     // VkPipeline as an opaque pointer for other RHI code.
     [[nodiscard]] void* native_handle() const;
     // VkPipelineLayout as an opaque pointer for other RHI code.

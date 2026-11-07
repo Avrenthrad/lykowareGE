@@ -7,10 +7,15 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include(CTest)
 include(cmake/ProjectOptions.cmake)
+include(cmake/RuntimeNotices.cmake)
 include(cmake/VendorSdl3.cmake)
 lykoware_add_sdl3()
 include(cmake/VendorVulkan.cmake)
 lykoware_add_vulkan()
+include(cmake/VendorWuffs.cmake)
+lykoware_add_wuffs()
+include(cmake/VendorLua.cmake)
+lykoware_add_lua()
 include(cmake/VendorJolt.cmake)
 lykoware_add_jolt()
 include(cmake/HostTools.cmake)
@@ -19,9 +24,15 @@ include(cmake/Shaders.cmake)
 add_subdirectory(engine)
 add_subdirectory(samples/sandbox)
 add_subdirectory(tools/cli)
+lykoware_install_runtime_notices()
 
 if(BUILD_TESTING)
     find_package(Python3 3.10 REQUIRED COMPONENTS Interpreter)
+    add_test(NAME package.runtime_notices COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_SOURCE_DIR}/tests/package_notices.py"
+        "${CMAKE_COMMAND}" "${CMAKE_BINARY_DIR}" "${CMAKE_SOURCE_DIR}" "$<CONFIG>" "$<TARGET_EXISTS:lykoware_wuffs>")
+    set_tests_properties(package.runtime_notices PROPERTIES TIMEOUT 120)
+
     add_executable(lykoware_trace_test tests/trace_api.cpp)
     target_link_libraries(lykoware_trace_test PRIVATE lykoware::engine)
     lykoware_configure_target(lykoware_trace_test)
@@ -111,13 +122,28 @@ if(BUILD_TESTING)
         ENTRY vertexMain STAGE vertex NAME lit.vert)
     lykoware_compile_shader(lit_frag_spv SOURCE engine/shaders/lit.slang
         ENTRY fragmentMain STAGE fragment NAME lit.frag)
-    add_custom_target(lykoware_test_shaders ALL DEPENDS "${triangle_vert_spv}" "${triangle_frag_spv}"
-        "${lit_vert_spv}" "${lit_frag_spv}")
+    # rhi.mesh's untextured lit shader and rhi.texture's unlit textured shader (ADR 0037).
+    lykoware_compile_shader(mesh_vert_spv SOURCE tests/shaders/mesh.slang
+        ENTRY vertexMain STAGE vertex NAME mesh.vert)
+    lykoware_compile_shader(mesh_frag_spv SOURCE tests/shaders/mesh.slang
+        ENTRY fragmentMain STAGE fragment NAME mesh.frag)
+    lykoware_compile_shader(textured_vert_spv SOURCE tests/shaders/textured.slang
+        ENTRY vertexMain STAGE vertex NAME textured.vert)
+    lykoware_compile_shader(textured_frag_spv SOURCE tests/shaders/textured.slang
+        ENTRY fragmentMain STAGE fragment NAME textured.frag)
+    lykoware_compile_shader(skinned_vert_spv SOURCE engine/shaders/skinned.slang
+        ENTRY vertexMain STAGE vertex NAME skinned.vert)
+    add_custom_target(lykoware_test_shaders ALL DEPENDS "${skinned_vert_spv}" "${triangle_vert_spv}" "${triangle_frag_spv}"
+        "${lit_vert_spv}" "${lit_frag_spv}" "${mesh_vert_spv}" "${mesh_frag_spv}"
+        "${textured_vert_spv}" "${textured_frag_spv}")
 
     # The interactive path: present, resize, and the test triangle drawn
     # through the swapchain. Exit 77 is Skipped.
     add_executable(lykoware_rhi_swapchain_test tests/rhi_swapchain.cpp)
     target_link_libraries(lykoware_rhi_swapchain_test PRIVATE lykoware::engine)
+    # Pushes platform window events (minimise, restore) as the platform would (ADR 0040).
+    target_include_directories(lykoware_rhi_swapchain_test SYSTEM PRIVATE
+        "${CMAKE_SOURCE_DIR}/third_party/sdl3/include")
     lykoware_configure_target(lykoware_rhi_swapchain_test)
     add_dependencies(lykoware_rhi_swapchain_test lykoware_test_shaders)
     add_test(NAME rhi.swapchain
@@ -146,7 +172,7 @@ if(BUILD_TESTING)
     lykoware_configure_target(lykoware_rhi_mesh_test)
     add_dependencies(lykoware_rhi_mesh_test lykoware_test_shaders)
     add_test(NAME rhi.mesh
-        COMMAND lykoware_rhi_mesh_test "${lit_vert_spv}" "${lit_frag_spv}" "${triangle_vert_spv}" "${triangle_frag_spv}"
+        COMMAND lykoware_rhi_mesh_test "${mesh_vert_spv}" "${mesh_frag_spv}" "${triangle_vert_spv}" "${triangle_frag_spv}"
             "${CMAKE_CURRENT_BINARY_DIR}/rhi-mesh")
     set_tests_properties(rhi.mesh PROPERTIES TIMEOUT 60 SKIP_RETURN_CODE 77)
 
@@ -158,6 +184,48 @@ if(BUILD_TESTING)
     add_test(NAME render.scene
         COMMAND lykoware_render_scene_test "${lit_vert_spv}" "${lit_frag_spv}" "${CMAKE_CURRENT_BINARY_DIR}/render-scene")
     set_tests_properties(render.scene PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
+
+    # Sampled textures in the RHI (ADR 0037): exact texels, sRGB, mipmaps, wrapping, misuse.
+    add_executable(lykoware_rhi_texture_test tests/rhi_texture.cpp)
+    target_link_libraries(lykoware_rhi_texture_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_rhi_texture_test)
+    add_dependencies(lykoware_rhi_texture_test lykoware_test_shaders)
+    add_test(NAME rhi.texture
+        COMMAND lykoware_rhi_texture_test "${textured_vert_spv}" "${textured_frag_spv}" "${mesh_vert_spv}" "${mesh_frag_spv}")
+    set_tests_properties(rhi.texture PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
+
+    # The renderer drawing a textured mesh (ADR 0037).
+    add_executable(lykoware_render_texture_test tests/render_texture.cpp)
+    target_link_libraries(lykoware_render_texture_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_render_texture_test)
+    add_dependencies(lykoware_render_texture_test lykoware_test_shaders)
+    add_test(NAME render.texture
+        COMMAND lykoware_render_texture_test "${lit_vert_spv}" "${lit_frag_spv}" "${CMAKE_CURRENT_BINARY_DIR}/render-texture")
+    set_tests_properties(render.texture PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
+
+    # A glTF model loaded, uploaded and drawn (ADR 0035), on lavapipe in CI.
+    add_executable(lykoware_render_model_test tests/render_model.cpp)
+    target_link_libraries(lykoware_render_model_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_render_model_test)
+    add_dependencies(lykoware_render_model_test lykoware_test_shaders)
+    add_test(NAME render.model
+        COMMAND lykoware_render_model_test "${lit_vert_spv}" "${lit_frag_spv}" "${CMAKE_CURRENT_BINARY_DIR}/render-model")
+    set_tests_properties(render.model PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
+
+    # Reference skinning from a real glTF clip, rendered and compared with hand-calculated geometry.
+    add_executable(lykoware_render_skinning_test tests/render_skinning.cpp)
+    target_link_libraries(lykoware_render_skinning_test PRIVATE lykoware::engine)
+    target_include_directories(lykoware_render_skinning_test PRIVATE "${CMAKE_SOURCE_DIR}/samples/course")
+    lykoware_configure_target(lykoware_render_skinning_test)
+    add_dependencies(lykoware_render_skinning_test lykoware_test_shaders)
+    add_test(NAME render.skinning
+        COMMAND lykoware_render_skinning_test "${lit_vert_spv}" "${lit_frag_spv}" "${CMAKE_CURRENT_BINARY_DIR}/render-skinning")
+    set_tests_properties(render.skinning PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
+
+    add_test(NAME render.gpu_skinning
+        COMMAND lykoware_render_skinning_test "${lit_vert_spv}" "${lit_frag_spv}"
+            "${CMAKE_CURRENT_BINARY_DIR}/gpu-skinning" "${skinned_vert_spv}")
+    set_tests_properties(render.gpu_skinning PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
 
     # The sandbox's Vulkan window on the headless offscreen driver: it loads
     # its deployed shaders and draws the triangle. The sandbox exits 3
@@ -175,6 +243,36 @@ if(BUILD_TESTING)
             "-DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/sandbox-missing-shaders/$<CONFIG>"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/sandbox_missing_shaders.cmake")
     set_tests_properties(sandbox.missing_shaders PROPERTIES TIMEOUT 60)
+    # The engine shuts down completely and starts again, three times in one process (ADR 0040):
+    # window, audio, physics and ECS everywhere; the whole Vulkan stack where it is available.
+    add_executable(lykoware_lifecycle_test tests/lifecycle_restart.cpp)
+    target_link_libraries(lykoware_lifecycle_test PRIVATE lykoware::engine)
+    target_include_directories(lykoware_lifecycle_test SYSTEM PRIVATE
+        "${CMAKE_SOURCE_DIR}/third_party/sdl3/include")
+    lykoware_configure_target(lykoware_lifecycle_test)
+    add_dependencies(lykoware_lifecycle_test lykoware_test_shaders)
+    add_test(NAME lifecycle.restart COMMAND lykoware_lifecycle_test core)
+    set_tests_properties(lifecycle.restart PROPERTIES TIMEOUT 60)
+    add_test(NAME lifecycle.restart_vulkan
+        COMMAND lykoware_lifecycle_test vulkan "${lit_vert_spv}" "${lit_frag_spv}")
+    set_tests_properties(lifecycle.restart_vulkan PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
+    # The sandbox's Vulkan window writes a CPU and GPU trace (ADR 0039).
+    add_test(NAME sandbox.gpu_trace
+        COMMAND "${CMAKE_COMMAND}"
+            "-DSAMPLE=$<TARGET_FILE:lykoware_sandbox>"
+            "-DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/sandbox-gpu-trace/$<CONFIG>"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/sandbox_gpu_trace.cmake")
+    set_tests_properties(sandbox.gpu_trace PROPERTIES TIMEOUT 60 SKIP_REGULAR_EXPRESSION "SKIP:")
+    # The sandbox's --play mode: the obstacle course with a player and follow camera (ADR 0047).
+    add_test(NAME sandbox.play
+        COMMAND "${CMAKE_COMMAND}" "-DSAMPLE=$<TARGET_FILE:lykoware_sandbox>"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/sandbox_play.cmake")
+    set_tests_properties(sandbox.play PROPERTIES TIMEOUT 120 SKIP_REGULAR_EXPRESSION "SKIP:")
+
+    add_test(NAME sandbox.imported_player COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_SOURCE_DIR}/tests/imported_player.py" "$<TARGET_FILE:lykoware_sandbox>"
+        "${CMAKE_BINARY_DIR}/test-output/imported-player")
+    set_tests_properties(sandbox.imported_player PROPERTIES TIMEOUT 180 SKIP_RETURN_CODE 77)
 
     if(LYKOWARE_SANITIZERS)
         # The Vulkan loader unloads drivers at vkDestroyInstance. Memory a
@@ -184,7 +282,8 @@ if(BUILD_TESTING)
         # reports; leaks in Lykoware code are still caught (ADR 0015 records the
         # deliberate-leak check).
         set_property(TEST rhi.instance rhi.instance.no_driver rhi.device rhi.render_target rhi.swapchain
-                          sandbox.vulkan_window rhi.pipeline rhi.mesh render.scene
+                          sandbox.vulkan_window sandbox.gpu_trace sandbox.play sandbox.imported_player rhi.pipeline rhi.mesh rhi.texture render.scene
+                          render.model render.skinning render.gpu_skinning render.texture lifecycle.restart_vulkan
             APPEND PROPERTY ENVIRONMENT "VK_LOADER_DISABLE_DYNAMIC_LIBRARY_UNLOADING=1")
     endif()
 
@@ -205,6 +304,115 @@ if(BUILD_TESTING)
     add_test(NAME physics.world COMMAND lykoware_physics_world_test)
     set_tests_properties(physics.world PROPERTIES TIMEOUT 120)
 
+    # The audio mixer and WAV reader (ADR 0032). Links only the engine; no audio device.
+    add_executable(lykoware_audio_test tests/audio.cpp)
+    target_link_libraries(lykoware_audio_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_audio_test)
+    add_test(NAME audio.mixer COMMAND lykoware_audio_test)
+    set_tests_properties(audio.mixer PROPERTIES TIMEOUT 60)
+
+    # Audio output through SDL3 (ADR 0033): the dummy and disk drivers, so no sound card is
+    # needed. The disk capture lands under the build directory.
+    add_executable(lykoware_audio_output_test tests/audio_output.cpp)
+    target_link_libraries(lykoware_audio_output_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_audio_output_test)
+    add_test(NAME audio.output COMMAND lykoware_audio_output_test "${CMAKE_BINARY_DIR}/test-output/audio-output")
+    set_tests_properties(audio.output PROPERTIES TIMEOUT 60)
+
+    # 3D positional sound on ECS entities (ADR 0034). Links only the engine; no audio device.
+    add_executable(lykoware_audio_spatial_test tests/audio_spatial.cpp)
+    target_link_libraries(lykoware_audio_spatial_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_audio_spatial_test)
+    add_test(NAME audio.spatial COMMAND lykoware_audio_spatial_test)
+    set_tests_properties(audio.spatial PROPERTIES TIMEOUT 60)
+
+    # The glTF 2.0 reader (ADR 0035). Builds its models in memory and under the build directory.
+    add_executable(lykoware_gltf_test tests/gltf.cpp)
+    target_link_libraries(lykoware_gltf_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_gltf_test)
+    add_test(NAME assets.gltf COMMAND lykoware_gltf_test "${CMAKE_BINARY_DIR}/test-output/gltf")
+    # Skinned, animated glTF models: skeletons, joints and weights, and clips (ADR 0050).
+    add_executable(lykoware_gltf_skin_test tests/gltf_skin.cpp)
+    target_link_libraries(lykoware_gltf_skin_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_gltf_skin_test)
+    add_test(NAME assets.gltf_skin COMMAND lykoware_gltf_skin_test)
+    set_tests_properties(assets.gltf_skin PROPERTIES TIMEOUT 60)
+    set_tests_properties(assets.gltf PROPERTIES TIMEOUT 60 FIXTURES_SETUP gltf_models)
+
+    # PNG and JPEG decoding through Wuffs (ADR 0036). Encodes its own images; no files.
+    add_executable(lykoware_image_decode_test tests/image_decode.cpp)
+    target_link_libraries(lykoware_image_decode_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_image_decode_test)
+    add_test(NAME assets.image COMMAND lykoware_image_decode_test)
+    set_tests_properties(assets.image PROPERTIES TIMEOUT 60)
+
+    # The sandbox shows a model written by assets.gltf (a CTest fixture), so the repository
+    # holds no model files. Exit 3 without a usable Vulkan device is Skipped.
+    add_test(NAME sandbox.model
+        COMMAND lykoware_sandbox --window --offscreen --vulkan --frames 3
+            --model "${CMAKE_BINARY_DIR}/test-output/gltf/models/textured.glb")
+    set_tests_properties(sandbox.model PROPERTIES TIMEOUT 60 SKIP_RETURN_CODE 3 FIXTURES_REQUIRED gltf_models)
+    if(LYKOWARE_SANITIZERS)
+        set_property(TEST sandbox.model APPEND PROPERTY ENVIRONMENT "VK_LOADER_DISABLE_DYNAMIC_LIBRARY_UNLOADING=1")
+    endif()
+
+    # Sandboxed Lua scripting (ADR 0041). Links only the engine; no files, no GPU.
+    add_executable(lykoware_script_test tests/script.cpp)
+    target_link_libraries(lykoware_script_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_script_test)
+    add_test(NAME script.sandbox COMMAND lykoware_script_test)
+    set_tests_properties(script.sandbox PROPERTIES TIMEOUT 60)
+
+    # The third-person follow camera never sees through walls (ADR 0044). Physics only.
+    add_executable(lykoware_follow_camera_test tests/follow_camera.cpp)
+    target_link_libraries(lykoware_follow_camera_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_follow_camera_test)
+    add_test(NAME camera.follow COMMAND lykoware_follow_camera_test)
+    set_tests_properties(camera.follow PROPERTIES TIMEOUT 60)
+
+    # Skeletal animation: skeletons, clip sampling, pose blending and skinning (ADR 0049).
+    add_executable(lykoware_animation_test tests/animation.cpp)
+    target_link_libraries(lykoware_animation_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_animation_test)
+    add_test(NAME animation.pose COMMAND lykoware_animation_test)
+    set_tests_properties(animation.pose PROPERTIES TIMEOUT 60)
+
+    add_executable(lykoware_ik_test tests/ik.cpp)
+    target_link_libraries(lykoware_ik_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_ik_test)
+    add_test(NAME animation.two_bone_ik COMMAND lykoware_ik_test)
+    set_tests_properties(animation.two_bone_ik PROPERTIES TIMEOUT 60)
+
+    # Pure CPU deformation: affine blends, correct normals, transactional output (ADR 0051).
+    add_executable(lykoware_skinning_test tests/skinning.cpp)
+    target_link_libraries(lykoware_skinning_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_skinning_test)
+    add_test(NAME animation.deform COMMAND lykoware_skinning_test)
+    set_tests_properties(animation.deform PROPERTIES TIMEOUT 60)
+
+    # A player-steered character over a fixed-seed obstacle course: slopes, steps, a jump, a
+    # fall and walls for the camera (ADR 0047). Physics and input only.
+    add_executable(lykoware_player_course_test tests/player_course.cpp)
+    target_link_libraries(lykoware_player_course_test PRIVATE lykoware::engine)
+    target_include_directories(lykoware_player_course_test PRIVATE "${CMAKE_SOURCE_DIR}/samples/course")
+    lykoware_configure_target(lykoware_player_course_test)
+    add_test(NAME player.course COMMAND lykoware_player_course_test)
+    set_tests_properties(player.course PROPERTIES TIMEOUT 120)
+
+    add_executable(lykoware_foot_placement_test tests/foot_placement.cpp)
+    target_link_libraries(lykoware_foot_placement_test PRIVATE lykoware::engine)
+    target_include_directories(lykoware_foot_placement_test PRIVATE "${CMAKE_SOURCE_DIR}/samples/course")
+    lykoware_configure_target(lykoware_foot_placement_test)
+    add_test(NAME animation.foot_placement COMMAND lykoware_foot_placement_test)
+    set_tests_properties(animation.foot_placement PROPERTIES TIMEOUT 60)
+
+    add_executable(lykoware_mannequin_test tests/mannequin.cpp)
+    target_link_libraries(lykoware_mannequin_test PRIVATE lykoware::engine)
+    target_include_directories(lykoware_mannequin_test PRIVATE "${CMAKE_SOURCE_DIR}/samples/course")
+    lykoware_configure_target(lykoware_mannequin_test)
+    add_test(NAME animation.mannequin COMMAND lykoware_mannequin_test)
+    set_tests_properties(animation.mannequin PROPERTIES TIMEOUT 60)
+
     # The maths module (ADR 0024). Links only the engine.
     add_executable(lykoware_math_test tests/math.cpp)
     target_link_libraries(lykoware_math_test PRIVATE lykoware::engine)
@@ -212,11 +420,29 @@ if(BUILD_TESTING)
     add_test(NAME math.types COMMAND lykoware_math_test)
     set_tests_properties(math.types PROPERTIES TIMEOUT 60)
 
-    # The entity-component system (ADR 0023). Links only the engine.
+    # Scene capture through the CLI (ADR 0031). It renders on Vulkan, so sanitizer builds keep
+    # drivers loaded as for the GPU tests above (ADR 0015).
     add_test(NAME scene.cli_capture COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_SOURCE_DIR}/tests/scene_capture.py" "$<TARGET_FILE:lyko>"
         "${CMAKE_SOURCE_DIR}/samples/scenes" "${CMAKE_BINARY_DIR}/test-output/scene-cli")
     set_tests_properties(scene.cli_capture PROPERTIES TIMEOUT 240 SKIP_RETURN_CODE 77)
+    if(LYKOWARE_SANITIZERS)
+        set_property(TEST scene.cli_capture APPEND PROPERTY ENVIRONMENT "VK_LOADER_DISABLE_DYNAMIC_LIBRARY_UNLOADING=1")
+    endif()
+
+    # A real renderer capture through lyko screenshot matches its committed golden (ADR 0043).
+    # Skipped without Vulkan, and on hardware GPUs: the golden is the software (lavapipe) image.
+    add_executable(lykoware_image_compare tests/image_compare.cpp)
+    target_link_libraries(lykoware_image_compare PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_image_compare)
+    add_test(NAME scene.capture_golden COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_SOURCE_DIR}/tests/capture_golden.py" "$<TARGET_FILE:lyko>" "$<TARGET_FILE:lykoware_image_compare>"
+        "${CMAKE_SOURCE_DIR}/samples/scenes" "${CMAKE_SOURCE_DIR}/tests/golden/falling-crates-160x120.ppm"
+        "${CMAKE_BINARY_DIR}/test-output/capture-golden")
+    set_tests_properties(scene.capture_golden PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
+    if(LYKOWARE_SANITIZERS)
+        set_property(TEST scene.capture_golden APPEND PROPERTY ENVIRONMENT "VK_LOADER_DISABLE_DYNAMIC_LIBRARY_UNLOADING=1")
+    endif()
 
     add_executable(lykoware_scene_replay_test tests/scene_replay.cpp)
     target_link_libraries(lykoware_scene_replay_test PRIVATE lykoware::engine)
@@ -225,6 +451,16 @@ if(BUILD_TESTING)
         "${CMAKE_SOURCE_DIR}/samples/scenes/falling-crates.scene.json"
         "${CMAKE_SOURCE_DIR}/samples/scenes/falling-crates.commands.json")
     set_tests_properties(scene.replay PROPERTIES TIMEOUT 120)
+
+    # A Lua script drives the falling-crates scene and must match its command file (ADR 0042).
+    add_executable(lykoware_scene_script_test tests/scene_script.cpp)
+    target_link_libraries(lykoware_scene_script_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_scene_script_test)
+    add_test(NAME scene.script COMMAND lykoware_scene_script_test
+        "${CMAKE_SOURCE_DIR}/samples/scenes/falling-crates.scene.json"
+        "${CMAKE_SOURCE_DIR}/samples/scenes/falling-crates.commands.json"
+        "${CMAKE_SOURCE_DIR}/samples/scenes/falling-crates.lua")
+    set_tests_properties(scene.script PROPERTIES TIMEOUT 120)
 
     add_executable(lykoware_ecs_test tests/ecs.cpp)
     target_link_libraries(lykoware_ecs_test PRIVATE lykoware::engine)
@@ -346,6 +582,10 @@ if(BUILD_TESTING)
             "$<TARGET_FILE:lyko>" "$<TARGET_FILE:lyko_tool_fixture>"
             "${CMAKE_COMMAND}" "${CMAKE_CTEST_COMMAND}")
     set_tests_properties(cli.integration PROPERTIES TIMEOUT 120)
+    add_test(NAME validation.runner COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_SOURCE_DIR}/tests/validation_runner.py" "${CMAKE_COMMAND}" "${CMAKE_CTEST_COMMAND}")
+    set_tests_properties(validation.runner PROPERTIES TIMEOUT 120)
+
 endif()
 
 install(TARGETS lykoware_sandbox lyko RUNTIME DESTINATION bin)
@@ -353,3 +593,9 @@ install(TARGETS lykoware_sandbox lyko RUNTIME DESTINATION bin)
 # nlohmann/json is compiled into runtime/tools; preserve its MIT notice in staged builds.
 install(FILES third_party/json/LICENSE.MIT third_party/json/PROVENANCE.md
     DESTINATION share/lykoware/licenses/json)
+# Wuffs is compiled into the engine under its MIT option (ADR 0036); preserve its notice too.
+install(FILES third_party/wuffs/LICENSE-MIT third_party/wuffs/PROVENANCE.md
+    DESTINATION share/lykoware/licenses/wuffs)
+# Lua is compiled into the engine under MIT (ADR 0041); its notice ships with it.
+install(FILES third_party/lua/LICENSE third_party/lua/PROVENANCE.md
+    DESTINATION share/lykoware/licenses/lua)

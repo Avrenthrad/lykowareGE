@@ -6,8 +6,10 @@
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_scancode.h>
 
+#include <cmath>
 #include <cstdlib>
 #include <iostream>
+#include <limits>
 #include <string_view>
 
 namespace {
@@ -65,9 +67,17 @@ void test_mouse_and_pad()
     expect(state.mouse.buttons[static_cast<std::size_t>(lykoware::MouseButton::Right)].pressed,
            "right button press is an edge");
     expect(state.mouse.wheel_x == -0.5f && state.mouse.wheel_y == 2.5f, "wheel deltas accumulate");
+    lykoware::note_mouse_motion(state, 3.f, -4.f);
+    lykoware::note_mouse_motion(state, 1.5f, 1.f);
+    lykoware::note_mouse_motion(state, std::nanf(""), 7.f);
+    lykoware::note_mouse_motion(state, 7.f, std::numeric_limits<float>::infinity());
+    expect(state.mouse.move_x == 4.5f && state.mouse.move_y == -3.f,
+           "motion accumulates and non-finite motion is ignored");
+    expect(state.mouse.x == 12.f && state.mouse.y == 34.f, "motion does not move the position");
 
     lykoware::begin_input_frame(state);
     expect(state.mouse.wheel_x == 0.f && state.mouse.wheel_y == 0.f, "wheel clears each frame");
+    expect(state.mouse.move_x == 0.f && state.mouse.move_y == 0.f, "motion clears each frame");
     expect(state.mouse.x == 12.f, "position survives the frame boundary");
 
     lykoware::note_gamepad_connection(state, true);

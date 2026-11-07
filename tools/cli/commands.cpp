@@ -52,7 +52,7 @@ void usage()
                  "             [--cmake EXECUTABLE]\n"
                  "  lyko test  [--source DIR] [--preset NAME] [--ctest EXECUTABLE]\n"
                  "  lyko run\n"
-                 "  lyko trace --frames N [--output FILE]\n"
+                 "  lyko trace --frames N [--gpu] [--output FILE]\n"
                  "  lyko --help | --version\n"
                  "Tools default to cmake/ctest on PATH; source defaults to the current directory.\n"
                  "Windows defaults: configure windows, build/test windows-debug.\n"
@@ -60,7 +60,13 @@ void usage()
                  "run launches lykoware_sandbox.\n"
                  "trace --frames N records that many sandbox CPU-loop iterations.\n"
                  "The default trace file is lykoware-cpu-trace.json in the current directory.\n"
-                 "run --scene FILE [--commands FILE] [--ticks N] [--capture FILE] [--report FILE]\n"
+                 "trace --gpu instead records N frames of the sandbox's Vulkan window: CPU zones\n"
+                 "and, where the GPU has timestamps, GPU frame times (lykoware-gpu-trace.json).\n"
+                 "It exits 3 when no window or Vulkan device is available.\n"
+                 "run --scene FILE [--commands FILE | --script FILE [--record FILE]] [--ticks N]\n"
+                 "    [--capture FILE] [--report FILE]\n"
+                 "--script runs a sandboxed Lua script's on_tick(tick) each tick; its commands can\n"
+                 "be written with --record and replayed with --commands.\n"
                  "screenshot --scene FILE --output FILE [--ticks N]\n"
                  "Scene options: --measure-frames N --warmup N --width N --height N.\n";
 }
@@ -249,10 +255,18 @@ int trace_command(std::string_view program, std::span<const std::string> argumen
     }
     bool saw_frames = false;
     bool saw_output = false;
+    bool gpu = false;
     std::uint64_t frames = 0;
     std::string output;
     for (std::size_t index = 0; index < arguments.size(); ++index) {
         const std::string& option = arguments[index];
+        if (option == "--gpu") {
+            if (gpu) {
+                throw std::invalid_argument("Duplicate option: --gpu");
+            }
+            gpu = true;
+            continue;
+        }
         if (option != "--frames" && option != "--output") {
             throw std::invalid_argument("Unknown option for trace: " + option);
         }
@@ -277,12 +291,19 @@ int trace_command(std::string_view program, std::span<const std::string> argumen
     }
     std::filesystem::path destination = saw_output
         ? utf8_path(output)
-        : std::filesystem::current_path() / "lykoware-cpu-trace.json";
+        : std::filesystem::current_path() / (gpu ? "lykoware-gpu-trace.json" : "lykoware-cpu-trace.json");
     destination = std::filesystem::absolute(destination);
     const std::filesystem::path sandbox = find_sandbox(program);
     if (sandbox.empty()) {
         std::cerr << "lyko: cannot launch lykoware_sandbox (not found).\n";
         return lykoware::cli::exit_not_launched;
+    }
+    if (gpu) {
+        // The sandbox's Vulkan window, without sound (ADR 0039).
+        return lykoware::cli::run_process(path_to_utf8(sandbox),
+                                          {"--window", "--vulkan", "--no-audio", "--frames", std::to_string(frames),
+                                           "--trace", path_to_utf8(destination)},
+                                          std::filesystem::current_path());
     }
     return lykoware::cli::run_process(
         path_to_utf8(sandbox),

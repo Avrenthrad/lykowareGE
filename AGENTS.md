@@ -19,6 +19,7 @@ Applies to this repository, including Codex, Claude, Grok, and other assistants.
 - Do not overwrite someone else's changes, force-push shared branches, or merge unrelated work to complete your task.
 - Explain interface changes in an architecture decision record under docs/adr (ADR) before dependent work builds on them.
 - At handoff, record commit/branch/PR, actual checks and results, assumptions, blockers, and the next action. Use docs/WORK_BOARD.md templates and keep docs/STATUS.md current.
+- Maintain [docs/MASTER_CHECKLIST.md](docs/MASTER_CHECKLIST.md) in each relevant PR/handoff: update progress notes, split upcoming steps, and tick only fully verified requirements. Preserve pending merge, Windows, hardware and owner gates. This is Joshua's standing request of 6 November 2026.
 - A successful test, review, or merge must have evidence. Do not check off planned or unverified work.
 
 ## Code and boundaries

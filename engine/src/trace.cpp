@@ -1,5 +1,6 @@
 #include <lykoware/trace.hpp>
 
+#include <algorithm>
 #include <charconv>
 #include <fstream>
 #include <system_error>
@@ -13,6 +14,7 @@ struct Event {
     std::string name;
     std::int64_t timestamp_us = 0;
     std::int64_t duration_us = 0;
+    bool gpu = false;
 };
 
 void append_number(std::string& out, std::int64_t value)
@@ -57,6 +59,12 @@ std::string format_trace(const std::vector<Event>& events)
     json.reserve(64 + events.size() * 48);
     json += "{\"displayTimeUnit\":\"ms\",\"traceEvents\":[";
     bool first = true;
+    if (std::any_of(events.begin(), events.end(), [](const Event& event) { return event.gpu; })) {
+        // Track names, only when there is a GPU track to tell apart.
+        json += "{\"name\":\"thread_name\",\"ph\":\"M\",\"pid\":1,\"tid\":1,\"args\":{\"name\":\"CPU\"}},"
+                "{\"name\":\"thread_name\",\"ph\":\"M\",\"pid\":1,\"tid\":2,\"args\":{\"name\":\"GPU\"}}";
+        first = false;
+    }
     for (const Event& event : events) {
         if (!first) {
             json += ',';
@@ -64,11 +72,15 @@ std::string format_trace(const std::vector<Event>& events)
         first = false;
         json += "{\"name\":\"";
         append_escaped(json, event.name);
-        json += "\",\"cat\":\"cpu\",\"ph\":\"X\",\"ts\":";
+        json += "\",\"cat\":\"";
+        json += event.gpu ? "gpu" : "cpu";
+        json += "\",\"ph\":\"X\",\"ts\":";
         append_number(json, event.timestamp_us);
         json += ",\"dur\":";
         append_number(json, event.duration_us);
-        json += ",\"pid\":1,\"tid\":1}";
+        json += ",\"pid\":1,\"tid\":";
+        json += event.gpu ? '2' : '1';
+        json += '}';
     }
     json += "]}\n";
     return json;
@@ -157,6 +169,21 @@ bool CpuTrace::write(const std::filesystem::path& path) const
         return false;
     }
     return true;
+}
+
+void CpuTrace::add_gpu_span(std::string_view name, std::int64_t start_us, std::int64_t duration_us) noexcept
+{
+    try {
+        state_->events.push_back(
+            Event{std::string{name}, start_us < 0 ? 0 : start_us, duration_us < 0 ? 0 : duration_us, true});
+    } catch (...) {
+        state_->failed = true;
+    }
+}
+
+std::int64_t CpuTrace::elapsed_us() const noexcept
+{
+    return now_us();
 }
 
 std::size_t CpuTrace::completed_count() const noexcept
