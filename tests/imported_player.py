@@ -2,6 +2,7 @@
 import base64
 import json
 import pathlib
+import re
 import struct
 import subprocess
 import sys
@@ -53,7 +54,7 @@ r=run(profile_args)
 assert r.returncode==0 and 'visual scale 1.800000' in r.stdout+r.stderr, r.stdout+r.stderr
 r=run(profile_args+['--character',str(path)])
 assert r.returncode!=0 and 'cannot mix' in r.stdout+r.stderr
-for bad in [dict(version=2,model=path.name),dict(version=1,model=path.name,typo=True),dict(version=1,model=path.name,height='large')]:
+for bad in [dict(version=2,model=path.name),dict(version=1,model=path.name,typo=True),dict(version=1,model=path.name,height='large'),dict(version=1,model=path.name,foot_ik=True),dict(version=1,model=path.name,foot_ik='yes')]:
     profile.write_text(json.dumps(bad))
     r=run(profile_args)
     assert r.returncode!=0, r.stdout+r.stderr
@@ -74,6 +75,37 @@ path.write_text(json.dumps(model))
 profile.write_text(json.dumps(dict(version=1,model=path.name,bones={name:name for name in role_names})))
 r=run(profile_args)
 assert r.returncode==0 and 'Rig role right_foot = right_foot [6]' in r.stdout+r.stderr, r.stdout+r.stderr
+profile.write_text(json.dumps(dict(version=1,model=path.name,bones={name:name for name in role_names},foot_ik=True)))
+r=run(profile_args)
+assert r.returncode!=0 and 'Foot IK calibration' in r.stdout+r.stderr, r.stdout+r.stderr
+translations=[(0,1.6,0),(-.2,0,0),(0,-.8,0),(0,-.8,0),(.2,0,0),(0,-.8,0),(0,-.8,0)]
+for node,translation in zip(model['nodes'][1:],translations):
+    node['translation']=translation
+inverse=[]
+for x,y,z in [(0,1.6,0),(-.2,1.6,0),(-.2,.8,0),(-.2,0,0),(.2,1.6,0),(.2,.8,0),(.2,0,0)]:
+    inverse.extend([1,0,0,0,0,1,0,0,0,0,1,0,-x,-y,-z,1])
+ibm=add('112f',inverse,5126,7,'MAT4')
+model['skins'][0]['inverseBindMatrices']=ibm
+breath=add('6f',[0,1.6,0,0,1.62,0],5126,2,'VEC3')
+model['animations'][0]['samplers'][0]['output']=breath
+model['buffers']=[dict(byteLength=len(blob),uri='data:application/octet-stream;base64,'+base64.b64encode(blob).decode())]
+path.write_text(json.dumps(model))
+ik_args=profile_args.copy()
+ik_args[ik_args.index('--frames')+1]='60'
+r=run(ik_args)
+assert r.returncode==0, r.stdout+r.stderr
+text=r.stdout+r.stderr
+contacts=re.search(r'Foot IK diagnostics:.*contacts=(\d+)',text)
+assert contacts and int(contacts.group(1))>0 and 'failures=0' in text, text
+applied=re.search(r'applied_frames=(\d+)',text)
+assert applied and int(applied.group(1))>0, text
+profile.write_text(json.dumps(dict(version=1,model=path.name,bones={name:name for name in role_names},foot_ik=True,foot_clearance=.12)))
+r=run(ik_args)
+assert r.returncode==0 and 'failures=0' in r.stdout+r.stderr, r.stdout+r.stderr
+profile.write_text(json.dumps(dict(version=1,model=path.name,bones={name:name for name in role_names},foot_ik=True,foot_clearance=-1)))
+r=run(ik_args)
+assert r.returncode!=0 and 'foot_clearance must' in r.stdout+r.stderr
+profile.write_text(json.dumps(dict(version=1,model=path.name,bones={name:name for name in role_names})))
 model['nodes'][3]['children']=[]
 model['nodes'][1]['children'].append(4)
 path.write_text(json.dumps(model))
