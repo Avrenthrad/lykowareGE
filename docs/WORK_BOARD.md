@@ -89,6 +89,8 @@ Canonical plan: [ROADMAP.md](ROADMAP.md).
 
 `main` at `7616ce3` includes Claude's #32–#34 math/mesh/renderer stack (alongside #31 ECS/physics) and Codex's #35 contract hardening and #36 scenes/command replay. Claude's pending runtime/character stack reaches glTF skin/animation loading (#55). Codex has continued through the CPU reference (#56) and GPU skinning/animated player (#57); main is unchanged. Earlier per-task entries remain in pull requests/git history. Details: [STATUS](STATUS.md).
 
+`main` at `855e01e` includes Claude's #32–#34 math/mesh/renderer stack (alongside #31 ECS/physics). Review follow-ups #35 and #36 subsequently merged as `7616ce3`; their per-branch evidence below is historical. Earlier per-task entries remain in pull requests/git history. Details: [STATUS](STATUS.md).
+
 Owner-supplied vision is captured in [ENGINE_VISION.md](ENGINE_VISION.md).
 
 Owner rules for every task: small stacked PRs; commit small and often; keep all five CI jobs green; record each decision as an ADR; keep STATUS handoff-ready after every task; Joshua merges; no regenerable generated files in commits; artifact upload stays opt-in and no storage or service is bought; no roadmap box ticked unless truly done.
@@ -173,6 +175,17 @@ Check latest main and open PRs before starting. Documents do not automatically s
 
 ## Completed: review follow-ups (Codex, #35 merged)
 
+## Active task: runtime package notices (Codex)
+
+- Owner/status: Codex, implemented as draft #45 on `codex/runtime-package-notices`, based on `main` at `7616ce3`; Windows/hosted CI blocked.
+- Scope: install runtime dependency notices/provenance, SDL embedded attributions, readable package index and installed-tree regression checks; ADR 0045. No engine/audio/renderer/asset API changes.
+- Coordination: Claude owns audio/model/texture/GPU-timing PRs #37–#44. This is the separate packaging omission noted in #41; preserve those branches and test integration locally without merging them.
+- Checks: baseline Linux Debug 42/42 passed; package code `6984cbd` combined locally with Claude head `2c41f62` passes 52/52 (local integration `15c0b33`, no skips). Fresh full/component installs, unchanged copied bytes, normalized excerpt text, CRLF handling, relocation, missing-anchor errors and a deliberately missing Jolt notice are checked.
+- Blocker: GitHub refused all five jobs before a runner executed any steps, citing failed account payments or the spending limit (run 42036213824). Windows/MSVC remains unverified; no spend, billing change or weakened checks.
+- Merge: Joshua merges reviewed work. The earlier merge instruction covered #35/#36; it is not standing authorization for new PRs.
+
+## Active review follow-ups (Codex)
+
 - Owner/status: Codex, ready for owner review in #35; all five jobs passed on `f113b45` ([run](https://github.com/Avrenthrad/lykowareGE/actions/runs/41826863572)); original base `5b46f0812eab373fa3e3062acd272c6b593a1b63`, branch `codex/core-contract-hardening`.
 - Scope: ECS/physics handle isolation, allocation/exception safety, exclusive physics attachment ownership; ADR 0030. No renderer rewrite.
 - Affected interfaces: ECS Entity, physics handles, ECS movement/hook claims, physics component accessors.
@@ -213,6 +226,14 @@ Owner: Claude. Done: #19 merged (ADR 0017, Proposed). `FixedStep` gives numbered
 ## Completed task: Vulkan RHI bring-up
 
 Owner: Claude. Done: PRs #11–#14 and #16–#18 merged, with ADR 0013 in #15. First pixels through a Lykoware-owned Vulkan 1.3 RHI (ADR 0002): instance, device, offscreen render target read back into the image harness, swapchain on the SDL window, Slang shaders compiled and validated at build time, graphics pipelines, and the triangle drawn offscreen (pixel-checked) and in the sandbox window. GPU tests run on Mesa lavapipe in Linux CI and report Skipped on Windows runners, which have no Vulkan. The owner has not accepted ADRs 0009–0012 or 0014–0016; merging them did not accept them. Details and CI runs are in [STATUS.md](STATUS.md) and each pull request.
+
+## Active task: local validation evidence (Codex)
+
+- Owner/status: Codex, implemented in draft #47 on `codex/local-validation`, stacked on package PR #45 (`7f754b3`).
+- Scope: ADR 0046; local CMake/CTest/staging command, source provenance, honest test/skip reports and failure tests. No engine, audio, model, texture or GPU-timing API changes.
+- Related work: Claude retains #37–#44. CI is blocked by account billing/spending settings; this tool gathers local evidence without changing accounts, spending or weakening CI/merge rules.
+- Checks: 11 runner tests with failure subcases; exact main 41/41 Debug; combined `48b0da9` 55/55 each Debug, ASan/UBSan and clang-tidy 18, no skips, clean unchanged source. Installation and real scene capture pass. [Health report](HEALTH_CHECK_2026-11-06.md) records two reproduced P2 audio/renderer ownership defects and manual repros. No engine fix applied in this task.
+- Handoff: `codex/health-full-stack` is a pushed integration snapshot through Claude #46, not merged main. Fix ownership on owning branches, restore CI through the owner, run actual Windows Debug/Release and hardware budgets. [Runner guide](LOCAL_VALIDATION.md). Joshua retains merge ownership; Phase 1 stays open.
 
 ## Task template
 

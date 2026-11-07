@@ -52,6 +52,10 @@ Canonical directory: docs/adr. Decisions remain Proposed until resolved; disting
 | [0051](0051-cpu-skinning-reference.md) | Proposed | CPU skinning reference: validated affine blends, inverse-transpose normals, transactional output and real glTF pose captures; correctness slice before GPU skinning |
 | [0052](0052-gpu-skinning.md) | Proposed | GPU skinned meshes and per-instance poses; fenced dynamic-uniform arenas, static fast path and procedural animated playable mannequin |
 
+| [0045](0045-runtime-package-notices.md) | Proposed | Preserve runtime dependency notices in installed packages, with artifact checks |
+
+| [0046](0046-local-validation-evidence.md) | Proposed | Local preset validation with source provenance and explicit pass/skip/failure reports |
+
 Use [the template](TEMPLATE.md). Record context, options, decision/status, contracts, consequences and verification. Use a new ADR to supersede an accepted choice; do not silently rewrite its history.
 
 [Pre-brief records](../decisions/README.md) remain historical and are not part of this numbering sequence.

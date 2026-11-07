@@ -14,6 +14,8 @@
 | [wuffs/](wuffs/) | Wuffs v0.4.0-alpha.12 (`wuffs-v0.4.c`; PNG and JPEG modules compiled) | MIT option of `MIT OR Apache-2.0` | `lykoware::decode_image` (ADR 0036) | [PROVENANCE](wuffs/PROVENANCE.md) |
 | [lua/](lua/) | Lua 5.4.9 (`src/`, without the standalone programs; io, os, package and debug libraries not compiled) | MIT | `lykoware::script::Script` (ADR 0041) | [PROVENANCE](lua/PROVENANCE.md) |
 
+Installed runtime attributions are indexed in [RUNTIME_NOTICES.md](RUNTIME_NOTICES.md) and verified by `package.runtime_notices`. Source vendoring alone does not carry these files into a copied binary package.
+
 No other runtime source is vendored. Before adding a dependency, record:
 
 - Name, upstream URL, exact source commit/version and integrity hash.

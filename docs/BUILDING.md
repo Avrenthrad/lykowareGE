@@ -200,3 +200,18 @@ All seven entries are required when the object is present. Names must resolve un
 Add `"foot_ik": true` to a character profile with valid mapped `bones`. Optional `"foot_clearance": 0.12` sets mapped foot-joint height above terrain in world metres after fitting; default 0.03, range 0..0.3. Calibrate this for the ankle/sole convention; mesh sole detection is not implemented. Unsupported direct-chain/unit-scale rigs fail calibration. Grounded, nearly stationary, visible characters receive bounded, smoothed vertical alignment; walking/airborne/first-person modes reset it. Runtime errors preserve base animation and log a fallback.
 
 The exit report includes `Foot IK diagnostics` with contacts, misses, clamped targets, resets, failures and `applied_frames` (changed palettes copied to ECS rendering). Run `animation.foot_placement` and `sandbox.imported_player` through the normal native test presets. The latter generates a translated skinned rig and requires actual contacts and applied palettes with zero runtime failures. See [the ten-step batch](FOOT_ALIGNMENT_BATCH.md) for exact evidence, limits and remaining gates. No foot orientation, horizontal locks, moving-platform anchoring or pelvis balancing is claimed.
+
+## Runtime attribution in staged packages (PR #45)
+
+The full install retains attributions under `share/lykoware/licenses` beside the package's `bin` directory. Preserve this tree when copying a runtime package. It includes a readable index, the studio notice and selected upstream notices/provenance. SDL embedded notice excerpts are generated from vendored source during configuration; changed/missing extraction anchors stop configuration for review. Do not commit these generated files.
+
+A notice-only install, without binaries, is available after configuring:
+
+```sh
+cmake --install build/linux-debug --prefix out/notices --component RuntimeNotices
+ctest --preset linux-debug -R package.runtime_notices --output-on-failure
+```
+
+For a configured/built Windows Release tree, use `cmake --install build/windows --config Release --prefix out/notices --component RuntimeNotices` and `ctest --preset windows-release -R package.runtime_notices --output-on-failure`. The test also checks a fresh full install, so build the executables first. It runs without a GPU and leaves its temporary artifacts in no source directory.
+
+New runtime dependencies must update notice/provenance installation and the package test. Build-only Slang/SPIRV-Tools executables are excluded from this runtime attribution set. The package check does not grant public-release or legal clearance.

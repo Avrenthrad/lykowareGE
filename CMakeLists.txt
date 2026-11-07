@@ -7,6 +7,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include(CTest)
 include(cmake/ProjectOptions.cmake)
+include(cmake/RuntimeNotices.cmake)
 include(cmake/VendorSdl3.cmake)
 lykoware_add_sdl3()
 include(cmake/VendorVulkan.cmake)
@@ -23,9 +24,15 @@ include(cmake/Shaders.cmake)
 add_subdirectory(engine)
 add_subdirectory(samples/sandbox)
 add_subdirectory(tools/cli)
+lykoware_install_runtime_notices()
 
 if(BUILD_TESTING)
     find_package(Python3 3.10 REQUIRED COMPONENTS Interpreter)
+    add_test(NAME package.runtime_notices COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_SOURCE_DIR}/tests/package_notices.py"
+        "${CMAKE_COMMAND}" "${CMAKE_BINARY_DIR}" "${CMAKE_SOURCE_DIR}" "$<CONFIG>" "$<TARGET_EXISTS:lykoware_wuffs>")
+    set_tests_properties(package.runtime_notices PROPERTIES TIMEOUT 120)
+
     add_executable(lykoware_trace_test tests/trace_api.cpp)
     target_link_libraries(lykoware_trace_test PRIVATE lykoware::engine)
     lykoware_configure_target(lykoware_trace_test)
@@ -575,6 +582,10 @@ if(BUILD_TESTING)
             "$<TARGET_FILE:lyko>" "$<TARGET_FILE:lyko_tool_fixture>"
             "${CMAKE_COMMAND}" "${CMAKE_CTEST_COMMAND}")
     set_tests_properties(cli.integration PROPERTIES TIMEOUT 120)
+    add_test(NAME validation.runner COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_SOURCE_DIR}/tests/validation_runner.py" "${CMAKE_COMMAND}" "${CMAKE_CTEST_COMMAND}")
+    set_tests_properties(validation.runner PROPERTIES TIMEOUT 120)
+
 endif()
 
 install(TARGETS lykoware_sandbox lyko RUNTIME DESTINATION bin)
