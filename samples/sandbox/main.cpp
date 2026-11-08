@@ -857,6 +857,7 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
             mannequin.joints = imported->joints;
             mannequin.weights = imported->weights;
             mannequin.skeleton = imported->skeleton;
+            mannequin.graph_clips=imported->clips;
             if (options.bones) {
                 rig_roles::Indices roles;
                 if (!rig_roles::resolve(mannequin.skeleton, *options.bones, roles, reason)) { throw std::invalid_argument(reason); }
@@ -870,6 +871,12 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
             if (!upload_model(*renderer, imported->model, error, &mannequin)) { return EXIT_FAILURE; }
         }
 
+        if(!options.character_settings.animation_graph.empty()){
+            auto graph=std::make_shared<lykoware::animation::Graph>();std::string reason;
+            if(!lykoware::animation::load_graph(options.character_settings.animation_graph,*graph,reason)){throw std::invalid_argument(reason);}
+            if(mannequin.graph_clips.empty()){mannequin.graph_clips={mannequin.idle,mannequin.walk,mannequin.run,mannequin.jump,mannequin.fall,mannequin.land};}
+            mannequin.graph=std::move(graph);
+        }
         float visual_scale = 1.F;
         lykoware::math::Vec3 visual_offset{};
         lykoware::math::Quat visual_rotation{};

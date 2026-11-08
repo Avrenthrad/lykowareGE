@@ -374,25 +374,40 @@ bool PoseCrossfade::begin(float seconds, std::string& error)
 bool PoseCrossfade::advance(std::span<const JointPose> target, float seconds,
     std::span<JointPose> out, std::string& error)
 {
+    return update(target,seconds,out,error,std::nullopt);
+}
+bool PoseCrossfade::retarget(std::span<const JointPose> target,float seconds,float duration,
+    std::span<JointPose> out,std::string& error)
+{
+    if(!std::isfinite(duration)||duration<0.F||duration>3600.F){error="Invalid fade duration";return false;}
+    return update(target,seconds,out,error,duration);
+}
+bool PoseCrossfade::update(std::span<const JointPose> target,float seconds,
+    std::span<JointPose> out,std::string& error,std::optional<float> restart)
+{
     if (target.size() != visible_.size() || out.size() != visible_.size()
         || !std::isfinite(seconds) || seconds < 0.F || !valid_transition_pose(target)) {
         error = "Crossfade requires matching finite poses and nonnegative time"; return false;
     }
-    const double next = std::min(duration_, elapsed_ + seconds);
-    const float weight = duration_ > 0.0 ? static_cast<float>(next / duration_) : 1.F;
+    const double duration=restart?*restart:duration_;
+    const double next = std::min(duration, (restart?0.0:elapsed_) + seconds);
+    const float weight = duration > 0.0 ? static_cast<float>(next / duration) : 1.F;
+    const auto& source=restart?visible_:source_;
     for (std::size_t i = 0; i < target.size(); ++i) {
-        if (weight == 0.F) { candidate_[i] = source_[i]; }
+        if (weight == 0.F) { candidate_[i] = source[i]; }
         else if (weight == 1.F) { candidate_[i] = target[i]; }
         else {
             const auto mix = [weight](math::Vec3 a, math::Vec3 b) {
                 return math::Vec3{std::lerp(a.x,b.x,weight),std::lerp(a.y,b.y,weight),std::lerp(a.z,b.z,weight)};
             };
-            candidate_[i].translation = mix(source_[i].translation, target[i].translation);
-            candidate_[i].rotation = slerp(source_[i].rotation, target[i].rotation, weight);
-            candidate_[i].scale = mix(source_[i].scale, target[i].scale);
+            candidate_[i].translation = mix(source[i].translation, target[i].translation);
+            candidate_[i].rotation = slerp(source[i].rotation, target[i].rotation, weight);
+            candidate_[i].scale = mix(source[i].scale, target[i].scale);
         }
     }
     if (!valid_transition_pose(candidate_)) { error = "Crossfade produces invalid intermediate scales or values"; return false; }
+    if(restart){std::copy(visible_.begin(),visible_.end(),source_.begin());}
+    duration_=duration;
     std::copy(candidate_.begin(), candidate_.end(), visible_.begin());
     std::copy(candidate_.begin(), candidate_.end(), out.begin());
     elapsed_ = next; error.clear(); return true;

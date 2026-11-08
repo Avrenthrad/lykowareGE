@@ -128,9 +128,14 @@ public:
     // Live target; complete input/output spans may overlap. Time is finite/nonnegative.
     [[nodiscard]] bool advance(std::span<const JointPose> target, float seconds,
         std::span<JointPose> out, std::string& error);
+    // Atomic interruption plus advance: failure preserves the previous fade and output.
+    [[nodiscard]] bool retarget(std::span<const JointPose> target, float seconds, float duration,
+        std::span<JointPose> out, std::string& error);
     [[nodiscard]] bool transitioning() const noexcept { return elapsed_ < duration_; }
     [[nodiscard]] float progress() const noexcept;
 private:
+    [[nodiscard]] bool update(std::span<const JointPose> target, float seconds,
+        std::span<JointPose> out, std::string& error, std::optional<float> restart);
     void swap(PoseCrossfade& other) noexcept;
     Pose visible_, source_, candidate_;
     double elapsed_ = 0.0, duration_ = 0.0;
