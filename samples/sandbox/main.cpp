@@ -574,6 +574,7 @@ public:
         , visual_offset_{offset}
         , visual_rotation_{visual_rotation}
         , imported_{imported}
+        , locking_{foot_settings.locking}
         , asset_{std::move(asset)}
         , mesh_{mesh}
         , entities_{entities}
@@ -623,9 +624,11 @@ public:
             const foot_placement::Placement placement{feet,facing*visual_rotation_,visual_scale_,
                 {local_offset.x,local_offset.y,local_offset.z}};
             std::string reason;
-            const bool active=state.ground==lykoware::physics::GroundState::OnGround && speed<0.2F
+            const bool walking=locking_&&speed>=.2F&&playback_.graph_player;
+            const auto planting=walking?std::optional{playback_.planted}:std::nullopt;
+            const bool active=state.ground==lykoware::physics::GroundState::OnGround && (speed<0.2F||walking)
                 && player.camera().current_distance()>=0.5F;
-            if (foot_->update(playback_.blended,placement,world,seconds,active,corrected_,reason)) {
+            if (foot_->update(playback_.blended,placement,world,seconds,active,corrected_,reason,planting)) {
                 lykoware::animation::skinning_matrices(asset_.skeleton,corrected_,playback_.matrices);
                 final_pose=corrected_;
             } else {
@@ -670,6 +673,7 @@ public:
             lykoware::log(lykoware::LogLevel::info,"Foot IK diagnostics: frames="+std::to_string(s.frames)
                 +" contacts="+std::to_string(s.contacts)+" misses="+std::to_string(s.misses)
                 +" clamped="+std::to_string(s.clamped)+" resets="+std::to_string(s.resets)
+                +" planted="+std::to_string(s.planted)+" released="+std::to_string(s.released)
                 +" oriented="+std::to_string(s.oriented)+" slope_rejected="+std::to_string(s.slope_rejected)+" pelvis_frames="+std::to_string(s.pelvis_frames)
                 +" failures="+std::to_string(foot_failures_)+" applied_frames="+std::to_string(foot_applied_frames_));
         }
@@ -697,6 +701,7 @@ private:
     lykoware::math::Vec3 visual_offset_{};
     lykoware::math::Quat visual_rotation_{};
     bool imported_ = false;
+    bool locking_ = false;
     training_mannequin::Asset asset_;
     training_mannequin::Playback playback_;
     lykoware::render::MeshId mesh_;

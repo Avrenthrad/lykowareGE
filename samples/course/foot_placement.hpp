@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <limits>
 #include <lykoware/ik.hpp>
+#include <lykoware/foot_plant.hpp>
 #include <lykoware/physics.hpp>
 #include <numbers>
 #include <optional>
@@ -66,7 +67,7 @@ inline V position(const math::Mat4& m)
 }
 struct Stats {
     std::uint64_t frames = 0, contacts = 0, misses = 0, clamped = 0, resets = 0, oriented = 0,
-                  slope_rejected = 0, pelvis_frames = 0;
+                  slope_rejected = 0, pelvis_frames = 0, planted = 0, released = 0;
 };
 class Controller {
 public:
@@ -104,6 +105,8 @@ public:
                 std::min(shorter_leg, norm(position(fk[roles[leg + 1]]) - position(fk[roles[leg]])) +
                                           norm(position(fk[roles[leg + 2]]) - position(fk[roles[leg + 1]])));
         }
+        std::array<std::optional<animation::FootPlant>,2> plants{};
+        if(settings.locking){for(auto& plant:plants){plant=animation::FootPlant::create({clearance,settings.max_plant_distance,settings.max_slope_degrees},error);if(!plant){return false;}}}
         animation::Skeleton copy = skeleton;
         animation::Pose candidate(rest.size());
         skeleton_ = std::move(copy);
@@ -114,6 +117,7 @@ public:
         clearance_ = clearance;
         settings_ = settings;
         axes_ = std::move(axes);
+        plants_=std::move(plants);
         shorter_leg_ = shorter_leg;
         ready_ = true;
         reset();
@@ -122,6 +126,7 @@ public:
     }
     void reset()
     {
+        for(auto& plant:plants_){if(plant){plant->reset();}}
         correction_ = {};
         normals_ = {V{0, 1, 0}, V{0, 1, 0}};
         pelvis_drop_ = 0;
@@ -138,7 +143,8 @@ public:
     }
     // Transactional pose/contact state; caller can preserve base animation on false.
     bool update(const animation::Pose& base, const Placement& actor, const lykoware::physics::World& world,
-                float seconds, bool active, animation::Pose& out, std::string& error)
+                float seconds, bool active, animation::Pose& out, std::string& error,
+                std::optional<std::array<bool,2>> planting=std::nullopt)
     {
         if (!ready_ || !valid(actor)) {
             error = "Invalid foot IK configuration or placement";
@@ -148,6 +154,8 @@ public:
             return false;
         }
         candidate_ = base;
+        auto plants=plants_;
+        const bool walking=settings_.locking&&planting.has_value();
         auto next = correction_;
         auto normals = normals_;
         double pelvis = pelvis_drop_;
@@ -157,6 +165,7 @@ public:
         const auto commit = [&] {
             out = candidate_;
             correction_ = next;
+            plants_=plants;
             normals_ = normals;
             pelvis_drop_ = pelvis;
             previous_feet_ = actor.feet;
@@ -166,6 +175,7 @@ public:
             return true;
         };
         if (!active || !std::isfinite(seconds) || seconds < 0.F || seconds > 0.25F || jump) {
+            for(auto& plant:plants){if(plant){plant->reset();}}
             next = {};
             normals = {V{0, 1, 0}, V{0, 1, 0}};
             pelvis = 0;
@@ -173,7 +183,7 @@ public:
             return commit();
         }
         animation::global_transforms(skeleton_, base, fk_);
-        std::array<V, 2> feet{};
+        std::array<V, 2> feet{}, targets{};
         std::array<double, 2> desired{};
         std::array<bool, 2> contact{};
         const double alpha = 1.0 - std::exp(-12.0 * seconds);
@@ -188,31 +198,31 @@ public:
                 error = "World foot exceeds finite physics ray range";
                 return false;
             }
-            const auto hit = world.cast_ray(foot + V{0, 0.35, 0}, {0, -1, 0});
-            if (!hit || !finite(hit->point) || std::abs(hit->point.y + clearance_ - foot.y) > 0.3) {
-                next[side] = 0;
-                normals[side] = {0, 1, 0};
-                ++stats.misses;
-                continue;
+            V target_normal{0,1,0};
+            if(walking){
+                animation::FootPlantResult result;
+                if(!plants[side]->update(world,foot,(*planting)[side],result,error)){return false;}
+                if(result.acquired){++stats.planted;}if(result.released){++stats.released;}
+                if(result.status==animation::FootPlantStatus::TooSteep){++stats.slope_rejected;}
+                if(!result.locked()){next[side]=0;normals[side]={0,1,0};if((*planting)[side]){++stats.misses;}continue;}
+                targets[side]=result.target;target_normal={result.normal.x,result.normal.y,result.normal.z};
+                desired[side]=result.target.y-foot.y;next[side]=desired[side];contact[side]=true;
+            }else{
+                if(plants[side]){animation::FootPlantResult released;if(!plants[side]->update(world,foot,false,released,error)){return false;}if(released.released){++stats.released;}}
+                const auto hit=world.cast_ray(foot+V{0,.35,0},{0,-1,0});
+                if(!hit||!finite(hit->point)||std::abs(hit->point.y+clearance_-foot.y)>.3){next[side]=0;normals[side]={0,1,0};++stats.misses;continue;}
+                if((settings_.align_normals||settings_.pelvis||settings_.locking)&&(hit->normal.y<=0||hit->normal.y+1e-6<std::cos(maximum_angle))){next[side]=0;normals[side]={0,1,0};++stats.slope_rejected;++stats.misses;continue;}
+                desired[side]=hit->point.y+clearance_-foot.y;next[side]+=alpha*(desired[side]-next[side]);contact[side]=true;targets[side]=foot+V{0,next[side],0};
+                target_normal={hit->normal.x,hit->normal.y,hit->normal.z};
             }
-            if ((settings_.align_normals || settings_.pelvis) &&
-                (!finite(V{hit->normal.x, hit->normal.y, hit->normal.z}) || hit->normal.y <= 0 ||
-                 hit->normal.y + 1e-6 < std::cos(maximum_angle))) {
-                next[side] = 0;
-                normals[side] = {0, 1, 0};
-                ++stats.slope_rejected;
-                ++stats.misses;
-                continue;
-            }
-            desired[side] = hit->point.y + clearance_ - foot.y;
-            next[side] += alpha * (desired[side] - next[side]);
-            contact[side] = true;
-            if (settings_.align_normals) {
-                const V target_normal{hit->normal.x, hit->normal.y, hit->normal.z};
-                const V blended = normals[side] + scale(target_normal - normals[side], alpha);
-                normals[side] = scale(blended, 1.0 / norm(blended));
-            }
+            if(settings_.align_normals){const V blended=normals[side]+scale(target_normal-normals[side],alpha);normals[side]=scale(blended,1.0/norm(blended));}
         }
+        Stats probes=stats;
+        // At most two locks can be released for reach. Recompute the whole bilateral
+        // pose/body correction after a release rather than committing half a solve.
+        for(unsigned attempt=0;attempt<3;++attempt){
+            candidate_=base;stats=probes;pelvis=pelvis_drop_;
+
         if (settings_.pelvis && contact[0] && contact[1]) {
             const double bound =
                 std::min(settings_.max_pelvis_drop, shorter_leg_ * actor.uniform_scale * .25);
@@ -239,16 +249,20 @@ public:
         } else {
             pelvis = 0;
         }
+        bool retry=false;
         for (std::size_t side = 0; side < 2; ++side) {
             if (!contact[side]) {
                 continue;
             }
             const std::size_t leg = side == 0 ? 1 : 4;
-            const V target = to_model(actor, feet[side] + V{0, next[side], 0});
+            const V target = to_model(actor, targets[side]);
             const V pole = position(fk_[roles_[leg + 1]]) + V{0, 0, -0.5};
             animation::TwoBoneSolution solved;
             if (!prepared_[side]->apply(candidate_, target, pole, scratch_, candidate_, solved, error)) {
                 return false;
+            }
+            if(walking&&solved.target_clamped&&norm(solved.end-target)*actor.uniform_scale>.002){
+                plants[side]->release();contact[side]=false;next[side]=0;normals[side]={0,1,0};++probes.released;++probes.clamped;retry=true;break;
             }
             ++stats.contacts;
             if (solved.target_clamped) {
@@ -267,13 +281,16 @@ public:
                 }
             }
         }
-        return commit();
+        if(!retry){return commit();}
+        }
+        error="Foot-plant reach retry bound exceeded";return false;
     }
 
 private:
     double clearance_ = 0.03, pelvis_drop_ = 0, shorter_leg_ = 0;
     lykoware::character::FootSettings settings_;
     std::array<std::optional<animation::PreparedJointAxis>, 2> axes_{};
+    std::array<std::optional<animation::FootPlant>,2> plants_{};
     std::array<V, 2> normals_{{{0, 1, 0}, {0, 1, 0}}};
     std::array<math::Quat, animation::max_joints> rotations_{};
     animation::Skeleton skeleton_;
