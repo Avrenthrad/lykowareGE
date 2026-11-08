@@ -1,4 +1,4 @@
-add_executable(lyko main.cpp commands.cpp process.cpp scene_command.cpp)
+add_executable(lyko main.cpp commands.cpp process.cpp scene_command.cpp character_command.cpp)
 target_link_libraries(lyko PRIVATE lykoware::engine)
 target_include_directories(lyko PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>")
 add_dependencies(lyko lykoware_sandbox)

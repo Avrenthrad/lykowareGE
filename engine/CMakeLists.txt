@@ -4,6 +4,7 @@ configure_file(
     @ONLY)
 
 add_library(lykoware_engine STATIC
+    src/character_asset.cpp
     src/audio.cpp
     src/audio_output.cpp
     src/ik.cpp

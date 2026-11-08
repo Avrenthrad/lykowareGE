@@ -412,6 +412,13 @@ if(BUILD_TESTING)
     add_test(NAME animation.foot_placement COMMAND lykoware_foot_placement_test)
     set_tests_properties(animation.foot_placement PROPERTIES TIMEOUT 60)
 
+    add_executable(lykoware_character_asset_test tests/character_asset.cpp)
+    target_link_libraries(lykoware_character_asset_test PRIVATE lykoware::engine)
+    target_include_directories(lykoware_character_asset_test PRIVATE "${CMAKE_SOURCE_DIR}/samples/course")
+    lykoware_configure_target(lykoware_character_asset_test)
+    add_test(NAME character.assets COMMAND lykoware_character_asset_test)
+    set_tests_properties(character.assets PROPERTIES TIMEOUT 60)
+
     add_executable(lykoware_crossfade_test tests/pose_crossfade.cpp)
     target_link_libraries(lykoware_crossfade_test PRIVATE lykoware::engine)
     lykoware_configure_target(lykoware_crossfade_test)
@@ -600,6 +607,9 @@ if(BUILD_TESTING)
             "$<TARGET_FILE:lyko>" "$<TARGET_FILE:lyko_tool_fixture>"
             "${CMAKE_COMMAND}" "${CMAKE_CTEST_COMMAND}")
     set_tests_properties(cli.integration PROPERTIES TIMEOUT 120)
+    add_test(NAME character.inspect_cli COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_SOURCE_DIR}/tests/character_inspection.py" "$<TARGET_FILE:lyko>")
+    set_tests_properties(character.inspect_cli PROPERTIES TIMEOUT 60)
     add_test(NAME validation.runner COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_SOURCE_DIR}/tests/validation_runner.py" "${CMAKE_COMMAND}" "${CMAKE_CTEST_COMMAND}")
     set_tests_properties(validation.runner PROPERTIES TIMEOUT 120)
