@@ -362,13 +362,17 @@ bool GraphPlayer::step(float seconds, std::span<const float> parameters, std::st
     if (!state.events.empty()) {
         const double first = state.loop && length > 0 ? std::max(0.0, std::floor(old / length) - 1) : 0;
         const double last = state.loop && length > 0 ? std::floor(next / length) : 0;
-        if (last - first > 256) {
+        // Exact bounded integer enumeration: double ++ can stop progressing at 2^53.
+        constexpr double maximum_cycle = 4503599627370496.0;
+        if (last > maximum_cycle || last - first > 256) {
             error = "Graph event interval exceeds capacity";
             return false;
         }
-        for (double cycle = first; cycle <= last; ++cycle) {
+        const auto first_cycle = static_cast<std::uint64_t>(first);
+        const auto last_cycle = static_cast<std::uint64_t>(last);
+        for (std::uint64_t cycle = first_cycle; cycle <= last_cycle; ++cycle) {
             for (std::size_t e = 0; e < state.events.size(); ++e) {
-                const double time = cycle * length + state.events[e].seconds;
+                const double time = static_cast<double>(cycle) * length + state.events[e].seconds;
                 if ((time > old || (entry && time == 0)) && time <= next) {
                     if (count == fired.size()) {
                         error = "Graph step exceeds 256 events";

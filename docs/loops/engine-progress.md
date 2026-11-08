@@ -24,3 +24,13 @@ Observed before this loop checkpoint: 5/5 focused checks pass, including actual 
 Changed paths: engine animation_graph/retarget headers and sources, atomic PoseCrossfade interruption, character profile/inspection, sandbox/course Playback, CLI animation command and source-output guard, CMake registration, authored/replay/imported tests, example graph, ADR/format/build/status/checklist docs.
 
 Next action: independent review of branch diff against origin/main; resolve findings, run clean/native full matrix and exact-head hosted CI, record results, leave integration pending per owner restriction. Iteration count: 1/20; no repeated blocker attempts yet.
+
+## Iteration 2 — independent review and analysis finding
+
+Independent reviewer `review_animation_milestone` performed read-only static review of `5688eda` against `9555fea`. Blocking P2 finding: initialized sample Playback bound parameter names/count from replaceable external `asset.graph`; replacing it with >32 parameters could exceed fixed scratch before validation. Fixed binding to `graph_player->graph()` (owned, validated snapshot); added a 33-parameter replacement test and reset/revalidation refusal. Other core graph/retarget/CLI integration and test scope were judged consistent; review was static, not execution evidence.
+
+Hosted clang-tidy run `42480155373` separately rejected a floating event-cycle loop (`clang-analyzer-security.FloatLoopCounter`). Replaced it with bounded uint64 iteration and an exact-cycle quotient limit (2^52), preserving failure-before-commit. This also addresses the reviewer's nonblocking eventual double-increment concern. No suppression or check weakening.
+
+The clean Debug build of `5688eda` passed (554 native build steps). Local v1 validation passed Debug tests/install/staged CLI, then was explicitly interrupted while building sanitizers after the independent/CI findings made that source obsolete. `/workspace/lykoware-authored-animation-validation-v1/report.json` is INCOMPLETE, never a full-matrix pass. Do not reuse partial sanitizer objects as evidence; the next validator rebuilds changed dependencies. Final source needs clean build and all applicable profiles again.
+
+Next action: finish focused regression and reviewer recheck, then clean rebuild/full matrix on the corrected commit, push task branch only for exact-head hosted checks. Iterations 2/20; one analysis failure, one corrective approach; no blocker has reached three failed attempts. Main stays untouched.

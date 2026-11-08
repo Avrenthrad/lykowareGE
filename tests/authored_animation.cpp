@@ -9,6 +9,7 @@
 #include <lykoware/retarget.hpp>
 #include <new>
 #include <numbers>
+#include <stdexcept>
 namespace {
 thread_local bool tracking = false;
 thread_local std::size_t allocations = 0;
@@ -284,6 +285,21 @@ int main(int argc, char** argv)
     playback.advance_character(asset, .1F, observation);
     check(playback.graph_player && playback.graph_player->state() == 1 && playback.matrices.size() == 7,
           "actual character adapter consumes authored graph and skinning");
+    auto replaced = std::make_shared<a::Graph>(sample_graph);
+    replaced->parameters.resize(33);
+    asset.graph = replaced;
+    playback.advance_character(asset, .01F, observation);
+    check(playback.graph_player->graph().parameters.size() == 1 && playback.graph_player->state() == 1,
+          "replacement graph cannot bypass the owned parameter bound");
+    playback.reset();
+    bool rejected_replacement = false;
+    try {
+        playback.advance_character(asset, .01F, observation);
+    } catch (const std::invalid_argument&) {
+        rejected_replacement = true;
+    }
+    check(rejected_replacement, "reset validates replacement graph before binding parameters");
+    asset.graph = std::make_shared<a::Graph>(sample_graph);
     if (argc != 2) {
         std::cerr << "Expected example graph path";
         return 1;

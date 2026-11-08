@@ -173,9 +173,9 @@ struct Playback {
         if(asset.graph){
             if(!graph_player){graph_player=animation::GraphPlayer::create(asset.skeleton,asset.graph_clips,*asset.graph,transition_error);if(!graph_player){throw std::invalid_argument(transition_error);}}
             std::array<float,32> parameters{};
-            for(std::size_t i=0;i<asset.graph->parameters.size();++i){const auto& p=asset.graph->parameters[i];
+            for(std::size_t i=0;i<graph_player->graph().parameters.size();++i){const auto& p=graph_player->graph().parameters[i];
                 parameters[i]=p.name=="speed"?speed:p.name=="grounded"?(grounded?1.F:0.F):p.name=="vertical_speed"?vertical_speed:p.initial;}
-            if(!graph_player->step(seconds,{parameters.data(),asset.graph->parameters.size()},transition_error)){throw std::invalid_argument(transition_error);}
+            if(!graph_player->step(seconds,{parameters.data(),graph_player->graph().parameters.size()},transition_error)){throw std::invalid_argument(transition_error);}
             const auto pose=graph_player->pose();blended.assign(pose.begin(),pose.end());
             (void)selector.advance(seconds,speed,grounded,vertical_speed);
             animation::skinning_matrices(asset.skeleton,blended,matrices);return;
