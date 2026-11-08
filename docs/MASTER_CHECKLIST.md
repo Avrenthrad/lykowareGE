@@ -14,7 +14,7 @@ Owner-requested living checklist, saved 6 November 2026. Permanent entry point: 
 
 ## Current position
 
-**Active owner request:** [next 15 non-hardware checklist items](NEXT_15_BATCH.md), recorded 8 November. Seven stale unchecked implementation entries were reconciled; three new import/alignment items merged in #69. Progress is 10/15; five new work items remain. Hardware, feel, performance and public-release gates stay separate.
+**Active owner request:** [next 15 non-hardware checklist items](NEXT_15_BATCH.md), recorded 8 November. Seven stale unchecked implementation entries were reconciled; three new import/alignment items merged in #69. Progress is 12/15; three work items remain. Hardware, feel, performance and public-release gates stay separate.
 
 **Latest:** prepared IK chains/scratch and retained foot-controller output merged in [#67](https://github.com/Avrenthrad/lykowareGE/pull/67), `abc620b`. Source `6c5626c` passed 72/72 each local Linux profile and all five hosted jobs. Runtime storage substep below is complete; target-PC/crowd measurements and broad foot IK remain open. Hardware work is deferred while Joshua is mobile.
 
@@ -75,8 +75,8 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
   - [x] **02.04-runtime** Verify and merge six-state controller/Jolt bridge and profile selectors — #68; all five CI profiles and 74/74 each local Linux profile.
 - [ ] **02.05** Blend transitions without snapping. **Partial; runtime implementation merged #68:** owned interruptible pose crossfade with source capture; foot/body constraints remain separate.
   - [x] **02.05-crossfade** Verify and merge generic crossfade and sample state transitions — #68; interruption, aliasing, allocation failures and runtime integration verified.
-- [ ] **02.06** Handle turning, slopes, steps and uneven ground.
-- [ ] **02.07** Decide root motion versus controller-driven movement.
+- [x] **02.06** Handle turning, slopes, steps and uneven ground — #70 bounded/interpolated facing and real course tests; subjective feel remains 02.16.
+- [x] **02.07** Decide root motion versus controller-driven movement — ADR 0064 / #70, explicit controller authority; root tracks visual-only.
 - [ ] **02.08** Add reusable animation graphs or equivalent configuration.
 - [ ] **02.09** Add animation events and attachment sockets.
 - [ ] **02.10** Retarget between supported rigs.

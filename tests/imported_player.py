@@ -53,6 +53,14 @@ profile_args=['--window','--offscreen','--vulkan','--play','--no-audio','--frame
 r=run(profile_args)
 assert r.returncode==0 and 'visual scale 1.800000' in r.stdout+r.stderr, r.stdout+r.stderr
 assert 'Locomotion diagnostics:' in r.stdout+r.stderr, r.stdout+r.stderr
+graph_file=root/'animation.json'
+graph_file.write_text(json.dumps(dict(version=1,states=[dict(name='idle',clip='breathe',events=[dict(name='entry',seconds=0)])])))
+profile.write_text(json.dumps(dict(version=1,model=path.name,animation_graph=graph_file.name)))
+r=run(profile_args)
+assert r.returncode==0 and 'Locomotion diagnostics:' in r.stdout+r.stderr,r.stdout+r.stderr
+graph_file.write_text(json.dumps(dict(version=1,states=[dict(name='idle',clip='missing')])))
+r=run(profile_args)
+assert r.returncode!=0 and 'Graph state clip is missing' in r.stdout+r.stderr,r.stdout+r.stderr
 for key in ['run_clip','jump_clip','fall_clip','land_clip']:
     profile.write_text(json.dumps(dict(version=1, model=path.name, **{key: 'breathe'})))
     r=run(profile_args)

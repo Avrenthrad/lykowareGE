@@ -416,7 +416,7 @@ if(BUILD_TESTING)
     target_link_libraries(lykoware_authored_animation_test PRIVATE lykoware::engine)
     target_include_directories(lykoware_authored_animation_test PRIVATE "${CMAKE_SOURCE_DIR}/samples/course")
     lykoware_configure_target(lykoware_authored_animation_test)
-    add_test(NAME animation.authored COMMAND lykoware_authored_animation_test)
+    add_test(NAME animation.authored COMMAND lykoware_authored_animation_test "${CMAKE_SOURCE_DIR}/samples/course/locomotion.graph.json")
     add_executable(lykoware_player_turning_test tests/player_turning.cpp)
     target_link_libraries(lykoware_player_turning_test PRIVATE lykoware::engine)
     target_include_directories(lykoware_player_turning_test PRIVATE "${CMAKE_SOURCE_DIR}/samples/course")
@@ -619,6 +619,9 @@ if(BUILD_TESTING)
             "$<TARGET_FILE:lyko>" "$<TARGET_FILE:lyko_tool_fixture>"
             "${CMAKE_COMMAND}" "${CMAKE_CTEST_COMMAND}")
     set_tests_properties(cli.integration PROPERTIES TIMEOUT 120)
+    add_test(NAME animation.replay_cli COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_SOURCE_DIR}/tests/animation_replay.py" "$<TARGET_FILE:lyko>")
+    set_tests_properties(animation.replay_cli PROPERTIES TIMEOUT 60)
     add_test(NAME character.inspect_cli COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_SOURCE_DIR}/tests/character_inspection.py" "$<TARGET_FILE:lyko>")
     set_tests_properties(character.inspect_cli PROPERTIES TIMEOUT 60)

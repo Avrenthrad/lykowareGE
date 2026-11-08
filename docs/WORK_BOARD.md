@@ -1,8 +1,12 @@
 # Shared work board
 
-## Active batch: terrain turning and controller authority (Codex)
+## Active batch: authored animation runtime (Codex)
 
-Branch `codex/terrain-turning-runtime`, based on #69 `8201a26` / merged `e050eec`; ADR 0064. Batch 02.06/02.07: bounded/interpolated presentation heading, retained idle-turn target, explicit controller-authority policy and profile settings, and real terrain-course/physics-preservation regressions. Root tracks remain visual-only; no extraction or physics teleporting is added. Native/hosted validation pending. Hardware/manual work stays deferred.
+Branch `codex/authored-animation-runtime`, base #70 `9555fea`, ADR 0065. Scope: remaining batch 02.08/02.09/02.10 — bounded authored state configuration, interval events and joint sockets, supported-rig pose transfer, shared native/sandbox/headless CLI callers. Native/hosted validation pending. No hardware or owner-feel gate is closed.
+
+## Terrain turning and motion authority — merged #70
+
+PR [#70](https://github.com/Avrenthrad/lykowareGE/pull/70) merged as `9555fea`. Exact source `0487221` passed [all five CI profiles](https://github.com/Avrenthrad/lykowareGE/actions/runs/42455664181), plus 77/77 each local Linux Debug/sanitizers/analysis, zero skips, install and staged CLI. Report `/workspace/lykoware-terrain-final-validation/report.json`; unchanged fingerprint `4238d8da1f6fb952089c4d9b4b218ae87b6442a432421d765ec09c2aae7d1481`. Bounded shortest-path facing interpolates across wrap, retains targets while idle, and runs over the real slope/stair/uneven course. Profiles explicitly permit controller authority only; translated-root animation and presentation leave physics hashes unchanged. Batch 12/15 verified and merged; three active. Hardware/feel checks remain deferred.
 
 ## Character import/alignment — merged #69
 
