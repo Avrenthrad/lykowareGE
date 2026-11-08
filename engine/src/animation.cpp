@@ -401,4 +401,15 @@ float PoseCrossfade::progress() const noexcept
 {
     return duration_ > 0.0 ? static_cast<float>(elapsed_ / duration_) : 1.F;
 }
+void PoseCrossfade::swap(PoseCrossfade& other) noexcept
+{
+    visible_.swap(other.visible_); source_.swap(other.source_); candidate_.swap(other.candidate_);
+    std::swap(elapsed_,other.elapsed_); std::swap(duration_,other.duration_);
+}
+PoseCrossfade::PoseCrossfade(PoseCrossfade&& other) noexcept
+    : visible_{std::move(other.visible_)}, source_{std::move(other.source_)}, candidate_{std::move(other.candidate_)},
+      elapsed_{std::exchange(other.elapsed_,0.0)}, duration_{std::exchange(other.duration_,0.0)}
+{
+    other.visible_.clear(); other.source_.clear(); other.candidate_.clear();
+}
 }

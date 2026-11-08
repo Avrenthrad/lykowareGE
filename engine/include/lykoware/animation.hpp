@@ -117,6 +117,11 @@ void blend(const Pose& a, const Pose& b, float weight, Pose& out);
 // Invalid calls preserve visible state/time/output; failure strings may allocate.
 class PoseCrossfade {
 public:
+    PoseCrossfade() = default;
+    PoseCrossfade(const PoseCrossfade&) = default;
+    PoseCrossfade(PoseCrossfade&& other) noexcept;
+    // Copy construction of the argument completes before swapping all buffers together.
+    PoseCrossfade& operator=(PoseCrossfade other) noexcept { swap(other); return *this; }
     [[nodiscard]] bool reset(std::span<const JointPose> initial, std::string& error);
     // Capture current visible pose; zero duration explicitly cuts to the next target.
     [[nodiscard]] bool begin(float duration_seconds, std::string& error);
@@ -126,6 +131,7 @@ public:
     [[nodiscard]] bool transitioning() const noexcept { return elapsed_ < duration_; }
     [[nodiscard]] float progress() const noexcept;
 private:
+    void swap(PoseCrossfade& other) noexcept;
     Pose visible_, source_, candidate_;
     double elapsed_ = 0.0, duration_ = 0.0;
 };

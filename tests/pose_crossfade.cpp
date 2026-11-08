@@ -4,6 +4,8 @@
 #include <iostream>
 #include <limits>
 #include <new>
+#include <type_traits>
+#include <utility>
 
 namespace { thread_local int fail_after = -1; thread_local bool counting = false; thread_local std::size_t allocations = 0; }
 void* operator new(std::size_t size) {
@@ -44,13 +46,49 @@ int main() {
     expect(!fade.advance(target,.1F,std::span<a::JointPose>{},error)&&fade.progress()==progress,"wrong output size refused");
     expect(!fade.reset({},error)&&fade.progress()==progress,"bad reset preserves transition");
     expect(!fade.begin(3601.F,error)&&fade.progress()==progress,"excessive duration refused");
-    for(int failure=0;failure<3;++failure) {
+    bool reset_completed=false;
+    int reset_failures=0;
+    for(int failure=0;failure<64;++failure) {
+        auto copy=fade;
         fail_after=failure; bool threw=false;
-        try { (void)fade.reset(start,error); } catch(const std::bad_alloc&) { threw=true; }
+        try { (void)copy.reset(start,error); } catch(const std::bad_alloc&) { threw=true; }
         fail_after=-1;
-        expect(threw&&fade.progress()==progress,"reset allocation failure preserves old transition");
-        expect(fade.advance(interruption,0,out,error)&&out[0].translation==previous.translation,"reset failure preserves visible pose");
+        if(!threw){
+            reset_completed=true;
+            expect(copy.progress()==1&&copy.advance(start,0,out,error)&&out[0].translation.x==0,"successful reset replaces the complete pose");
+            break;
+        }
+        ++reset_failures;
+        expect(copy.progress()==progress,"reset allocation failure preserves old transition");
+        expect(copy.advance(interruption,0,out,error)&&out[0].translation==previous.translation,"reset failure preserves visible pose");
     }
+    expect(reset_completed&&reset_failures>=3,"exercise every reset allocation site including STL debug metadata");
+    a::PoseCrossfade larger;
+    a::Pose two_joints(2);
+    expect(larger.reset(two_joints,error),"copy assignment setup");
+    bool copy_completed=false;
+    int copy_failures=0;
+    a::Pose assigned_out(2);
+    for(int failure=0;failure<64;++failure) {
+        auto copy=fade;
+        fail_after=failure; bool threw=false;
+        try { copy=larger; } catch(const std::bad_alloc&) { threw=true; }
+        fail_after=-1;
+        if(!threw){
+            copy_completed=true;
+            expect(copy.progress()==larger.progress()&&copy.advance(two_joints,0,assigned_out,error),"successful copy replaces every buffer together");
+            break;
+        }
+        ++copy_failures;
+        expect(threw&&copy.progress()==progress&&copy.advance(interruption,0,out,error)
+            &&out[0].translation==previous.translation,"copy allocation failure preserves all buffer invariants");
+    }
+    expect(copy_completed&&copy_failures>=3,"exercise every copy allocation site");
+    static_assert(std::is_nothrow_move_constructible_v<a::PoseCrossfade>);
+    static_assert(std::is_nothrow_move_assignable_v<a::PoseCrossfade>);
+    auto moved=std::move(larger);
+    a::Pose moved_out(2);
+    expect(moved.advance(two_joints,0,moved_out,error),"move preserves complete owned transition");
     expect(fade.advance(interruption,1,out,error)&&out[0].translation.x==-10&&!fade.transitioning(),"finish reaches endpoint");
     auto extreme=target;extreme[0].translation.x=std::numeric_limits<float>::max();
     expect(fade.begin(0,error)&&fade.advance(extreme,0,out,error)&&out[0].translation.x==extreme[0].translation.x,"zero duration cuts exactly");

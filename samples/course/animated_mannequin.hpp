@@ -146,6 +146,7 @@ struct Playback {
     animation::Pose target;
     bool ready = false;
     bool used_fallback = false;
+    std::string transition_error;
 
     // A respawn/new asset starts observation afresh; buffers are rebound on next advance.
     void reset() noexcept
@@ -195,14 +196,13 @@ struct Playback {
                 : selector.seconds();
             animation::sample(*clip, time, gait, target);
         }
-        std::string error;
         if (!ready) {
-            if (!transition.reset(target, error)) { throw std::invalid_argument(error); }
+            if (!transition.reset(target, transition_error)) { throw std::invalid_argument(transition_error); }
             ready = true;
         } else if (changed) {
-            if (!transition.begin(state == locomotion::State::Land ? .08F : .14F, error)) { throw std::invalid_argument(error); }
+            if (!transition.begin(state == locomotion::State::Land ? .08F : .14F, transition_error)) { throw std::invalid_argument(transition_error); }
         }
-        if (!transition.advance(target, changed ? 0.F : seconds, blended, error)) { throw std::invalid_argument(error); }
+        if (!transition.advance(target, changed ? 0.F : seconds, blended, transition_error)) { throw std::invalid_argument(transition_error); }
         animation::skinning_matrices(asset.skeleton, blended, matrices);
     }
 };
