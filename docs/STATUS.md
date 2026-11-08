@@ -1,5 +1,9 @@
 # Lykoware status
 
+## Active: locomotion states and interruptible crossfades (Codex)
+
+Branch `codex/locomotion-states`, base main `b17e479`; ADR 0062. Scope: owned engine pose crossfade, six-state sample locomotion, original demonstration clips and optional imported-profile selectors. Initial local Debug 74/74 passed. Targeted tests cover interruptions/shortest arcs, time partitioning, overlap, reset-allocation failures, state hysteresis, real Jolt traversal through all six states, optional clip selection/refusal and fallback. 1,000 crossfade and sample playback updates reuse ordinary C++ heap storage after setup. Final native/hosted validation and deliberate-fault checks remain pending. Hardware acceptance remains deferred while Joshua is mobile.
+
 ## Prepared IK runtime — merged #67, 8 November 2026
 
 PR [#67](https://github.com/Avrenthrad/lykowareGE/pull/67) merged as `abc620b`. Exact clean source `6c5626c2478f8d523ff04fd84737858cbea8370b` passed [all five hosted jobs](https://github.com/Avrenthrad/lykowareGE/actions/runs/42427459608): Windows Debug/Release and Linux Debug/ASan/UBSan/clang-tidy 18. Independent local validation passed 72/72 each Linux profile, zero skips, with configure/build/install/staged CLI. Report `/workspace/lykoware-prepared-ik-validation/report.json`; unchanged fingerprint `e76e8e243c9da3a07e029f0bbf10c04b649de43b91785496da60d41d2c53dcdb`. Hosted Windows GPU skips remain separate from these CPU IK checks.

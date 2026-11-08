@@ -163,6 +163,7 @@ struct WindowOptions {
     // --model FILE: a glTF model shown beside the crates (ADR 0035).
     std::string model;
     std::string character, idle_clip, walk_clip, character_profile;
+    std::array<std::string,4> locomotion_clips{};
     std::optional<float> character_height;
     std::optional<rig_roles::Names> bones;
     bool foot_ik = false;
@@ -588,6 +589,12 @@ public:
         entities_.add<lykoware::render::SkinPose>(body_, lykoware::render::SkinPose{playback_.matrices});
     }
 
+    void reset_animation()
+    {
+        playback_.reset();
+        if (foot_) { foot_->reset(); }
+    }
+
     // Draws the body `alpha` of the way between the last two steps (ADR 0048).
     void place(const lykoware::PlayerCharacter& player, float alpha, float seconds, const lykoware::physics::World& world)
     {
@@ -602,7 +609,9 @@ public:
         const auto state = player.state();
         const float speed = state.ground == lykoware::physics::GroundState::OnGround
             ? std::hypot(state.velocity.x, state.velocity.z) : 0.F;
-        playback_.advance(asset_, seconds, speed);
+        playback_.advance_character(asset_, seconds, state);
+        ++motion_frames_[static_cast<std::size_t>(playback_.selector.state())];
+        if (playback_.used_fallback) { ++motion_fallback_frames_; }
         const auto base_palette = foot_ ? palette_hash(playback_.matrices) : 0;
         if (foot_) {
             const foot_placement::Placement placement{feet,facing,visual_scale_,
@@ -641,6 +650,11 @@ public:
 
     void report() const
     {
+        std::string motion = "Locomotion diagnostics:";
+        for (std::size_t i = 0; i < motion_frames_.size(); ++i) {
+            motion += " " + std::string(locomotion::name(static_cast<locomotion::State>(i))) + "=" + std::to_string(motion_frames_[i]);
+        }
+        lykoware::log(lykoware::LogLevel::info, motion + " fallback_frames=" + std::to_string(motion_fallback_frames_));
         if (foot_) {
             const auto& s=foot_->stats();
             lykoware::log(lykoware::LogLevel::info,"Foot IK diagnostics: frames="+std::to_string(s.frames)
@@ -662,6 +676,8 @@ private:
     }
     lykoware::animation::Pose corrected_;
     std::uint64_t foot_applied_frames_=0;
+    std::array<std::uint64_t,6> motion_frames_{};
+    std::uint64_t motion_fallback_frames_ = 0;
     std::optional<foot_placement::Controller> foot_;
     std::uint64_t foot_failures_=0;
     float visual_scale_ = 1.F;
@@ -825,6 +841,11 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
                 if (!found) { throw std::invalid_argument("Unknown character clip: " + name); }
                 return *found;
             };
+            mannequin.run = {}; mannequin.jump = {}; mannequin.fall = {}; mannequin.land = {};
+            const std::array<lykoware::animation::Clip*,4> motion{{&mannequin.run,&mannequin.jump,&mannequin.fall,&mannequin.land}};
+            for (std::size_t i = 0; i < motion.size(); ++i) {
+                if (!options.locomotion_clips[i].empty()) { *motion[i] = choose(options.locomotion_clips[i],0); }
+            }
             mannequin.idle = choose(options.idle_clip, 0);
             mannequin.walk = choose(options.walk_clip, imported->clips.size() > 1 ? 1 : 0);
             mannequin.mesh = imported->model.mesh;
@@ -867,7 +888,7 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
         }
         player_body.emplace(scene->entities(), *mesh, std::move(mannequin), !options.character.empty(), visual_scale, visual_offset, options.foot_ik ? resolved_roles : std::nullopt, options.foot_clearance);
         if (options.foot_ik) { lykoware::log(lykoware::LogLevel::info,"Foot IK: stationary terrain alignment enabled"); }
-        lykoware::log(lykoware::LogLevel::info, options.character.empty() ? "Animation: GPU-skinned training mannequin (7 joints), idle/walk clips." : "Animation: GPU-skinned imported character, selected idle/walk clips.");
+        lykoware::log(lykoware::LogLevel::info, options.character.empty() ? "Animation: GPU-skinned training mannequin (7 joints), idle/walk/run/jump/fall/land clips." : "Animation: GPU-skinned imported character; missing run/air/landing clips fall back to walk/idle.");
         lykoware::log(lykoware::LogLevel::info,
                       "Play: WASD or the left stick to move, Shift or L3 to run, Space or South to jump, mouse wheel or "
                       "d-pad to zoom. Click to look with the mouse, Esc to let it go, R to start again.");
@@ -925,6 +946,7 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
                     ok = false;
                     break;
                 }
+                if (player_body) { player_body->reset_animation(); }
             }
             player->steer(lykoware::read_player_intent(input, input_config, frame_seconds, window.relative_mouse()));
         }
@@ -1160,7 +1182,8 @@ int run_window(const std::vector<std::string>& args)
         }
         for (const auto& item : profile.items()) {
             if (item.key() != "version" && item.key() != "model" && item.key() != "idle_clip"
-                && item.key() != "walk_clip" && item.key() != "height" && item.key() != "bones" && item.key() != "foot_ik" && item.key() != "foot_clearance") {
+                && item.key() != "walk_clip" && item.key() != "run_clip" && item.key() != "jump_clip"
+                && item.key() != "fall_clip" && item.key() != "land_clip" && item.key() != "height" && item.key() != "bones" && item.key() != "foot_ik" && item.key() != "foot_clearance") {
                 throw std::invalid_argument("Unknown character profile key: " + item.key());
             }
         }
@@ -1200,6 +1223,16 @@ int run_window(const std::vector<std::string>& args)
                     throw std::invalid_argument("Profile clip names must be nonempty strings");
                 }
                 (std::string(key) == "idle_clip" ? options.idle_clip : options.walk_clip) = profile[key].get<std::string>();
+            }
+        }
+        const std::array<const char*,4> motion_keys{{"run_clip","jump_clip","fall_clip","land_clip"}};
+        for (std::size_t i = 0; i < motion_keys.size(); ++i) {
+            const auto* key = motion_keys[i];
+            if (profile.contains(key)) {
+                if (!profile[key].is_string() || profile[key].get<std::string>().empty()) {
+                    throw std::invalid_argument("Profile locomotion clip names must be nonempty strings");
+                }
+                options.locomotion_clips[i] = profile[key].get<std::string>();
             }
         }
         if (profile.contains("height")) {

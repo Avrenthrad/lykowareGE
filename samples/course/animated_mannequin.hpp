@@ -4,12 +4,15 @@
 #include <lykoware/animation.hpp>
 #include <lykoware/mesh.hpp>
 #include <lykoware/render.hpp>
+#include <lykoware/physics.hpp>
+#include "locomotion.hpp"
 
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdint>
 #include <string>
+#include <stdexcept>
 #include <utility>
 #include <vector>
 
@@ -26,6 +29,7 @@ struct Asset {
     animation::Skeleton skeleton;
     animation::Clip idle;
     animation::Clip walk;
+    animation::Clip run, jump, fall, land;
 };
 
 inline Asset make()
@@ -99,6 +103,33 @@ inline Asset make()
         }
         asset.walk.channels.push_back(swing);
     }
+    asset.run = asset.walk;
+    asset.run.name = "run";
+    for (auto& channel : asset.run.channels) {
+        for (auto& value : channel.values) {
+            const auto q = math::from_axis_angle({1, 0, 0}, 3.F * std::atan2(value.x, value.w));
+            value = {q.x, q.y, q.z, q.w};
+        }
+    }
+    const auto rotation_clip = [](const char* name, float arm, float left, float right) {
+        animation::Clip clip; clip.name = name;
+        for (const auto& [joint, angle] : std::array<std::pair<std::uint16_t,float>,4>{{
+            {std::uint16_t{3},arm},{std::uint16_t{4},arm},{std::uint16_t{5},left},{std::uint16_t{6},right}}}) {
+            animation::Channel channel;
+            channel.joint = joint; channel.target = animation::Target::Rotation; channel.times = {0.F};
+            const auto q = math::from_axis_angle({1,0,0}, angle);
+            channel.values = {{q.x,q.y,q.z,q.w}}; clip.channels.push_back(std::move(channel));
+        }
+        return clip;
+    };
+    asset.jump = rotation_clip("jump", -.7F, .5F, -.25F);
+    asset.fall = rotation_clip("fall", .4F, -.15F, -.15F);
+    asset.land.name = "land";
+    animation::Channel compression;
+    compression.joint = 1; compression.target = animation::Target::Translation;
+    compression.times = {0.F, .08F, .18F};
+    compression.values = {{0,.95F,0,0},{0,.84F,0,0},{0,.95F,0,0}};
+    asset.land.channels.push_back(std::move(compression));
     return asset;
 }
 
@@ -110,21 +141,68 @@ struct Playback {
     animation::Pose walk;
     animation::Pose blended;
     std::vector<math::Mat4> matrices;
+    locomotion::Selector selector;
+    animation::PoseCrossfade transition;
+    animation::Pose target;
+    bool ready = false;
+    bool used_fallback = false;
+    std::string transition_error;
 
-    void advance(const Asset& asset, float seconds, float speed)
+    // A respawn/new asset starts observation afresh; buffers are rebound on next advance.
+    void reset() noexcept
+    {
+        idle_seconds = 0.F; walk_seconds = 0.F; walk_weight = 0.F;
+        selector = {}; ready = false; used_fallback = false;
+    }
+
+    void advance_character(const Asset& asset, float seconds, const lykoware::physics::CharacterState& state)
+    {
+        const bool grounded = state.ground == lykoware::physics::GroundState::OnGround;
+        advance(asset, seconds, grounded ? std::hypot(state.velocity.x,state.velocity.z) : 0.F,
+                grounded, state.velocity.y);
+    }
+
+    void advance(const Asset& asset, float seconds, float speed, bool grounded = true, float vertical_speed = 0.F)
     {
         seconds = std::isfinite(seconds) ? std::clamp(seconds, 0.F, 0.1F) : 0.F;
         speed = std::isfinite(speed) ? std::max(0.F, speed) : 0.F;
         idle_seconds = std::fmod(idle_seconds + seconds, std::max(0.001F, animation::duration(asset.idle)));
         walk_seconds = std::fmod(walk_seconds + seconds * std::min(4.F, speed / 2.F), std::max(0.001F, animation::duration(asset.walk)));
-        const float target = std::clamp(speed / 2.F, 0.F, 1.F);
-        walk_weight = target + (walk_weight - target) * std::exp(-8.F * seconds);
-        idle = animation::rest_pose(asset.skeleton);
+        const float target_weight = std::clamp(speed / 2.F, 0.F, 1.F);
+        walk_weight = target_weight + (walk_weight - target_weight) * std::exp(-8.F * seconds);
+        const bool changed = selector.advance(seconds, speed, grounded, vertical_speed);
+        idle.resize(asset.skeleton.joints.size());
+        for (std::size_t i = 0; i < idle.size(); ++i) { idle[i] = asset.skeleton.joints[i].rest; }
         walk = idle;
         animation::sample(asset.idle, idle_seconds, true, idle);
         animation::sample(asset.walk, walk_seconds, true, walk);
         blended.resize(idle.size());
-        animation::blend(idle, walk, walk_weight, blended);
+        target.resize(idle.size());
+        const auto state = selector.state();
+        used_fallback = false;
+        if (state == locomotion::State::Idle || state == locomotion::State::Walk) {
+            animation::blend(idle, walk, walk_weight, target);
+        } else {
+            const animation::Clip* clip = state == locomotion::State::Run ? &asset.run
+                : state == locomotion::State::Jump ? &asset.jump
+                : state == locomotion::State::Fall ? &asset.fall : &asset.land;
+            if (clip->name.empty() && clip->channels.empty()) {
+                used_fallback = true;
+                clip = state == locomotion::State::Run ? &asset.walk : &asset.idle;
+            }
+            for (std::size_t i = 0; i < target.size(); ++i) { target[i] = asset.skeleton.joints[i].rest; }
+            const bool gait = state == locomotion::State::Run;
+            const float time = gait ? walk_seconds / std::max(.001F, animation::duration(asset.walk)) * animation::duration(*clip)
+                : selector.seconds();
+            animation::sample(*clip, time, gait, target);
+        }
+        if (!ready) {
+            if (!transition.reset(target, transition_error)) { throw std::invalid_argument(transition_error); }
+            ready = true;
+        } else if (changed) {
+            if (!transition.begin(state == locomotion::State::Land ? .08F : .14F, transition_error)) { throw std::invalid_argument(transition_error); }
+        }
+        if (!transition.advance(target, changed ? 0.F : seconds, blended, transition_error)) { throw std::invalid_argument(transition_error); }
         animation::skinning_matrices(asset.skeleton, blended, matrices);
     }
 };
