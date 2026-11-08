@@ -412,6 +412,13 @@ if(BUILD_TESTING)
     add_test(NAME animation.foot_placement COMMAND lykoware_foot_placement_test)
     set_tests_properties(animation.foot_placement PROPERTIES TIMEOUT 60)
 
+    add_executable(lykoware_player_turning_test tests/player_turning.cpp)
+    target_link_libraries(lykoware_player_turning_test PRIVATE lykoware::engine)
+    target_include_directories(lykoware_player_turning_test PRIVATE "${CMAKE_SOURCE_DIR}/samples/course")
+    lykoware_configure_target(lykoware_player_turning_test)
+    add_test(NAME player.turning COMMAND lykoware_player_turning_test)
+    set_tests_properties(player.turning PROPERTIES TIMEOUT 60)
+
     add_executable(lykoware_character_asset_test tests/character_asset.cpp)
     target_link_libraries(lykoware_character_asset_test PRIVATE lykoware::engine)
     target_include_directories(lykoware_character_asset_test PRIVATE "${CMAKE_SOURCE_DIR}/samples/course")

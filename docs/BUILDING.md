@@ -241,3 +241,9 @@ Existing `height` still changes visual fit only. Optional `yaw_degrees` (-180..1
 ```
 
 Rendering and terrain IK share the same facing/yaw/scale/offset conversion. Inspection reports warnings for visual/capsule height mismatch and rigs outside the initial retarget subset. It reports root translation tracks as visual-only; no motion is applied to physics. This is executable import validation, not automatic repair, general retargeting or hardware/subjective acceptance.
+
+### Turning and motion authority (ADR 0064)
+
+The controller/Jolt remains authoritative for translation and collision. Skeleton root tracks are visual-only. Profiles may explicitly set `"motion_authority":"controller"`; unsupported requests fail. A future extraction adapter must feed collision-resolved controller input, not teleport the physics body.
+
+The sample uses bounded facing at 720 degrees/s, interpolated between fixed ticks consistently with feet and foot probes. Optional `turn_degrees_per_second` accepts 0..3600; 0 removes the rate limit (rendering may still interpolate between ticks). Idle turning finishes towards the last requested heading. Engine `PlayerConfig::max_turn_rate` defaults to 0 for backward compatibility. Existing course tests traverse rolling terrain, ramps, stairs, ledges, tunnel and a steep non-walkable slope with rate-limited facing enabled. Slope-specific animation, walking locks and subjective feel remain later acceptance work.

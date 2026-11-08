@@ -69,6 +69,8 @@ struct PlayerConfig {
     // goes to first person (distance 0), so it never sits inside the head.
     float zoom_step = 1.F;
     float max_distance = 8.F;
+    // Visual yaw only, radians/second. 0 preserves legacy instant facing.
+    float max_turn_rate = 0.F;
 };
 
 // A character in a physics world that a player steers, with a follow camera.
@@ -123,6 +125,7 @@ public:
     [[nodiscard]] math::DVec3 pivot() const;
     // The way the body faces, as a yaw (FollowCamera's convention): the last way it was moved.
     [[nodiscard]] float facing() const { return facing_; }
+    [[nodiscard]] float drawn_facing(float alpha) const;
     [[nodiscard]] const FollowCamera& camera() const { return camera_; }
 
 private:
@@ -135,6 +138,7 @@ private:
     PlayerIntent intent_{};
     float jump_wait_ = 0.F;
     float facing_ = 0.F;
+    float target_facing_ = 0.F, previous_facing_ = 0.F;
     // The feet before the latest step, for drawing between steps.
     math::DVec3 previous_feet_;
 };

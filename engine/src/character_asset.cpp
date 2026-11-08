@@ -38,8 +38,11 @@ bool decode_profile(std::string_view text,const std::filesystem::path& directory
         if(!j.is_object()||!j.contains("version")||!j["version"].is_number_integer()||j["version"]!=1
             ||!j.contains("model")||!j["model"].is_string()){return fail(error,"Character profile requires version 1 and model string");}
         const std::set<std::string> allowed{"version","model","idle_clip","walk_clip","run_clip","jump_clip","fall_clip","land_clip",
-            "height","yaw_degrees","capsule_height","capsule_radius","eye_height","bones","foot_ik","foot_clearance"};
+            "motion_authority","turn_degrees_per_second","height","yaw_degrees","capsule_height","capsule_radius","eye_height","bones","foot_ik","foot_clearance"};
         for(const auto& item:j.items()){if(!allowed.contains(item.key())){return fail(error,"Unknown character profile key: "+item.key());}}
+        if(j.contains("motion_authority")&&(!j["motion_authority"].is_string()||j["motion_authority"]!=motion_authority)){
+            return fail(error,"Only controller motion authority is currently supported; root tracks are visual-only");
+        }
         Profile result;
         const auto model=j["model"].get<std::string>();
         if(model.empty()||model.find('\0')!=std::string::npos){return fail(error,"Invalid profile model path");}
@@ -58,7 +61,7 @@ bool decode_profile(std::string_view text,const std::filesystem::path& directory
         };
         number("height",result.height,.1,10);number("yaw_degrees",result.yaw_degrees,-180,180);
         number("capsule_height",result.capsule_height,.1,10);number("capsule_radius",result.capsule_radius,.0001,5);
-        number("eye_height",result.eye_height,.0001,10);
+        number("eye_height",result.eye_height,.0001,10);number("turn_degrees_per_second",result.turn_degrees_per_second,0,3600);
         if(j.contains("bones")){
             const auto& bones=j["bones"];if(!bones.is_object()||bones.size()!=role_names.size()){return fail(error,"Profile bones requires seven leg roles");}
             RoleNames names;
@@ -212,6 +215,7 @@ RigCompatibility compare_rigs(const animation::Skeleton& source,const animation:
 }
 bool inspect(const gltf::SkinnedModel& asset,const Profile& profile,Inspection& out,std::string& error)
 {
+    if(profile.turn_degrees_per_second&&(!std::isfinite(*profile.turn_degrees_per_second)||*profile.turn_degrees_per_second<0||*profile.turn_degrees_per_second>3600)){return fail(error,"Invalid turn_degrees_per_second");}
     if(!std::isfinite(profile.foot_clearance)||profile.foot_clearance<0||profile.foot_clearance>.3){return fail(error,"foot_clearance must be 0..0.3 metres");}
     if(!valid_mesh(asset.model.mesh,error)||!animation::valid_skeleton(asset.skeleton,error)){return false;}
     if(asset.clips.empty()){return fail(error,"Character requires animation clips");}

@@ -4,11 +4,11 @@ Joshua requested the next 15 steps from the pinned master checklist. This select
 
 | # | Master ID | Work / exit evidence | State |
 |---|---|---|---|
-| 1 | 02.01 | Character import conventions with executable validation/inspection and invalid-input tests | Open |
+| 1 | 02.01 | Shared conventions/validation and CPU CLI; #69, native 76/76 each + five CI profiles | Verified/merged |
 | 2 | 02.02a | Bind-size/height/feet fitting; #59 → #65, later #68 all hosted profiles and native tests | Verified/merged |
 | 3 | 02.02b | Authored humanoid roles/mapping; #60/#61 → #65, native rig/terrain checks | Verified/merged |
-| 4 | 02.02c | Authored orientation correction, capsule and camera alignment; transformed fixture checks | Open |
-| 5 | 02.02d | Explicit rig compatibility diagnostics for supported retargeting contracts | Open |
+| 4 | 02.02c | Visual yaw, explicit capsule/eye settings and render/IK checks; #69 | Verified/merged |
+| 5 | 02.02d | Explicit named/topology/scale/rest-direction/axis diagnostics; #69 | Verified/merged |
 | 6 | 02.03a | Versioned model/clip/height profiles; #60 → #65 with selector/refusal coverage | Verified/merged |
 | 7 | 02.03b | Mapped roles and remaining six-state clip selectors; #61/#68 | Verified/merged |
 | 8 | 02.04-runtime | Six-state presentation and real Jolt adapter; #68, all five CI + 74/74 per native profile | Verified/merged |
@@ -20,7 +20,7 @@ Joshua requested the next 15 steps from the pinned master checklist. This select
 | 14 | 02.10 | Retargeting for a declared supported rig subset; rest/axis/length and refusal tests | Open |
 | 15 | 02.11a | Two-bone geometry reference; #62 → #65, analytical/varied/mutant checks, later matrix verified | Verified/merged |
 
-Progress: **7/15 verified and merged; 8 open.** Each new implementation needs a task branch/ADR, meaningful native tests, Windows Debug/Release and Linux CI, and authorized merge before the entry is checked. Preserve contributor branches and record source hashes/evidence in STATUS/PRs. Recheck this list at each handoff; do not silently replace an item with a smaller requirement.
+Progress: **10/15 verified and merged; 5 open.** Each new implementation needs a task branch/ADR, meaningful native tests, Windows Debug/Release and Linux CI, and authorized merge before the entry is checked. Preserve contributor branches and record source hashes/evidence in STATUS/PRs. Recheck this list at each handoff; do not silently replace an item with a smaller requirement.
 
 ## Deferred owner/manual list
 

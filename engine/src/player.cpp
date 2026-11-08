@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <numbers>
 #include <cstddef>
 
 namespace lykoware {
@@ -102,8 +103,8 @@ std::unique_ptr<PlayerCharacter> PlayerCharacter::create(physics::World& world, 
     error.clear();
     const auto usable_speed = [](float speed) { return std::isfinite(speed) && speed >= 0.F; };
     if (!usable_speed(config.walk_speed) || !usable_speed(config.run_speed) || !usable_speed(config.jump_speed)
-        || !usable_speed(config.jump_buffer) || !usable_speed(config.zoom_step) || !usable_speed(config.max_distance)) {
-        error = "player speeds, jump buffer and zoom must be finite and not negative";
+        || !usable_speed(config.jump_buffer) || !usable_speed(config.zoom_step) || !usable_speed(config.max_distance) || !usable_speed(config.max_turn_rate)) {
+        error = "player speeds, turn rate, jump buffer and zoom must be finite and not negative";
         return nullptr;
     }
     const float height = 2.F * (config.body.cylinder_half_height + config.body.radius);
@@ -124,6 +125,8 @@ PlayerCharacter::PlayerCharacter(physics::World& world, physics::CharacterId cha
     , config_{config}
     , camera_{config.camera}
     , facing_{camera_.yaw()}
+    , target_facing_{facing_}
+    , previous_facing_{facing_}
     , previous_feet_{state().position}
 {
     config_.max_distance = std::max(config_.max_distance, camera_.distance());
@@ -164,11 +167,20 @@ void PlayerCharacter::steer(const PlayerIntent& intent)
 void PlayerCharacter::before_step(float seconds)
 {
     previous_feet_ = state().position;
+    previous_facing_ = facing_;
     const float speed = intent_.run ? config_.run_speed : config_.walk_speed;
     const math::Vec3 velocity = (camera_.forward() * intent_.forward + camera_.right() * intent_.right) * speed;
     if (intent_.forward != 0.F || intent_.right != 0.F) {
         // Yaw of a horizontal direction d is atan2(-d.x, -d.z) (FollowCamera::forward()).
-        facing_ = std::atan2(-velocity.x, -velocity.z);
+        target_facing_ = std::atan2(-velocity.x, -velocity.z);
+    }
+
+    if (config_.max_turn_rate == 0.F) { facing_ = target_facing_; }
+    else if (std::isfinite(seconds) && seconds > 0.F) {
+        const float delta = std::remainder(target_facing_ - facing_, 2.F * std::numbers::pi_v<float>);
+        const double limit = static_cast<double>(config_.max_turn_rate) * seconds;
+        const float change = static_cast<float>(std::clamp(static_cast<double>(delta), -limit, limit));
+        facing_ = std::remainder(facing_ + change, 2.F * std::numbers::pi_v<float>);
     }
 
     const std::optional<physics::CharacterState> now = world_.character_state(character_);
@@ -205,6 +217,13 @@ math::DVec3 PlayerCharacter::drawn_feet(float alpha) const
     const double t = static_cast<double>(std::clamp(alpha, 0.F, 1.F));
     return {previous_feet_.x + (now.x - previous_feet_.x) * t, previous_feet_.y + (now.y - previous_feet_.y) * t,
             previous_feet_.z + (now.z - previous_feet_.z) * t};
+}
+
+float PlayerCharacter::drawn_facing(float alpha) const
+{
+    if (!std::isfinite(alpha)) { return facing_; }
+    const float delta = std::remainder(facing_ - previous_facing_, 2.F * std::numbers::pi_v<float>);
+    return std::remainder(previous_facing_ + std::clamp(alpha,0.F,1.F)*delta, 2.F * std::numbers::pi_v<float>);
 }
 
 render::Camera PlayerCharacter::view(float seconds, float alpha)

@@ -14,12 +14,14 @@
 namespace lykoware::character {
 inline constexpr std::array<const char*,7> role_names{{"pelvis","left_hip","left_knee","left_foot","right_hip","right_knee","right_foot"}};
 inline constexpr std::array<const char*,6> clip_keys{{"idle_clip","walk_clip","run_clip","jump_clip","fall_clip","land_clip"}};
+inline constexpr const char* motion_authority = "controller";
+inline constexpr float default_turn_degrees_per_second = 720.F;
 using RoleNames = std::array<std::string,7>;
 using Roles = std::array<std::size_t,7>;
 struct Profile {
     std::filesystem::path model;
     std::array<std::string,6> clips{};
-    std::optional<float> height, yaw_degrees, capsule_height, capsule_radius, eye_height;
+    std::optional<float> height, yaw_degrees, capsule_height, capsule_radius, eye_height, turn_degrees_per_second;
     std::optional<RoleNames> bones;
     bool foot_ik = false;
     double foot_clearance = .03;

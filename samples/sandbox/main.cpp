@@ -35,6 +35,7 @@
 #include <charconv>
 #include <chrono>
 #include <cmath>
+#include <numbers>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -601,7 +602,7 @@ public:
     void place(const lykoware::PlayerCharacter& player, float alpha, float seconds, const lykoware::physics::World& world)
     {
         const lykoware::math::DVec3 feet = player.drawn_feet(alpha);
-        const lykoware::math::Quat facing = lykoware::math::from_axis_angle({0.F, 1.F, 0.F}, player.facing());
+        const lykoware::math::Quat facing = lykoware::math::from_axis_angle({0.F, 1.F, 0.F}, player.drawn_facing(alpha));
         auto* body = entities_.get<lykoware::Transform>(body_);
         body->position = feet + lykoware::math::rotate(facing, visual_offset_);
         body->rotation = facing * visual_rotation_;
@@ -818,6 +819,7 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
     if(!lykoware::character::capsule(options.character_settings,body_alignment,alignment_error)){throw std::invalid_argument(alignment_error);}
     player_config.body.radius=body_alignment.radius;player_config.body.cylinder_half_height=body_alignment.cylinder_half_height;
     player_config.eye_height=body_alignment.eye_height;
+    player_config.max_turn_rate=options.character_settings.turn_degrees_per_second.value_or(lykoware::character::default_turn_degrees_per_second)*std::numbers::pi_v<float>/180.F;
     const lykoware::PlayerInputConfig input_config;
     std::unique_ptr<lykoware::PlayerCharacter> player;
     std::optional<PlayerBody> player_body;
