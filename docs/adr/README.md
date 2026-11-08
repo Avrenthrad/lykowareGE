@@ -78,3 +78,5 @@ Use [the template](TEMPLATE.md). Record context, options, decision/status, contr
 - [0064: Controller authority and terrain-facing presentation](0064-controller-authority-and-terrain-facing.md) — Accepted for the current runtime baseline; bounded/interpolated visual facing and explicit physics authority.
 
 - [0065: Authored animation, events, sockets and supported retargeting](0065-authored-animation-events-retarget.md) — Proposed; bounded JSON state configuration, transactional reusable playback and CPU replay.
+
+- [0066: Stationary terrain foot orientation and pelvis constraints](0066-terrain-foot-orientation-and-pelvis.md) — Proposed; read-only normals, prepared joint axes, opt-in bounded visual stance corrections.

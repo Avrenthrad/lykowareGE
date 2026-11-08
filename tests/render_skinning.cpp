@@ -9,6 +9,9 @@
 #include <lykoware/skinning.hpp>
 
 #include "support/gltf_builder.hpp"
+#include "support/stance_fixture.hpp"
+#include <numbers>
+#include <cmath>
 
 #include <array>
 #include <cstddef>
@@ -121,6 +124,98 @@ bool mannequin_capture(rhi::Device& device, render::Renderer& renderer, const st
     return true;
 }
 
+bool stance_capture(rhi::Device& device, render::Renderer& renderer, const std::filesystem::path& output)
+{
+    const auto asset = stance_fixture::make();
+    std::string reason;
+    auto world = lykoware::physics::World::create({}, reason);
+    if (!world) {
+        expect(false, reason);
+        return false;
+    }
+    const float slope = 20.F * std::numbers::pi_v<float> / 180.F;
+    lykoware::physics::BodyDesc floor;
+    floor.motion = lykoware::physics::MotionType::Static;
+    floor.shape = lykoware::physics::BoxShape{{5, .5F, 5}};
+    floor.rotation = math::from_axis_angle({0, 0, 1}, slope);
+    floor.position = {0, -.5 / std::cos(slope), 0};
+    if (!world->create_body(floor, reason)) {
+        expect(false, reason);
+        return false;
+    }
+    const auto hash = world->state_hash();
+    foot_placement::Controller controller;
+    lykoware::character::FootSettings settings;
+    settings.align_normals = true;
+    settings.pelvis = true;
+    if (!controller.configure(asset.skeleton, {0, 1, 2, 3, 4, 5, 6}, reason, .03, settings)) {
+        expect(false, reason);
+        return false;
+    }
+    auto rest = animation::rest_pose(asset.skeleton);
+    animation::Pose corrected;
+    for (int i = 0; i < 120; ++i) {
+        if (!controller.update(rest, {}, *world, 1.F / 60.F, true, corrected, reason)) {
+            expect(false, reason);
+            return false;
+        }
+    }
+    expect(world->state_hash() == hash && controller.stats().oriented == 240 &&
+               controller.stats().pelvis_frames > 0,
+           "rendered stance comes from read-only real slope corrections");
+    rhi::RhiError error;
+    const auto mesh = renderer.add_skinned_mesh(asset.mesh, asset.joints, asset.weights,
+                                                asset.skeleton.joints.size(), asset.parts, error);
+    auto target = rhi::RenderTarget::create(device, {320, 240, true}, error);
+    if (!mesh || !target) {
+        expect(false, error.message);
+        return false;
+    }
+    lykoware::ecs::World entities;
+    for (int i = 0; i < 2; ++i) {
+        std::vector<math::Mat4> palette;
+        animation::skinning_matrices(asset.skeleton, i == 0 ? rest : corrected, palette);
+        const auto entity = entities.create();
+        entities.add<lykoware::Transform>(entity, lykoware::Transform{{i == 0 ? -.6 : .6, 0, 0}, {}});
+        entities.add<render::MeshRenderer>(
+            entity, render::MeshRenderer{render::MeshShape::Cube, {1, 1, 1}, {1, 1, 1}, *mesh});
+        entities.add<render::SkinPose>(entity, render::SkinPose{palette});
+    }
+    const render::Camera camera{{0, 1.0, 3.2}, {0, .8, 0}};
+    lykoware::Image actual, reference;
+    if (!renderer.draw(entities, camera, *target, {.025F, .03F, .045F, 1}, error) ||
+        !rhi::RenderTargetCapture{*target}.capture(actual)) {
+        expect(false, error.message);
+        return false;
+    }
+    bool valid = true;
+    entities.each<render::MeshRenderer, render::SkinPose>(
+        [&](lykoware::ecs::Entity, render::MeshRenderer& component, render::SkinPose& pose) {
+            lykoware::MeshData deformed;
+            if (!animation::deform_mesh(asset.mesh, asset.joints, asset.weights, pose.matrices, deformed,
+                                        reason)) {
+                valid = false;
+                return;
+            }
+            const auto cpu = renderer.add_mesh(deformed, asset.parts, error);
+            if (!cpu) {
+                valid = false;
+                return;
+            }
+            component.mesh = *cpu;
+        });
+    if (!valid || !renderer.draw(entities, camera, *target, {.025F, .03F, .045F, 1}, error) ||
+        !rhi::RenderTargetCapture{*target}.capture(reference)) {
+        expect(false, error.message + reason);
+        return false;
+    }
+    expect(lykoware::compare_images(reference, actual, 2).matches,
+           "slope-oriented feet and compensated pelvis GPU pixels match CPU-deformed geometry");
+    expect(lykoware::write_ppm(actual, output / "terrain-stance.ppm"),
+           "terrain stance diagnostic capture saved");
+    return true;
+}
+
 bool exercise(rhi::Device& device, render::Renderer& renderer, const std::filesystem::path& output, bool gpu)
 {
     std::string error;
@@ -209,7 +304,7 @@ bool exercise(rhi::Device& device, render::Renderer& renderer, const std::filesy
            "two snapshots of one bind mesh keep independent poses in the same draw");
     std::filesystem::create_directories(output);
     if (gpu) {
-        if (!mannequin_capture(device, renderer, output)) { return false; }
+        if (!mannequin_capture(device, renderer, output)||!stance_capture(device,renderer,output)) { return false; }
         // Geometry is registered once; each following GPU draw changes only SkinPose.
         const auto skinned = renderer.add_skinned_mesh(source->model.mesh, source->joints, source->weights,
                                                        source->skeleton.joints.size(), {}, gpu_error);

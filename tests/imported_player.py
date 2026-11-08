@@ -131,6 +131,12 @@ assert r.returncode==0 and 'failures=0' in rotated and re.search(r'contacts=[1-9
 profile.write_text(json.dumps(dict(version=1,model=path.name,bones={name:name for name in role_names},foot_ik=True,foot_clearance=.12)))
 r=run(ik_args)
 assert r.returncode==0 and 'failures=0' in r.stdout+r.stderr, r.stdout+r.stderr
+profile.write_text(json.dumps(dict(version=1,model=path.name,bones={name:name for name in role_names},foot_ik=True,foot_align_normals=True,foot_max_slope_degrees=40,foot_pelvis=True,foot_max_pelvis_drop=.12)))
+r=run(ik_args);stance=r.stdout+r.stderr
+assert r.returncode==0 and 'failures=0' in stance and re.search(r'oriented=[1-9]\d*',stance) and re.search(r'applied_frames=[1-9]\d*',stance),stance
+for extra in [dict(foot_align_normals=True,foot_max_slope_degrees=61),dict(foot_pelvis=True,foot_max_pelvis_drop=.31),dict(foot_max_slope_degrees=20),dict(foot_max_pelvis_drop=.1),dict(foot_align_normals='yes')]:
+    profile.write_text(json.dumps(dict(version=1,model=path.name,bones={name:name for name in role_names},foot_ik=True,**extra)))
+    r=run(ik_args);assert r.returncode!=0,r.stdout+r.stderr
 profile.write_text(json.dumps(dict(version=1,model=path.name,bones={name:name for name in role_names},foot_ik=True,foot_clearance=-1)))
 r=run(ik_args)
 assert r.returncode!=0 and 'foot_clearance must' in r.stdout+r.stderr

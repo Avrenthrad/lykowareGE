@@ -1,5 +1,9 @@
 # Shared work board
 
+## Active: stationary terrain foot constraints (Codex)
+
+Branch `codex/terrain-foot-constraints`, base #71 `7197587`; ADR0066 Proposed. The owner requested continued overall development while saving pending integration/manual matters. Add read-only surface normals, prepared joint-axis alignment, opt-in stationary slope orientation and bounded visual pelvis compensation; preserve physics authority and complete bilateral transaction/reset behavior. Native/hosted checks pending. [Deferred ledger](loops/deferred.md) parks #71 and hardware/owner gates; no merges/main pushes.
+
 ## Authored animation runtime — verified #71, intentionally unmerged
 
 PR [#71](https://github.com/Avrenthrad/lykowareGE/pull/71), branch `codex/authored-animation-runtime`, base #70 `9555fea`. Runtime source `bb47ca7dc3433b3cdbe55d27abbeb050f1bb4a6c` passed [all five hosted profiles](https://github.com/Avrenthrad/lykowareGE/actions/runs/42480515225). Local clean Debug rebuild (554 steps) and full Debug/ASan/UBSan/clang-tidy18 validation passed 79/79 each, zero skips, with configure/build/install/staged CLI; unchanged fingerprint `6b4ea9d75becedf0d4665c967b413f9194ee68d7fc01c6bbac9ab85921466f21`. Report `/workspace/lykoware-authored-animation-final-validation/report.json`. Hosted Windows GPU checks have 21 skips; actual RTX4070 acceptance remains unverified.

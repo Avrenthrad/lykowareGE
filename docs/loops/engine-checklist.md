@@ -36,3 +36,15 @@ Authoritative architecture: [AGENTS](../../AGENTS.md), [CONTRIBUTING](../../CONT
 Actual RTX 4070 VRAM/driver/frame pacing/RAM/VRAM budgets, owner character-feel acceptance, production rigs/art, general A/T-pose/helper/scaled retargeting, root-motion-driven collision, walking foot locks/active ragdolls, game/editor/content-suite systems and public/Pax gates. These remain UNVERIFIED or future requirements; this loop does not close Phase 1 hardware or broad Phase 2 acceptance. Generic authored playback supports bounded unit-scale poses; lower-level clip sampling retains broader scale support. No feature is represented by a stub: current CLI/native/sample callers must exercise the real runtime.
 
 Final runtime evidence: `bb47ca7`, CI run [42480515225](https://github.com/Avrenthrad/lykowareGE/actions/runs/42480515225) all five profiles; local clean build plus 79/79 each Debug/sanitizers/analysis, zero skips, install/staged CLI and unchanged fingerprint. Independent reviewer recheck: no blocking findings. Windows hosted graphics remain 21 skips; actual target hardware is unverified. Exact commands, review fixes, captures and final documentation-tip verification location are in [progress](engine-progress.md). Final milestone status: **PARTIAL — integration intentionally pending**, not an iteration-limit stop.
+
+## Continued project work — stationary terrain constraints
+
+Owner's subsequent instruction explicitly expands the active work beyond the completed runtime batch: continue overall development and save integration/manual matters for later. The previous instruction not to start future work was superseded. Preserve [deferred items](deferred.md), including no merges/main pushes. Base #71 `7197587`; current branch `codex/terrain-foot-constraints`, ADR0066.
+
+- [ ] Owned physics surface normals, preserving existing ray/camera callers and read-only behavior.
+- [ ] Prepared joint-axis alignment with bounded rotations, snapshot lifetime, overlap/failure and allocation tests.
+- [ ] Opt-in stationary slope-normal orientation through actual profile/sandbox callers.
+- [ ] Bounded, smoothed visual pelvis compensation with full bilateral transaction/reset behavior.
+- [ ] Real terrain/far-origin/rig/normal/smoothing/refusal and actual imported-render checks.
+- [ ] Independent review, clean integration build, full native matrix and exact-head hosted profiles.
+- [ ] Record verified branch evidence and the next actionable project requirement; leave integration/hardware parked.

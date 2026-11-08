@@ -47,3 +47,7 @@ Shared version-1 profile loading is owned by `character::load_profile/decode_pro
 ## Authored animation and headless replay
 
 Character profiles optionally reference a relative `animation_graph` path. Graph version 1 and replay version 1, event/socket semantics and the strict retarget subset are documented in [ANIMATION_RUNTIME](ANIMATION_RUNTIME.md), ADR 0065. The CPU CLI and sandbox use the same owned runtime APIs.
+
+## Stationary terrain stance options
+
+Optional character-profile `foot_align_normals`, `foot_max_slope_degrees`, `foot_pelvis`, `foot_max_pelvis_drop` extend existing `foot_ik` settings. Effective policy is reported by inspection; bounds, opt-in dependencies and runtime semantics are in [TERRAIN_STANCE](TERRAIN_STANCE.md), ADR0066.

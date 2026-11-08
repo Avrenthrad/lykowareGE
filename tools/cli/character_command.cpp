@@ -48,6 +48,7 @@ int character_command(std::span<const std::string> args)
         report["bind_bounds"]={{"min",vec(inspected.bind_bounds.min)},{"max",vec(inspected.bind_bounds.max)}};
         report["alignment"]={{"scale",a.scale},{"offset",vec(a.offset)},{"rotation",{a.rotation.x,a.rotation.y,a.rotation.z,a.rotation.w}}};
         report["capsule"]={{"height",c.height},{"radius",c.radius},{"cylinder_half_height",c.cylinder_half_height},{"eye_height",c.eye_height}};
+        report["foot_policy"]={{"align_normals",profile.foot_settings.align_normals},{"max_slope_degrees",profile.foot_settings.max_slope_degrees},{"pelvis",profile.foot_settings.pelvis},{"max_pelvis_drop",profile.foot_settings.max_pelvis_drop}};
         report["warnings"]=inspected.warnings;report["clips"]=Json::array();
         for(const auto& clip:inspected.clips){report["clips"].push_back({{"name",clip.name},{"seconds",clip.seconds},{"translated_root",clip.translated_root}});}
         if(inspected.roles){report["roles"]=*inspected.roles;}
