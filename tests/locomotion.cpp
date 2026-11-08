@@ -58,6 +58,8 @@ int main() {
     training_mannequin::Playback fallback;
     fallback.advance(imported,0,7);expect(fallback.used_fallback,"missing run explicitly falls back to walk");
     fallback.advance(imported,.01F,0,false,-1);expect(fallback.used_fallback,"missing fall explicitly falls back to idle");
+    fallback.reset();fallback.advance(imported,0,0,true,0);
+    expect(fallback.selector.state()==State::Idle&&!fallback.used_fallback,"respawn clears old airborne/landing observation");
     training_mannequin::Playback reused;reused.advance(asset,0,0);
     tracking=true;auto counter_control=asset;tracking=false;
     expect(allocations>0&&counter_control.skeleton.joints.size()==7,"allocation counter detects setup copies");

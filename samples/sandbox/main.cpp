@@ -589,6 +589,12 @@ public:
         entities_.add<lykoware::render::SkinPose>(body_, lykoware::render::SkinPose{playback_.matrices});
     }
 
+    void reset_animation()
+    {
+        playback_.reset();
+        if (foot_) { foot_->reset(); }
+    }
+
     // Draws the body `alpha` of the way between the last two steps (ADR 0048).
     void place(const lykoware::PlayerCharacter& player, float alpha, float seconds, const lykoware::physics::World& world)
     {
@@ -940,6 +946,7 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
                     ok = false;
                     break;
                 }
+                if (player_body) { player_body->reset_animation(); }
             }
             player->steer(lykoware::read_player_intent(input, input_config, frame_seconds, window.relative_mouse()));
         }

@@ -147,6 +147,13 @@ struct Playback {
     bool ready = false;
     bool used_fallback = false;
 
+    // A respawn/new asset starts observation afresh; buffers are rebound on next advance.
+    void reset() noexcept
+    {
+        idle_seconds = 0.F; walk_seconds = 0.F; walk_weight = 0.F;
+        selector = {}; ready = false; used_fallback = false;
+    }
+
     void advance_character(const Asset& asset, float seconds, const lykoware::physics::CharacterState& state)
     {
         const bool grounded = state.ground == lykoware::physics::GroundState::OnGround;
