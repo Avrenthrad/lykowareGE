@@ -70,7 +70,7 @@ To see the Vulkan path on a desktop, run the sandbox with a window and Vulkan. I
 
 It exits 3 if no usable Vulkan device exists. `--window --offscreen --vulkan --frames N` is the headless form used by CTest.
 
-The playable character is an original procedural training mannequin, GPU-skinned with seven joints and idle/walk clips (ADR 0052). Its pose follows the controller's speed, blends back to idle when stopped, and hides in first person. Animation is drawing-only. Opt-in mapped imported rigs support stationary vertical terrain alignment; walking foot locks, ragdoll, finished character art and target-GPU budgets remain future work. It needs no downloaded model or external editor.
+The playable character is an original procedural training mannequin, GPU-skinned with seven joints and idle/walk/run/jump/fall/landing demonstration clips (ADRs 0052/0062). Presentation follows controller ground/velocity state, uses hysteresis and interruptible pose crossfades, and hides in first person. Animation is drawing-only. Opt-in mapped imported rigs support stationary vertical terrain alignment; walking foot locks, ragdoll, finished character art and target-GPU budgets remain future work. It needs no downloaded model or external editor.
 
 To walk a character round the Phase 2 obstacle course, add `--play`: WASD or the left stick to move, Shift or L3 to run, Space or South to jump, the mouse wheel or d-pad to zoom (in to first person). Click the window to look with the mouse, Esc to let it go, R to start again (ADR 0047):
 
@@ -177,7 +177,7 @@ Instead of individual character flags, use `--window --vulkan --play --character
 {"version":1,"model":"hero.glb","idle_clip":"Idle","walk_clip":"Walk","height":1.8}
 ```
 
-The model path is relative to the profile folder; clip names and height are optional and follow the existing defaults. Do not mix a profile with individual character/clip/height flags. Use in-place locomotion clips: root-motion tracks currently affect the visual pose, not the controller. Bone-role mapping, retargeting and root-motion extraction are future work. Profiles are bounded to 64 KiB and shallow JSON; unknown and duplicate keys are errors.
+The model path is relative to the profile folder; clip names and height are optional and follow the existing defaults. Do not mix a profile with individual character/clip/height flags. Use in-place locomotion clips: root-motion tracks currently affect the visual pose, not the controller. Bone-role mapping is described below; retargeting and root-motion extraction remain future work. Profiles are bounded to 64 KiB and shallow JSON; unknown and duplicate keys are errors.
 
 ### Humanoid leg roles
 
@@ -215,3 +215,17 @@ ctest --preset linux-debug -R package.runtime_notices --output-on-failure
 For a configured/built Windows Release tree, use `cmake --install build/windows --config Release --prefix out/notices --component RuntimeNotices` and `ctest --preset windows-release -R package.runtime_notices --output-on-failure`. The test also checks a fresh full install, so build the executables first. It runs without a GPU and leaves its temporary artifacts in no source directory.
 
 New runtime dependencies must update notice/provenance installation and the package test. Build-only Slang/SPIRV-Tools executables are excluded from this runtime attribution set. The package check does not grant public-release or legal clearance.
+
+### Locomotion clips and transitions
+
+Profiles may additionally select exact unique `run_clip`, `jump_clip`, `fall_clip` and `land_clip` names from the imported glTF:
+
+```json
+{"version":1,"model":"hero.glb","idle_clip":"Idle","walk_clip":"Walk","run_clip":"Run","jump_clip":"Jump","fall_clip":"Fall","land_clip":"Land"}
+```
+
+All clip fields are optional nonempty strings. Missing run uses walk; missing jump/fall/landing uses idle. Imported rigs never inherit the procedural mannequin clips. These are compatibility fallbacks, not finished generated animation. Unknown/ambiguous names fail before upload. Use `--play --character-profile FILE` as before; no new input binding is required. The default original mannequin has demonstration clips for all six states.
+
+Walk/run use actual horizontal speed (run entry 5 m/s, exit 4.5); idle/walk and jump/fall have hysteresis. A newly observed airborne-to-ground transition holds landing for about 0.18 s; initial grounding does not fabricate one. New states capture the last visible base pose and crossfade in about 0.14 s (0.08 s for landing), including when a fade is interrupted. Animation time remains capped at 0.1 s per drawing update. Ground contact/vertical velocity come from the same PlayerCharacter/Jolt state used by the sandbox and native test. Physics/controller movement remains authoritative; no root-motion driving, animation graph or walking foot locks are added.
+
+On exit, `Locomotion diagnostics:` reports state-frame counts and frames using a missing-clip fallback for headless agent inspection. Finished clip art, foot/body constraints and owner review of character feel remain open.

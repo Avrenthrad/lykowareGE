@@ -70,3 +70,5 @@ Use [the template](TEMPLATE.md). Record context, options, decision/status, contr
 - [0060: Local hardware evidence and offscreen assessment](0060-hardware-evidence-assessment.md) — Proposed; metadata version 2, optional GPU inventory and explicit fixture-bound provisional budgets.
 
 - [0061: Prepared two-bone IK and reusable scratch](0061-prepared-two-bone-ik.md) — Proposed; owned topology/rest snapshot, bounded scratch, transactional span output, retained foot-controller buffers.
+
+- [0062: Locomotion states and interruptible pose crossfades](0062-locomotion-and-pose-crossfade.md) — Proposed; generic engine transition, six-state sample and optional imported-profile clip selectors.

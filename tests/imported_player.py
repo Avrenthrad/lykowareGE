@@ -52,6 +52,19 @@ profile.write_text(json.dumps(dict(version=1, model=path.name, idle_clip='breath
 profile_args=['--window','--offscreen','--vulkan','--play','--no-audio','--frames','8','--character-profile',str(profile)]
 r=run(profile_args)
 assert r.returncode==0 and 'visual scale 1.800000' in r.stdout+r.stderr, r.stdout+r.stderr
+assert 'Locomotion diagnostics:' in r.stdout+r.stderr, r.stdout+r.stderr
+for key in ['run_clip','jump_clip','fall_clip','land_clip']:
+    profile.write_text(json.dumps(dict(version=1, model=path.name, **{key: 'breathe'})))
+    r=run(profile_args)
+    assert r.returncode==0 and 'Locomotion diagnostics:' in r.stdout+r.stderr, r.stdout+r.stderr
+    profile.write_text(json.dumps(dict(version=1, model=path.name, **{key: 'missing clip'})))
+    r=run(profile_args)
+    assert r.returncode!=0 and 'Unknown character clip' in r.stdout+r.stderr, r.stdout+r.stderr
+    for invalid in ['', 2, False]:
+        profile.write_text(json.dumps(dict(version=1, model=path.name, **{key: invalid})))
+        r=run(profile_args)
+        assert r.returncode!=0 and 'Profile locomotion clip names' in r.stdout+r.stderr, r.stdout+r.stderr
+profile.write_text(json.dumps(dict(version=1,model=path.name)))
 r=run(profile_args+['--character',str(path)])
 assert r.returncode!=0 and 'cannot mix' in r.stdout+r.stderr
 for bad in [dict(version=2,model=path.name),dict(version=1,model=path.name,typo=True),dict(version=1,model=path.name,height='large'),dict(version=1,model=path.name,foot_ik=True),dict(version=1,model=path.name,foot_ik='yes')]:

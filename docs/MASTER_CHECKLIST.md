@@ -69,8 +69,10 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
 - [ ] **02.03** Configure clips through authored data.
   - [ ] **02.03a** Model/idle/walk/visual-height JSON profiles — **implemented/in review**, [#60](https://github.com/Avrenthrad/lykowareGE/pull/60), source `c469c81`; merge/Windows gates open.
   - [ ] **02.03b** Extend authored configuration to mapped rig roles and remaining locomotion states.
-- [ ] **02.04** Add idle, walk, run, jump, fall and landing states.
-- [ ] **02.05** Blend transitions without snapping.
+- [ ] **02.04** Add idle, walk, run, jump, fall and landing states. **Implemented/in verification:** six-state presentation sample, original demonstration clips and optional imported selectors; finished character art/owner feel remain separate.
+  - [ ] **02.04-runtime** Verify and merge six-state controller/Jolt bridge and profile selectors.
+- [ ] **02.05** Blend transitions without snapping. **Implemented/in verification:** owned interruptible pose crossfade with source capture; foot/body constraints remain separate.
+  - [ ] **02.05-crossfade** Verify and merge generic crossfade and sample state transitions.
 - [ ] **02.06** Handle turning, slopes, steps and uneven ground.
 - [ ] **02.07** Decide root motion versus controller-driven movement.
 - [ ] **02.08** Add reusable animation graphs or equivalent configuration.

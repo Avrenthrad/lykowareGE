@@ -111,6 +111,25 @@ void sample(const Clip& clip, float seconds, bool loop, Pose& pose);
 // line, rotations along the shorter arc. a, b and out have the same size; out may be a or b.
 void blend(const Pose& a, const Pose& b, float weight, Pose& out);
 
+// ADR 0062: owned, interruptible presentation transition. reset allocates at setup;
+// successful begin/advance reuse buffers. Separate instances are needed per concurrent
+// character. All poses have 1..max_joints finite joints, unit rotations and nonzero scales.
+// Invalid calls preserve visible state/time/output; failure strings may allocate.
+class PoseCrossfade {
+public:
+    [[nodiscard]] bool reset(std::span<const JointPose> initial, std::string& error);
+    // Capture current visible pose; zero duration explicitly cuts to the next target.
+    [[nodiscard]] bool begin(float duration_seconds, std::string& error);
+    // Live target; complete input/output spans may overlap. Time is finite/nonnegative.
+    [[nodiscard]] bool advance(std::span<const JointPose> target, float seconds,
+        std::span<JointPose> out, std::string& error);
+    [[nodiscard]] bool transitioning() const noexcept { return elapsed_ < duration_; }
+    [[nodiscard]] float progress() const noexcept;
+private:
+    Pose visible_, source_, candidate_;
+    double elapsed_ = 0.0, duration_ = 0.0;
+};
+
 // Each joint's transform in the model's space: its pose after its parent's. out gets one matrix
 // per joint.
 void global_transforms(const Skeleton& skeleton, const Pose& pose, std::vector<math::Mat4>& out);
