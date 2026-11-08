@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -60,18 +61,24 @@ public:
         auto rest=animation::rest_pose(skeleton);
         std::vector<math::Mat4> fk;
         animation::global_transforms(skeleton,rest,fk);
+        std::array<std::optional<animation::PreparedTwoBone>,2> prepared;
         for (std::size_t leg : {std::size_t{1},std::size_t{4}}) {
             auto parent=skeleton.joints[roles[leg]].parent;
             bool pelvis=false;
             while(parent){if(*parent==roles[0]){pelvis=true;break;}parent=skeleton.joints[*parent].parent;}
             if(!pelvis){error="Foot IK hip must descend from pelvis";return false;}
+            const auto side=leg==1?std::size_t{0}:std::size_t{1};
+            prepared[side]=animation::PreparedTwoBone::prepare(skeleton,roles[leg],roles[leg+1],roles[leg+2],error);
+            if(!prepared[side]){return false;}
             animation::Pose checked;
             animation::TwoBoneSolution solved;
             if(!animation::pose_two_bone(skeleton,rest,roles[leg],roles[leg+1],roles[leg+2],position(fk[roles[leg+2]]),
                 position(fk[roles[leg+1]])+V{0,0,-0.5},checked,solved,error)){return false;}
         }
         animation::Skeleton copy=skeleton;
-        skeleton_=std::move(copy);roles_=roles;clearance_=clearance;ready_=true;reset();stats_={};return true;
+        animation::Pose candidate(rest.size());
+        skeleton_=std::move(copy);prepared_=std::move(prepared);candidate_=std::move(candidate);fk_=std::move(fk);
+        roles_=roles;clearance_=clearance;ready_=true;reset();stats_={};return true;
     }
     void reset() { correction_={};previous_=false;++stats_.resets; }
     const Stats& stats() const { return stats_; }
@@ -80,22 +87,18 @@ public:
                 float seconds,bool active,animation::Pose& out,std::string& error)
     {
         if(!ready_||!valid(actor)){error="Invalid foot IK configuration or placement";return false;}
-        animation::Pose candidate=base;
-        if(base.size()!=skeleton_.joints.size()){error="Foot IK pose size mismatch";return false;}
-        animation::Skeleton check=skeleton_;
-        for(std::size_t i=0;i<base.size();++i){check.joints[i].rest=base[i];}
-        if(!animation::valid_skeleton(check,error)){return false;}
+        if(!prepared_[0]->valid_pose(base,error)){return false;}
+        candidate_=base;
         auto next=correction_;
         Stats stats=stats_;++stats.frames;
         const bool jump=previous_&&norm(actor.feet-previous_feet_)>1.0;
         if(!active||!std::isfinite(seconds)||seconds<0.F||seconds>0.25F||jump){
-            next={};++stats.resets;out=std::move(candidate);correction_=next;previous_feet_=actor.feet;previous_=true;stats_=stats;error.clear();return true;
+            next={};++stats.resets;out=candidate_;correction_=next;previous_feet_=actor.feet;previous_=true;stats_=stats;error.clear();return true;
         }
-        std::vector<math::Mat4> fk;
-        animation::global_transforms(skeleton_,base,fk);
+        animation::global_transforms(skeleton_,base,fk_);
         for(std::size_t side=0;side<2;++side){
             const std::size_t leg=side==0?1:4;
-            const V foot=to_world(actor,position(fk[roles_[leg+2]]));
+            const V foot=to_world(actor,position(fk_[roles_[leg+2]]));
             constexpr double ray_limit=static_cast<double>(std::numeric_limits<float>::max())/4.0;
             if(!finite(foot)||std::abs(foot.x)>ray_limit||std::abs(foot.y)>ray_limit||std::abs(foot.z)>ray_limit){
                 error="World foot exceeds finite physics ray range";return false;
@@ -106,18 +109,21 @@ public:
             const double alpha=1.0-std::exp(-12.0*seconds);
             next[side]+=alpha*(desired-next[side]);
             const V target=to_model(actor,foot+V{0,next[side],0});
-            const V pole=position(fk[roles_[leg+1]])+V{0,0,-0.5};
-            animation::Pose applied;
+            const V pole=position(fk_[roles_[leg+1]])+V{0,0,-0.5};
             animation::TwoBoneSolution solved;
-            if(!animation::pose_two_bone(skeleton_,candidate,roles_[leg],roles_[leg+1],roles_[leg+2],target,pole,applied,solved,error)){return false;}
-            candidate=std::move(applied);++stats.contacts;
+            if(!prepared_[side]->apply(candidate_,target,pole,scratch_,candidate_,solved,error)){return false;}
+            ++stats.contacts;
             if(solved.target_clamped){++stats.clamped;}
         }
-        out=std::move(candidate);correction_=next;previous_feet_=actor.feet;previous_=true;stats_=stats;error.clear();return true;
+        out=candidate_;correction_=next;previous_feet_=actor.feet;previous_=true;stats_=stats;error.clear();return true;
     }
 private:
     double clearance_=0.03;
     animation::Skeleton skeleton_;
+    std::array<std::optional<animation::PreparedTwoBone>,2> prepared_;
+    animation::TwoBoneScratch scratch_;
+    animation::Pose candidate_;
+    std::vector<math::Mat4> fk_;
     rig_roles::Indices roles_{};
     std::array<double,2> correction_{};
     V previous_feet_{};

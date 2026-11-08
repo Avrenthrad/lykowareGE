@@ -1,5 +1,9 @@
 # Shared work board
 
+## Active: prepared IK chains and scratch (Codex)
+
+Branch `codex/prepared-ik`, base main `6262089`; ADR 0061. Scope: immutable prepared direct-chain IK, reusable caller scratch and foot-controller/playable-body integration. Preserve the reference solver and stationary terrain behavior. Local Debug suite passed 72/72. The prepared test covers 128 varied parented targets with exact reference agreement, alias/overlap, fallback/reach/near-antiparallel cases, maximum joint index, source-snapshot lifetime and transactional rejection. 1,000 prepared solves record 0 ordinary C++ heap allocations versus 7,000 reference allocations. One GCC 14 Debug five-joint run took 15.8 ms versus 30.2 ms total; these are VM microbenchmarks, not target-PC or frame-budget results. Final native/hosted profiles and deliberate-fault checks remain pending. Target-PC measurements are deferred while Joshua is mobile; no hardware or Phase 1 gate is closed.
+
 ## Hardware evidence tooling — merged #66, 8 November 2026
 
 PR [#66](https://github.com/Avrenthrad/lykowareGE/pull/66) merged as `32261bf`; exact source `e803335` passed [all five hosted jobs](https://github.com/Avrenthrad/lykowareGE/actions/runs/42425150706). Local Debug passed 71/71; nine assessor tests with failure-path subcases pass. Windows Debug/Release also exercised the actual runner in PowerShell 7 and Windows PowerShell 5: synthetic >4 GiB inventory, failed optional driver queries, unavailable Vulkan and refusal to overwrite evidence. These synthetic/hosted results are not target-PC measurements; Windows Vulkan tests still skip without a device.

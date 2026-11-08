@@ -580,6 +580,7 @@ public:
             foot_.emplace();
             std::string reason;
             if (!foot_->configure(asset_.skeleton,*foot_roles,reason,clearance)) { throw std::invalid_argument("Foot IK calibration: "+reason); }
+            corrected_.resize(asset_.skeleton.joints.size());
         }
         entities_.add<lykoware::Transform>(body_, lykoware::Transform{});
         entities_.add<lykoware::Transform>(visor_, lykoware::Transform{});
@@ -606,12 +607,11 @@ public:
         if (foot_) {
             const foot_placement::Placement placement{feet,facing,visual_scale_,
                 {visual_offset_.x,visual_offset_.y,visual_offset_.z}};
-            lykoware::animation::Pose corrected;
             std::string reason;
             const bool active=state.ground==lykoware::physics::GroundState::OnGround && speed<0.2F
                 && player.camera().current_distance()>=0.5F;
-            if (foot_->update(playback_.blended,placement,world,seconds,active,corrected,reason)) {
-                lykoware::animation::skinning_matrices(asset_.skeleton,corrected,playback_.matrices);
+            if (foot_->update(playback_.blended,placement,world,seconds,active,corrected_,reason)) {
+                lykoware::animation::skinning_matrices(asset_.skeleton,corrected_,playback_.matrices);
             } else {
                 ++foot_failures_;
                 foot_->reset();
@@ -660,6 +660,7 @@ private:
         }
         return hash;
     }
+    lykoware::animation::Pose corrected_;
     std::uint64_t foot_applied_frames_=0;
     std::optional<foot_placement::Controller> foot_;
     std::uint64_t foot_failures_=0;

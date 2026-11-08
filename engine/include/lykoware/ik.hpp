@@ -1,6 +1,11 @@
 #pragma once
 #include <lykoware/math.hpp>
 #include <lykoware/animation.hpp>
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <optional>
+#include <span>
 #include <string>
 
 namespace lykoware::animation {
@@ -33,4 +38,36 @@ struct TwoBoneSolution {
 [[nodiscard]] bool pose_two_bone(const Skeleton& skeleton, const Pose& pose,
     std::size_t root, std::size_t knee, std::size_t end, math::DVec3 target, math::DVec3 bend_hint,
     Pose& out, TwoBoneSolution& solution, std::string& error);
+
+// ADR 0061: bounded reusable working storage. Separate scratch is required per concurrent
+// call; contents are private and unspecified after a call. No heap storage.
+class TwoBoneScratch {
+    friend class PreparedTwoBone;
+    std::array<JointPose, max_joints> candidate_{};
+    std::array<math::Mat4, max_joints> global_{};
+    std::array<math::Quat, max_joints> rotations_{};
+};
+
+// Owns a snapshot of validated topology/rest lengths. Does not retain skeleton references;
+// callers explicitly prepare again after changing skeleton data. Copyable immutable plan.
+class PreparedTwoBone {
+public:
+    [[nodiscard]] static std::optional<PreparedTwoBone> prepare(const Skeleton& skeleton,
+        std::size_t root, std::size_t knee, std::size_t end, std::string& error);
+    [[nodiscard]] std::size_t joint_count() const noexcept { return count_; }
+    // Checks dynamic local values/unit scales without copying skeletons or building diagnostics
+    // on success. Complete pose required. Segment lengths are additionally checked by apply.
+    [[nodiscard]] bool valid_pose(std::span<const JointPose> pose, std::string& error) const;
+    // Complete spans, input/output may overlap. Output and solution commit only after FK
+    // verification. Successful calls allocate no heap memory; failure strings may allocate.
+    [[nodiscard]] bool apply(std::span<const JointPose> pose, math::DVec3 target,
+        math::DVec3 bend_hint, TwoBoneScratch& scratch, std::span<JointPose> out,
+        TwoBoneSolution& solution, std::string& error) const;
+private:
+    PreparedTwoBone() = default;
+    [[nodiscard]] bool evaluate(TwoBoneScratch& scratch, std::string& error) const;
+    std::array<std::uint16_t, max_joints> parents_{};
+    std::size_t count_ = 0, root_ = 0, knee_ = 0, end_ = 0;
+    double upper_ = 0.0, lower_ = 0.0;
+};
 }
