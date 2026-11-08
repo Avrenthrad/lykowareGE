@@ -677,6 +677,7 @@ Results run_course(std::uint32_t seed)
     Course course = build_course();
     PlayerConfig config;
     config.body.position = obstacle_course::start;
+    config.max_turn_rate = 12.F;
     auto player = make_player(*course.world, config);
     Bot bot{course, *player, results, seed};
     const auto check = [&results](bool ok, const std::string& what) {

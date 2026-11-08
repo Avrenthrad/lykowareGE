@@ -74,3 +74,5 @@ Use [the template](TEMPLATE.md). Record context, options, decision/status, contr
 - [0062: Locomotion states and interruptible pose crossfades](0062-locomotion-and-pose-crossfade.md) — Proposed; generic engine transition, six-state sample and optional imported-profile clip selectors.
 
 - [0063: Shared character import, alignment and diagnostics](0063-character-import-alignment-diagnostics.md) — Proposed; CPU inspection, common profiles/roles/fitting, visual yaw, capsule/camera settings and declared retarget subset.
+
+- [0064: Controller authority and terrain-facing presentation](0064-controller-authority-and-terrain-facing.md) — Accepted for the current runtime baseline; bounded/interpolated visual facing and explicit physics authority.

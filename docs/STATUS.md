@@ -1,8 +1,12 @@
 # Lykoware status
 
-## Active batch: character import, alignment and diagnostics (Codex)
+## Active batch: terrain turning and controller authority (Codex)
 
-Branch `codex/character-import-contract`, base main `62a9b30`; ADR 0063. Implements batch items 02.01/02.02c/02.02d: shared profile/role/fitting APIs, explicit visual yaw and capsule/camera settings, headless character inspection and supported-rig compatibility diagnostics. Preserve existing profile behavior and foot IK coordinate correctness. Local Debug 76/76 passed. Targeted headless inspection validates UTF-8 paths, malformed profiles, alignment/camera values, compatibility mismatches and source-file preservation. Existing imported rendering/foot contacts pass, including yaw-corrected terrain palettes. Final native/hosted profiles remain pending. Batch currently 7/15 complete; hardware/manual list remains deferred.
+Branch `codex/terrain-turning-runtime`, based on #69 `8201a26` / merged `e050eec`; ADR 0064. Batch 02.06/02.07: bounded/interpolated presentation heading, retained idle-turn target, explicit controller-authority policy and profile settings, and real terrain-course/physics-preservation regressions. Root tracks remain visual-only; no extraction or physics teleporting is added. Native/hosted validation pending. Hardware/manual work stays deferred.
+
+## Character import/alignment — merged #69
+
+PR [#69](https://github.com/Avrenthrad/lykowareGE/pull/69) merged as `e050eec`. Exact clean source `8201a26` passed [all five hosted profiles](https://github.com/Avrenthrad/lykowareGE/actions/runs/42454397613) and 76/76 each local Linux profile, zero skips, with install/staged CLI. Report `/workspace/lykoware-character-import-final-validation/report.json`; fingerprint `357be572716b2ffc2bbb587f02c537b5146348c5bcbb0c63a2b1a961f3ab394b`. Shared profile/role/fitting/calibration APIs now back the sandbox and CPU-only `lyko inspect-character`. Visual yaw, explicit capsule/camera settings, UTF-8 paths, output preservation, rig subset diagnostics and actual yaw/terrain/render-palette checks pass. A Windows test literal was typed as float without weakening warnings. This completes batch 02.01/02.02c/02.02d; progress 10/15. Pose transfer is still item 02.10, not implied by compatibility diagnostics. Hardware/feel gates remain open.
 
 ## Locomotion and crossfades — merged #68, 8 November 2026
 

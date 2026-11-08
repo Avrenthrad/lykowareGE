@@ -14,7 +14,7 @@ Owner-requested living checklist, saved 6 November 2026. Permanent entry point: 
 
 ## Current position
 
-**Active owner request:** [next 15 non-hardware checklist items](NEXT_15_BATCH.md), recorded 8 November. Seven stale unchecked implementation entries are reconciled below; eight new work items remain. Hardware, feel, performance and public-release gates stay separate.
+**Active owner request:** [next 15 non-hardware checklist items](NEXT_15_BATCH.md), recorded 8 November. Seven stale unchecked implementation entries were reconciled; three new import/alignment items merged in #69. Progress is 10/15; five new work items remain. Hardware, feel, performance and public-release gates stay separate.
 
 **Latest:** prepared IK chains/scratch and retained foot-controller output merged in [#67](https://github.com/Avrenthrad/lykowareGE/pull/67), `abc620b`. Source `6c5626c` passed 72/72 each local Linux profile and all five hosted jobs. Runtime storage substep below is complete; target-PC/crowd measurements and broad foot IK remain open. Hardware work is deferred while Joshua is mobile.
 
@@ -62,12 +62,12 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
 
 ## 2. Character and terrain slice
 
-- [ ] **02.01** Define character import conventions and validation.
+- [x] **02.01** Define character import conventions and validation — #69, shared CPU inspection/profiles; native 76/76 each and all five hosted jobs.
 - [ ] **02.02** Add rig inspection, scale fitting and capsule alignment.
   - [x] **02.02a** Visual bind-height inspection and explicit uniform height/feet-origin fitting — **implemented/merged; broader acceptance separate**, [#59](https://github.com/Avrenthrad/lykowareGE/pull/59), source `1aab213`; Merged in #65; later #68 source passed all hosted profiles. Actual target-PC checks remain separate.
   - [x] **02.02b** Authored profile and humanoid bone-role mapping/inspection — **implemented/merged; broader acceptance separate**, #60/#61; unique names and leg ancestry validated. Limb lengths, bend planes and IK remain separate.
-  - [ ] **02.02c** Orientation correction and capsule/camera alignment.
-  - [ ] **02.02d** Retargeting and rig compatibility diagnostics.
+  - [x] **02.02c** Orientation correction and capsule/camera alignment — #69, visual yaw, explicit collision/pivot dimensions and render/IK parity.
+  - [x] **02.02d** Retargeting and rig compatibility diagnostics — #69, declared unique-name/topology/unit-scale/rest-direction/axis subset; pose transfer remains 02.10.
 - [ ] **02.03** Configure clips through authored data.
   - [x] **02.03a** Model/idle/walk/visual-height JSON profiles — **implemented/merged; broader acceptance separate**, [#60](https://github.com/Avrenthrad/lykowareGE/pull/60), source `c469c81`; Merged in #65; all hosted profiles pass in #68. Actual target-PC checks remain separate.
   - [x] **02.03b** Extend authored configuration to mapped rig roles and remaining locomotion states — #61/#68 map roles and all six sample clip states; authored general graphs remain 02.08.

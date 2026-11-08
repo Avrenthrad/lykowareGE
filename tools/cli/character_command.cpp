@@ -41,6 +41,8 @@ int character_command(std::span<const std::string> args)
         const auto asset=gltf::load_skinned(model,error);if(!asset){throw std::invalid_argument(error);}
         character::Inspection inspected;if(!character::inspect(*asset,profile,inspected,error)){throw std::invalid_argument(error);}
         const auto& a=inspected.placement;const auto& c=inspected.body;
+        report["motion_authority"]=character::motion_authority;
+        report["turn_degrees_per_second"]=profile.turn_degrees_per_second.value_or(character::default_turn_degrees_per_second);
         report["ok"]=true;report["conventions"]={{"up","+Y"},{"forward","-Z"},{"handedness","right"},{"units","metres"}};
         report["vertices"]=inspected.vertices;report["joints"]=asset->skeleton.joints.size();report["rig"]=rig(inspected.rig);
         report["bind_bounds"]={{"min",vec(inspected.bind_bounds.min)},{"max",vec(inspected.bind_bounds.max)}};
