@@ -16,7 +16,7 @@ with tempfile.TemporaryDirectory(prefix='lyko character ') as folder:
         animations=[dict(name='breathe',samplers=[dict(input=times,output=values)],channels=[dict(sampler=0,target=dict(node=1,path='translation'))])])
     asset=root/'héro 狼.gltf';asset.write_text(json.dumps(model));profile=root/'hero.character.json'
     def run(*args,ok=True):
-        r=subprocess.run([exe,'inspect-character',*map(str,args)],text=True,capture_output=True)
+        r=subprocess.run([exe,'inspect-character',*map(str,args)],text=True,encoding="utf-8",capture_output=True)
         assert (r.returncode==0)==ok,(r.returncode,r.stdout,r.stderr)
         return r
     r=run('--model',asset);data=json.loads(r.stdout);assert data['ok'] and data['joints']==1 and data['clips'][0]['translated_root']

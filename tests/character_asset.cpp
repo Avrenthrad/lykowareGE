@@ -20,12 +20,14 @@ int main(){
     expect(!c::decode_profile(std::string(65537,' '),"",profile,error),"profile size bounded");
     c::Alignment aligned;const lykoware::Bounds box{{10,-4,20},{14,4,26}};
     expect(c::align(box,2,90,aligned,error)&&aligned.scale==.25F,"yaw and visual height fit");
+    const auto direction=m::rotate(aligned.rotation,m::Vec3{0,0,-1});
+    expect(std::abs(direction.x+1.F)<1e-5F&&std::abs(direction.z)<1e-5F,"yaw actually rotates authored forward direction");
     const auto feet=m::rotate(aligned.rotation,m::Vec3{12,-4,23}*aligned.scale)+aligned.offset;
     const auto head=m::rotate(aligned.rotation,m::Vec3{12,4,23}*aligned.scale)+aligned.offset;
     expect(m::length(feet)<1e-5F&&m::length(head-m::Vec3{0,2,0})<1e-5F,"yaw preserves centred feet and height");
     const auto before=aligned;expect(!c::align(box,0,90,aligned,error)&&aligned.offset==before.offset,"bad fit leaves output unchanged");
     c::Capsule capsule;expect(c::capsule(old,capsule,error)&&std::abs(2*(capsule.cylinder_half_height+capsule.radius)-2)<1e-6F&&capsule.eye_height==1.7F,"capsule and camera height align");
-    c::Profile visual_only;visual_only.height=4;expect(c::capsule(visual_only,capsule,error)&&capsule.height==1.8F&&capsule.eye_height==1.6F,"legacy visual height does not resize physics");
+    c::Profile visual_only;visual_only.height=4.F;expect(c::capsule(visual_only,capsule,error)&&capsule.height==1.8F&&capsule.eye_height==1.6F,"legacy visual height does not resize physics");
     auto tiny=visual_only;tiny.capsule_height=.1F;expect(c::capsule(tiny,capsule,error)&&capsule.radius<.05F&&capsule.eye_height<.1F,"small character derives valid capsule/eye");
     auto bad_capsule=tiny;bad_capsule.eye_height=.2F;const auto old_capsule=capsule;
     expect(!c::capsule(bad_capsule,capsule,error)&&capsule.height==old_capsule.height,"invalid camera transaction");
