@@ -1,8 +1,12 @@
 # Lykoware status
 
-## Active: locomotion states and interruptible crossfades (Codex)
+## Locomotion and crossfades — merged #68, 8 November 2026
 
-Branch `codex/locomotion-states`, base main `b17e479`; ADR 0062. Scope: owned engine pose crossfade, six-state sample locomotion, original demonstration clips and optional imported-profile selectors. Initial local Debug 74/74 passed. Targeted tests cover interruptions/shortest arcs, time partitioning, overlap, reset-allocation failures, state hysteresis, real Jolt traversal through all six states, optional clip selection/refusal and fallback. 1,000 crossfade and sample playback updates reuse ordinary C++ heap storage after setup. Final native/hosted validation and deliberate-fault checks remain pending. Hardware acceptance remains deferred while Joshua is mobile.
+PR [#68](https://github.com/Avrenthrad/lykowareGE/pull/68) merged as `3c0fc99`. Exact clean source `e7224c8` passed [all five hosted profiles](https://github.com/Avrenthrad/lykowareGE/actions/runs/42431816271) and 74/74 each local Linux Debug/ASan/UBSan/clang-tidy 18, zero skips, with configure/build/install/staged CLI. Report `/workspace/lykoware-locomotion-final-validation/report.json`; unchanged fingerprint `219c85313c65fd470d03c6edb1e6751c4470d1b9f7add759eb1f96845afe5733`.
+
+Generic owned pose crossfades capture the visible pose on interruption, validate before committing, support overlap and atomically copy all buffers under allocation failure. The sample has idle/walk/run/jump/fall/landing, speed/apex hysteresis, landing hold, original demonstration clips, respawn reset and a shared real PlayerCharacter/Jolt adapter. Profiles optionally map run/jump/fall/land clips; imports clear procedural clips and have explicit walk/idle fallbacks. State/fallback counters are logged. Windows Debug caught a temporary-string proxy allocation; retaining the error buffer fixed it without weakening the allocation test. 1,000 crossfade and full sample playback updates record 0 ordinary C++ allocations after setup. Reset/copy failure sites, six real Jolt states and imported selectors/refusals pass. Three external faults (missing capture, premature output, forgotten elapsed time) were caught; no faulty artifacts committed.
+
+Basic presentation layer only: no root-motion driving, general animation graph, walking foot locks, production art or owner-reviewed character feel. ADR 0062 remains Proposed. Next work is the owner-requested [15-item batch](NEXT_15_BATCH.md); target-PC acceptance remains deferred while Joshua is mobile.
 
 ## Prepared IK runtime — merged #67, 8 November 2026
 

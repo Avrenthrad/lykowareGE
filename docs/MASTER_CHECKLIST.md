@@ -7,12 +7,14 @@ Owner-requested living checklist, saved 6 November 2026. Permanent entry point: 
 ## How every contributor maintains this
 
 - Update affected entries in the same PR/handoff as the work. Add evidence and remaining gates.
-- `[ ]` means the complete acceptance requirement is still open. Use notes such as **implemented/in review**, **partial**, or **blocked** for progress within an open entry.
+- `[ ]` means the complete acceptance requirement is still open. Use notes such as **implemented/merged; broader acceptance separate**, **partial**, or **blocked** for progress within an open entry.
 - `[x]` requires the whole stated requirement to be verified and accepted under the repository's merge/release rules. Code in an unmerged PR does not complete a phase.
 - Split broad entries into concrete substeps when work starts; preserve stable IDs, record replacements and explain scope changes. Never silently delete unfinished requirements.
 - Keep this checklist, CHECKLIST.md, ROADMAP and STATUS consistent. Do not tick Windows, hardware, legal or owner acceptance from Linux-only evidence.
 
 ## Current position
+
+**Active owner request:** [next 15 non-hardware checklist items](NEXT_15_BATCH.md), recorded 8 November. Seven stale unchecked implementation entries are reconciled below; eight new work items remain. Hardware, feel, performance and public-release gates stay separate.
 
 **Latest:** prepared IK chains/scratch and retained foot-controller output merged in [#67](https://github.com/Avrenthrad/lykowareGE/pull/67), `abc620b`. Source `6c5626c` passed 72/72 each local Linux profile and all five hosted jobs. Runtime storage substep below is complete; target-PC/crowd measurements and broad foot IK remain open. Hardware work is deferred while Joshua is mobile.
 
@@ -62,26 +64,26 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
 
 - [ ] **02.01** Define character import conventions and validation.
 - [ ] **02.02** Add rig inspection, scale fitting and capsule alignment.
-  - [ ] **02.02a** Visual bind-height inspection and explicit uniform height/feet-origin fitting — **implemented/in review**, [#59](https://github.com/Avrenthrad/lykowareGE/pull/59), source `1aab213`; Linux checks pass; merge and Windows gates remain open.
-  - [ ] **02.02b** Authored profile and humanoid bone-role mapping/inspection — **implemented/in review**, #60/#61; unique names and leg ancestry validated. Limb lengths, bend planes and IK remain separate.
+  - [x] **02.02a** Visual bind-height inspection and explicit uniform height/feet-origin fitting — **implemented/merged; broader acceptance separate**, [#59](https://github.com/Avrenthrad/lykowareGE/pull/59), source `1aab213`; Merged in #65; later #68 source passed all hosted profiles. Actual target-PC checks remain separate.
+  - [x] **02.02b** Authored profile and humanoid bone-role mapping/inspection — **implemented/merged; broader acceptance separate**, #60/#61; unique names and leg ancestry validated. Limb lengths, bend planes and IK remain separate.
   - [ ] **02.02c** Orientation correction and capsule/camera alignment.
   - [ ] **02.02d** Retargeting and rig compatibility diagnostics.
 - [ ] **02.03** Configure clips through authored data.
-  - [ ] **02.03a** Model/idle/walk/visual-height JSON profiles — **implemented/in review**, [#60](https://github.com/Avrenthrad/lykowareGE/pull/60), source `c469c81`; merge/Windows gates open.
-  - [ ] **02.03b** Extend authored configuration to mapped rig roles and remaining locomotion states.
-- [ ] **02.04** Add idle, walk, run, jump, fall and landing states. **Implemented/in verification:** six-state presentation sample, original demonstration clips and optional imported selectors; finished character art/owner feel remain separate.
-  - [ ] **02.04-runtime** Verify and merge six-state controller/Jolt bridge and profile selectors.
-- [ ] **02.05** Blend transitions without snapping. **Implemented/in verification:** owned interruptible pose crossfade with source capture; foot/body constraints remain separate.
-  - [ ] **02.05-crossfade** Verify and merge generic crossfade and sample state transitions.
+  - [x] **02.03a** Model/idle/walk/visual-height JSON profiles — **implemented/merged; broader acceptance separate**, [#60](https://github.com/Avrenthrad/lykowareGE/pull/60), source `c469c81`; Merged in #65; all hosted profiles pass in #68. Actual target-PC checks remain separate.
+  - [x] **02.03b** Extend authored configuration to mapped rig roles and remaining locomotion states — #61/#68 map roles and all six sample clip states; authored general graphs remain 02.08.
+- [ ] **02.04** Add idle, walk, run, jump, fall and landing states. **Partial; runtime implementation merged #68:** six-state presentation sample, original demonstration clips and optional imported selectors; finished character art/owner feel remain separate.
+  - [x] **02.04-runtime** Verify and merge six-state controller/Jolt bridge and profile selectors — #68; all five CI profiles and 74/74 each local Linux profile.
+- [ ] **02.05** Blend transitions without snapping. **Partial; runtime implementation merged #68:** owned interruptible pose crossfade with source capture; foot/body constraints remain separate.
+  - [x] **02.05-crossfade** Verify and merge generic crossfade and sample state transitions — #68; interruption, aliasing, allocation failures and runtime integration verified.
 - [ ] **02.06** Handle turning, slopes, steps and uneven ground.
 - [ ] **02.07** Decide root motion versus controller-driven movement.
 - [ ] **02.08** Add reusable animation graphs or equivalent configuration.
 - [ ] **02.09** Add animation events and attachment sockets.
 - [ ] **02.10** Retarget between supported rigs.
 - [ ] **02.11** Add foot placement and foot IK.
-  - [ ] **02.11a** Two-bone position solver — **implemented/in review**, [#62](https://github.com/Avrenthrad/lykowareGE/pull/62), source `9fec633`; no stretch, reach/fallback flags and transactional failures.
+  - [x] **02.11a** Two-bone position solver — **implemented/merged; broader acceptance separate**, [#62](https://github.com/Avrenthrad/lykowareGE/pull/62), source `9fec633`; no stretch, reach/fallback flags and transactional failures.
   - [ ] **02.11b** Validate mapped rest-pose limb lengths/bend planes and apply solved joint rotations.
-    - [ ] **02.11b-engine** Validated direct-chain pose operation — **implemented/in review**, #63 `fbf7468`; unit scales only, no helper chains.
+    - [ ] **02.11b-engine** Validated direct-chain pose operation — **implemented/merged; broader acceptance separate**, #63 `fbf7468`; unit scales only, no helper chains.
     - [ ] **02.11b-integration** Bridge mapped roles, rest/bend calibration and actor-world/model coordinates.
     - [ ] **02.11b-runtime** Prepare validated chains/reusable scratch and measure runtime costs. **Partial:** prepared chains, bounded scratch and retained controller/body buffers merged in #67 (ADR 0061). All five hosted jobs and 72/72 each local Linux profile passed. 128 varied cases match the reference exactly; 1,000 prepared solves record zero ordinary C++ heap allocations versus 7,000 in the reference fixture. Target-PC/crowd budgets remain separate.
       - [x] **02.11b-runtime-prepared** Integrate prepared direct-chain solver and retained foot-placement storage — merged #67; source `6c5626c`, all five CI jobs and 72/72 each native Linux profile.
