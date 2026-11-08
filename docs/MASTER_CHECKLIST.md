@@ -14,13 +14,7 @@ Owner-requested living checklist, saved 6 November 2026. Permanent entry point: 
 
 ## Current position
 
-**Active owner request:** [next 15 non-hardware checklist items](NEXT_15_BATCH.md), recorded 8 November. Seven stale unchecked implementation entries were reconciled; three new import/alignment items merged in #69. Progress is 12/15; three work items remain. Hardware, feel, performance and public-release gates stay separate.
-
-**Latest:** prepared IK chains/scratch and retained foot-controller output merged in [#67](https://github.com/Avrenthrad/lykowareGE/pull/67), `abc620b`. Source `6c5626c` passed 72/72 each local Linux profile and all five hosted jobs. Runtime storage substep below is complete; target-PC/crowd measurements and broad foot IK remain open. Hardware work is deferred while Joshua is mobile.
-
-PR [#65](https://github.com/Avrenthrad/lykowareGE/pull/65) merged all runtime/character work #37–64 with packaging and local validation as `aacff25`. Exact source `13c097d` passed all five hosted jobs and 70/70 tests in each local Linux profile, with installation and staged execution. See [consolidation evidence](CONSOLIDATION_2026-11-08.md) for Windows GPU skips and remaining hardware limits. Hardware and Phase 1 acceptance remain open. Earlier per-slice results below describe their historical sources.
-
-Owner reports an NVIDIA RTX 4070. Actual VRAM/driver and measurements are still needed; do not infer them from the model name. Current character progress includes fitting, profiles, bone-role mapping, two-bone geometry/pose operations and stationary vertical terrain alignment. Walking foot locks, orientation and body constraints remain open.
+**Active owner request:** [next 15 non-hardware checklist items](NEXT_15_BATCH.md). **12/15 integrated; final 3 implemented, independently reviewed and verified on [#71](https://github.com/Avrenthrad/lykowareGE/pull/71), intentionally unmerged.** Latest owner instructions prohibit merges or pushes to main. The remaining boxes retain their integration gate. Source `bb47ca7` passed 79/79 each local Debug/sanitizers/analysis and all five hosted profiles, including Windows Debug/Release. [Loop checklist](loops/engine-checklist.md) maps every requirement to acceptance evidence; [progress](loops/engine-progress.md) is the continuation record. Actual hardware, feel, performance and public-release gates stay separate.
 
 ## Latest ten-step batch
 
@@ -77,9 +71,9 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
   - [x] **02.05-crossfade** Verify and merge generic crossfade and sample state transitions — #68; interruption, aliasing, allocation failures and runtime integration verified.
 - [x] **02.06** Handle turning, slopes, steps and uneven ground — #70 bounded/interpolated facing and real course tests; subjective feel remains 02.16.
 - [x] **02.07** Decide root motion versus controller-driven movement — ADR 0064 / #70, explicit controller authority; root tracks visual-only.
-- [ ] **02.08** Add reusable animation graphs or equivalent configuration.
-- [ ] **02.09** Add animation events and attachment sockets.
-- [ ] **02.10** Retarget between supported rigs.
+- [ ] **02.08** Add reusable animation graphs or equivalent configuration — implemented/verified #71, owned bounded graph, native/sandbox/CLI callers; merge pending under owner constraint.
+- [ ] **02.09** Add animation events and attachment sockets — implemented/verified #71, interval/wrap/partition/capacity and corrected-pose socket tests; merge pending.
+- [ ] **02.10** Retarget between supported rigs — implemented/verified #71, strict named topology/rest-axis subset, real glTF transfer, lengths/axis/overlap/256-joint/refusal tests; merge pending.
 - [ ] **02.11** Add foot placement and foot IK.
   - [x] **02.11a** Two-bone position solver — **implemented/merged; broader acceptance separate**, [#62](https://github.com/Avrenthrad/lykowareGE/pull/62), source `9fec633`; no stretch, reach/fallback flags and transactional failures.
   - [ ] **02.11b** Validate mapped rest-pose limb lengths/bend planes and apply solved joint rotations.

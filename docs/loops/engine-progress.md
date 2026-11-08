@@ -2,7 +2,8 @@
 
 ## Resume point — 8 November 2026
 
-Branch `codex/authored-animation-runtime`, based on merged #70 `9555fea`; implementation checkpoint `9e3eb1d`, subsequent integration/tests/docs are in the working tree. Scope and acceptance: [engine-checklist](engine-checklist.md). Latest owner instructions prohibit further merges or pushes to main; task-branch push/PR may supply hosted verification. No paid services or release operations.
+Branch `codex/authored-animation-runtime`, PR [#71](https://github.com/Avrenthrad/lykowareGE/pull/71), base #70 `9555fea`. Verified runtime commit `bb47ca7dc3433b3cdbe55d27abbeb050f1bb4a6c`; final handoff commits change documentation only. Scope and acceptance: [engine-checklist](engine-checklist.md). **PARTIAL: 12/15 integrated; final three runtime requirements verified, deliberately unmerged under the latest owner constraint.** No unresolved code/review blocker remains. Next action is integration only when the owner changes that restriction, followed separately by deferred physical-PC/feel acceptance. Do not start future roadmap features in this loop.
+
 
 ## Iteration 1 — establish current milestone and reproduce missing integrations
 
@@ -34,3 +35,26 @@ Hosted clang-tidy run `42480155373` separately rejected a floating event-cycle l
 The clean Debug build of `5688eda` passed (554 native build steps). Local v1 validation passed Debug tests/install/staged CLI, then was explicitly interrupted while building sanitizers after the independent/CI findings made that source obsolete. `/workspace/lykoware-authored-animation-validation-v1/report.json` is INCOMPLETE, never a full-matrix pass. Do not reuse partial sanitizer objects as evidence; the next validator rebuilds changed dependencies. Final source needs clean build and all applicable profiles again.
 
 Next action: finish focused regression and reviewer recheck, then clean rebuild/full matrix on the corrected commit, push task branch only for exact-head hosted checks. Iterations 2/20; one analysis failure, one corrective approach; no blocker has reached three failed attempts. Main stays untouched.
+
+## Iteration 3 — final runtime acceptance and handoff
+
+Independent reviewer rechecked corrected `bb47ca7` and found no blocking findings. The reviewer's work was static/read-only; execution evidence below is from the native validator and hosted CI. No independent-review availability limitation applies.
+
+- Clean Debug rebuild: `cmake --build --preset linux-debug --clean-first -j2`, all 554 steps passed; `/workspace/authored-final-clean-build.log`.
+- Full unchanged-source matrix: source `bb47ca7`, fingerprint `6b4ea9d75becedf0d4665c967b413f9194ee68d7fc01c6bbac9ab85921466f21`, report `/workspace/lykoware-authored-animation-final-validation/report.json`. Debug, ASan/UBSan, clang-tidy18 each 79 passed, zero failed/skipped, configure/build/discovery/test/install/staged CLI passed.
+- Hosted exact-head [run42480515225](https://github.com/Avrenthrad/lykowareGE/actions/runs/42480515225): all five profiles passed (Windows Debug/Release plus three Linux). Windows GPU-dependent tests remain 21 skips; that is not RTX4070 verification.
+- Full suites exercise actual imported authored sample startup/render/shutdown, CPU replay, scene persistence/replay, input/lifecycle/resource checks and existing graphics references. No renderer algorithm/shader change is included.
+- Diagnostic authored graph capture: built an external copy of `tests/render_skinning.cpp` with the original procedural asset bound to `samples/course/locomotion.graph.json`; real GraphPlayer → skin palette → Vulkan output matched CPU-deformed pixels (existing tolerance2), exit0, validation errors0. Visually inspected `/workspace/authored-animation-capture/mannequin.ppm` (idle left, walking right; intact silhouettes, no exploding transforms). PPM SHA256 `3823b3e60991ddc0d8631d6e9a781f58a347bba34f2f3a5331a9282b926a030a`.
+- Harness `/workspace/capture-authored-animation.py` SHA256 `ad484b3314f748c8b082e3ab8b9f81dbe17ca94494b548cd24287b2866f6e14e`; outputs outside Git. No fixture output is substituted for engine behavior.
+
+Exact matrix command (same PATH/driver variables as iteration1):
+
+```sh
+python3 tools/validation/verify.py --preset linux-debug --preset linux-sanitizers --preset linux-analysis --clang-tidy /workspace/.analysis-tools/clang_tidy/data/bin/clang-tidy --output /workspace/lykoware-authored-animation-final-validation --jobs 2
+python3 /workspace/capture-authored-animation.py
+LD_LIBRARY_PATH=/workspace/phase1-system/mesa/usr/lib/x86_64-linux-gnu VK_DRIVER_FILES=/workspace/phase1-system/mesa/usr/share/vulkan/icd.d/lvp_icd.json /workspace/authored-capture build/linux-debug/shaders/lit.vert.spv build/linux-debug/shaders/lit.frag.spv /workspace/authored-animation-capture build/linux-debug/shaders/skinned.vert.spv
+```
+
+Fresh output directories are required for reruns. After recording this evidence, the documentation-only handoff tip is validated with the same three-preset command and fresh output `/workspace/lykoware-animation-handoff-validation`; check its report for exact final commit/fingerprint and the latest #71 five-profile CI. `git diff bb47ca7 HEAD -- engine samples tests tools CMakeLists.txt` must be empty: the clean verified runtime is unchanged. Markdown links and final diff are reviewed, with no generated/third-party asset output committed.
+
+Iterations used: **3/20**. One hosted analysis finding was corrected, no repeated blocker exceeded the three-attempt limit. All actionable runtime work in the agreed batch is complete and verified. The remaining milestone gate is deliberately pending integration because the owner expressly prohibited merges; no permission request is needed to respect that instruction. Deferred GPU/VRAM/frame pacing/owner feel remain unverified and are not checked off.

@@ -1,8 +1,14 @@
 # Shared work board
 
-## Active batch: authored animation runtime (Codex)
+## Authored animation runtime — verified #71, intentionally unmerged
 
-Branch `codex/authored-animation-runtime`, base #70 `9555fea`, ADR 0065. Scope: remaining batch 02.08/02.09/02.10 — bounded authored state configuration, interval events and joint sockets, supported-rig pose transfer, shared native/sandbox/headless CLI callers. Native/hosted validation pending. No hardware or owner-feel gate is closed.
+PR [#71](https://github.com/Avrenthrad/lykowareGE/pull/71), branch `codex/authored-animation-runtime`, base #70 `9555fea`. Runtime source `bb47ca7dc3433b3cdbe55d27abbeb050f1bb4a6c` passed [all five hosted profiles](https://github.com/Avrenthrad/lykowareGE/actions/runs/42480515225). Local clean Debug rebuild (554 steps) and full Debug/ASan/UBSan/clang-tidy18 validation passed 79/79 each, zero skips, with configure/build/install/staged CLI; unchanged fingerprint `6b4ea9d75becedf0d4665c967b413f9194ee68d7fc01c6bbac9ab85921466f21`. Report `/workspace/lykoware-authored-animation-final-validation/report.json`. Hosted Windows GPU checks have 21 skips; actual RTX4070 acceptance remains unverified.
+
+02.08/02.09/02.10 now have real shared engine/native/CLI/sample callers: bounded authored state configuration, transactional interruptible playback, interval/wrap events, posed-joint sockets (including final corrected pose), and immutable overlap-safe supported-rig pose transfer. CPU replay loads real glTF source/target assets. The original six-state authored example, 256-joint and reordered-rig transfer, event partition/capacity/refusals, root basis/scale/target lengths, source preservation, resource lifetime and real imported Vulkan playback pass. 1,000 combined updates record zero ordinary C++ allocations after setup, with positive allocation control. General scaled/helper/A/T-pose conversion and gameplay effects are excluded; ADR0065 remains Proposed.
+
+Independent read-only review found a replaceable-graph bounds issue, corrected to bind the player's validated owned snapshot, with replacement/reset regression. Hosted analysis caught a floating cycle counter; bounded integer enumeration fixes it without suppression. Reviewer recheck on `bb47ca7`: no blocking findings. A diagnostic authored idle/walk Vulkan capture matches CPU deformation within the existing 2-level channel tolerance and was visually inspected; files `/workspace/authored-animation-capture`, harness `/workspace/capture-authored-animation.py`.
+
+Latest owner loop instructions prohibit further merges or pushes to main. **12/15 entries are integrated; the final three are verified on #71 and deliberately remain unchecked for integration.** [Loop checklist](loops/engine-checklist.md) and [progress](loops/engine-progress.md) record scope, commands and review evidence. The documentation-only handoff tip is checked by `/workspace/lykoware-animation-handoff-validation/report.json` and the latest #71 CI checks; it must contain no source changes relative to `bb47ca7`. Next: integrate #71 only after the owner changes the no-merge constraint; target-PC measurements/owner feel remain deferred. No further in-scope code blocker remains.
 
 ## Terrain turning and motion authority — merged #70
 
