@@ -368,7 +368,8 @@ bool PoseCrossfade::begin(float seconds, std::string& error)
     if (visible_.empty() || !std::isfinite(seconds) || seconds < 0.F || seconds > 3600.F) {
         error = "Crossfade needs an initial pose and duration in 0..3600 seconds"; return false;
     }
-    source_ = visible_; elapsed_ = 0.0; duration_ = seconds; error.clear(); return true;
+    std::copy(visible_.begin(), visible_.end(), source_.begin());
+    elapsed_ = 0.0; duration_ = seconds; error.clear(); return true;
 }
 bool PoseCrossfade::advance(std::span<const JointPose> target, float seconds,
     std::span<JointPose> out, std::string& error)
