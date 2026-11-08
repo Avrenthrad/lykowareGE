@@ -17,6 +17,8 @@ Every tool/content operation must be reachable through CLI and scripting, with d
 
 ## Start here
 
+- **[Paused project checkpoint — what is verified, WIP and unmerged](docs/PROJECT_CHECKPOINT.md)**
+
 - **[Master completion checklist — keep updated as we build](docs/MASTER_CHECKLIST.md)**
 
 - [Status: implemented, current, next, known issues](docs/STATUS.md)

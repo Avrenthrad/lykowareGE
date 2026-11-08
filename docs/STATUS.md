@@ -1,8 +1,12 @@
 # Lykoware status
 
-## Active batch: terrain turning and controller authority (Codex)
+## Paused for owner evaluation — committed checkpoints
 
-Branch `codex/terrain-turning-runtime`, based on #69 `8201a26` / merged `e050eec`; ADR 0064. Batch 02.06/02.07: bounded/interpolated presentation heading, retained idle-turn target, explicit controller-authority policy and profile settings, and real terrain-course/physics-preservation regressions. Root tracks remain visual-only; no extraction or physics teleporting is added. Native/hosted validation pending. Hardware/manual work stays deferred.
+See [PROJECT_CHECKPOINT](PROJECT_CHECKPOINT.md) for the authoritative branch/verification/deferred-work inventory. Main remains `9555fea` (#70). All previously uncommitted walking source was saved and pushed as draft #73 `84d036b`; it is not compiled/tested/reviewed. Verified but unmerged: #71 `7197587` (79/79 each native profile, all five CI profiles) and #72 `e21f797` (81/81 each, clean build and all five CI profiles). Stack order #71 → #72 → #73. No merge/main push authorized; no development continues until owner evaluation.
+
+## Terrain turning/controller authority — integrated #70
+
+Source `0487221` passed all five hosted profiles ([run42455664181](https://github.com/Avrenthrad/lykowareGE/actions/runs/42455664181)) and 77/77 each native Linux profile, zero skips; merged as `9555fea`. Bounded/interpolated shortest-path facing and explicit controller authority are integrated. Actual GPU/feel acceptance remains separate. Older entries below describe their named historical checkpoints.
 
 ## Character import/alignment — merged #69
 

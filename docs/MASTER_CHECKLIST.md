@@ -14,15 +14,9 @@ Owner-requested living checklist, saved 6 November 2026. Permanent entry point: 
 
 ## Current position
 
-**Active owner request:** [next 15 non-hardware checklist items](NEXT_15_BATCH.md), recorded 8 November. Seven stale unchecked implementation entries were reconciled; three new import/alignment items merged in #69. Progress is 10/15; five new work items remain. Hardware, feel, performance and public-release gates stay separate.
+**Paused for owner evaluation.** [Project checkpoint and unmerged-work inventory](PROJECT_CHECKPOINT.md) is the current coordination record. The selected 15-item batch has **12 integrated requirements**; its final three are verified on unmerged #71. Subsequent stationary orientation/pelvis work is verified on unmerged #72. Walking anchors are saved as **unverified WIP** in draft #73. All source is committed/pushed; no merge/main push performed. Hardware and owner-feel gates remain open.
 
-**Latest:** prepared IK chains/scratch and retained foot-controller output merged in [#67](https://github.com/Avrenthrad/lykowareGE/pull/67), `abc620b`. Source `6c5626c` passed 72/72 each local Linux profile and all five hosted jobs. Runtime storage substep below is complete; target-PC/crowd measurements and broad foot IK remain open. Hardware work is deferred while Joshua is mobile.
-
-PR [#65](https://github.com/Avrenthrad/lykowareGE/pull/65) merged all runtime/character work #37–64 with packaging and local validation as `aacff25`. Exact source `13c097d` passed all five hosted jobs and 70/70 tests in each local Linux profile, with installation and staged execution. See [consolidation evidence](CONSOLIDATION_2026-11-08.md) for Windows GPU skips and remaining hardware limits. Hardware and Phase 1 acceptance remain open. Earlier per-slice results below describe their historical sources.
-
-Owner reports an NVIDIA RTX 4070. Actual VRAM/driver and measurements are still needed; do not infer them from the model name. Current character progress includes fitting, profiles, bone-role mapping, two-bone geometry/pose operations and stationary vertical terrain alignment. Walking foot locks, orientation and body constraints remain open.
-
-## Latest ten-step batch
+## Earlier ten-step batch (historical)
 
 **[Stationary terrain alignment — ten checked local steps](FOOT_ALIGNMENT_BATCH.md)**, draft #64. Source `2cc97b5` passed 68/68 each Linux Debug, ASan/UBSan and clang-tidy 18, no skips, plus synchronization-validation CLI. This does not complete the broad foot-IK milestone or its Windows/merge/hardware gates. Next: reusable runtime chains/scratch, then foot orientation/stance/body constraints and broader terrain tests.
 
