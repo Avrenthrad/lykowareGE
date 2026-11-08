@@ -1,8 +1,14 @@
 # Lykoware status
 
-## Active: prepared IK chains and scratch (Codex)
+## Prepared IK runtime — merged #67, 8 November 2026
 
-Branch `codex/prepared-ik`, base main `6262089`; ADR 0061. Scope: immutable prepared direct-chain IK, reusable caller scratch and foot-controller/playable-body integration. Preserve the reference solver and stationary terrain behavior. Local Debug suite passed 72/72. The prepared test covers 128 varied parented targets with exact reference agreement, alias/overlap, fallback/reach/near-antiparallel cases, maximum joint index, source-snapshot lifetime and transactional rejection. 1,000 prepared solves record 0 ordinary C++ heap allocations versus 7,000 reference allocations. One GCC 14 Debug five-joint run took 15.8 ms versus 30.2 ms total; these are VM microbenchmarks, not target-PC or frame-budget results. Final native/hosted profiles and deliberate-fault checks remain pending. Target-PC measurements are deferred while Joshua is mobile; no hardware or Phase 1 gate is closed.
+PR [#67](https://github.com/Avrenthrad/lykowareGE/pull/67) merged as `abc620b`. Exact clean source `6c5626c2478f8d523ff04fd84737858cbea8370b` passed [all five hosted jobs](https://github.com/Avrenthrad/lykowareGE/actions/runs/42427459608): Windows Debug/Release and Linux Debug/ASan/UBSan/clang-tidy 18. Independent local validation passed 72/72 each Linux profile, zero skips, with configure/build/install/staged CLI. Report `/workspace/lykoware-prepared-ik-validation/report.json`; unchanged fingerprint `e76e8e243c9da3a07e029f0bbf10c04b649de43b91785496da60d41d2c53dcdb`. Hosted Windows GPU skips remain separate from these CPU IK checks.
+
+`PreparedTwoBone` owns topology/rest-length snapshots; `TwoBoneScratch` provides bounded reusable storage. Dynamic validation and transactional FK checks remain. The terrain controller prepares both legs once, retains candidate/FK buffers and the playable body retains/preallocates corrected output. Reference solver remains unchanged. 128 varied cases agree exactly; fallback/near-antiparallel/reach/alias/overlap/max-joint/lifetime/failure checks pass. Four external faults (ignored parent, missing output, premature output, removed length checks) were caught. Existing terrain/physics-hash/render-palette regressions pass. No faulty artifacts committed.
+
+1,000 prepared five-joint solves recorded 0 ordinary C++ heap allocations versus 7,000 reference allocations. One GCC14 Debug VM microbenchmark took 15.8 vs 30.2 ms total. An external 256-joint/1,000-solve probe verified endpoint error 1.69e-7 m, 646 vs 1100 ms total. These are observations, not timing gates or target-PC/crowd guarantees. Scratch occupies roughly 30 KiB per instance; callers may share immutable plans with separate worker scratch. The sample currently retains scratch per controller. Failure strings/undersized caller outputs and other animation/render paths may allocate. ADR 0061 remains Proposed.
+
+**Next:** locomotion states/transitions and foot orientation/body constraints, plus representative rig/crowd profiling. Prepared storage does not implement walking locks, helper/scaled chains or full foot IK. **Hardware work is parked while Joshua is mobile**; resume RTX 4070 inventory/measurements when he returns to the PC. No hardware or Phase 1 gate is closed.
 
 ## Hardware evidence tooling — merged #66, 8 November 2026
 
@@ -10,7 +16,7 @@ PR [#66](https://github.com/Avrenthrad/lykowareGE/pull/66) merged as `32261bf`; 
 
 `tools/validation/measure-scene.ps1` now records version 2 source/executable/fixture provenance and optional NVIDIA VRAM/driver inventory, runs three fresh offscreen samples and writes `assessment.json`. Invalid data/overruns fail; missing or ambiguous inventory is incomplete. Optional provisional budgets bind to fixture hashes/configuration. No thresholds default silently. Invalid policy input replaces stale success evidence. Phase 1/recommended-profile acceptance stays false. [Usage and evidence scope](LOCAL_VALIDATION.md#rtx-4070-evidence-and-assessment); ADR 0060 remains Proposed.
 
-**Next acceptance action:** run the measurement script on the owner’s Windows PC. RTX 4070 is still owner-reported; actual VRAM/driver, desktop behavior, presentation pacing, RAM/VRAM residency and calibrated budgets remain open. No connected Windows executor is available in this workspace. Engineering can continue with prepared IK chains/scratch while target-PC evidence is collected.
+**Next acceptance action:** run the measurement script on the owner’s Windows PC. RTX 4070 is still owner-reported; actual VRAM/driver, desktop behavior, presentation pacing, RAM/VRAM residency and calibrated budgets remain open. No connected Windows executor is available in this workspace. Prepared IK chains/scratch are now integrated in #67; broader locomotion and profiling can proceed while target-PC evidence is deferred.
 
 ## Current consolidation — accepted integration, 8 November 2026
 
@@ -18,7 +24,7 @@ PR [#65](https://github.com/Avrenthrad/lykowareGE/pull/65) merged as `aacff25`, 
 
 **Open acceptance:** NVIDIA RTX 4070 is owner-reported; actual VRAM/driver, target-PC desktop behavior, frame pacing, RAM/VRAM and calibrated budgets remain unverified. Phase 1 remains open. Existing local Windows validation and offscreen measurement commands are in the evidence document. Proposed ADRs remain Proposed until separately accepted.
 
-**Next engineering work:** reusable validated IK chains/scratch and allocation measurements, followed by locomotion, foot orientation and body constraints. Existing terrain alignment is stationary vertical correction, not full walking foot locking. Target-PC evidence can proceed in parallel.
+**Next engineering work:** locomotion, foot orientation and body constraints; prepared chains/scratch and initial allocation measurements are integrated in #67. Existing terrain alignment is stationary vertical correction, not full walking foot locking. Target-PC evidence can proceed in parallel.
 
 ## Historical implementation and verification records
 

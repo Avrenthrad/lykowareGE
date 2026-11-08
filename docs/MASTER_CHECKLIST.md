@@ -14,6 +14,8 @@ Owner-requested living checklist, saved 6 November 2026. Permanent entry point: 
 
 ## Current position
 
+**Latest:** prepared IK chains/scratch and retained foot-controller output merged in [#67](https://github.com/Avrenthrad/lykowareGE/pull/67), `abc620b`. Source `6c5626c` passed 72/72 each local Linux profile and all five hosted jobs. Runtime storage substep below is complete; target-PC/crowd measurements and broad foot IK remain open. Hardware work is deferred while Joshua is mobile.
+
 PR [#65](https://github.com/Avrenthrad/lykowareGE/pull/65) merged all runtime/character work #37–64 with packaging and local validation as `aacff25`. Exact source `13c097d` passed all five hosted jobs and 70/70 tests in each local Linux profile, with installation and staged execution. See [consolidation evidence](CONSOLIDATION_2026-11-08.md) for Windows GPU skips and remaining hardware limits. Hardware and Phase 1 acceptance remain open. Earlier per-slice results below describe their historical sources.
 
 Owner reports an NVIDIA RTX 4070. Actual VRAM/driver and measurements are still needed; do not infer them from the model name. Current character progress includes fitting, profiles, bone-role mapping, two-bone geometry/pose operations and stationary vertical terrain alignment. Walking foot locks, orientation and body constraints remain open.
@@ -79,8 +81,8 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
   - [ ] **02.11b** Validate mapped rest-pose limb lengths/bend planes and apply solved joint rotations.
     - [ ] **02.11b-engine** Validated direct-chain pose operation — **implemented/in review**, #63 `fbf7468`; unit scales only, no helper chains.
     - [ ] **02.11b-integration** Bridge mapped roles, rest/bend calibration and actor-world/model coordinates.
-    - [ ] **02.11b-runtime** Prepare validated chains/reusable scratch and measure runtime costs. **In progress:** ADR 0061 adds immutable prepared chains, bounded scratch and retained controller/body buffers. Local Debug 72/72 passed; 128 varied cases match the reference exactly, 1,000 prepared solves record zero ordinary C++ heap allocations versus 7,000 in the reference fixture. Windows/sanitizer/analysis and target-PC/crowd budgets remain separate.
-      - [ ] **02.11b-runtime-prepared** Integrate prepared direct-chain solver and retained foot-placement storage after native/hosted checks.
+    - [ ] **02.11b-runtime** Prepare validated chains/reusable scratch and measure runtime costs. **Partial:** prepared chains, bounded scratch and retained controller/body buffers merged in #67 (ADR 0061). All five hosted jobs and 72/72 each local Linux profile passed. 128 varied cases match the reference exactly; 1,000 prepared solves record zero ordinary C++ heap allocations versus 7,000 in the reference fixture. Target-PC/crowd budgets remain separate.
+      - [x] **02.11b-runtime-prepared** Integrate prepared direct-chain solver and retained foot-placement storage — merged #67; source `6c5626c`, all five CI jobs and 72/72 each native Linux profile.
       - [ ] **02.11b-runtime-scale** Profile representative rigs/crowds and remaining animation/palette allocations on target hardware.
   - [ ] **02.11c** Terrain probes, foot planting, offsets and temporal smoothing. **Partial:** stationary probes/clearance/smoothing/resets implemented in #64; walking locks and orientation remain open.
   - [ ] **02.11d** Integrate pelvis/body constraints and verify varied terrain/character rigs.

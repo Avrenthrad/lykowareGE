@@ -13,3 +13,7 @@ The sandbox foot controller prepares both independent legs once, retains candida
 ## Verification
 
 Compare prepared results to the unchanged reference for varied 3D targets, rotated parents, reach clamps, fallbacks and aliasing. Independently check FK and preservation of unaffected joints. Reject invalid preparation, sizes, numeric values, scales and changed lengths with unchanged public outputs. Verify owned snapshot lifetime and explicit re-preparation. Count successful prepared-apply allocations after warmup. Retain terrain/controller reset/contact/physics-state regression coverage and imported-render-palette checks. Run Windows Debug/Release and Linux Debug/sanitizer/analysis before merging; actual target-PC performance remains a separate gate.
+
+## Implementation evidence and tradeoff
+
+Implementation merged in #67; Proposed decision status is unchanged. Source `6c5626c` passed all five hosted jobs and 72/72 each local Linux profile. Snapshot ownership, exact reference comparisons and four deliberate faults were checked; see STATUS. Fixed scratch occupies roughly 30 KiB even for a small rig. The sample retains it per controller; a future job system can reuse separate worker scratch across immutable plans. Remaining animation/palette allocations and representative crowd costs still need profiling.
