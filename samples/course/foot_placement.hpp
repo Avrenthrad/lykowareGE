@@ -49,32 +49,11 @@ public:
     bool configure(const animation::Skeleton& skeleton,const rig_roles::Indices& roles,std::string& error,double clearance=0.03)
     {
         if(!std::isfinite(clearance)||clearance<0.0||clearance>0.3){error="Foot clearance must be 0..0.3 metres";return false;}
-        if (!animation::valid_skeleton(skeleton,error)) { return false; }
-        for (auto index:roles) { if(index>=skeleton.joints.size()){error="Foot IK role outside skeleton";return false;} }
-        for(std::size_t i=0;i<roles.size();++i){for(std::size_t j=0;j<i;++j){if(roles[i]==roles[j]){error="Foot IK roles must be distinct";return false;}}}
-        auto ancestor=[&](std::size_t a,std::size_t b){
-            auto p=skeleton.joints[b].parent;
-            while(p){if(*p==a){return true;}p=skeleton.joints[*p].parent;}
-            return false;
-        };
-        if(ancestor(roles[1],roles[4])||ancestor(roles[4],roles[1])){error="Foot IK legs must be independent branches";return false;}
+        const auto calibrated=lykoware::character::calibrate_feet(skeleton,roles,error);
+        if(!calibrated){return false;}
         auto rest=animation::rest_pose(skeleton);
-        std::vector<math::Mat4> fk;
-        animation::global_transforms(skeleton,rest,fk);
-        std::array<std::optional<animation::PreparedTwoBone>,2> prepared;
-        for (std::size_t leg : {std::size_t{1},std::size_t{4}}) {
-            auto parent=skeleton.joints[roles[leg]].parent;
-            bool pelvis=false;
-            while(parent){if(*parent==roles[0]){pelvis=true;break;}parent=skeleton.joints[*parent].parent;}
-            if(!pelvis){error="Foot IK hip must descend from pelvis";return false;}
-            const auto side=leg==1?std::size_t{0}:std::size_t{1};
-            prepared[side]=animation::PreparedTwoBone::prepare(skeleton,roles[leg],roles[leg+1],roles[leg+2],error);
-            if(!prepared[side]){return false;}
-            animation::Pose checked;
-            animation::TwoBoneSolution solved;
-            if(!animation::pose_two_bone(skeleton,rest,roles[leg],roles[leg+1],roles[leg+2],position(fk[roles[leg+2]]),
-                position(fk[roles[leg+1]])+V{0,0,-0.5},checked,solved,error)){return false;}
-        }
+        std::vector<math::Mat4> fk;animation::global_transforms(skeleton,rest,fk);
+        std::array<std::optional<animation::PreparedTwoBone>,2> prepared{{calibrated->legs[0],calibrated->legs[1]}};
         animation::Skeleton copy=skeleton;
         animation::Pose candidate(rest.size());
         skeleton_=std::move(copy);prepared_=std::move(prepared);candidate_=std::move(candidate);fk_=std::move(fk);

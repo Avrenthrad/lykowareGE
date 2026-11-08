@@ -1,5 +1,9 @@
 # Shared work board
 
+## Active batch: character import, alignment and diagnostics (Codex)
+
+Branch `codex/character-import-contract`, base main `62a9b30`; ADR 0063. Implements batch items 02.01/02.02c/02.02d: shared profile/role/fitting APIs, explicit visual yaw and capsule/camera settings, headless character inspection and supported-rig compatibility diagnostics. Preserve existing profile behavior and foot IK coordinate correctness. Local Debug 76/76 passed. Targeted headless inspection validates UTF-8 paths, malformed profiles, alignment/camera values, compatibility mismatches and source-file preservation. Existing imported rendering/foot contacts pass, including yaw-corrected terrain palettes. Final native/hosted profiles remain pending. Batch currently 7/15 complete; hardware/manual list remains deferred.
+
 ## Locomotion and crossfades — merged #68, 8 November 2026
 
 PR [#68](https://github.com/Avrenthrad/lykowareGE/pull/68) merged as `3c0fc99`. Exact clean source `e7224c8` passed [all five hosted profiles](https://github.com/Avrenthrad/lykowareGE/actions/runs/42431816271) and 74/74 each local Linux Debug/ASan/UBSan/clang-tidy 18, zero skips, with configure/build/install/staged CLI. Report `/workspace/lykoware-locomotion-final-validation/report.json`; unchanged fingerprint `219c85313c65fd470d03c6edb1e6751c4470d1b9f7add759eb1f96845afe5733`.

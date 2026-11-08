@@ -65,6 +65,10 @@ for key in ['run_clip','jump_clip','fall_clip','land_clip']:
         r=run(profile_args)
         assert r.returncode!=0 and 'Profile locomotion clip names' in r.stdout+r.stderr, r.stdout+r.stderr
 profile.write_text(json.dumps(dict(version=1,model=path.name)))
+profile.write_text(json.dumps(dict(version=1,model=path.name,height=2,yaw_degrees=90,capsule_height=2,capsule_radius=.3,eye_height=1.7)))
+r=run(profile_args)
+assert r.returncode==0 and 'yaw 90.000000' in r.stdout+r.stderr and 'capsule height 2.000000' in r.stdout+r.stderr and 'eye height 1.700000' in r.stdout+r.stderr, r.stdout+r.stderr
+profile.write_text(json.dumps(dict(version=1,model=path.name)))
 r=run(profile_args+['--character',str(path)])
 assert r.returncode!=0 and 'cannot mix' in r.stdout+r.stderr
 for bad in [dict(version=2,model=path.name),dict(version=1,model=path.name,typo=True),dict(version=1,model=path.name,height='large'),dict(version=1,model=path.name,foot_ik=True),dict(version=1,model=path.name,foot_ik='yes')]:
@@ -112,6 +116,10 @@ contacts=re.search(r'Foot IK diagnostics:.*contacts=(\d+)',text)
 assert contacts and int(contacts.group(1))>0 and 'failures=0' in text, text
 applied=re.search(r'applied_frames=(\d+)',text)
 assert applied and int(applied.group(1))>0, text
+profile.write_text(json.dumps(dict(version=1,model=path.name,bones={name:name for name in role_names},foot_ik=True,yaw_degrees=90)))
+r=run(ik_args)
+rotated=r.stdout+r.stderr
+assert r.returncode==0 and 'failures=0' in rotated and re.search(r'contacts=[1-9]\d*',rotated) and re.search(r'applied_frames=[1-9]\d*',rotated), rotated
 profile.write_text(json.dumps(dict(version=1,model=path.name,bones={name:name for name in role_names},foot_ik=True,foot_clearance=.12)))
 r=run(ik_args)
 assert r.returncode==0 and 'failures=0' in r.stdout+r.stderr, r.stdout+r.stderr

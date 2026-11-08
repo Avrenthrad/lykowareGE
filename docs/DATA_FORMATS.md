@@ -37,3 +37,9 @@ The image harness writes diagnostic PPM P6 fixtures. That file is not an authore
 ## Character locomotion profile additions (ADR 0062)
 
 Version 1 character profiles retain `model`, idle/walk, height, bones and stationary foot-IK settings. Optional `run_clip`, `jump_clip`, `fall_clip`, `land_clip` are nonempty strings naming unique imported animation clips. Missing run uses walk; missing airborne/landing clips use idle. Invalid/unknown/ambiguous selectors are refused. These select presentation clips; they do not author a general state graph, configure thresholds, retarget a rig or drive root motion. See [BUILDING](BUILDING.md#locomotion-clips-and-transitions).
+
+## Character alignment and inspection (ADR 0063)
+
+Shared version-1 profile loading is owned by `character::load_profile/decode_profile`. Optional `yaw_degrees`, `capsule_height`, `capsule_radius`, `eye_height` augment the existing visual-only `height` field. Root and nested duplicates/unknown keys, depth >8 and files >64 KiB are rejected. Fit height/capsule height are 0.1..10 metres; yaw is -180..180 degrees; positive radius must be below half standing height and eye height strictly inside standing height. All values must be finite. Existing profiles retain visual-height semantics.
+
+`lyko inspect-character` emits `lykoware.character-inspection`, schema 1: `ok`, conventions, skin/rig/clip facts, bind bounds, visual alignment, capsule/camera dimensions, warnings and optional pair compatibility issues. Invalid asset/selection returns nonzero; unsupported rig comparison is reported as `compatible:false` without pretending a pose transfer was performed. No GPU is needed. Public APIs use owned standard types; JSON stays behind the engine/tool implementation.

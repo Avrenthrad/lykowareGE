@@ -229,3 +229,15 @@ All clip fields are optional nonempty strings. Missing run uses walk; missing ju
 Walk/run use actual horizontal speed (run entry 5 m/s, exit 4.5); idle/walk and jump/fall have hysteresis. A newly observed airborne-to-ground transition holds landing for about 0.18 s; initial grounding does not fabricate one. New states capture the last visible base pose and crossfade in about 0.14 s (0.08 s for landing), including when a fade is interrupted. Animation time remains capped at 0.1 s per drawing update. Ground contact/vertical velocity come from the same PlayerCharacter/Jolt state used by the sandbox and native test. Physics/controller movement remains authoritative; no root-motion driving, animation graph or walking foot locks are added.
 
 On exit, `Locomotion diagnostics:` reports state-frame counts and frames using a missing-clip fallback for headless agent inspection. Finished clip art, foot/body constraints and owner review of character feel remain open.
+
+### Headless character validation and alignment (ADR 0063)
+
+`lyko inspect-character --model hero.glb` validates skin arrays, mesh, skeleton and clips and prints versioned JSON without opening a window/GPU. Use `--profile hero.character.json` instead to validate exact clip/role selections and alignment. `--compare-model other.glb` reports compatibility with the initial named-rig subset (unique full name mapping, one root, unit scales, representable nonzero links, matching parents/local rest directions/rest axes up to a root rotation). Unsupported comparison is an explicit diagnostic, not a pose-transfer claim. `--output FILE` saves JSON; input files are protected from replacement. Invalid arguments/profiles report JSON to stdout without touching an unresolved output.
+
+Existing `height` still changes visual fit only. Optional `yaw_degrees` (-180..180) corrects authored forward direction about +Y and centres the fitted bind feet; explicit yaw 0 also centres without changing bind height. Optional `capsule_height`, `capsule_radius` and `eye_height` explicitly configure physics/camera. Standing height is `2*(cylinder_half_height+radius)`; radius must leave a positive cylinder and eye height must lie strictly inside the standing height. Absent fields preserve defaults. Example:
+
+```json
+{"version":1,"model":"hero.glb","height":2,"yaw_degrees":180,"capsule_height":2,"capsule_radius":0.3,"eye_height":1.7}
+```
+
+Rendering and terrain IK share the same facing/yaw/scale/offset conversion. Inspection reports warnings for visual/capsule height mismatch and rigs outside the initial retarget subset. It reports root translation tracks as visual-only; no motion is applied to physics. This is executable import validation, not automatic repair, general retargeting or hardware/subjective acceptance.
