@@ -19,26 +19,11 @@ void* operator new(std::size_t n)
     }
     throw std::bad_alloc();
 }
-void* operator new[](std::size_t n)
-{
-    return ::operator new(n);
-}
-void operator delete(void* p) noexcept
-{
-    std::free(p);
-}
-void operator delete[](void* p) noexcept
-{
-    std::free(p);
-}
-void operator delete(void* p, std::size_t) noexcept
-{
-    std::free(p);
-}
-void operator delete[](void* p, std::size_t) noexcept
-{
-    std::free(p);
-}
+void* operator new[](std::size_t n) { return ::operator new(n); }
+void operator delete(void* p) noexcept { std::free(p); }
+void operator delete[](void* p) noexcept { std::free(p); }
+void operator delete(void* p, std::size_t) noexcept { std::free(p); }
+void operator delete[](void* p, std::size_t) noexcept { std::free(p); }
 int main()
 {
     namespace a = lykoware::animation;
@@ -200,6 +185,20 @@ int main()
     if (!body) {
         return 1;
     }
+    p::BodyDesc sphere;
+    sphere.motion = p::MotionType::Static;
+    sphere.shape = p::SphereShape{.2F};
+    sphere.position = {2, 2, 2};
+    const auto sphere_body = world->create_body(sphere, error);
+    if (!sphere_body) {
+        return 1;
+    }
+    const auto inside_sphere = world->cast_ray({2, 2, 2}, {1, 0, 0});
+    const auto inside_box = world->cast_ray({0, -.5, 0}, {1, 0, 0});
+    check(inside_sphere && inside_sphere->fraction == 0 &&
+              std::abs(m::length(inside_sphere->normal) - 1) < 1e-5F && inside_box &&
+              inside_box->fraction == 0,
+          "inside-solid ray hit semantics remain intact with representative normals");
     foot_placement::Controller reused;
     check(reused.configure(rig, roles, error, .03, settings) &&
               reused.update(rest, {}, *world, .01F, true, output, error),

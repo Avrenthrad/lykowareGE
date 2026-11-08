@@ -141,6 +141,29 @@ int main()
     check(!a::PreparedJointAxis::prepare(rig, 99, {0, 1, 0}, error) &&
               !a::PreparedJointAxis::prepare(rig, 1, {0, 0, 0}, error),
           "bad setup refused");
+    a::Skeleton nearly;
+    a::Joint first;
+    first.name = "first";
+    a::Joint second;
+    second.name = "second";
+    second.parent = std::uint16_t{0};
+    nearly.joints = {first, second};
+    auto nearly_plan = a::PreparedJointAxis::prepare(nearly, 1, {0, 1, 0}, error);
+    auto nearly_pose = a::rest_pose(nearly);
+    auto q = m::from_axis_angle({0, 0, 1}, std::numbers::pi_v<float> * .25F);
+    nearly_pose[0].rotation = {q.x * 1.0009F, q.y * 1.0009F, q.z * 1.0009F, q.w * 1.0009F};
+    auto nearly_out = nearly_pose;
+    a::JointAxisSolution nearly_solution;
+    nearly_solution.applied_angle = .7;
+    check(nearly_plan &&
+              !nearly_plan->apply(nearly_pose, {0, 1, 0}, std::numbers::pi, scratch, nearly_out,
+                                  nearly_solution, error) &&
+              nearly_out[1].rotation.w == 1 && nearly_solution.applied_angle == .7,
+          "actual matrix FK rejects near-unit parent distortion without committing pose or solution");
+    nearly_pose[0].rotation = q;
+    check(nearly_plan->apply(nearly_pose, {0, 1, 0}, std::numbers::pi, scratch, nearly_out, nearly_solution,
+                             error),
+          "normalized parent remains supported");
     rig.joints.clear();
     check(plan->apply(pose, {0, 1, 0}, 1, scratch, output, solved, error),
           "owned topology survives source destruction");

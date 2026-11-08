@@ -391,7 +391,10 @@ bool PreparedJointAxis::apply(std::span<const JointPose> pose, V target, double 
     if (!evaluate(scratch, error)) {
         return false;
     }
-    result.model_axis = math::normalize(math::rotate(scratch.rotations_[joint_], local_axis_));
+    // Validate the matrix the renderer will actually consume. Accepted near-unit input
+    // quaternions can otherwise produce a different axis than the normalized chain.
+    const auto rendered=scratch.global_[joint_]*math::Vec4{local_axis_.x,local_axis_.y,local_axis_.z,0};
+    result.model_axis=math::normalize(math::Vec3{rendered.x,rendered.y,rendered.z});
     if (math::length(result.model_axis - desired_axis) > 1e-4F ||
         length(position(scratch.global_[joint_]) - origin) > 1e-5) {
         return refuse(error, "Joint-axis FK verification failed");
