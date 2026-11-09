@@ -1,8 +1,10 @@
 # Shared work board
 
-## Paused for owner evaluation — committed checkpoints
+## Verified runtime stack — integration parked
 
-See [PROJECT_CHECKPOINT](PROJECT_CHECKPOINT.md) for the authoritative branch/verification/deferred-work inventory. Main remains `9555fea` (#70). All previously uncommitted walking source was saved and pushed as draft #73 `84d036b`; it is not compiled/tested/reviewed. Verified but unmerged: #71 `7197587` (79/79 each native profile, all five CI profiles) and #72 `e21f797` (81/81 each, clean build and all five CI profiles). Stack order #71 → #72 → #73. No merge/main push authorized; no development continues until owner evaluation.
+See [PROJECT_CHECKPOINT](PROJECT_CHECKPOINT.md) for the authoritative branch, verification and deferred-work inventory. Main remains `9555fea` (#70). #71 authored playback/events/sockets/retargeting and #72 stationary orientation/pelvis are verified and unmerged. #73 walking support-local anchors now includes actual support-motion, phase-cycle, reach-release, rollback, allocation, player replay and GPU reference checks; independent reviewer recheck found no blocking issues. Clean build,82/82 each native Linux profile and all five hosted checks passed; exact runtime/tree/report mapping is in the checkpoint. Dependency order is #71 → #72 → #73. #74 is documentation only. No merge/main push is authorized; actual RTX4070 measurements and owner feel remain open.
+
+Older implementation entries and their “Next” notes below are historical records for the named commits. The project checkpoint above governs current work.
 
 ## Terrain turning/controller authority — integrated #70
 

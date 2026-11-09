@@ -1,6 +1,6 @@
-# Lykoware — owner-requested pause checkpoint
+# Lykoware — verified runtime stack checkpoint
 
-Development is paused for owner evaluation following usage/connection conflicts. All previously uncommitted engine source has been committed and pushed. The primary checkout returns to `main`; this checkpoint is documentation only and is kept on `docs/project-pause-checkpoint` for review. No feature PR has been merged and no main push has been performed.
+The owner resumed work to complete the listed PR tasks. Walking anchors now have real runtime coverage and the independent review finding has been fixed. Clean native validation, all five hosted profiles and independent review have passed. This documentation-only branch remains `docs/project-pause-checkpoint`; no feature PR is merged and no main push is performed.
 
 ## Main baseline
 
@@ -14,11 +14,11 @@ Integrated foundation includes C++20/CMake, Windows-first Vulkan, Jolt/ECS, inpu
 |---|---|---|---|---|
 | 1 | [#71](https://github.com/Avrenthrad/lykowareGE/pull/71), `codex/authored-animation-runtime` | `71975870bd55b3b0e1aa4af2572ef0c038816aca` | Authored animation graphs, events/sockets, supported-rig retargeting. Independently reviewed; all five hosted profiles passed; local 79/79 each Linux profile, zero skips. | Owner chooses integration; then preserve this dependency before #72. |
 | 2 | [#72](https://github.com/Avrenthrad/lykowareGE/pull/72), `codex/terrain-foot-constraints` | `e21f797973d72b0bef5e67127eebfe4ab929057e` | Stationary surface-normal foot orientation and bounded visual pelvis correction. Independent review fix verified; clean build, all five hosted profiles and local 81/81 each Linux profile passed, zero local skips. | Owner chooses integration after #71. Walking locks are not included in this verified scope. |
-| 3 | [#73](https://github.com/Avrenthrad/lykowareGE/pull/73), `codex/walking-foot-anchors` | `84d036bfaa679d88316e3bf055a48e8838e3a6e7` | **UNVERIFIED WIP**, now committed/pushed. New FootPlant anchor API, profile/graph phases and partial walking controller/PlayerBody integration. No local compile, execution, behavior tests or review has been completed. | Inspect/fix integration; add real support-motion, phase, release, transaction/allocation and sandbox/GPU tests; review and run full matrix. Do not merge as finished work. |
+| 3 | [#73](https://github.com/Avrenthrad/lykowareGE/pull/73), `codex/walking-foot-anchors` | `b7dbd15319fe7e292bb0c86abaccaee66a754d52` | Walking support-local anchors, authored cycle phases, bounded release, strict actual player replay and CLI forwarding. Independent reviewer rechecked the loop-boundary fix with no blocking findings. | Verified; integration remains parked after #72. |
 
-Bases are intentional: #71 → main; #72 → #71 branch; #73 → #72 branch. Do not merge #72/#73 out of order, replay the same source twice or force-push shared branches. A separate documentation-only pause-checkpoint PR records this status and remains unmerged under the same standing restriction. All source checkpoints are recoverable from GitHub, not dependent on the chat or a stash.
+Bases are intentional: #71 → main; #72 → #71 branch; #73 → #72 branch. Do not merge #72/#73 out of order, replay the same source twice or force-push shared branches. Documentation-only PR #74 records this status and remains unmerged under the same standing restriction. All source checkpoints are recoverable from GitHub, not dependent on the chat or a stash.
 
-WIP details are saved with #73 in `docs/loops/walking-foot-anchors-wip.md` and Proposed ADR0067. Stance details are in #72's `docs/TERRAIN_STANCE.md` / ADR0066. Existing Proposed ADRs do not become Accepted just because implementation/CI exists.
+The original84d036b WIP record is historical. Current #73 behavior is in `docs/WALKING_FOOT_PLANTS.md` and Proposed ADR0067; its loop progress records actual commands and review corrections. Stance details are in #72's `docs/TERRAIN_STANCE.md` / ADR0066. Existing Proposed ADRs do not become Accepted just because implementation/CI exists.
 
 ## Verification evidence
 
@@ -27,7 +27,7 @@ WIP details are saved with #73 in `docs/loops/walking-foot-anchors-wip.md` and P
 - Reviewer found a real FK-axis mismatch for a near-unit quaternion parent. Source `e21f797` includes actual rendered-matrix verification and transactional regressions. Reviewed duplicate `967a17b` has the identical tree; no blocking review finding remains for #72.
 - Initial stance report `/workspace/lykoware-terrain-stance-validation-v1/report.json` was superseded/interrupted and is **not** full corrected-source acceptance evidence.
 - Hosted Windows graphics checks have GPU-related skips. Local software Vulkan checks do not prove physical RTX4070 behavior or budgets.
-- #73 has no completed feature-verification evidence. Any automatically triggered draft CI can only show existing coverage; missing walking-anchor acceptance tests still have to be written/executed.
+- #73: Verified runtime source `b7dbd15319fe7e292bb0c86abaccaee66a754d52`, tree `335ef411e82468b985efc854d1857e97d1d82381`. [Hosted CI42542802775](https://github.com/Avrenthrad/lykowareGE/actions/runs/42542802775) passed Windows Debug/Release and all three Linux profiles. Clean Debug rebuild passed all561 steps; local Debug, ASan/UBSan and clang-tidy18 each passed82/82, zero failures/skips, including configure/build/install/staged CLI. Report `/workspace/lykoware-foot-plants-reviewed-validation/report.json`, unchanged clean-source fingerprint `36d8d05922141fa3fd4693406b2aba866423a6160ff678efc7c7a4b50f6dfe5c`. The native report names local review commit `ba473cba7fc167afd644008e379cd7bcea4b9bb3`; its entire Git tree equals published `b7dbd153`, with only commit metadata different. Independent reviewer rechecked the loop-boundary correction and found no blocking issues. Hosted Windows has21 graphics skips per pass; physical RTX4070 acceptance is still unverified. Its new coverage exercises real static/translating/rotating/tilting supports, stale/cross-world/lifetime guards, far-origin precision, hidden lift/replant and wrap ordering, bilateral rollback, reach release and zero-allocation controls. Actual moving imported player replay is repeated directly and through `lyko`; GPU deformation matches CPU reference and the capture was visually inspected.
 
 ## Other branches and open PRs requiring awareness
 
@@ -39,7 +39,7 @@ WIP details are saved with #73 in `docs/loops/walking-foot-anchors-wip.md` and P
 | [#30](https://github.com/Avrenthrad/lykowareGE/pull/30), `claude/nice-mendel-lm4mb0` | Historical open PR based on `claude/ecs-core`. Current main already retires physics slots at final generation; the outstanding head is a merge/docs node, not separate new runtime implementation. Reconcile the PR record before closing/archive; no change made here. |
 | [#22](https://github.com/Avrenthrad/lykowareGE/pull/22), `cursor/lykoware-remaster-docs-567c` | Separate unmerged Remaster documentation proposal, outside the current runtime work. Owner scope/legal/editor sequencing decision remains separate. |
 
-All other local branch tips were found to be ancestors of current main during this checkpoint. No branches were deleted, rebased or force-pushed. The temporary walking implementation worktree was removed only after its complete source was committed/pushed and its tracked/untracked working-tree status was clean.
+Other local branch tips were found to be ancestors of main at the original pause checkpoint. A new local boundary-review commit is retained separately when synchronizing its identical tree to the connector-published commit. No branches were deleted, rebased or force-pushed. The temporary walking implementation worktree was removed only after its complete source was committed/pushed and its tracked/untracked working-tree status was clean.
 
 ## Manual / owner matters parked
 
@@ -51,9 +51,9 @@ All other local branch tips were found to be ancestors of current main during th
 
 ## Safe continuation point
 
-1. Owner evaluates this status; development remains paused.
-2. Decide whether to integrate the verified #71/#72 stack or continue fixing #73 first. The standing no-merge/main-push restriction remains until explicitly changed.
-3. Confirm the chosen branch/base and the latest remote state before editing. Read its AGENTS, STATUS, WORK_BOARD and loop/WIP notes. Do not use older “active” paragraphs as authority over this checkpoint.
-4. If resuming #73, start with its WIP note, compile source and add missing behavior tests; do not start a new module or mark walking locks complete from a green baseline suite.
+1. Preserve #71 → #72 → #73 dependency order; all remain unmerged under the standing owner restriction.
+2. Read this checkpoint, the selected branch's AGENTS/STATUS/WORK_BOARD and current loop evidence before editing; older pause/WIP paragraphs describe historical commits.
+3. Resume the next roadmap module only as a separate scoped task. Walking foot heading, render interpolation, one-foot balance, full body constraints and ragdolls are still future work.
+4. Collect physical Windows/RTX4070 measurements and owner play review when the PC is available. Software/hosted graphics checks cannot close those gates.
 
-Ignored build outputs under the primary checkout may still be from feature source `e21f797`, even after checkout returns to main. They are preserved generated artifacts, not main verification. Reconfigure/rebuild the selected source before running them; do not interpret a stale executable as the main engine. Source commits, CI results and external validator reports are the recorded evidence.
+Ignored build outputs under the primary checkout may be from the selected feature tree (currently walking-anchor runtime), even after checkout returns to main. They are preserved generated artifacts, not main verification. Reconfigure/rebuild the selected source before running them; do not interpret a stale executable as the main engine. Source commits, CI results and external validator reports are the recorded evidence.
