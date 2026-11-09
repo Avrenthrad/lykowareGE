@@ -1,12 +1,12 @@
 # Shared work board
 
-## Active: finish walking-foot anchors and reconcile PR stack
+## Walking and stationary constraints — verified, unmerged
 
-Owner resumed the four listed points of work. Branch `codex/walking-foot-anchors`, PR#73, base verified #72 `e21f797`; prior saved WIP84d036b compiled in draft CI but lacked feature acceptance. New native/real support-motion, phase/reset/hidden-cycle, reach/rollback, replay and imported/GPU integration checks now pass locally; full review/clean matrix/hosted validation pending. No source changes needed for already-verified #71/#72. #74 will be updated to replace its historical paused/unverified status after #73 evidence exists. Main remains unchanged under the standing no-merge/main-push restriction.
+Owner-requested completion of the listed PR tasks is finished. #71 (`7197587`,79/79 each native profile) and #72 (`e21f797`,81/81 each) retain their reviewed five-profile CI evidence. #73 now adds verified support-local walking anchors, cycle/reset handling, bounded reach release, transactional bilateral correction, strict real player replay and `lyko run --` forwarding. Main remains `9555fea`; dependency order is #71 → #72 → #73. #74 reconciles the main-based documentation checkpoint. No merge/main push was performed.
 
-## Active: stationary terrain foot constraints (Codex)
+Verified runtime source `b7dbd15319fe7e292bb0c86abaccaee66a754d52`, tree `335ef411e82468b985efc854d1857e97d1d82381`. [Hosted CI42542802775](https://github.com/Avrenthrad/lykowareGE/actions/runs/42542802775) passed Windows Debug/Release and all three Linux profiles. Clean Debug rebuild passed all561 steps; local Debug, ASan/UBSan and clang-tidy18 each passed82/82, zero failures/skips, including configure/build/install/staged CLI. Report `/workspace/lykoware-foot-plants-reviewed-validation/report.json`, unchanged clean-source fingerprint `36d8d05922141fa3fd4693406b2aba866423a6160ff678efc7c7a4b50f6dfe5c`. The native report names local review commit `ba473cba7fc167afd644008e379cd7bcea4b9bb3`; its entire Git tree equals published `b7dbd153`, with only commit metadata different. Independent reviewer rechecked the loop-boundary correction and found no blocking issues. Hosted Windows has21 graphics skips per pass; physical RTX4070 acceptance is still unverified.
 
-Branch `codex/terrain-foot-constraints`, base #71 `7197587`; ADR0066 Proposed. The owner requested continued overall development while saving pending integration/manual matters. Add read-only surface normals, prepared joint-axis alignment, opt-in stationary slope orientation and bounded visual pelvis compensation; preserve physics authority and complete bilateral transaction/reset behavior. Native/hosted checks pending. [Deferred ledger](loops/deferred.md) parks #71 and hardware/owner gates; no merges/main pushes.
+All remaining integration and physical-PC/owner gates are parked in [deferred work](loops/deferred.md). Foot heading, support render interpolation, one-foot balance and ragdolls are future scope. Unmerged requirements remain unchecked on the master checklist. Older active/pause paragraphs below describe their named historical commits; this entry governs current status.
 
 ## Authored animation runtime — verified #71, intentionally unmerged
 

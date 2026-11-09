@@ -14,7 +14,7 @@ Owner-requested living checklist, saved 6 November 2026. Permanent entry point: 
 
 ## Current position
 
-**Current engineering:** the owner requested continuing overall development while parking integration/manual matters. Stationary foot orientation and bounded visual pelvis constraints are implemented on `codex/terrain-foot-constraints` (ADR0066), based on #71; full review/native/hosted gates pending. [Deferred ledger](loops/deferred.md) tracks items to return to; no merges/main pushes.
+**Current engineering:** the four listed PR work points are completed: preserve verified #71/#72, finish/review/verify #73 walking anchors and reconcile #74 documentation. #72 `e21f797` passed81/81 each native profile; #73 runtime `b7dbd153` passed82/82 each; both passed all five hosted profiles. Dependency order #71 → #72 → #73 remains unmerged. [Deferred ledger](loops/deferred.md) retains integration and actual hardware/owner gates. No main push or new roadmap module is included.
 
 **Active owner request:** [next 15 non-hardware checklist items](NEXT_15_BATCH.md). **12/15 integrated; final 3 implemented, independently reviewed and verified on [#71](https://github.com/Avrenthrad/lykowareGE/pull/71), intentionally unmerged.** Latest owner instructions prohibit merges or pushes to main. The remaining boxes retain their integration gate. Source `bb47ca7` passed 79/79 each local Debug/sanitizers/analysis and all five hosted profiles, including Windows Debug/Release. [Loop checklist](loops/engine-checklist.md) maps every requirement to acceptance evidence; [progress](loops/engine-progress.md) is the continuation record. Actual hardware, feel, performance and public-release gates stay separate.
 
@@ -84,11 +84,11 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
     - [ ] **02.11b-runtime** Prepare validated chains/reusable scratch and measure runtime costs. **Partial:** prepared chains, bounded scratch and retained controller/body buffers merged in #67 (ADR 0061). All five hosted jobs and 72/72 each local Linux profile passed. 128 varied cases match the reference exactly; 1,000 prepared solves record zero ordinary C++ heap allocations versus 7,000 in the reference fixture. Target-PC/crowd budgets remain separate.
       - [x] **02.11b-runtime-prepared** Integrate prepared direct-chain solver and retained foot-placement storage — merged #67; source `6c5626c`, all five CI jobs and 72/72 each native Linux profile.
       - [ ] **02.11b-runtime-scale** Profile representative rigs/crowds and remaining animation/palette allocations on target hardware.
-  - [ ] **02.11c** Terrain probes, foot planting, offsets and temporal smoothing. **Partial:** stationary probes/clearance/smoothing/resets implemented in #64; walking locks and orientation remain open.
-    - [ ] **02.11c-normals** Apply bounded/smoothed surface orientation to stationary feet — current branch, focused unit/Jolt/profile/GPU checks pass; full validation/review/integration pending.
-    - [ ] **02.11c-locks** Add authored walking foot-plant/lift phases and stable anchors; moving-platform behavior needs explicit handling.
-  - [ ] **02.11d** Integrate pelvis/body constraints and verify varied terrain/character rigs.
-    - [ ] **02.11d-pelvis** Apply bounded visual pelvis compensation through posed parents with bilateral stance failure/reset behavior — current branch; focused tests pass, full review/native/hosted/integration pending.
+  - [ ] **02.11c** Terrain probes, foot planting, offsets and temporal smoothing. **Partial:** stationary placement merged #64; orientation/normal smoothing verified #72 and walking position/normal anchors verified #73, both pending integration. Full foot heading and support render interpolation remain separate.
+    - [ ] **02.11c-normals** Apply bounded/smoothed surface orientation to stationary feet — verified #72 `e21f797`,81/81 each native profile and all five hosted checks; integration pending.
+    - [ ] **02.11c-locks** Authored walking plant/lift cycles and position/normal anchors — verified #73 runtime `b7dbd153`,82/82 each native profile and all five hosted checks. Real translating/rotating/tilting supports pass; integration pending. Heading/interpolation remain separate.
+  - [ ] **02.11d** Integrate pelvis/body constraints and verify varied terrain/character rigs. **Partial:** bounded bilateral visual pelvis correction verified #72/#73, unmerged; one-foot/full-body balance and broad rig acceptance remain open.
+    - [ ] **02.11d-pelvis** Apply bounded visual pelvis compensation through posed parents with bilateral stance failure/reset behavior — verified #72/#73, full native/hosted checks and review passed; integration pending.
 - [ ] **02.12** Add ragdolls and animation/physics blending.
 - [ ] **02.13** Add stumble, recovery and active ragdoll.
 - [ ] **02.14** Refine first/third-person camera transitions.
