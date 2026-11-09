@@ -180,10 +180,19 @@ struct Playback {
             const auto previous_state=graph_player->state();
             if(!graph_player->step(seconds,{parameters.data(),graph_player->graph().parameters.size()},transition_error)){throw std::invalid_argument(transition_error);}
             if(graph_player->state()!=previous_state){planted={};++plant_cycles[0];++plant_cycles[1];}
-            for(const auto& event:graph_player->events()){
-                const auto& name=graph_player->graph().states[event.state].events[event.event].name;
-                if(name=="left_plant"){planted[0]=true;++plant_cycles[0];}else if(name=="left_lift"){planted[0]=false;++plant_cycles[0];}
-                else if(name=="right_plant"){planted[1]=true;++plant_cycles[1];}else if(name=="right_lift"){planted[1]=false;++plant_cycles[1];}
+            // Generic events tie by authored index. At a wrap, the sample must apply
+            // outgoing end markers before incoming zero markers so the new cycle wins.
+            const auto events=graph_player->events();
+            for(std::size_t first=0;first<events.size();){
+                std::size_t end=first+1;while(end<events.size()&&events[end].seconds==events[first].seconds){++end;}
+                for(unsigned zero=0;zero<2;++zero){for(std::size_t i=first;i<end;++i){
+                    const auto& event=events[i];const auto& marker=graph_player->graph().states[event.state].events[event.event];
+                    if((marker.seconds==0)!=(zero!=0)){continue;}
+                    const auto& name=marker.name;
+                    if(name=="left_plant"){planted[0]=true;++plant_cycles[0];}else if(name=="left_lift"){planted[0]=false;++plant_cycles[0];}
+                    else if(name=="right_plant"){planted[1]=true;++plant_cycles[1];}else if(name=="right_lift"){planted[1]=false;++plant_cycles[1];}
+                }}
+                first=end;
             }
             const auto pose=graph_player->pose();blended.assign(pose.begin(),pose.end());
             (void)selector.advance(seconds,speed,grounded,vertical_speed);

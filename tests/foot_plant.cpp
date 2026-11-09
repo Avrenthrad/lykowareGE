@@ -351,6 +351,33 @@ int main(int argc, char** argv)
     check(std::abs(foot_placement::to_world(actor, foot_placement::position(fk[3])).z + .1) < .001 &&
               rapid_controller.stats().planted == 2 && rapid_controller.stats().released == 1,
           "plant cycle epochs prevent holding a stale anchor across hidden lift/replant markers");
+    auto boundary_graph = graph;
+    boundary_graph.edges.clear();
+    boundary_graph.states.resize(1);
+    boundary_graph.states[0].events = {{"left_plant", 0}, {"right_lift", 0}, {"left_lift", 1}};
+    auto boundary_asset = phased;
+    boundary_asset.graph = std::make_shared<a::Graph>(boundary_graph);
+    training_mannequin::Playback boundary;
+    boundary.advance(boundary_asset, 0, 0);
+    foot_placement::Controller boundary_controller;
+    check(boundary_controller.configure(asset.skeleton, roles, error, .03, settings),
+          "boundary plant controller prepares");
+    check(boundary_controller.update(rest, {}, *world, .01F, true, output, error,
+                                     foot_placement::PlantPhases{boundary.planted, boundary.plant_cycles}),
+          "boundary initial plant acquires");
+    for (int i = 0; i < 10; ++i) {
+        boundary.advance(boundary_asset, .1F, 0);
+    }
+    check(boundary.planted[0] && !boundary.planted[1],
+          "outgoing end lift precedes next-cycle zero plant at wrap");
+    actor.feet.z = -.1;
+    check(boundary_controller.update(rest, actor, *world, .01F, true, output, error,
+                                     foot_placement::PlantPhases{boundary.planted, boundary.plant_cycles}),
+          "wrapped plant resolves fresh cycle");
+    a::global_transforms(asset.skeleton, output, fk);
+    check(std::abs(foot_placement::to_world(actor, foot_placement::position(fk[3])).z + .1) < .001 &&
+              boundary_controller.stats().planted == 2 && boundary_controller.stats().released == 1,
+          "wrap cycle reacquires at current actor rather than holding prior support point");
     if (argc != 2) {
         std::cerr << "Expected replay fixture directory";
         return 1;
