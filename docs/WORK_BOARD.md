@@ -1,5 +1,9 @@
 # Shared work board
 
+## Active: finish walking-foot anchors and reconcile PR stack
+
+Owner resumed the four listed points of work. Branch `codex/walking-foot-anchors`, PR#73, base verified #72 `e21f797`; prior saved WIP84d036b compiled in draft CI but lacked feature acceptance. New native/real support-motion, phase/reset/hidden-cycle, reach/rollback, replay and imported/GPU integration checks now pass locally; full review/clean matrix/hosted validation pending. No source changes needed for already-verified #71/#72. #74 will be updated to replace its historical paused/unverified status after #73 evidence exists. Main remains unchanged under the standing no-merge/main-push restriction.
+
 ## Active: stationary terrain foot constraints (Codex)
 
 Branch `codex/terrain-foot-constraints`, base #71 `7197587`; ADR0066 Proposed. The owner requested continued overall development while saving pending integration/manual matters. Add read-only surface normals, prepared joint-axis alignment, opt-in stationary slope orientation and bounded visual pelvis compensation; preserve physics authority and complete bilateral transaction/reset behavior. Native/hosted checks pending. [Deferred ledger](loops/deferred.md) parks #71 and hardware/owner gates; no merges/main pushes.

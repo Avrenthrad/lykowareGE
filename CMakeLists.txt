@@ -271,7 +271,7 @@ if(BUILD_TESTING)
 
     add_test(NAME sandbox.imported_player COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_SOURCE_DIR}/tests/imported_player.py" "$<TARGET_FILE:lykoware_sandbox>"
-        "${CMAKE_BINARY_DIR}/test-output/imported-player")
+        "${CMAKE_BINARY_DIR}/test-output/imported-player" "$<TARGET_FILE:lyko>")
     set_tests_properties(sandbox.imported_player PROPERTIES TIMEOUT 180 SKIP_RETURN_CODE 77)
 
     if(LYKOWARE_SANITIZERS)
@@ -412,6 +412,12 @@ if(BUILD_TESTING)
     add_test(NAME animation.foot_placement COMMAND lykoware_foot_placement_test)
     set_tests_properties(animation.foot_placement PROPERTIES TIMEOUT 60)
 
+    add_executable(lykoware_foot_plant_test tests/foot_plant.cpp)
+    target_link_libraries(lykoware_foot_plant_test PRIVATE lykoware::engine)
+    target_include_directories(lykoware_foot_plant_test PRIVATE "${CMAKE_SOURCE_DIR}/samples/course")
+    lykoware_configure_target(lykoware_foot_plant_test)
+    target_include_directories(lykoware_foot_plant_test SYSTEM PRIVATE "${CMAKE_SOURCE_DIR}/third_party/json/include")
+    add_test(NAME animation.foot_plant COMMAND lykoware_foot_plant_test "${CMAKE_CURRENT_BINARY_DIR}/plant-replay-fixture")
     add_executable(lykoware_terrain_stance_test tests/terrain_stance.cpp)
     target_link_libraries(lykoware_terrain_stance_test PRIVATE lykoware::engine)
     target_include_directories(lykoware_terrain_stance_test PRIVATE "${CMAKE_SOURCE_DIR}/samples/course")

@@ -26,7 +26,7 @@ std::vector<math::Quat> orientations(const animation::Skeleton& skeleton){
 bool valid_foot_settings(const FootSettings& settings,std::string& error)
 {
     if(!std::isfinite(settings.max_slope_degrees)||settings.max_slope_degrees<0||settings.max_slope_degrees>60
-        ||!std::isfinite(settings.max_pelvis_drop)||settings.max_pelvis_drop<0||settings.max_pelvis_drop>.3||!std::isfinite(settings.max_plant_distance)||settings.max_plant_distance<.05||settings.max_plant_distance>1){return fail(error,"Invalid foot slope/pelvis bounds");}
+        ||!std::isfinite(settings.max_pelvis_drop)||settings.max_pelvis_drop<0||settings.max_pelvis_drop>.3||!std::isfinite(settings.max_plant_distance)||settings.max_plant_distance<.05||settings.max_plant_distance>1){return fail(error,"Invalid foot slope/pelvis/plant bounds");}
     error.clear();return true;
 }
 bool decode_profile(std::string_view text,const std::filesystem::path& directory,Profile& out,std::string& error)

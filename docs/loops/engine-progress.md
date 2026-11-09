@@ -1,10 +1,8 @@
 # Engine loop progress
 
-## Active continuation — terrain foot constraints
+## Active continuation — finish listed PR work
 
-Owner explicitly expanded scope to continue the overall project and park matters needing later attention. Previous 15-item runtime batch remains verified on #71 and unmerged. Active branch `codex/terrain-foot-constraints`, base #71 `7197587`, ADR0066. Current task: read-only physics surface normals, prepared ankle-axis alignment, opt-in stationary slope orientation and bounded pelvis compensation, actual profile/sample integration and meaningful terrain tests. [Deferred ledger](deferred.md) preserves integrations/manual gates; no merge or main push.
-
-Iteration4 starts by reproducing missing normal/orientation/pelvis behavior (current RayHit has no normal; controller only corrects vertical foot height). Implement minimum complete APIs/callers, then focused/native/hosted checks and independent review. Prior loop used3/20 iterations; continue within the remaining allowance. No need to repeat already-passed #71 tests unless affected.
+Owner requested completing the four listed points after the pause. Main remains9555fea. #71 source7197587 and #72 sourcee21f797 retain all five CI passes; #73 saved WIP84d036b also compiled/passed baseline draft CI but had no behavior coverage for anchors. Active branch is `codex/walking-foot-anchors` based on #72. Scope: finish/verify anchors, then reconcile the documentation snapshot #74; no merge/main push. Previous loop used5/20 iterations; current implementation/verification is iteration6.
 
 
 ## Iteration 1 — establish current milestone and reproduce missing integrations
@@ -82,3 +80,13 @@ Corrections were staged in a separate worktree while the initial unchanged-sourc
 ## Owner-requested pause and checkpoint
 
 Development paused on explicit owner instruction to commit outstanding work, establish a solid status and return the primary checkout to main. Walking anchors were being drafted in a separate worktree while #72 validation completed. This branch saves that partial source as WIP; see [walking-foot-anchors-wip](walking-foot-anchors-wip.md). No walking build/test/review result exists. Do not continue automatically from this checkpoint until the owner evaluates next steps.
+
+## Iteration 6 — anchor behavior and actual moving player verification
+
+Added real collision/support tests, destroyed/reused/cross-world/lifetime checks, rotating/translating/tilting kinematic bodies and64km submillimetre transport. Added controller held-versus-swing targets, reach-release retries, no hidden reacquisition, second-leg rollback and positive-control zero-allocation fixtures. Added graph entry/wrap/reset tests; discovered final phase booleans lose a lift/replant when both markers occur within one rendered frame. Per-leg cycle epochs now force a fresh anchor and a regression proves the new target is acquired.
+
+A first test compared acquired and reconstructed double world positions with exact equality; corrected it to1e-12m tolerance for the unavoidable support-local round trip (not a solver change). A range-loop copy warning was fixed by binding a const reference; warnings remain errors. No behavior check was disabled.
+
+Added bounded strict offscreen player-intent replay and `lyko run --` forwarding so actual PlayerBody walking is tested, not just a stationary fixture. Original imported glTF replay requires walking, planted/released/applied-palette counters and direct/lyko repeatability. New held-foot GPU pixels match CPU-deformed geometry; visually inspected `gpu-skinning/walking-foot-plants.ppm`. Focused four tests pass; 1,000 standalone anchor and full planted-controller calls each record zero ordinary C++ allocations after setup. Full/review checks remain pending.
+
+Commands: configure/build linux-debug; with recorded Mesa driver variables, `ctest --preset linux-debug -R 'animation.foot_plant|render.gpu_skinning|sandbox.imported_player|cli.integration' --output-on-failure`. Logs `/workspace/foot-plants-build.log`, `/workspace/foot-plants-integration.log`. Next: independent review and clean/full exact-head validation; then update #74/status and leave integration parked.

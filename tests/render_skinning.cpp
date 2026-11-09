@@ -172,10 +172,12 @@ bool stance_capture(rhi::Device& device, render::Renderer& renderer, const std::
         return false;
     }
     lykoware::ecs::World entities;
+    std::array<lykoware::ecs::Entity,2> actors{};
     for (int i = 0; i < 2; ++i) {
         std::vector<math::Mat4> palette;
         animation::skinning_matrices(asset.skeleton, i == 0 ? rest : corrected, palette);
         const auto entity = entities.create();
+        actors[static_cast<std::size_t>(i)]=entity;
         entities.add<lykoware::Transform>(entity, lykoware::Transform{{i == 0 ? -.6 : .6, 0, 0}, {}});
         entities.add<render::MeshRenderer>(
             entity, render::MeshRenderer{render::MeshShape::Cube, {1, 1, 1}, {1, 1, 1}, *mesh});
@@ -213,6 +215,21 @@ bool stance_capture(rhi::Device& device, render::Renderer& renderer, const std::
            "slope-oriented feet and compensated pelvis GPU pixels match CPU-deformed geometry");
     expect(lykoware::write_ppm(actual, output / "terrain-stance.ppm"),
            "terrain stance diagnostic capture saved");
+    settings.locking=true;settings.max_plant_distance=.5;
+    foot_placement::Controller walking;
+    if(!walking.configure(asset.skeleton,{0,1,2,3,4,5,6},reason,.03,settings)){expect(false,reason);return false;}
+    if(!walking.update(rest,{},*world,1.F/60.F,true,corrected,reason,foot_placement::PlantPhases{{false,true}})){expect(false,reason);return false;}
+    foot_placement::Placement moved;moved.feet.z=-.1;
+    for(int i=0;i<30;++i){if(!walking.update(rest,moved,*world,1.F/60.F,true,corrected,reason,foot_placement::PlantPhases{{false,true}})){expect(false,reason);return false;}}
+    std::vector<math::Mat4> walking_fk;animation::global_transforms(asset.skeleton,corrected,walking_fk);
+    expect(std::abs(foot_placement::to_world(moved,foot_placement::position(walking_fk[6])).z)<.001&&walking.stats().planted==1&&walking.stats().released==0,"rendered walking pose really holds a foot while its body advances");
+    for(std::size_t i=0;i<actors.size();++i){auto* component=entities.get<render::MeshRenderer>(actors[i]);component->mesh=*mesh;auto* pose=entities.get<render::SkinPose>(actors[i]);animation::skinning_matrices(asset.skeleton,i==0?rest:corrected,pose->matrices);}
+    entities.get<lykoware::Transform>(actors[1])->position.z=-.1;
+    if(!renderer.draw(entities,camera,*target,{.025F,.03F,.045F,1},error)||!rhi::RenderTargetCapture{*target}.capture(actual)){expect(false,error.message);return false;}
+    valid=true;entities.each<render::MeshRenderer,render::SkinPose>([&](lykoware::ecs::Entity,render::MeshRenderer& component,render::SkinPose& pose){lykoware::MeshData deformed;if(!animation::deform_mesh(asset.mesh,asset.joints,asset.weights,pose.matrices,deformed,reason)){valid=false;return;}const auto cpu=renderer.add_mesh(deformed,asset.parts,error);if(!cpu){valid=false;return;}component.mesh=*cpu;});
+    if(!valid||!renderer.draw(entities,camera,*target,{.025F,.03F,.045F,1},error)||!rhi::RenderTargetCapture{*target}.capture(reference)){expect(false,error.message+reason);return false;}
+    expect(lykoware::compare_images(reference,actual,2).matches,"walking plant GPU pixels match independently CPU-deformed held-foot geometry");
+    expect(lykoware::write_ppm(actual,output/"walking-foot-plants.ppm"),"walking foot plant diagnostic capture saved");
     return true;
 }
 

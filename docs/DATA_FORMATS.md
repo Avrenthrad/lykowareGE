@@ -51,3 +51,7 @@ Character profiles optionally reference a relative `animation_graph` path. Graph
 ## Stationary terrain stance options
 
 Optional character-profile `foot_align_normals`, `foot_max_slope_degrees`, `foot_pelvis`, `foot_max_pelvis_drop` extend existing `foot_ik` settings. Effective policy is reported by inspection; bounds, opt-in dependencies and runtime semantics are in [TERRAIN_STANCE](TERRAIN_STANCE.md), ADR0066.
+
+## Authored walking plant phases and replay
+
+Character profiles optionally enable `foot_locking` and bounded `foot_max_plant_distance`. The shared graph carries plant/lift events; the offscreen sample accepts a strict version1 player-input replay. Formats, bounds and current limitations are in [WALKING_FOOT_PLANTS](WALKING_FOOT_PLANTS.md), ADR0067.

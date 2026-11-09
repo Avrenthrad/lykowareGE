@@ -2,6 +2,7 @@
 #include "character_fit.hpp"
 #include "rig_roles.hpp"
 #include "foot_placement.hpp"
+#include "player_replay.hpp"
 
 #include <lykoware/audio.hpp>
 #include <lykoware/audio_output.hpp>
@@ -163,7 +164,8 @@ struct WindowOptions {
     std::uint64_t frames = 0;
     // --model FILE: a glTF model shown beside the crates (ADR 0035).
     std::string model;
-    std::string character, idle_clip, walk_clip, character_profile;
+    std::string character, idle_clip, walk_clip, character_profile, play_input;
+    std::vector<lykoware::PlayerIntent> replay;
     std::array<std::string,4> locomotion_clips{};
     lykoware::character::Profile character_settings;
     std::optional<float> character_height;
@@ -625,7 +627,7 @@ public:
                 {local_offset.x,local_offset.y,local_offset.z}};
             std::string reason;
             const bool walking=locking_&&speed>=.2F&&playback_.graph_player;
-            const auto planting=walking?std::optional{playback_.planted}:std::nullopt;
+            const auto planting=walking?std::optional{foot_placement::PlantPhases{playback_.planted,playback_.plant_cycles}}:std::nullopt;
             const bool active=state.ground==lykoware::physics::GroundState::OnGround && (speed<0.2F||walking)
                 && player.camera().current_distance()>=0.5F;
             if (foot_->update(playback_.blended,placement,world,seconds,active,corrected_,reason,planting)) {
@@ -952,7 +954,7 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
     std::uint64_t frame = 0;
     while (window.pump()) {
         auto frame_zone = zone("sandbox.frame");
-        const std::int64_t lap = frame_clock.lap();
+        const std::int64_t lap = options.replay.empty()?frame_clock.lap():16666667;
         const float frame_seconds = static_cast<float>(static_cast<double>(lap) * 1e-9);
         if (player) {
             const lykoware::InputState& input = window.input();
@@ -978,7 +980,7 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
                 }
                 if (player_body) { player_body->reset_animation(); }
             }
-            player->steer(lykoware::read_player_intent(input, input_config, frame_seconds, window.relative_mouse()));
+            player->steer(options.replay.empty()?lykoware::read_player_intent(input, input_config, frame_seconds, window.relative_mouse()):options.replay[static_cast<std::size_t>(frame)]);
         }
         const lykoware::FrameSteps steps = simulation->advance(lap);
         {
@@ -1112,6 +1114,9 @@ int run_window(const std::vector<std::string>& args)
             flag(options.no_audio, option);
         } else if (option == "--play") {
             flag(options.play, option);
+        } else if (option == "--play-input") {
+            if(!options.play_input.empty()||index+1>=args.size()||args[index+1].empty()||args[index+1].starts_with("--")){throw std::invalid_argument("Duplicate or missing --play-input");}
+            options.play_input=args[++index];
         } else if (option == "--character-profile") {
             if (!options.character_profile.empty() || index + 1 >= args.size() || args[index + 1].empty() || args[index + 1].starts_with("--")) {
                 throw std::invalid_argument("Duplicate or missing --character-profile");
@@ -1172,6 +1177,12 @@ int run_window(const std::vector<std::string>& args)
     }
     if (options.dummy && options.vulkan) {
         throw std::invalid_argument("--dummy cannot host Vulkan; use --offscreen for a headless Vulkan window.");
+    }
+    if(!options.play_input.empty()){
+        if(!options.play||!options.offscreen||!options.vulkan){throw std::invalid_argument("--play-input requires --play --offscreen --vulkan");}
+        options.replay=player_replay::load(utf8_path(options.play_input));
+        if(options.has_frames&&options.frames!=options.replay.size()){throw std::invalid_argument("--frames must match expanded play replay");}
+        options.frames=options.replay.size();options.has_frames=true;
     }
     if ((options.dummy || options.offscreen) && !options.has_frames) {
         throw std::invalid_argument("--window --dummy or --offscreen requires --frames N so it can exit without a display.");
@@ -1303,6 +1314,7 @@ int run(const std::vector<std::string>& args)
                          "--no-audio runs --vulkan without sound.\n"
                          "--model FILE shows a glTF model (.gltf or .glb) beside the crates, with its\n"
                          "  base colour materials and textures (PNG or JPEG).\n"
+                         "--play-input FILE runs bounded version1 offscreen intents at60Hz; optional --frames must match.\n"
                          "--play with --vulkan puts a character on an obstacle course beside the crates,\n"
                          "  with a follow camera: WASD or the left stick to move, Shift or L3 to run,\n"
                          "  Space or South to jump, the mouse wheel or d-pad to zoom (in to first\n"

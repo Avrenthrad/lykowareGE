@@ -48,3 +48,14 @@ Owner's subsequent instruction explicitly expands the active work beyond the com
 - [ ] Real terrain/far-origin/rig/normal/smoothing/refusal and actual imported-render checks.
 - [ ] Independent review, clean integration build, full native matrix and exact-head hosted profiles.
 - [ ] Record verified branch evidence and the next actionable project requirement; leave integration/hardware parked.
+
+## Resumed owner request — finish the four listed work points
+
+Work resumes on #73 at the owner's instruction; #71 and #72 are already verified and remain unmerged. This run completes walking acceptance and reconciles #74's status snapshot; it does not lift the no-merge/main-push restriction or start ragdolls/new roadmap modules.
+
+- [x] Compile saved WIP and add real static/kinematic transport, stale/world-lifetime, phase, numeric and allocation checks.
+- [x] Test controller held/swing/reach-release/bilateral rollback and authored entry/wrap/reset/hidden lift-replant cycles.
+- [x] Exercise actual offscreen moving player through bounded input replay, direct/lyko parity and GPU-versus-CPU held-foot capture.
+- [ ] Independent review, clean build and full exact-source native/hosted matrix.
+- [ ] Reconcile STATUS, WORK_BOARD, master checklist, WIP history and #74 snapshot with verified evidence.
+- [ ] Commit/push all completed work; keep integration/hardware explicitly pending.

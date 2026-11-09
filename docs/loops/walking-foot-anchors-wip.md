@@ -1,4 +1,8 @@
-# Walking foot anchors — saved WIP, not verified
+# Walking foot anchors — saved WIP history and resumed acceptance
+
+The owner subsequently requested completion of the listed PR work. Implementation resumed on #73; see [walking runtime](../WALKING_FOOT_PLANTS.md) and [progress](engine-progress.md) for current behavior/checks. The original pause below describes only84d036b and must not override later verified evidence. Full review/native/hosted checks are still required before marking this resumed source verified.
+
+## Historical pause checkpoint
 
 Owner requested pausing development, committing all outstanding work and returning the primary checkout to main because of usage/connection conflicts. This file checkpoints the partial implementation without implying it is ready for integration.
 

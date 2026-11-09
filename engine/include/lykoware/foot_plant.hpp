@@ -4,35 +4,51 @@
 #include <string>
 namespace lykoware::animation {
 struct FootPlantPolicy {
-    double clearance=.03, max_distance=.35, max_slope_degrees=35;
+    double clearance = .03, max_distance = .35, max_slope_degrees = 35;
 };
 enum class FootPlantStatus { Unplanted, Planted, MissingSurface, TooSteep, SupportLost, TooFar };
 struct FootPlantResult {
     math::DVec3 target{};
-    math::Vec3 normal{0,1,0};
+    math::Vec3 normal{0, 1, 0};
     std::optional<physics::BodyId> support;
-    FootPlantStatus status=FootPlantStatus::Unplanted;
-    bool acquired=false, released=false;
-    [[nodiscard]] bool locked() const { return support.has_value(); }
+    FootPlantStatus status = FootPlantStatus::Unplanted;
+    bool acquired = false, released = false;
+    [[nodiscard]] bool locked() const
+    {
+        return support.has_value();
+    }
 };
 // ADR0067. Fixed-storage mutable presentation state; caller owns world/body lifetimes.
 // One writer; copies permit transactional staging. No heap storage on successful updates.
 class FootPlant {
 public:
-    [[nodiscard]] static std::optional<FootPlant> create(FootPlantPolicy policy,std::string& error);
+    [[nodiscard]] static std::optional<FootPlant> create(FootPlantPolicy policy, std::string& error);
     // Only a fresh plant edge probes/acquires. Failure/lost support suppresses until lift.
     // Holds body-local point/normal through current support motion. Invalid calls preserve
     // state/output; successful release is a normal result. Separate state per foot/actor.
-    [[nodiscard]] bool update(const physics::World& world,math::DVec3 animated_foot,bool planted,
-        FootPlantResult& out,std::string& error);
-    void reset() noexcept { support_.reset(); armed_=true; }
-    void release() noexcept { support_.reset(); armed_=false; }
+    [[nodiscard]] bool update(const physics::World& world, math::DVec3 animated_foot, bool planted,
+                              FootPlantResult& out, std::string& error);
+    [[nodiscard]] bool locked() const noexcept
+    {
+        return support_.has_value();
+    }
+    void reset() noexcept
+    {
+        support_.reset();
+        armed_ = true;
+    }
+    void release() noexcept
+    {
+        support_.reset();
+        armed_ = false;
+    }
+
 private:
-    FootPlant()=default;
+    FootPlant() = default;
     FootPlantPolicy policy_;
     std::optional<physics::BodyId> support_;
     math::DVec3 local_point_{};
-    math::Vec3 local_normal_{0,1,0};
-    bool armed_=true;
+    math::Vec3 local_normal_{0, 1, 0};
+    bool armed_ = true;
 };
-}
+} // namespace lykoware::animation

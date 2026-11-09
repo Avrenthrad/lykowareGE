@@ -149,6 +149,7 @@ struct Playback {
     animation::Pose target;
     std::unique_ptr<animation::GraphPlayer> graph_player;
     std::array<bool,2> planted{};
+    std::array<std::uint64_t,2> plant_cycles{};
     bool ready = false;
     bool used_fallback = false;
     std::string transition_error;
@@ -157,7 +158,7 @@ struct Playback {
     void reset() noexcept
     {
         idle_seconds = 0.F; walk_seconds = 0.F; walk_weight = 0.F;
-        selector = {}; ready = false; used_fallback = false; graph_player.reset(); planted={};
+        selector = {}; ready = false; used_fallback = false; graph_player.reset(); planted={}; ++plant_cycles[0]; ++plant_cycles[1];
     }
 
     void advance_character(const Asset& asset, float seconds, const lykoware::physics::CharacterState& state)
@@ -178,11 +179,11 @@ struct Playback {
                 parameters[i]=p.name=="speed"?speed:p.name=="grounded"?(grounded?1.F:0.F):p.name=="vertical_speed"?vertical_speed:p.initial;}
             const auto previous_state=graph_player->state();
             if(!graph_player->step(seconds,{parameters.data(),graph_player->graph().parameters.size()},transition_error)){throw std::invalid_argument(transition_error);}
-            if(graph_player->state()!=previous_state){planted={};}
+            if(graph_player->state()!=previous_state){planted={};++plant_cycles[0];++plant_cycles[1];}
             for(const auto& event:graph_player->events()){
                 const auto& name=graph_player->graph().states[event.state].events[event.event].name;
-                if(name=="left_plant"){planted[0]=true;}else if(name=="left_lift"){planted[0]=false;}
-                else if(name=="right_plant"){planted[1]=true;}else if(name=="right_lift"){planted[1]=false;}
+                if(name=="left_plant"){planted[0]=true;++plant_cycles[0];}else if(name=="left_lift"){planted[0]=false;++plant_cycles[0];}
+                else if(name=="right_plant"){planted[1]=true;++plant_cycles[1];}else if(name=="right_lift"){planted[1]=false;++plant_cycles[1];}
             }
             const auto pose=graph_player->pose();blended.assign(pose.begin(),pose.end());
             (void)selector.advance(seconds,speed,grounded,vertical_speed);
