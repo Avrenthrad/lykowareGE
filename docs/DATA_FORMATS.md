@@ -54,4 +54,4 @@ Optional character-profile `foot_align_normals`, `foot_max_slope_degrees`, `foot
 
 ## Authored walking plant phases and replay
 
-Character profiles optionally enable `foot_locking` and bounded `foot_max_plant_distance`. The shared graph carries plant/lift events; the offscreen sample accepts a strict version1 player-input replay. Formats, bounds and current limitations are in [WALKING_FOOT_PLANTS](WALKING_FOOT_PLANTS.md), ADR0067.
+Character profiles optionally enable `foot_locking` and bounded `foot_max_plant_distance`, and with locking `foot_heading_lock` and `foot_max_heading_degrees` (0–90, default 60; ADR 0068). The shared graph carries plant/lift events; the offscreen sample accepts a strict version1 player-input replay. Formats, bounds and current limitations are in [WALKING_FOOT_PLANTS](WALKING_FOOT_PLANTS.md), ADR0067.

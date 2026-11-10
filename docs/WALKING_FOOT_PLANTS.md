@@ -37,7 +37,7 @@ Marker placement/rate must fit the actual gait; no automatic gait inference exis
 
 While grounded, moving and visible, the sample applies IK only to planted legs; swing legs retain animation. Stationary playback uses the prior stance path. Material reach error above2mm releases a lock instead of stretching or claiming an unreachable target. At most two releases trigger bounded full bilateral retries; body/pose/contact/statistics commit together. Normal alignment and bounded pelvis behavior retain ADR0066's policy. Pelvis correction requires both contacts; single-foot phases do not add body balance. Air, invisibility, respawn, teleport and invalid/long-delta paths reset anchor state.
 
-Anchors hold position and surface normal, not toe heading. They follow support translation/rotation at the current physics state. Moving-support render interpolation, full foot-yaw locking, balance and production gait tuning remain separate work. Artist-calibrated clearance is initially vertical world height; the acquired support-local offset is thereafter rigidly transported with that body.
+Anchors hold position and surface normal. With `foot_heading_lock` they also hold the foot's heading (ADR 0068): the animated heading at the plant, flattened onto the support and carried with it, which the sample turns the foot back to about the support normal, by at most `foot_max_heading_degrees` (default 60). They follow support translation/rotation at the current physics state. Moving-support render interpolation, balance and production gait tuning remain separate work. Artist-calibrated clearance is initially vertical world height; the acquired support-local offset is thereafter rigidly transported with that body.
 
 ## Drive the actual player headlessly
 
