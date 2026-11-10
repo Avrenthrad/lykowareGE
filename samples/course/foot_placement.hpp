@@ -72,16 +72,18 @@ inline double dot(V a, V b)
 // A joint-local direction carried into model space by a joint's (unit-scale) global transform.
 inline V direction(const math::Mat4& m, V local)
 {
-    return {m.m[0][0] * local.x + m.m[1][0] * local.y + m.m[2][0] * local.z,
-            m.m[0][1] * local.x + m.m[1][1] * local.y + m.m[2][1] * local.z,
-            m.m[0][2] * local.x + m.m[1][2] * local.y + m.m[2][2] * local.z};
+    const auto e = [&m](std::size_t column, std::size_t row) { return static_cast<double>(m.m[column][row]); };
+    return {e(0, 0) * local.x + e(1, 0) * local.y + e(2, 0) * local.z,
+            e(0, 1) * local.x + e(1, 1) * local.y + e(2, 1) * local.z,
+            e(0, 2) * local.x + e(1, 2) * local.y + e(2, 2) * local.z};
 }
 // The joint-local direction that `model` (a model-space direction) has at a joint's rest transform.
 inline V local_direction(const math::Mat4& rest, V model)
 {
-    return {rest.m[0][0] * model.x + rest.m[0][1] * model.y + rest.m[0][2] * model.z,
-            rest.m[1][0] * model.x + rest.m[1][1] * model.y + rest.m[1][2] * model.z,
-            rest.m[2][0] * model.x + rest.m[2][1] * model.y + rest.m[2][2] * model.z};
+    const auto e = [&rest](std::size_t column, std::size_t row) { return static_cast<double>(rest.m[column][row]); };
+    return {e(0, 0) * model.x + e(0, 1) * model.y + e(0, 2) * model.z,
+            e(1, 0) * model.x + e(1, 1) * model.y + e(1, 2) * model.z,
+            e(2, 0) * model.x + e(2, 1) * model.y + e(2, 2) * model.z};
 }
 struct PlantPhases {
     std::array<bool, 2> planted;

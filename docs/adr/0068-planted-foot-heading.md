@@ -100,4 +100,4 @@ Proposed:
   - **settings:** a heading lock without locking accepted; the bound unchecked.
 
   One further mutation (not clearing the heading in `reset()`) has no observable effect, because a fresh plant resets the heading first.
-- **Local results:** the full preset runs follow in the next commit.
+- **Local results:** 83/83 pass in each of the Debug, ASan/UBSan and clang-tidy presets, with no skips. A GCC `-Wshadow -Wconversion -Wsign-conversion -Wold-style-cast -Wdouble-promotion` sweep finds nothing in the new code, after two float-to-double promotions in the sample's new direction helpers were made explicit.

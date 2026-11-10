@@ -12,7 +12,7 @@ Branch `claude/foot-heading-lock`, based on `main` after #74. [ADR 0068](adr/006
   - new `animation.foot_heading`: engine holding and carrying, refusals, a 30° body turn held within 0.05°, clamping, replanting, normal alignment kept on a slope, zero allocations over 1,000 updates;
   - the real imported-player walking replay runs with the lock on.
 - **Deliberate breaks:** 15 of 15 real faults caught. The first run missed a heading kept in world rather than support coordinates (the turning support started unrotated); the test now plants on an already-turned support. One further mutation (not clearing the heading in `reset()`) has no observable effect, because a fresh plant resets it first.
-- **Local checks:** the touched tests pass in Debug; the full presets follow in the next commit.
+- **Local checks:** 83/83 pass in each of the Debug, ASan/UBSan and clang-tidy presets, with no skips. A GCC `-Wshadow -Wconversion -Wsign-conversion -Wold-style-cast -Wdouble-promotion` sweep finds nothing in the new code (two float-to-double spots in the new direction helpers were fixed).
 - **Still open in 02.11c:** moving-support render interpolation (next).
 
 ## Animation stack integrated — #71, #72 and #73 merged (10 November 2026)
