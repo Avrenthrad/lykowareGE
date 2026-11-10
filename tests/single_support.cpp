@@ -195,6 +195,26 @@ void test_step_down()
           "past the bound the plant is let go and the pelvis stays within 0.15 m: " + std::to_string(bounded.pelvis_offset()));
 }
 
+void test_bent_legs()
+{
+    // With bent legs the planted leg reaches the lower ground without any drop, so the pelvis
+    // eases down toward the planted foot's own depth (8 cm) by smoothing alone.
+    std::string error;
+    const auto asset = stance_fixture::make();
+    auto world = split_ground(.08);
+    foot_placement::Placement actor;
+    const auto bent = crouched(asset.skeleton, actor);
+    foot_placement::Controller single;
+    check(single.configure(asset.skeleton, roles, error, .03, walking_settings(true)), "bent-leg controller prepares");
+    a::Pose output;
+    bool ran = true;
+    for (int i = 0; i < 60; ++i) {
+        ran = single.update(bent, actor, *world, .02F, true, output, error, foot_placement::PlantPhases{{true, false}}) && ran;
+    }
+    check(ran && single.stats().released == 0 && std::abs(single.pelvis_offset() + .08) < 2e-3,
+          "with slack in the leg the pelvis eases to the planted foot's depth: " + std::to_string(single.pelvis_offset()));
+}
+
 void test_unchanged_elsewhere()
 {
     std::string error;
@@ -228,6 +248,32 @@ void test_unchanged_elsewhere()
         check(same && with.stats().single_support == 0,
               walking ? "with both feet planted the result is exactly as before" : "standing still the result is exactly as before");
     }
+    // Standing at a ledge with one foot over nothing: still exactly as before.
+    std::string ledge_error;
+    auto ledge = p::World::create({}, ledge_error);
+    p::BodyDesc box;
+    box.motion = p::MotionType::Static;
+    box.shape = p::BoxShape{{1, .5F, 2}};
+    box.position = {1, -.58, 0}; // only the right foot has ground, 8 cm down
+    check(ledge && ledge->create_body(box, ledge_error), "the ledge is built");
+    foot_placement::Controller with;
+    foot_placement::Controller without;
+    check(with.configure(asset.skeleton, roles, error, .03, walking_settings(true)) &&
+              without.configure(asset.skeleton, roles, error, .03, walking_settings(false)),
+          "ledge controllers prepare");
+    a::Pose x;
+    a::Pose y;
+    bool same = true;
+    for (int i = 0; i < 30; ++i) {
+        same = with.update(rest, actor, *ledge, .02F, true, x, error) && without.update(rest, actor, *ledge, .02F, true, y, error) &&
+               same;
+        for (std::size_t j = 0; j < x.size(); ++j) {
+            same = same && x[j].translation.y == y[j].translation.y && x[j].rotation.x == y[j].rotation.x &&
+                   x[j].rotation.w == y[j].rotation.w;
+        }
+    }
+    check(same && with.stats().single_support == 0 && with.stats().swing_held == 0 && with.stats().contacts > 0,
+          "standing at a ledge on one foot is exactly as before");
 }
 
 void test_allocations()
@@ -293,6 +339,7 @@ void test_settings()
 int main()
 {
     test_step_down();
+    test_bent_legs();
     test_unchanged_elsewhere();
     test_allocations();
     test_settings();

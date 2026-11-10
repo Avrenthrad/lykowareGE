@@ -66,12 +66,17 @@ Proposed:
   - the left foot planted on the lower side reaches it from the first frame (within 2 mm) and is never let go; the pelvis drops about 8 cm;
   - the swing foot keeps its animated place (within 0.1 mm);
   - positive control: with two-foot pelvis only, the plant is let go and the pelvis does not move;
+  - with bent legs (slack to reach), the pelvis eases to the planted foot's own depth by smoothing;
   - mirrored for the right foot;
   - a 30 cm step: the plant is let go and the pelvis stays within 15 cm;
-  - with bent legs, both feet planted and standing still give exactly the same poses with and without the key;
+  - with bent legs, both feet planted and standing still give exactly the same poses with and without the key; so does standing at a ledge with one foot over nothing;
   - 1,000 updates allocate nothing;
   - settings and profile refusals.
 - **`sandbox.imported_player`:** the real walking replay runs with the key on and reports the counts, with no failures; profiles with the key but no pelvis, no locking, or a non-boolean value are refused.
 - **`character.inspect_cli`:** reports `single_support`.
-- **Deliberate breaks:** the sweep runs next; results follow in the next commit.
-- **Local results:** the full Debug suite passes (85/85); the other presets follow in the next commit.
+- **Deliberate breaks:** 12 of 12 real faults caught:
+  - **controller (10):** single support never on; on while standing too (first missed; the ledge test now covers it); the depth of the wrong foot (first missed, hidden by the reach floor on straight legs; the bent-leg test now covers it); no immediate reach floor; the floor ignoring the bound; the swing foot not held; the swing foot held after the drop; the hip of the other leg; the two counts not kept;
+  - **settings and inspection (2):** single support accepted without pelvis or locking; the inspection field missing.
+
+  One further mutation (the profile key accepted without `foot_pelvis`) has no observable effect: the shared settings check then refuses the profile with the same message.
+- **Local results:** 85/85 pass in each of the Debug, ASan/UBSan and clang-tidy presets, with no skips; the two tests added after the sweep pass in all three.
