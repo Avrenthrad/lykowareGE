@@ -690,7 +690,7 @@ public:
                 +" planted="+std::to_string(s.planted)+" released="+std::to_string(s.released)
                 +" oriented="+std::to_string(s.oriented)+" slope_rejected="+std::to_string(s.slope_rejected)+" pelvis_frames="+std::to_string(s.pelvis_frames)
                 +" headed="+std::to_string(s.headed)+" heading_clamped="+std::to_string(s.heading_clamped)
-                +" drawn="+std::to_string(s.drawn)+" drawn_offered="+std::to_string(drawn_offered_frames_)
+                +" single_support="+std::to_string(s.single_support)+" swing_held="+std::to_string(s.swing_held)+" drawn="+std::to_string(s.drawn)+" drawn_offered="+std::to_string(drawn_offered_frames_)
                 +" failures="+std::to_string(foot_failures_)+" applied_frames="+std::to_string(foot_applied_frames_));
         }
     }

@@ -97,7 +97,7 @@ struct PlantPhases {
 struct Stats {
     std::uint64_t frames = 0, contacts = 0, misses = 0, clamped = 0, resets = 0, oriented = 0,
                   slope_rejected = 0, pelvis_frames = 0, planted = 0, released = 0, headed = 0, heading_clamped = 0,
-                  drawn = 0;
+                  drawn = 0, single_support = 0, swing_held = 0;
 };
 class Controller {
 public:
@@ -124,6 +124,7 @@ public:
         // Heading lock (ADR 0068): the foot's model -Z, a horizontal reference at right angles to its
         // up axis (model +Y), is what a planted foot keeps pointing along its held heading.
         std::array<V, 2> local_reference{};
+        std::array<double, 2> leg_length{};
         double shorter_leg = std::numeric_limits<double>::max();
         for (std::size_t side = 0; side < 2; ++side) {
             const std::size_t leg = side == 0 ? 1 : 4;
@@ -135,9 +136,9 @@ public:
                 }
             }
             local_reference[side] = local_direction(fk[roles[leg + 2]], {0, 0, -1});
-            shorter_leg =
-                std::min(shorter_leg, norm(position(fk[roles[leg + 1]]) - position(fk[roles[leg]])) +
-                                          norm(position(fk[roles[leg + 2]]) - position(fk[roles[leg + 1]])));
+            leg_length[side] = norm(position(fk[roles[leg + 1]]) - position(fk[roles[leg]])) +
+                               norm(position(fk[roles[leg + 2]]) - position(fk[roles[leg + 1]]));
+            shorter_leg = std::min(shorter_leg, leg_length[side]);
         }
         std::array<std::optional<animation::FootPlant>, 2> plants{};
         if (settings.locking) {
@@ -162,6 +163,7 @@ public:
         local_reference_ = local_reference;
         plants_ = std::move(plants);
         shorter_leg_ = shorter_leg;
+        leg_length_ = leg_length;
         ready_ = true;
         reset();
         stats_ = {};
@@ -246,11 +248,13 @@ public:
         std::array<bool, 2> contact{};
         std::array<std::optional<V>, 2> headings{};
         std::array<V, 2> support_normals{};
+        std::array<V, 2> animated{};
         const double alpha = 1.0 - std::exp(-12.0 * seconds);
         const double maximum_angle = settings_.max_slope_degrees * std::numbers::pi / 180.0;
         for (std::size_t side = 0; side < 2; ++side) {
             const std::size_t leg = side == 0 ? 1 : 4;
             const V foot = to_world(actor, position(fk_[roles_[leg + 2]]));
+            animated[side] = foot;
             constexpr double ray_limit = static_cast<double>(std::numeric_limits<float>::max()) / 4.0;
             if (!finite(foot) || std::abs(foot.x) > ray_limit || std::abs(foot.y) > ray_limit ||
                 std::abs(foot.z) > ray_limit) {
@@ -366,11 +370,28 @@ public:
             stats = probes;
             pelvis = pelvis_drop_;
 
-            if (settings_.pelvis && contact[0] && contact[1]) {
+            // Single support (ADR 0070): walking with exactly one foot planted, the pelvis follows
+            // that foot alone, so its leg reaches lower ground instead of letting go.
+            const bool single = settings_.single_support && walking && contact[0] != contact[1];
+            if (settings_.pelvis && ((contact[0] && contact[1]) || single)) {
                 const double bound =
                     std::min(settings_.max_pelvis_drop, shorter_leg_ * actor.uniform_scale * .25);
-                const double wanted = std::clamp(std::min(desired[0], desired[1]), -bound, 0.0);
+                const double lowest = single ? desired[contact[0] ? 0 : 1] : std::min(desired[0], desired[1]);
+                const double wanted = std::clamp(lowest, -bound, 0.0);
                 pelvis = std::clamp(pelvis + alpha * (wanted - pelvis), -bound, 0.0);
+                if (single) {
+                    // At once at least as low as the planted leg needs to reach its anchor, so a
+                    // fresh plant on lower ground is not let go while the smoothing catches up.
+                    const std::size_t planted = contact[0] ? 0 : 1;
+                    const V hip = to_world(actor, position(fk_[roles_[planted == 0 ? 1 : 4]]));
+                    const V gap = hip - targets[planted];
+                    const double reach = leg_length_[planted] * actor.uniform_scale;
+                    const double across = gap.x * gap.x + gap.z * gap.z;
+                    if (reach * reach > across) {
+                        const double needed = gap.y - std::sqrt(reach * reach - across);
+                        pelvis = std::clamp(std::min(pelvis, -needed), -bound, 0.0);
+                    }
+                }
                 const auto model_delta = scale(rotate(math::conjugate(actor.rotation), V{0, pelvis, 0}),
                                                1.0 / actor.uniform_scale);
                 math::Quat parent{};
@@ -389,6 +410,9 @@ public:
                                                        static_cast<float>(local_delta.z)};
                 if (pelvis < 0) {
                     ++stats.pelvis_frames;
+                    if (single) {
+                        ++stats.single_support;
+                    }
                 }
             } else {
                 pelvis = 0;
@@ -396,6 +420,21 @@ public:
             bool retry = false;
             for (std::size_t side = 0; side < 2; ++side) {
                 if (!contact[side]) {
+                    // The swing foot keeps its animated place while the pelvis is lowered for the
+                    // planted one; only its knee bends more.
+                    if (single && pelvis < 0) {
+                        const std::size_t leg = side == 0 ? 1 : 4;
+                        const V pole = position(fk_[roles_[leg + 1]]) + V{0, 0, -0.5};
+                        animation::TwoBoneSolution swing;
+                        if (!prepared_[side]->apply(candidate_, to_model(actor, animated[side]), pole, scratch_,
+                                                    candidate_, swing, error)) {
+                            return false;
+                        }
+                        ++stats.swing_held;
+                        if (swing.target_clamped) {
+                            ++stats.clamped;
+                        }
+                    }
                     continue;
                 }
                 const std::size_t leg = side == 0 ? 1 : 4;
@@ -479,6 +518,7 @@ public:
 
 private:
     double clearance_ = 0.03, pelvis_drop_ = 0, shorter_leg_ = 0;
+    std::array<double, 2> leg_length_{};
     lykoware::character::FootSettings settings_;
     std::array<std::optional<animation::PreparedJointAxis>, 2> axes_{};
     std::array<V, 2> local_reference_{};
