@@ -1,5 +1,18 @@
 # Shared work board
 
+## Animation stack integrated — #71, #72 and #73 merged (10 November 2026)
+
+At the owner's request, Claude reviewed #71–#74, re-verified the integrated stack and merged it in dependency order:
+
+- #71 authored playback, events, sockets and retargeting: merged as `35ad909` (head `7197587`, hosted run 42481306674).
+- #72 stationary foot orientation and bounded pelvis compensation: merged as `58e170e` (head `e21f797`, hosted run 42485289763).
+- #73 walking foot anchors and deterministic player replay: merged as `6cabcf3` (head `36460d8`, hosted run 42544150921).
+- #74, this documentation checkpoint, merged after them.
+
+Every exact head had passed all five hosted checks. The integrated tree, identical to `main` at `6cabcf3`, passed 82/82 in each local Linux profile (Debug, ASan/UBSan, clang-tidy 18) with no failures. The review found no blocking issues. [Project checkpoint](PROJECT_CHECKPOINT.md) records the merged stack and the open gates. ADRs 0065–0067 remain Proposed. Physical RTX 4070 measurements, Windows desktop behavior, calibrated budgets and the owner's feel review remain open.
+
+Older entries below are historical records of their named commits.
+
 ## Walking and stationary constraints — verified, unmerged
 
 Owner-requested completion of the listed PR tasks is finished. #71 (`7197587`,79/79 each native profile) and #72 (`e21f797`,81/81 each) retain their reviewed five-profile CI evidence. #73 now adds verified support-local walking anchors, cycle/reset handling, bounded reach release, transactional bilateral correction, strict real player replay and `lyko run --` forwarding. Main remains `9555fea`; dependency order is #71 → #72 → #73. #74 reconciles the main-based documentation checkpoint. No merge/main push was performed.

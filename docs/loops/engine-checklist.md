@@ -17,9 +17,9 @@ Authoritative architecture: [AGENTS](../../AGENTS.md), [CONTRIBUTING](../../CONT
 | 02.05-crossfade interruption | Verified/merged #68 | animation.crossfade, including new atomic retarget refusal |
 | 02.06 turning/terrain | Verified/merged #70 | player.turning/player.course; source 0487221, 77/77 each native and all five CI profiles |
 | 02.07 motion authority | Verified/merged #70 | ADR 0064, player.turning profile refusal and physics preservation |
-| 02.08 reusable authored configuration | Verified on #71; unmerged | animation.authored (ordered/min-age edges, interruption, all six checked-in authored states, real controller integration); animation.replay_cli; actual sandbox.imported_player with profile graph |
-| 02.09 events/sockets | Verified on #71; unmerged | animation.authored interval/wrap/non-loop/partition/capacity/posed socket tests; animation.replay_cli real glTF; sandbox evaluates final post-IK sockets |
-| 02.10 supported retarget | Verified on #71; unmerged | animation.authored root basis/scale/target length/permuted indices/overlap/256-joint/refusals; animation.replay_cli source-to-target glTF and socket transfer |
+| 02.08 reusable authored configuration | Verified on #71; merged `35ad909` | animation.authored (ordered/min-age edges, interruption, all six checked-in authored states, real controller integration); animation.replay_cli; actual sandbox.imported_player with profile graph |
+| 02.09 events/sockets | Verified on #71; merged `35ad909` | animation.authored interval/wrap/non-loop/partition/capacity/posed socket tests; animation.replay_cli real glTF; sandbox evaluates final post-IK sockets |
+| 02.10 supported retarget | Verified on #71; merged `35ad909` | animation.authored root basis/scale/target length/permuted indices/overlap/256-joint/refusals; animation.replay_cli source-to-target glTF and socket transfer |
 | 02.11a analytical two-bone geometry | Verified #62→#65 | animation.two_bone_ik, animation.prepared_ik, final suite |
 
 ## Integration and final gates

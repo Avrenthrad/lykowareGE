@@ -15,12 +15,12 @@ Joshua requested the next 15 steps from the pinned master checklist. This select
 | 9 | 02.05-crossfade | Interruptible generic crossfade; #68, allocation/interruption/transaction tests | Verified/merged |
 | 10 | 02.06 | Turning/terrain behavior and real slope/step/uneven-ground course; #70, 77/77 each native + five CI profiles | Verified/merged |
 | 11 | 02.07 | ADR 0064 / #70 explicit controller authority, profile refusals and unchanged physics | Verified/merged |
-| 12 | 02.08 | Owned authored graph; native/sandbox/CPU replay; #71, 79/79 each native + five CI profiles | Verified on branch; unmerged |
-| 13 | 02.09 | Interval/wrap/partition/capacity events, posed/retargeted/post-IK sockets; #71 | Verified on branch; unmerged |
-| 14 | 02.10 | Prepared strict-subset transfer; root basis/scale, target lengths, reordered/overlapping/256-joint poses, refusals; #71 | Verified on branch; unmerged |
+| 12 | 02.08 | Owned authored graph; native/sandbox/CPU replay; #71, 79/79 each native + five CI profiles | Verified/merged (#71 `35ad909`) |
+| 13 | 02.09 | Interval/wrap/partition/capacity events, posed/retargeted/post-IK sockets; #71 | Verified/merged (#71 `35ad909`) |
+| 14 | 02.10 | Prepared strict-subset transfer; root basis/scale, target lengths, reordered/overlapping/256-joint poses, refusals; #71 | Verified/merged (#71 `35ad909`) |
 | 15 | 02.11a | Two-bone geometry reference; #62 → #65, analytical/varied/mutant checks, later matrix verified | Verified/merged |
 
-Progress: **12/15 verified and merged; final 3 verified on #71, intentionally unmerged.** The latest owner loop instructions prohibit merges or pushes to main. Those three master rows remain unchecked until integration is allowed. Runtime `bb47ca7` passed all five hosted profiles and 79/79 each local Linux Debug/sanitizers/analysis, zero skips; clean rebuild, install and staged CLI passed. Independent reviewer recheck found no blocking findings. See [requirement map](loops/engine-checklist.md) and [loop progress](loops/engine-progress.md). This is a completed runtime implementation with a pending integration gate, not a claim that the complete 15-item merged milestone or broad phase is accepted.
+Progress: **15/15 verified and merged.** The final three (02.08–02.10, #71) were merged at the owner's request on 10 November 2026 as `35ad909`, after the integrated #71 → #72 → #73 tree passed 82/82 in each local Linux profile and every head had passed all five hosted checks. See [requirement map](loops/engine-checklist.md) and [loop progress](loops/engine-progress.md). This completes the selected batch; it does not accept the broad phase, hardware or owner-feel gates.
 
 
 ## Deferred owner/manual list
