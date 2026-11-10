@@ -94,5 +94,10 @@ Proposed:
   - **settings and profiles:** the bounds, the foot-locking requirement and the profile keys.
 - **`sandbox.imported_player`:** the real imported-player walking replay with `foot_heading_lock` runs with `headed` above 0 and no failures. Profiles with a heading lock but no locking, a bound of 91, or a bound without the lock are refused.
 - **`character.inspect_cli`:** reports the new policy fields.
-- **Deliberate breaks:** sweep in progress; results follow in the next commit.
+- **Deliberate breaks:** 15 of 15 real faults caught:
+  - **engine:** no projection onto the surface; the heading kept in world coordinates (first missed; the test now plants on an already-turned support); the held heading not carried by the support; the animated heading followed while held; non-finite headings accepted; a heading along the normal kept;
+  - **controller:** the heading not applied; the twist reversed; the twist unbounded; turning about model up instead of the support normal; the parent rotation ignored; the wrong reference axis; the stats not counted;
+  - **settings:** a heading lock without locking accepted; the bound unchecked.
+
+  One further mutation (not clearing the heading in `reset()`) has no observable effect, because a fresh plant resets the heading first.
 - **Local results:** the full preset runs follow in the next commit.
