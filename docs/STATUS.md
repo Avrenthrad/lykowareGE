@@ -1,8 +1,8 @@
 # Lykoware status
 
-## One-foot pelvis — 02.11d single support (Claude, in review)
+## One-foot pelvis — 02.11d single support (merged with #77, 10 November 2026)
 
-Branch `claude/single-support-pelvis`, based on `main` after #76. [ADR 0070](adr/0070-single-support-pelvis.md) (Proposed). The owner chose this part of 02.11d first.
+Branch `claude/single-support-pelvis`, reviewed and merged at the owner's request; all five hosted checks passed. [ADR 0070](adr/0070-single-support-pelvis.md) (Proposed). The owner chose this part of 02.11d first.
 
 - **What:** while walking with one foot planted, the pelvis now drops so that leg reaches lower ground (a step down, a downhill stride) instead of letting the plant go.
   - Smoothed toward the planted foot's depth, and at once at least as low as its leg needs to reach, within the existing pelvis bound.
