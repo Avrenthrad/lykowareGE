@@ -1,8 +1,10 @@
 # Engine loop progress
 
-## Resume point — 8 November 2026
+## Active continuation — terrain foot constraints
 
-Branch `codex/authored-animation-runtime`, PR [#71](https://github.com/Avrenthrad/lykowareGE/pull/71), base #70 `9555fea`. Verified runtime commit `bb47ca7dc3433b3cdbe55d27abbeb050f1bb4a6c`; final handoff commits change documentation only. Scope and acceptance: [engine-checklist](engine-checklist.md). **PARTIAL: 12/15 integrated; final three runtime requirements verified, deliberately unmerged under the latest owner constraint.** No unresolved code/review blocker remains. Next action is integration only when the owner changes that restriction, followed separately by deferred physical-PC/feel acceptance. Do not start future roadmap features in this loop.
+Owner explicitly expanded scope to continue the overall project and park matters needing later attention. Previous 15-item runtime batch remains verified on #71 and unmerged. Active branch `codex/terrain-foot-constraints`, base #71 `7197587`, ADR0066. Current task: read-only physics surface normals, prepared ankle-axis alignment, opt-in stationary slope orientation and bounded pelvis compensation, actual profile/sample integration and meaningful terrain tests. [Deferred ledger](deferred.md) preserves integrations/manual gates; no merge or main push.
+
+Iteration4 starts by reproducing missing normal/orientation/pelvis behavior (current RayHit has no normal; controller only corrects vertical foot height). Implement minimum complete APIs/callers, then focused/native/hosted checks and independent review. Prior loop used3/20 iterations; continue within the remaining allowance. No need to repeat already-passed #71 tests unless affected.
 
 
 ## Iteration 1 — establish current milestone and reproduce missing integrations
@@ -58,3 +60,21 @@ LD_LIBRARY_PATH=/workspace/phase1-system/mesa/usr/lib/x86_64-linux-gnu VK_DRIVER
 Fresh output directories are required for reruns. After recording this evidence, the documentation-only handoff tip is validated with the same three-preset command and fresh output `/workspace/lykoware-animation-handoff-validation`; check its report for exact final commit/fingerprint and the latest #71 five-profile CI. `git diff bb47ca7 HEAD -- engine samples tests tools CMakeLists.txt` must be empty: the clean verified runtime is unchanged. Markdown links and final diff are reviewed, with no generated/third-party asset output committed.
 
 Iterations used: **3/20**. One hosted analysis finding was corrected, no repeated blocker exceeded the three-attempt limit. All actionable runtime work in the agreed batch is complete and verified. The remaining milestone gate is deliberately pending integration because the owner expressly prohibited merges; no permission request is needed to respect that instruction. Deferred GPU/VRAM/frame pacing/owner feel remain unverified and are not checked off.
+
+## Iteration 4 — stationary surface orientation and pelvis constraints
+
+Added owned RayHit normal data using the actual Jolt hit subshape and a read lock; camera/other ray callers retain existing fields. Added prepared, overlap-safe calibrated joint-axis alignment with bounded shortest-arc correction and reusable scratch. Real profile/sandbox paths opt into slope-normal smoothing/rejection and a leg-length/authored-bound visual pelvis drop; bilateral output/persistent state remains transactional, with no simulation writes.
+
+Regression discovery: exact antiparallel alignment exposed an existing `between` helper that assigned float `hypot` results to double despite its double-normalization comment. Explicit double inputs fix the lost direction precision; both reference/prepared two-bone suites and the new antiparallel regression pass. A first heightfield assertion compared against uncompressed sample slopes at too-tight tolerance. Replaced that expectation with an independent geometric cross-product of neighboring real ray hit points on the compressed triangle; retained nominal-slope stance tolerance. No checks were removed/weakened to hide behavior.
+
+Focused Debug checks: 8/8 pass (joint-axis, terrain stance, existing geometry/prepared/placement, far-origin physics, CPU inspection and actual imported Vulkan playback). `render.gpu_skinning` passes separately, including the original stance mesh, actual Jolt slope/controller and GPU-vs-CPU pixel reference. Visually inspected `build/linux-debug/gpu-skinning/terrain-stance.ppm`: rest left, corrected feet/pelvis right; no exploding geometry. Both new fixtures record 1,000 successful updates with zero ordinary C++ allocations after setup and positive allocation controls. Heightfield/slope/missing/steep contacts, parent-local pelvis transforms, far-origin/yaw/scale, drop bounds/resets and bilateral refusal are covered.
+
+Commands: `cmake --preset linux-debug`; `cmake --build --preset linux-debug -j2`; with recorded Mesa driver variables, `ctest --preset linux-debug -R 'animation.joint_axis|animation.terrain_stance|animation.foot_placement|animation.two_bone_ik|animation.prepared_ik|physics.far_from_origin|sandbox.imported_player|character.inspect_cli' --output-on-failure`, then `ctest --preset linux-debug -R '^render.gpu_skinning$' --output-on-failure`. Logs `/workspace/terrain-stance-build.log`, `terrain-stance-focused.log`, `terrain-stance-render.log`.
+
+Current source needs independent review, clean integration build and all native/hosted profiles before verification is recorded. Remaining overall work is still actionable; continue to walking planting/locks after this module is verified, leaving integrations/manual gates in deferred.md. Iteration count4/20.
+
+## Iteration 5 — independent FK review correction
+
+Reviewer found one P2 issue on `127e836`: prepared ankle verification used normalized quaternion accumulation while rendering uses raw pose FK matrices. A parent quaternion with norm1.0009 passes the existing near-unit tolerance but can cause rendered-axis error0.00127269, greater than the1e-4 verification tolerance. Corrected the final check to normalize the actual global matrix applied to the calibrated local axis, and added a near-unit-parent refusal/unchanged-output regression plus normalized-parent success. This preserves all caller outputs/diagnostics on inconsistency. Independent static review found no other blockers in pelvis/bilateral/normal/profile/sample integration. Added inside-solid ray-hit regression to protect the camera/query baseline.
+
+Corrections were staged in a separate worktree while the initial unchanged-source clean build/matrix ran; do not claim initial127e836 evidence for corrected source. Focused/full native and hosted checks on the corrected commit remain required. Iteration5/20.

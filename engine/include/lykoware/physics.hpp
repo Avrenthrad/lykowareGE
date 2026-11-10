@@ -135,6 +135,8 @@ struct RayHit {
     // Fraction of the ray's length at which it hits, in [0, 1].
     float fraction = 0.F;
     DVec3 point;
+    // Read-only world-space geometric surface normal, unit length.
+    Vec3 normal;
 };
 
 struct WorldConfig {

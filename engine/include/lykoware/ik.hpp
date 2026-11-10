@@ -43,6 +43,7 @@ struct TwoBoneSolution {
 // call; contents are private and unspecified after a call. No heap storage.
 class TwoBoneScratch {
     friend class PreparedTwoBone;
+    friend class PreparedJointAxis;
     std::array<JointPose, max_joints> candidate_{};
     std::array<math::Mat4, max_joints> global_{};
     std::array<math::Quat, max_joints> rotations_{};
@@ -69,5 +70,31 @@ private:
     std::array<std::uint16_t, max_joints> parents_{};
     std::size_t count_ = 0, root_ = 0, knee_ = 0, end_ = 0;
     double upper_ = 0.0, lower_ = 0.0;
+};
+struct JointAxisSolution {
+    math::Vec3 model_axis{};
+    double applied_angle = 0;
+    bool clamped = false;
+};
+// ADR0066. Owns topology and a rest-calibrated local axis; unit-scale poses only.
+// Pure presentation operation: only this joint's local rotation changes. Descendants follow.
+// Separate scratch per concurrent caller; immutable plan retains no skeleton references.
+class PreparedJointAxis {
+public:
+    [[nodiscard]] static std::optional<PreparedJointAxis>
+    prepare(const Skeleton& skeleton, std::size_t joint, math::DVec3 rest_model_axis, std::string& error);
+    // Align toward target in model space, at most maximum_angle radians (0..pi).
+    // Complete spans may overlap. Output/solution commit only after FK validation.
+    // Successful calls allocate no heap storage; failure strings may allocate.
+    [[nodiscard]] bool apply(std::span<const JointPose> pose, math::DVec3 target_axis, double maximum_angle,
+                             TwoBoneScratch& scratch, std::span<JointPose> out, JointAxisSolution& solution,
+                             std::string& error) const;
+
+private:
+    PreparedJointAxis() = default;
+    [[nodiscard]] bool evaluate(TwoBoneScratch& scratch, std::string& error) const;
+    std::array<std::uint16_t, max_joints> parents_{};
+    std::size_t count_ = 0, joint_ = 0;
+    math::Vec3 local_axis_{};
 };
 }

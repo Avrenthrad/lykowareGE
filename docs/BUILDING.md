@@ -251,3 +251,7 @@ The sample uses bounded facing at 720 degrees/s, interpolated between fixed tick
 ### Authored animation checks
 
 See [ANIMATION_RUNTIME](ANIMATION_RUNTIME.md) for JSON configuration and `lyko animate-character --model FILE --graph FILE --inputs FILE [--target-model FILE]`. This command works without Vulkan. `animation.authored` exercises graph transitions, interval events, sockets, retargeting and allocation reuse; `animation.replay_cli` exercises actual glTF loading and replay. Optional character-profile `animation_graph` enables the same runtime in the sandbox.
+
+### Terrain stance verification
+
+`animation.joint_axis` and `animation.terrain_stance` verify read-only normals, bounded ankle/pelvis corrections, real terrain, transaction/reset behavior and allocation reuse. `render.gpu_skinning` also saves `gpu-skinning/terrain-stance.ppm` and compares corrected-pose GPU pixels against CPU deformation. Actual imported profile playback covers the same settings. See [TERRAIN_STANCE](TERRAIN_STANCE.md).

@@ -1,6 +1,7 @@
 #include <lykoware/ik.hpp>
 #include <algorithm>
 #include <cmath>
+#include <numbers>
 #include <utility>
 #include <vector>
 
@@ -104,8 +105,8 @@ math::Quat between(math::Vec3 a, math::Vec3 b)
 {
     // Re-normalise in double: a float dot product can round near-opposite directions to
     // exactly -1, losing a small but visible correction at the end of the limb.
-    const double na = std::hypot(a.x,a.y,a.z);
-    const double nb = std::hypot(b.x,b.y,b.z);
+    const double na = std::hypot(static_cast<double>(a.x),static_cast<double>(a.y),static_cast<double>(a.z));
+    const double nb = std::hypot(static_cast<double>(b.x),static_cast<double>(b.y),static_cast<double>(b.z));
     const math::DVec3 x{a.x/na,a.y/na,a.z/na};
     const math::DVec3 y{b.x/nb,b.y/nb,b.z/nb};
     const double cosine = std::clamp(dot(x,y), -1.0, 1.0);
@@ -220,9 +221,10 @@ std::optional<PreparedTwoBone> PreparedTwoBone::prepare(const Skeleton& skeleton
     return plan;
 }
 
-bool PreparedTwoBone::valid_pose(std::span<const JointPose> pose, std::string& error) const
+namespace {
+bool valid_prepared_pose(std::span<const JointPose> pose,std::size_t count,std::string& error)
 {
-    if (pose.size() != count_) { return refuse(error, "Prepared IK requires a complete pose"); }
+    if (pose.size() != count) { return refuse(error, "Prepared IK requires a complete pose"); }
     for (const auto& joint : pose) {
         const auto t = joint.translation;
         const auto q = joint.rotation;
@@ -235,6 +237,12 @@ bool PreparedTwoBone::valid_pose(std::span<const JointPose> pose, std::string& e
     }
     error.clear();
     return true;
+}
+
+}
+bool PreparedTwoBone::valid_pose(std::span<const JointPose> pose,std::string& error) const
+{
+    return valid_prepared_pose(pose,count_,error);
 }
 
 bool PreparedTwoBone::evaluate(TwoBoneScratch& scratch, std::string& error) const
@@ -293,5 +301,107 @@ bool PreparedTwoBone::apply(std::span<const JointPose> pose, math::DVec3 target,
     }
     std::copy_n(scratch.candidate_.begin(), count_, out.begin());
     solution = solved; error.clear(); return true;
+}
+std::optional<PreparedJointAxis> PreparedJointAxis::prepare(const Skeleton& skeleton, std::size_t joint,
+                                                            V axis, std::string& error)
+{
+    if (!valid_skeleton(skeleton, error)) {
+        return std::nullopt;
+    }
+    if (joint >= skeleton.joints.size() || !finite(axis) || !(length(axis) > 0) ||
+        !std::isfinite(length(axis))) {
+        refuse(error, "Invalid joint or rest-model axis");
+        return std::nullopt;
+    }
+    PreparedJointAxis plan;
+    plan.count_ = skeleton.joints.size();
+    plan.joint_ = joint;
+    std::array<math::Quat, max_joints> rotations{};
+    for (std::size_t i = 0; i < plan.count_; ++i) {
+        const auto& j = skeleton.joints[i];
+        if (j.rest.scale != math::Vec3{1, 1, 1}) {
+            refuse(error, "Joint-axis alignment requires unit rest scales");
+            return std::nullopt;
+        }
+        plan.parents_[i] = j.parent.value_or(static_cast<std::uint16_t>(max_joints));
+        rotations[i] = math::normalize(j.parent ? rotations[*j.parent] * j.rest.rotation : j.rest.rotation);
+    }
+    TwoBoneScratch rest_scratch;
+    for (std::size_t i = 0; i < plan.count_; ++i) {
+        rest_scratch.candidate_[i] = skeleton.joints[i].rest;
+    }
+    if (!plan.evaluate(rest_scratch, error)) {
+        return std::nullopt;
+    }
+    plan.local_axis_ = math::normalize(math::rotate(math::conjugate(rotations[joint]), unit(axis)));
+    error.clear();
+    return plan;
+}
+bool PreparedJointAxis::evaluate(TwoBoneScratch& scratch, std::string& error) const
+{
+    for (std::size_t i = 0; i < count_; ++i) {
+        const auto& local = scratch.candidate_[i];
+        const auto own = math::trs(local.translation, local.rotation, local.scale);
+        const auto parent = parents_[i];
+        scratch.global_[i] = parent < count_ ? scratch.global_[parent] * own : own;
+        scratch.rotations_[i] =
+            math::normalize(parent < count_ ? scratch.rotations_[parent] * local.rotation : local.rotation);
+        for (const auto& column : scratch.global_[i].m) {
+            for (float value : column) {
+                if (!std::isfinite(value)) {
+                    return refuse(error, "Joint-axis transforms overflow");
+                }
+            }
+        }
+    }
+    return true;
+}
+bool PreparedJointAxis::apply(std::span<const JointPose> pose, V target, double maximum_angle,
+                              TwoBoneScratch& scratch, std::span<JointPose> out, JointAxisSolution& solution,
+                              std::string& error) const
+{
+    if (out.size() != count_ || !valid_prepared_pose(pose, count_, error)) {
+        return refuse(error, "Joint-axis alignment requires complete valid poses");
+    }
+    if (!finite(target) || !(length(target) > 0) || !std::isfinite(length(target)) ||
+        !std::isfinite(maximum_angle) || maximum_angle < 0 || maximum_angle > std::numbers::pi) {
+        return refuse(error, "Joint-axis target/angle is invalid");
+    }
+    std::copy(pose.begin(), pose.end(), scratch.candidate_.begin());
+    if (!evaluate(scratch, error)) {
+        return false;
+    }
+    const auto original = scratch.rotations_[joint_];
+    const auto axis = math::normalize(math::rotate(original, local_axis_));
+    auto change = between(axis, unit(target));
+    const double requested = 2 * std::atan2(std::hypot(change.x, change.y, change.z),
+                                            std::max(0.0, static_cast<double>(change.w)));
+    JointAxisSolution result;
+    result.applied_angle = std::min(requested, maximum_angle);
+    result.clamped = requested > maximum_angle;
+    if (result.clamped) {
+        change = math::from_axis_angle({change.x, change.y, change.z}, static_cast<float>(maximum_angle));
+    }
+    const auto parent = parents_[joint_];
+    const auto parent_rotation = parent < count_ ? scratch.rotations_[parent] : math::Quat{};
+    const auto desired_axis = math::normalize(math::rotate(change, axis));
+    const auto origin = position(scratch.global_[joint_]);
+    scratch.candidate_[joint_].rotation =
+        math::normalize(math::conjugate(parent_rotation) * change * original);
+    if (!evaluate(scratch, error)) {
+        return false;
+    }
+    // Validate the matrix the renderer will actually consume. Accepted near-unit input
+    // quaternions can otherwise produce a different axis than the normalized chain.
+    const auto rendered=scratch.global_[joint_]*math::Vec4{local_axis_.x,local_axis_.y,local_axis_.z,0};
+    result.model_axis=math::normalize(math::Vec3{rendered.x,rendered.y,rendered.z});
+    if (math::length(result.model_axis - desired_axis) > 1e-4F ||
+        length(position(scratch.global_[joint_]) - origin) > 1e-5) {
+        return refuse(error, "Joint-axis FK verification failed");
+    }
+    std::copy_n(scratch.candidate_.begin(), count_, out.begin());
+    solution = result;
+    error.clear();
+    return true;
 }
 }

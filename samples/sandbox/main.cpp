@@ -569,7 +569,7 @@ private:
 // Idle/walk blending never changes physics. Hidden in first person.
 class PlayerBody {
 public:
-    PlayerBody(lykoware::ecs::World& entities, lykoware::render::MeshId mesh, training_mannequin::Asset asset, bool imported, float scale, lykoware::math::Vec3 offset, lykoware::math::Quat visual_rotation, std::optional<rig_roles::Indices> foot_roles, double clearance)
+    PlayerBody(lykoware::ecs::World& entities, lykoware::render::MeshId mesh, training_mannequin::Asset asset, bool imported, float scale, lykoware::math::Vec3 offset, lykoware::math::Quat visual_rotation, std::optional<rig_roles::Indices> foot_roles, double clearance, lykoware::character::FootSettings foot_settings)
         : visual_scale_{scale}
         , visual_offset_{offset}
         , visual_rotation_{visual_rotation}
@@ -583,7 +583,7 @@ public:
         if (foot_roles) {
             foot_.emplace();
             std::string reason;
-            if (!foot_->configure(asset_.skeleton,*foot_roles,reason,clearance)) { throw std::invalid_argument("Foot IK calibration: "+reason); }
+            if (!foot_->configure(asset_.skeleton,*foot_roles,reason,clearance,foot_settings)) { throw std::invalid_argument("Foot IK calibration: "+reason); }
             corrected_.resize(asset_.skeleton.joints.size());
         }
         entities_.add<lykoware::Transform>(body_, lykoware::Transform{});
@@ -670,6 +670,7 @@ public:
             lykoware::log(lykoware::LogLevel::info,"Foot IK diagnostics: frames="+std::to_string(s.frames)
                 +" contacts="+std::to_string(s.contacts)+" misses="+std::to_string(s.misses)
                 +" clamped="+std::to_string(s.clamped)+" resets="+std::to_string(s.resets)
+                +" oriented="+std::to_string(s.oriented)+" slope_rejected="+std::to_string(s.slope_rejected)+" pelvis_frames="+std::to_string(s.pelvis_frames)
                 +" failures="+std::to_string(foot_failures_)+" applied_frames="+std::to_string(foot_applied_frames_));
         }
     }
@@ -910,7 +911,7 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
             lykoware::log(lykoware::LogLevel::error, "Mannequin upload: " + error.message);
             return EXIT_FAILURE;
         }
-        player_body.emplace(scene->entities(), *mesh, std::move(mannequin), !options.character.empty(), visual_scale, visual_offset, visual_rotation, options.foot_ik ? resolved_roles : std::nullopt, options.foot_clearance);
+        player_body.emplace(scene->entities(), *mesh, std::move(mannequin), !options.character.empty(), visual_scale, visual_offset, visual_rotation, options.foot_ik ? resolved_roles : std::nullopt, options.foot_clearance, options.character_settings.foot_settings);
         if (options.foot_ik) { lykoware::log(lykoware::LogLevel::info,"Foot IK: stationary terrain alignment enabled"); }
         lykoware::log(lykoware::LogLevel::info, options.character.empty() ? "Animation: GPU-skinned training mannequin (7 joints), idle/walk/run/jump/fall/land clips." : "Animation: GPU-skinned imported character; missing run/air/landing clips fall back to walk/idle.");
         lykoware::log(lykoware::LogLevel::info,
