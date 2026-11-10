@@ -17,7 +17,7 @@ Every tool/content operation must be reachable through CLI and scripting, with d
 
 ## Start here
 
-- **[Project checkpoint — verified stack and pending integration](docs/PROJECT_CHECKPOINT.md)**
+- **[Project checkpoint — integrated animation stack and open gates](docs/PROJECT_CHECKPOINT.md)**
 
 - **[Master completion checklist — keep updated as we build](docs/MASTER_CHECKLIST.md)**
 

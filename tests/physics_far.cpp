@@ -151,6 +151,7 @@ Result run(physics::DVec3 offset, std::uint32_t workers)
     result.on_ground = walker_state->ground == physics::GroundState::OnGround;
 
     const auto hit = world->cast_ray(offset_by(offset, 3.0, 10.0, 0.0), {0.F, -20.F, 0.F});
+    expect(hit&&std::abs(hit->normal.y-1.F)<1e-4F,"far-origin vertical-ray normal remains upward");
     if (hit && hit->body == *ball_id) {
         result.ray_fraction = hit->fraction;
         result.ray_point = {hit->point.x - offset.x, hit->point.y - offset.y, hit->point.z - offset.z};

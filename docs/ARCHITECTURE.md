@@ -19,6 +19,7 @@ Game applications, CLI tools and future Howler editor -> Lykoware runtime -> wra
 | RHI/render | Vulkan 1.3 loaded at runtime through volk; VMA allocations, owned buffers/pipelines/targets/swapchain, Slang ahead-of-time shaders; first cube renderer uses reversed depth and camera-relative floats; ADRs 0009–0016/0025/0026 |
 | Scenes/commands | Versioned box-scene schema, explicit authored IDs and fixed-tick spawn/destroy/velocity handlers; nlohmann/json private; ADR 0031 |
 | Presentation | Interpolated snapshot of previous/current authoritative transforms; double blend and camera-relative subtraction precede float GPU values; const ECS rendering |
+| Skeletal presentation | Owned clip sampling, skinning, IK, interruptible fades and bounded authored graphs; events/sockets and strict-subset retargeting (#71); ADRs0049/0061–0065, see [animation runtime](ANIMATION_RUNTIME.md) |
 | Diagnostics | CPU trace JSON, PPM readback/diff harness, scene capture and offscreen measurement reports; no claim of calibrated GPU/frame-pacing gates |
 
 The scene owns physics first and ECS second so ECS cleanup runs before physics destruction. Runtime owner tokens are process-local capabilities, excluded from files/hashes; authored IDs are explicit strings independent of handles and process-local ECS type storage IDs. Destroyed authored IDs cannot be reused in the same scene lifetime. Versioned component names are explicit schema constants, never inferred from C++ type names or registration order.
@@ -33,6 +34,6 @@ Tests include malformed-input/round-trip fixtures, independent-world and allocat
 
 ## Future boundaries
 
-Generic assets/import, renderer scale/performance, jobs, streaming, save migrations, networking, animation and game systems remain planned. The first scene schema is a box/cube vertical slice, not a general serialization framework. Howler and the content suite retain separate roadmap gates after the engine core. No full editor is introduced by the command path.
+Generic assets/import, renderer scale/performance, jobs, streaming, save migrations, networking and game systems remain planned; current skeletal runtime capabilities are described above. The first scene schema is a box/cube vertical slice, not a general serialization framework. Howler and the content suite retain separate roadmap gates after the engine core. No full editor is introduced by the command path.
 
 Before extending a shared API, record ownership/lifetime, failure and rollback, threading/update order, units/coordinates, persistent compatibility, standalone/editor callers and a representative verification scenario in an ADR. Keep interfaces tied to actual callers.

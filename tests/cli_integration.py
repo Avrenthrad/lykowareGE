@@ -25,6 +25,7 @@ def invoke(*args, expected=0, cwd=None):
 
 
 assert "Usage:" in invoke("--help")
+invoke("run","--","--window","--dummy","--frames","1")
 assert "lyko trace --frames" in invoke("--help")
 assert "run --scene FILE" in invoke("--help")
 assert invoke("--version").startswith("lyko ")

@@ -1,4 +1,5 @@
 #include <lykoware/character_asset.hpp>
+#include <lykoware/animation_graph.hpp>
 #include <lykoware/ik.hpp>
 #include <nlohmann/json.hpp>
 #include <algorithm>
@@ -22,6 +23,12 @@ std::vector<math::Quat> orientations(const animation::Skeleton& skeleton){
     return out;
 }
 }
+bool valid_foot_settings(const FootSettings& settings,std::string& error)
+{
+    if(!std::isfinite(settings.max_slope_degrees)||settings.max_slope_degrees<0||settings.max_slope_degrees>60
+        ||!std::isfinite(settings.max_pelvis_drop)||settings.max_pelvis_drop<0||settings.max_pelvis_drop>.3||!std::isfinite(settings.max_plant_distance)||settings.max_plant_distance<.05||settings.max_plant_distance>1){return fail(error,"Invalid foot slope/pelvis/plant bounds");}
+    error.clear();return true;
+}
 bool decode_profile(std::string_view text,const std::filesystem::path& directory,Profile& out,std::string& error)
 {
     if(text.size()>65536){return fail(error,"Character profile exceeds 64 KiB");}
@@ -38,7 +45,7 @@ bool decode_profile(std::string_view text,const std::filesystem::path& directory
         if(!j.is_object()||!j.contains("version")||!j["version"].is_number_integer()||j["version"]!=1
             ||!j.contains("model")||!j["model"].is_string()){return fail(error,"Character profile requires version 1 and model string");}
         const std::set<std::string> allowed{"version","model","idle_clip","walk_clip","run_clip","jump_clip","fall_clip","land_clip",
-            "motion_authority","turn_degrees_per_second","height","yaw_degrees","capsule_height","capsule_radius","eye_height","bones","foot_ik","foot_clearance"};
+            "animation_graph","motion_authority","turn_degrees_per_second","height","yaw_degrees","capsule_height","capsule_radius","eye_height","bones","foot_ik","foot_clearance","foot_align_normals","foot_max_slope_degrees","foot_pelvis","foot_max_pelvis_drop","foot_locking","foot_max_plant_distance"};
         for(const auto& item:j.items()){if(!allowed.contains(item.key())){return fail(error,"Unknown character profile key: "+item.key());}}
         if(j.contains("motion_authority")&&(!j["motion_authority"].is_string()||j["motion_authority"]!=motion_authority)){
             return fail(error,"Only controller motion authority is currently supported; root tracks are visual-only");
@@ -47,6 +54,12 @@ bool decode_profile(std::string_view text,const std::filesystem::path& directory
         const auto model=j["model"].get<std::string>();
         if(model.empty()||model.find('\0')!=std::string::npos){return fail(error,"Invalid profile model path");}
         result.model=utf8(model);if(result.model.is_relative()){result.model=directory/result.model;}
+        if(j.contains("animation_graph")){
+            if(!j["animation_graph"].is_string()){return fail(error,"animation_graph must be a path string");}
+            const auto graph=j["animation_graph"].get<std::string>();
+            if(graph.empty()||graph.find('\0')!=std::string::npos){return fail(error,"Invalid animation graph path");}
+            result.animation_graph=utf8(graph);if(result.animation_graph.is_relative()){result.animation_graph=directory/result.animation_graph;}
+        }
         for(std::size_t i=0;i<clip_keys.size();++i){
             const auto* key=clip_keys[i];if(!j.contains(key)){continue;}
             if(!j[key].is_string()||j[key].get<std::string>().empty()){return fail(error,i<2?"Profile clip names must be nonempty strings":"Profile locomotion clip names must be nonempty strings");}
@@ -80,6 +93,21 @@ bool decode_profile(std::string_view text,const std::filesystem::path& directory
             result.foot_clearance=j["foot_clearance"].get<double>();
             if(!std::isfinite(result.foot_clearance)||result.foot_clearance<0||result.foot_clearance>.3){return fail(error,"foot_clearance must be 0..0.3 metres");}
         }
+        for(const auto& option:std::array<std::pair<const char*,bool*>,3>{{{"foot_align_normals",&result.foot_settings.align_normals},{"foot_pelvis",&result.foot_settings.pelvis},{"foot_locking",&result.foot_settings.locking}}}){
+            if(j.contains(option.first)){
+                if(!result.foot_ik||!j[option.first].is_boolean()){return fail(error,std::string(option.first)+" requires foot_ik and a boolean");}
+                *option.second=j[option.first].get<bool>();
+            }
+        }
+        for(const auto& option:std::array<std::pair<const char*,double*>,3>{{{"foot_max_slope_degrees",&result.foot_settings.max_slope_degrees},{"foot_max_pelvis_drop",&result.foot_settings.max_pelvis_drop},{"foot_max_plant_distance",&result.foot_settings.max_plant_distance}}}){
+            if(j.contains(option.first)){
+                const bool enabled=std::string_view(option.first)=="foot_max_slope_degrees"?(result.foot_settings.align_normals||result.foot_settings.pelvis||result.foot_settings.locking):(std::string_view(option.first)=="foot_max_pelvis_drop"?result.foot_settings.pelvis:result.foot_settings.locking);
+                if(!enabled||!j[option.first].is_number()){return fail(error,std::string(option.first)+" requires its foot opt-in and a number");}
+                *option.second=j[option.first].get<double>();
+            }
+        }
+        if(result.foot_settings.locking&&result.animation_graph.empty()){return fail(error,"foot_locking requires animation_graph");}
+        if(!valid_foot_settings(result.foot_settings,error)){return false;}
         Capsule checked;if(!capsule(result,checked,error)){return false;}
         out=std::move(result);error.clear();return true;
     }catch(const std::exception& e){return fail(error,e.what());}
@@ -215,6 +243,18 @@ RigCompatibility compare_rigs(const animation::Skeleton& source,const animation:
 }
 bool inspect(const gltf::SkinnedModel& asset,const Profile& profile,Inspection& out,std::string& error)
 {
+    if(!valid_foot_settings(profile.foot_settings,error)){return false;}
+    if((profile.foot_settings.align_normals||profile.foot_settings.pelvis||profile.foot_settings.locking)&&!profile.foot_ik){return fail(error,"Foot orientation/pelvis settings require foot_ik");}
+    if(profile.foot_settings.locking&&profile.animation_graph.empty()){return fail(error,"foot_locking requires animation_graph");}
+    if(!profile.animation_graph.empty()){
+        animation::Graph graph;if(!animation::load_graph(profile.animation_graph,graph,error)){return false;}
+        if(!animation::GraphPlayer::create(asset.skeleton,asset.clips,graph,error)){return false;}
+        if(profile.foot_settings.locking){
+            std::array<bool,4> found{};constexpr std::array<const char*,4> markers{{"left_plant","left_lift","right_plant","right_lift"}};
+            for(const auto& state:graph.states){for(const auto& event:state.events){for(std::size_t i=0;i<markers.size();++i){found[i]=found[i]||event.name==markers[i];}}}
+            if(std::find(found.begin(),found.end(),false)!=found.end()){return fail(error,"foot_locking graph requires left/right plant and lift markers");}
+        }
+    }
     if(profile.turn_degrees_per_second&&(!std::isfinite(*profile.turn_degrees_per_second)||*profile.turn_degrees_per_second<0||*profile.turn_degrees_per_second>3600)){return fail(error,"Invalid turn_degrees_per_second");}
     if(!std::isfinite(profile.foot_clearance)||profile.foot_clearance<0||profile.foot_clearance>.3){return fail(error,"foot_clearance must be 0..0.3 metres");}
     if(!valid_mesh(asset.model.mesh,error)||!animation::valid_skeleton(asset.skeleton,error)){return false;}

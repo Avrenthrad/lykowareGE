@@ -18,13 +18,20 @@ inline constexpr const char* motion_authority = "controller";
 inline constexpr float default_turn_degrees_per_second = 720.F;
 using RoleNames = std::array<std::string,7>;
 using Roles = std::array<std::size_t,7>;
+struct FootSettings {
+    bool align_normals=false, pelvis=false, locking=false;
+    double max_slope_degrees=35, max_pelvis_drop=.15, max_plant_distance=.35;
+};
+[[nodiscard]] bool valid_foot_settings(const FootSettings& settings,std::string& error);
 struct Profile {
     std::filesystem::path model;
+    std::filesystem::path animation_graph;
     std::array<std::string,6> clips{};
     std::optional<float> height, yaw_degrees, capsule_height, capsule_radius, eye_height, turn_degrees_per_second;
     std::optional<RoleNames> bones;
     bool foot_ik = false;
     double foot_clearance = .03;
+    FootSettings foot_settings;
 };
 struct Alignment { float scale=1.F; math::Vec3 offset{}; math::Quat rotation{}; };
 struct Capsule { float height=1.8F, radius=.3F, cylinder_half_height=.6F, eye_height=1.6F; };

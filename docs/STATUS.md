@@ -1,14 +1,39 @@
 # Lykoware status
 
-## Verified runtime stack — integration parked
+## Animation stack integrated — #71, #72 and #73 merged (10 November 2026)
 
-See [PROJECT_CHECKPOINT](PROJECT_CHECKPOINT.md) for the authoritative branch, verification and deferred-work inventory. Main remains `9555fea` (#70). #71 authored playback/events/sockets/retargeting and #72 stationary orientation/pelvis are verified and unmerged. #73 walking support-local anchors now includes actual support-motion, phase-cycle, reach-release, rollback, allocation, player replay and GPU reference checks; independent reviewer recheck found no blocking issues. Clean build,82/82 each native Linux profile and all five hosted checks passed; exact runtime/tree/report mapping is in the checkpoint. Dependency order is #71 → #72 → #73. #74 is documentation only. No merge/main push is authorized; actual RTX4070 measurements and owner feel remain open.
+At the owner's request, Claude reviewed #71–#74, re-verified the integrated stack and merged it in dependency order:
 
-Older implementation entries and their “Next” notes below are historical records for the named commits. The project checkpoint above governs current work.
+- #71 authored playback, events, sockets and retargeting: merged as `35ad909` (head `7197587`, hosted run 42481306674).
+- #72 stationary foot orientation and bounded pelvis compensation: merged as `58e170e` (head `e21f797`, hosted run 42485289763).
+- #73 walking foot anchors and deterministic player replay: merged as `6cabcf3` (head `36460d8`, hosted run 42544150921).
+- #74, this documentation checkpoint, merged after them.
 
-## Terrain turning/controller authority — integrated #70
+Every exact head had passed all five hosted checks. The integrated tree, identical to `main` at `6cabcf3`, passed 82/82 in each local Linux profile (Debug, ASan/UBSan, clang-tidy 18) with no failures. The review found no blocking issues. [Project checkpoint](PROJECT_CHECKPOINT.md) records the merged stack and the open gates. ADRs 0065–0067 remain Proposed. Physical RTX 4070 measurements, Windows desktop behavior, calibrated budgets and the owner's feel review remain open.
 
-Source `0487221` passed all five hosted profiles ([run42455664181](https://github.com/Avrenthrad/lykowareGE/actions/runs/42455664181)) and 77/77 each native Linux profile, zero skips; merged as `9555fea`. Bounded/interpolated shortest-path facing and explicit controller authority are integrated. Actual GPU/feel acceptance remains separate. Older entries below describe their named historical checkpoints.
+Older entries below are historical records of their named commits.
+
+## Walking and stationary constraints — verified, unmerged
+
+Owner-requested completion of the listed PR tasks is finished. #71 (`7197587`,79/79 each native profile) and #72 (`e21f797`,81/81 each) retain their reviewed five-profile CI evidence. #73 now adds verified support-local walking anchors, cycle/reset handling, bounded reach release, transactional bilateral correction, strict real player replay and `lyko run --` forwarding. Main remains `9555fea`; dependency order is #71 → #72 → #73. #74 reconciles the main-based documentation checkpoint. No merge/main push was performed.
+
+Verified runtime source `b7dbd15319fe7e292bb0c86abaccaee66a754d52`, tree `335ef411e82468b985efc854d1857e97d1d82381`. [Hosted CI42542802775](https://github.com/Avrenthrad/lykowareGE/actions/runs/42542802775) passed Windows Debug/Release and all three Linux profiles. Clean Debug rebuild passed all561 steps; local Debug, ASan/UBSan and clang-tidy18 each passed82/82, zero failures/skips, including configure/build/install/staged CLI. Report `/workspace/lykoware-foot-plants-reviewed-validation/report.json`, unchanged clean-source fingerprint `36d8d05922141fa3fd4693406b2aba866423a6160ff678efc7c7a4b50f6dfe5c`. The native report names local review commit `ba473cba7fc167afd644008e379cd7bcea4b9bb3`; its entire Git tree equals published `b7dbd153`, with only commit metadata different. Independent reviewer rechecked the loop-boundary correction and found no blocking issues. Hosted Windows has21 graphics skips per pass; physical RTX4070 acceptance is still unverified.
+
+All remaining integration and physical-PC/owner gates are parked in [deferred work](loops/deferred.md). Foot heading, support render interpolation, one-foot balance and ragdolls are future scope. Unmerged requirements remain unchecked on the master checklist. Older active/pause paragraphs below describe their named historical commits; this entry governs current status.
+
+## Authored animation runtime — verified #71, intentionally unmerged
+
+PR [#71](https://github.com/Avrenthrad/lykowareGE/pull/71), branch `codex/authored-animation-runtime`, base #70 `9555fea`. Runtime source `bb47ca7dc3433b3cdbe55d27abbeb050f1bb4a6c` passed [all five hosted profiles](https://github.com/Avrenthrad/lykowareGE/actions/runs/42480515225). Local clean Debug rebuild (554 steps) and full Debug/ASan/UBSan/clang-tidy18 validation passed 79/79 each, zero skips, with configure/build/install/staged CLI; unchanged fingerprint `6b4ea9d75becedf0d4665c967b413f9194ee68d7fc01c6bbac9ab85921466f21`. Report `/workspace/lykoware-authored-animation-final-validation/report.json`. Hosted Windows GPU checks have 21 skips; actual RTX4070 acceptance remains unverified.
+
+02.08/02.09/02.10 now have real shared engine/native/CLI/sample callers: bounded authored state configuration, transactional interruptible playback, interval/wrap events, posed-joint sockets (including final corrected pose), and immutable overlap-safe supported-rig pose transfer. CPU replay loads real glTF source/target assets. The original six-state authored example, 256-joint and reordered-rig transfer, event partition/capacity/refusals, root basis/scale/target lengths, source preservation, resource lifetime and real imported Vulkan playback pass. 1,000 combined updates record zero ordinary C++ allocations after setup, with positive allocation control. General scaled/helper/A/T-pose conversion and gameplay effects are excluded; ADR0065 remains Proposed.
+
+Independent read-only review found a replaceable-graph bounds issue, corrected to bind the player's validated owned snapshot, with replacement/reset regression. Hosted analysis caught a floating cycle counter; bounded integer enumeration fixes it without suppression. Reviewer recheck on `bb47ca7`: no blocking findings. A diagnostic authored idle/walk Vulkan capture matches CPU deformation within the existing 2-level channel tolerance and was visually inspected; files `/workspace/authored-animation-capture`, harness `/workspace/capture-authored-animation.py`.
+
+Latest owner loop instructions prohibit further merges or pushes to main. **12/15 entries are integrated; the final three are verified on #71 and deliberately remain unchecked for integration.** [Loop checklist](loops/engine-checklist.md) and [progress](loops/engine-progress.md) record scope, commands and review evidence. The documentation-only handoff tip is checked by `/workspace/lykoware-animation-handoff-validation/report.json` and the latest #71 CI checks; it must contain no source changes relative to `bb47ca7`. Next: integrate #71 only after the owner changes the no-merge constraint; target-PC measurements/owner feel remain deferred. No further in-scope code blocker remains.
+
+## Terrain turning and motion authority — merged #70
+
+PR [#70](https://github.com/Avrenthrad/lykowareGE/pull/70) merged as `9555fea`. Exact source `0487221` passed [all five CI profiles](https://github.com/Avrenthrad/lykowareGE/actions/runs/42455664181), plus 77/77 each local Linux Debug/sanitizers/analysis, zero skips, install and staged CLI. Report `/workspace/lykoware-terrain-final-validation/report.json`; unchanged fingerprint `4238d8da1f6fb952089c4d9b4b218ae87b6442a432421d765ec09c2aae7d1481`. Bounded shortest-path facing interpolates across wrap, retains targets while idle, and runs over the real slope/stair/uneven course. Profiles explicitly permit controller authority only; translated-root animation and presentation leave physics hashes unchanged. Batch 12/15 verified and merged; three active. Hardware/feel checks remain deferred.
 
 ## Character import/alignment — merged #69
 

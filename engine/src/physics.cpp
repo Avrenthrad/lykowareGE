@@ -11,6 +11,7 @@
 #include <Jolt/Core/TempAllocator.h>
 #include <Jolt/Geometry/Plane.h>
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
+#include <Jolt/Physics/Body/BodyLock.h>
 #include <Jolt/Physics/Character/CharacterVirtual.h>
 #include <Jolt/Physics/Collision/CastResult.h>
 #include <Jolt/Physics/Collision/RayCast.h>
@@ -723,7 +724,7 @@ bool World::step(float seconds)
 std::optional<RayHit> World::cast_ray(DVec3 origin, Vec3 direction) const
 {
     const JPH::Vec3 jolt_direction = to_jolt(direction);
-    if (!finite(origin) || jolt_direction.IsNaN() || jolt_direction.LengthSq() <= 0.F) {
+    if (!finite(origin) || !finite(direction) || !std::isfinite(jolt_direction.LengthSq()) || jolt_direction.LengthSq() <= 0.F) {
         return std::nullopt;
     }
     const JPH::RRayCast ray{to_jolt_position(origin), jolt_direction};
@@ -735,7 +736,12 @@ std::optional<RayHit> World::cast_ray(DVec3 origin, Vec3 direction) const
     if (!body) {
         return std::nullopt;
     }
-    return RayHit{*body, hit.mFraction, from_jolt_position(ray.GetPointOnRay(hit.mFraction))};
+    const auto point=ray.GetPointOnRay(hit.mFraction);
+    const JPH::BodyLockRead lock{impl_->system.GetBodyLockInterface(),hit.mBodyID};
+    if(!lock.Succeeded()){return std::nullopt;}
+    const auto normal=from_jolt(lock.GetBody().GetWorldSpaceSurfaceNormal(hit.mSubShapeID2,point));
+    if(!finite(normal)||!(math::length(normal)>0.F)){return std::nullopt;}
+    return RayHit{*body, hit.mFraction, from_jolt_position(point), math::normalize(normal)};
 }
 
 std::uint64_t World::state_hash() const

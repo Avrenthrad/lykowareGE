@@ -13,14 +13,15 @@ Joshua requested the next 15 steps from the pinned master checklist. This select
 | 7 | 02.03b | Mapped roles and remaining six-state clip selectors; #61/#68 | Verified/merged |
 | 8 | 02.04-runtime | Six-state presentation and real Jolt adapter; #68, all five CI + 74/74 per native profile | Verified/merged |
 | 9 | 02.05-crossfade | Interruptible generic crossfade; #68, allocation/interruption/transaction tests | Verified/merged |
-| 10 | 02.06 | Turning/terrain movement behavior with slope/step/uneven-ground fixtures | Open |
-| 11 | 02.07 | Explicit controller/root-motion policy and executable policy checks | Open |
-| 12 | 02.08 | Reusable authored animation configuration consumed by shared runtime paths | Open |
-| 13 | 02.09 | Animation events and attachment sockets; interval/wrap/transform tests | Open |
-| 14 | 02.10 | Retargeting for a declared supported rig subset; rest/axis/length and refusal tests | Open |
+| 10 | 02.06 | Turning/terrain behavior and real slope/step/uneven-ground course; #70, 77/77 each native + five CI profiles | Verified/merged |
+| 11 | 02.07 | ADR 0064 / #70 explicit controller authority, profile refusals and unchanged physics | Verified/merged |
+| 12 | 02.08 | Owned authored graph; native/sandbox/CPU replay; #71, 79/79 each native + five CI profiles | Verified/merged (#71 `35ad909`) |
+| 13 | 02.09 | Interval/wrap/partition/capacity events, posed/retargeted/post-IK sockets; #71 | Verified/merged (#71 `35ad909`) |
+| 14 | 02.10 | Prepared strict-subset transfer; root basis/scale, target lengths, reordered/overlapping/256-joint poses, refusals; #71 | Verified/merged (#71 `35ad909`) |
 | 15 | 02.11a | Two-bone geometry reference; #62 → #65, analytical/varied/mutant checks, later matrix verified | Verified/merged |
 
-Progress: **10/15 verified and merged; 5 open.** Each new implementation needs a task branch/ADR, meaningful native tests, Windows Debug/Release and Linux CI, and authorized merge before the entry is checked. Preserve contributor branches and record source hashes/evidence in STATUS/PRs. Recheck this list at each handoff; do not silently replace an item with a smaller requirement.
+Progress: **15/15 verified and merged.** The final three (02.08–02.10, #71) were merged at the owner's request on 10 November 2026 as `35ad909`, after the integrated #71 → #72 → #73 tree passed 82/82 in each local Linux profile and every head had passed all five hosted checks. See [requirement map](loops/engine-checklist.md) and [loop progress](loops/engine-progress.md). This completes the selected batch; it does not accept the broad phase, hardware or owner-feel gates.
+
 
 ## Deferred owner/manual list
 

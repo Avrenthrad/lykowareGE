@@ -2,6 +2,7 @@
 
 // Original procedural training mannequin (ADR 0052). Sample content, not engine game rules.
 #include <lykoware/animation.hpp>
+#include <lykoware/animation_graph.hpp>
 #include <lykoware/mesh.hpp>
 #include <lykoware/render.hpp>
 #include <lykoware/physics.hpp>
@@ -30,6 +31,8 @@ struct Asset {
     animation::Clip idle;
     animation::Clip walk;
     animation::Clip run, jump, fall, land;
+    std::shared_ptr<const animation::Graph> graph;
+    std::vector<animation::Clip> graph_clips;
 };
 
 inline Asset make()
@@ -144,6 +147,9 @@ struct Playback {
     locomotion::Selector selector;
     animation::PoseCrossfade transition;
     animation::Pose target;
+    std::unique_ptr<animation::GraphPlayer> graph_player;
+    std::array<bool,2> planted{};
+    std::array<std::uint64_t,2> plant_cycles{};
     bool ready = false;
     bool used_fallback = false;
     std::string transition_error;
@@ -152,7 +158,7 @@ struct Playback {
     void reset() noexcept
     {
         idle_seconds = 0.F; walk_seconds = 0.F; walk_weight = 0.F;
-        selector = {}; ready = false; used_fallback = false;
+        selector = {}; ready = false; used_fallback = false; graph_player.reset(); planted={}; ++plant_cycles[0]; ++plant_cycles[1];
     }
 
     void advance_character(const Asset& asset, float seconds, const lykoware::physics::CharacterState& state)
@@ -166,6 +172,32 @@ struct Playback {
     {
         seconds = std::isfinite(seconds) ? std::clamp(seconds, 0.F, 0.1F) : 0.F;
         speed = std::isfinite(speed) ? std::max(0.F, speed) : 0.F;
+        if(asset.graph){
+            if(!graph_player){graph_player=animation::GraphPlayer::create(asset.skeleton,asset.graph_clips,*asset.graph,transition_error);if(!graph_player){throw std::invalid_argument(transition_error);}}
+            std::array<float,32> parameters{};
+            for(std::size_t i=0;i<graph_player->graph().parameters.size();++i){const auto& p=graph_player->graph().parameters[i];
+                parameters[i]=p.name=="speed"?speed:p.name=="grounded"?(grounded?1.F:0.F):p.name=="vertical_speed"?vertical_speed:p.initial;}
+            const auto previous_state=graph_player->state();
+            if(!graph_player->step(seconds,{parameters.data(),graph_player->graph().parameters.size()},transition_error)){throw std::invalid_argument(transition_error);}
+            if(graph_player->state()!=previous_state){planted={};++plant_cycles[0];++plant_cycles[1];}
+            // Generic events tie by authored index. At a wrap, the sample must apply
+            // outgoing end markers before incoming zero markers so the new cycle wins.
+            const auto events=graph_player->events();
+            for(std::size_t first=0;first<events.size();){
+                std::size_t end=first+1;while(end<events.size()&&events[end].seconds==events[first].seconds){++end;}
+                for(unsigned zero=0;zero<2;++zero){for(std::size_t i=first;i<end;++i){
+                    const auto& event=events[i];const auto& marker=graph_player->graph().states[event.state].events[event.event];
+                    if((marker.seconds==0)!=(zero!=0)){continue;}
+                    const auto& name=marker.name;
+                    if(name=="left_plant"){planted[0]=true;++plant_cycles[0];}else if(name=="left_lift"){planted[0]=false;++plant_cycles[0];}
+                    else if(name=="right_plant"){planted[1]=true;++plant_cycles[1];}else if(name=="right_lift"){planted[1]=false;++plant_cycles[1];}
+                }}
+                first=end;
+            }
+            const auto pose=graph_player->pose();blended.assign(pose.begin(),pose.end());
+            (void)selector.advance(seconds,speed,grounded,vertical_speed);
+            animation::skinning_matrices(asset.skeleton,blended,matrices);return;
+        }
         idle_seconds = std::fmod(idle_seconds + seconds, std::max(0.001F, animation::duration(asset.idle)));
         walk_seconds = std::fmod(walk_seconds + seconds * std::min(4.F, speed / 2.F), std::max(0.001F, animation::duration(asset.walk)));
         const float target_weight = std::clamp(speed / 2.F, 0.F, 1.F);

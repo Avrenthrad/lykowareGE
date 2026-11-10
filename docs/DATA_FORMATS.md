@@ -43,3 +43,15 @@ Version 1 character profiles retain `model`, idle/walk, height, bones and statio
 Shared version-1 profile loading is owned by `character::load_profile/decode_profile`. Optional `yaw_degrees`, `capsule_height`, `capsule_radius`, `eye_height` augment the existing visual-only `height` field. Root and nested duplicates/unknown keys, depth >8 and files >64 KiB are rejected. Fit height/capsule height are 0.1..10 metres; yaw is -180..180 degrees; positive radius must be below half standing height and eye height strictly inside standing height. All values must be finite. Existing profiles retain visual-height semantics.
 
 `lyko inspect-character` emits `lykoware.character-inspection`, schema 1: `ok`, conventions, skin/rig/clip facts, bind bounds, visual alignment, capsule/camera dimensions, warnings and optional pair compatibility issues. Invalid asset/selection returns nonzero; unsupported rig comparison is reported as `compatible:false` without pretending a pose transfer was performed. No GPU is needed. Public APIs use owned standard types; JSON stays behind the engine/tool implementation.
+
+## Authored animation and headless replay
+
+Character profiles optionally reference a relative `animation_graph` path. Graph version 1 and replay version 1, event/socket semantics and the strict retarget subset are documented in [ANIMATION_RUNTIME](ANIMATION_RUNTIME.md), ADR 0065. The CPU CLI and sandbox use the same owned runtime APIs.
+
+## Stationary terrain stance options
+
+Optional character-profile `foot_align_normals`, `foot_max_slope_degrees`, `foot_pelvis`, `foot_max_pelvis_drop` extend existing `foot_ik` settings. Effective policy is reported by inspection; bounds, opt-in dependencies and runtime semantics are in [TERRAIN_STANCE](TERRAIN_STANCE.md), ADR0066.
+
+## Authored walking plant phases and replay
+
+Character profiles optionally enable `foot_locking` and bounded `foot_max_plant_distance`. The shared graph carries plant/lift events; the offscreen sample accepts a strict version1 player-input replay. Formats, bounds and current limitations are in [WALKING_FOOT_PLANTS](WALKING_FOOT_PLANTS.md), ADR0067.

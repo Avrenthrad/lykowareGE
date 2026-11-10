@@ -36,7 +36,7 @@ int character_command(std::span<const std::string> args)
         if(!profile_file.empty()){if(!character::load_profile(profile_file,profile,error)){throw std::invalid_argument(error);}model=profile.model;}else{profile.model=model;}
         resolved_inputs=true;
         if(!output.empty()){
-            for(const auto& input:{model,profile_file,compare}){if(same_file(input,output)){throw std::invalid_argument("Inspection output must not replace an input file");}}
+            for(const auto& input:{model,profile_file,compare,profile.animation_graph}){if(same_file(input,output)){throw std::invalid_argument("Inspection output must not replace an input file");}}
         }
         const auto asset=gltf::load_skinned(model,error);if(!asset){throw std::invalid_argument(error);}
         character::Inspection inspected;if(!character::inspect(*asset,profile,inspected,error)){throw std::invalid_argument(error);}
@@ -48,6 +48,7 @@ int character_command(std::span<const std::string> args)
         report["bind_bounds"]={{"min",vec(inspected.bind_bounds.min)},{"max",vec(inspected.bind_bounds.max)}};
         report["alignment"]={{"scale",a.scale},{"offset",vec(a.offset)},{"rotation",{a.rotation.x,a.rotation.y,a.rotation.z,a.rotation.w}}};
         report["capsule"]={{"height",c.height},{"radius",c.radius},{"cylinder_half_height",c.cylinder_half_height},{"eye_height",c.eye_height}};
+        report["foot_policy"]={{"align_normals",profile.foot_settings.align_normals},{"max_slope_degrees",profile.foot_settings.max_slope_degrees},{"pelvis",profile.foot_settings.pelvis},{"max_pelvis_drop",profile.foot_settings.max_pelvis_drop},{"locking",profile.foot_settings.locking},{"max_plant_distance",profile.foot_settings.max_plant_distance}};
         report["warnings"]=inspected.warnings;report["clips"]=Json::array();
         for(const auto& clip:inspected.clips){report["clips"].push_back({{"name",clip.name},{"seconds",clip.seconds},{"translated_root",clip.translated_root}});}
         if(inspected.roles){report["roles"]=*inspected.roles;}
@@ -60,7 +61,7 @@ int character_command(std::span<const std::string> args)
     const auto text=report.dump(2)+"\n";
     if(output.empty()||!resolved_inputs){std::cout<<text;}else{
         // A rejected source/output collision must not open the source even for an error report.
-        for(const auto& input:{model,profile_file,compare}){if(same_file(input,output)){std::cout<<text;return 2;}}
+        for(const auto& input:{model,profile_file,compare,profile.animation_graph}){if(same_file(input,output)){std::cout<<text;return 2;}}
         std::ofstream file(output,std::ios::binary);file<<text;file.close();if(!file){throw std::runtime_error("Cannot write character inspection");}
     }
     return report["ok"].get<bool>()?0:2;

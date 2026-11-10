@@ -2,6 +2,7 @@
 #include "character_fit.hpp"
 #include "rig_roles.hpp"
 #include "foot_placement.hpp"
+#include "player_replay.hpp"
 
 #include <lykoware/audio.hpp>
 #include <lykoware/audio_output.hpp>
@@ -163,7 +164,8 @@ struct WindowOptions {
     std::uint64_t frames = 0;
     // --model FILE: a glTF model shown beside the crates (ADR 0035).
     std::string model;
-    std::string character, idle_clip, walk_clip, character_profile;
+    std::string character, idle_clip, walk_clip, character_profile, play_input;
+    std::vector<lykoware::PlayerIntent> replay;
     std::array<std::string,4> locomotion_clips{};
     lykoware::character::Profile character_settings;
     std::optional<float> character_height;
@@ -569,11 +571,12 @@ private:
 // Idle/walk blending never changes physics. Hidden in first person.
 class PlayerBody {
 public:
-    PlayerBody(lykoware::ecs::World& entities, lykoware::render::MeshId mesh, training_mannequin::Asset asset, bool imported, float scale, lykoware::math::Vec3 offset, lykoware::math::Quat visual_rotation, std::optional<rig_roles::Indices> foot_roles, double clearance)
+    PlayerBody(lykoware::ecs::World& entities, lykoware::render::MeshId mesh, training_mannequin::Asset asset, bool imported, float scale, lykoware::math::Vec3 offset, lykoware::math::Quat visual_rotation, std::optional<rig_roles::Indices> foot_roles, double clearance, lykoware::character::FootSettings foot_settings)
         : visual_scale_{scale}
         , visual_offset_{offset}
         , visual_rotation_{visual_rotation}
         , imported_{imported}
+        , locking_{foot_settings.locking}
         , asset_{std::move(asset)}
         , mesh_{mesh}
         , entities_{entities}
@@ -583,12 +586,13 @@ public:
         if (foot_roles) {
             foot_.emplace();
             std::string reason;
-            if (!foot_->configure(asset_.skeleton,*foot_roles,reason,clearance)) { throw std::invalid_argument("Foot IK calibration: "+reason); }
+            if (!foot_->configure(asset_.skeleton,*foot_roles,reason,clearance,foot_settings)) { throw std::invalid_argument("Foot IK calibration: "+reason); }
             corrected_.resize(asset_.skeleton.joints.size());
         }
         entities_.add<lykoware::Transform>(body_, lykoware::Transform{});
         entities_.add<lykoware::Transform>(visor_, lykoware::Transform{});
         playback_.advance(asset_, 0.F, 0.F);
+        if(asset_.graph){socket_poses_.resize(asset_.graph->sockets.size());}
         entities_.add<lykoware::render::SkinPose>(body_, lykoware::render::SkinPose{playback_.matrices});
     }
 
@@ -615,21 +619,28 @@ public:
         playback_.advance_character(asset_, seconds, state);
         ++motion_frames_[static_cast<std::size_t>(playback_.selector.state())];
         if (playback_.used_fallback) { ++motion_fallback_frames_; }
+        std::span<const lykoware::animation::JointPose> final_pose=playback_.blended;
         const auto base_palette = foot_ ? palette_hash(playback_.matrices) : 0;
         if (foot_) {
             const auto local_offset=lykoware::math::rotate(lykoware::math::conjugate(visual_rotation_),visual_offset_);
             const foot_placement::Placement placement{feet,facing*visual_rotation_,visual_scale_,
                 {local_offset.x,local_offset.y,local_offset.z}};
             std::string reason;
-            const bool active=state.ground==lykoware::physics::GroundState::OnGround && speed<0.2F
+            const bool walking=locking_&&speed>=.2F&&playback_.graph_player;
+            const auto planting=walking?std::optional{foot_placement::PlantPhases{playback_.planted,playback_.plant_cycles}}:std::nullopt;
+            const bool active=state.ground==lykoware::physics::GroundState::OnGround && (speed<0.2F||walking)
                 && player.camera().current_distance()>=0.5F;
-            if (foot_->update(playback_.blended,placement,world,seconds,active,corrected_,reason)) {
+            if (foot_->update(playback_.blended,placement,world,seconds,active,corrected_,reason,planting)) {
                 lykoware::animation::skinning_matrices(asset_.skeleton,corrected_,playback_.matrices);
+                final_pose=corrected_;
             } else {
                 ++foot_failures_;
                 foot_->reset();
                 if (foot_failures_==1) { lykoware::log(lykoware::LogLevel::warning,"Foot IK fallback: "+reason); }
             }
+        }
+        if(asset_.graph){
+            if(!lykoware::animation::evaluate_sockets(asset_.skeleton,final_pose,asset_.graph->sockets,socket_poses_,socket_error_)){throw std::invalid_argument(socket_error_);}
         }
         if (!imported_) { const auto face = lykoware::animation::skin_point(playback_.matrices, {2, 0, 0, 0}, {1.F, 0.F, 0.F, 0.F},
                                                           {0.F, 1.58F, -0.18F});
@@ -664,6 +675,8 @@ public:
             lykoware::log(lykoware::LogLevel::info,"Foot IK diagnostics: frames="+std::to_string(s.frames)
                 +" contacts="+std::to_string(s.contacts)+" misses="+std::to_string(s.misses)
                 +" clamped="+std::to_string(s.clamped)+" resets="+std::to_string(s.resets)
+                +" planted="+std::to_string(s.planted)+" released="+std::to_string(s.released)
+                +" oriented="+std::to_string(s.oriented)+" slope_rejected="+std::to_string(s.slope_rejected)+" pelvis_frames="+std::to_string(s.pelvis_frames)
                 +" failures="+std::to_string(foot_failures_)+" applied_frames="+std::to_string(foot_applied_frames_));
         }
     }
@@ -679,6 +692,8 @@ private:
         return hash;
     }
     lykoware::animation::Pose corrected_;
+    std::vector<lykoware::math::Mat4> socket_poses_;
+    std::string socket_error_;
     std::uint64_t foot_applied_frames_=0;
     std::array<std::uint64_t,6> motion_frames_{};
     std::uint64_t motion_fallback_frames_ = 0;
@@ -688,6 +703,7 @@ private:
     lykoware::math::Vec3 visual_offset_{};
     lykoware::math::Quat visual_rotation_{};
     bool imported_ = false;
+    bool locking_ = false;
     training_mannequin::Asset asset_;
     training_mannequin::Playback playback_;
     lykoware::render::MeshId mesh_;
@@ -857,6 +873,7 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
             mannequin.joints = imported->joints;
             mannequin.weights = imported->weights;
             mannequin.skeleton = imported->skeleton;
+            mannequin.graph_clips=imported->clips;
             if (options.bones) {
                 rig_roles::Indices roles;
                 if (!rig_roles::resolve(mannequin.skeleton, *options.bones, roles, reason)) { throw std::invalid_argument(reason); }
@@ -870,6 +887,12 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
             if (!upload_model(*renderer, imported->model, error, &mannequin)) { return EXIT_FAILURE; }
         }
 
+        if(!options.character_settings.animation_graph.empty()){
+            auto graph=std::make_shared<lykoware::animation::Graph>();std::string reason;
+            if(!lykoware::animation::load_graph(options.character_settings.animation_graph,*graph,reason)){throw std::invalid_argument(reason);}
+            if(mannequin.graph_clips.empty()){mannequin.graph_clips={mannequin.idle,mannequin.walk,mannequin.run,mannequin.jump,mannequin.fall,mannequin.land};}
+            mannequin.graph=std::move(graph);
+        }
         float visual_scale = 1.F;
         lykoware::math::Vec3 visual_offset{};
         lykoware::math::Quat visual_rotation{};
@@ -895,7 +918,7 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
             lykoware::log(lykoware::LogLevel::error, "Mannequin upload: " + error.message);
             return EXIT_FAILURE;
         }
-        player_body.emplace(scene->entities(), *mesh, std::move(mannequin), !options.character.empty(), visual_scale, visual_offset, visual_rotation, options.foot_ik ? resolved_roles : std::nullopt, options.foot_clearance);
+        player_body.emplace(scene->entities(), *mesh, std::move(mannequin), !options.character.empty(), visual_scale, visual_offset, visual_rotation, options.foot_ik ? resolved_roles : std::nullopt, options.foot_clearance, options.character_settings.foot_settings);
         if (options.foot_ik) { lykoware::log(lykoware::LogLevel::info,"Foot IK: stationary terrain alignment enabled"); }
         lykoware::log(lykoware::LogLevel::info, options.character.empty() ? "Animation: GPU-skinned training mannequin (7 joints), idle/walk/run/jump/fall/land clips." : "Animation: GPU-skinned imported character; missing run/air/landing clips fall back to walk/idle.");
         lykoware::log(lykoware::LogLevel::info,
@@ -931,7 +954,7 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
     std::uint64_t frame = 0;
     while (window.pump()) {
         auto frame_zone = zone("sandbox.frame");
-        const std::int64_t lap = frame_clock.lap();
+        const std::int64_t lap = options.replay.empty()?frame_clock.lap():16666667;
         const float frame_seconds = static_cast<float>(static_cast<double>(lap) * 1e-9);
         if (player) {
             const lykoware::InputState& input = window.input();
@@ -957,7 +980,7 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
                 }
                 if (player_body) { player_body->reset_animation(); }
             }
-            player->steer(lykoware::read_player_intent(input, input_config, frame_seconds, window.relative_mouse()));
+            player->steer(options.replay.empty()?lykoware::read_player_intent(input, input_config, frame_seconds, window.relative_mouse()):options.replay[static_cast<std::size_t>(frame)]);
         }
         const lykoware::FrameSteps steps = simulation->advance(lap);
         {
@@ -1091,6 +1114,9 @@ int run_window(const std::vector<std::string>& args)
             flag(options.no_audio, option);
         } else if (option == "--play") {
             flag(options.play, option);
+        } else if (option == "--play-input") {
+            if(!options.play_input.empty()||index+1>=args.size()||args[index+1].empty()||args[index+1].starts_with("--")){throw std::invalid_argument("Duplicate or missing --play-input");}
+            options.play_input=args[++index];
         } else if (option == "--character-profile") {
             if (!options.character_profile.empty() || index + 1 >= args.size() || args[index + 1].empty() || args[index + 1].starts_with("--")) {
                 throw std::invalid_argument("Duplicate or missing --character-profile");
@@ -1151,6 +1177,12 @@ int run_window(const std::vector<std::string>& args)
     }
     if (options.dummy && options.vulkan) {
         throw std::invalid_argument("--dummy cannot host Vulkan; use --offscreen for a headless Vulkan window.");
+    }
+    if(!options.play_input.empty()){
+        if(!options.play||!options.offscreen||!options.vulkan){throw std::invalid_argument("--play-input requires --play --offscreen --vulkan");}
+        options.replay=player_replay::load(utf8_path(options.play_input));
+        if(options.has_frames&&options.frames!=options.replay.size()){throw std::invalid_argument("--frames must match expanded play replay");}
+        options.frames=options.replay.size();options.has_frames=true;
     }
     if ((options.dummy || options.offscreen) && !options.has_frames) {
         throw std::invalid_argument("--window --dummy or --offscreen requires --frames N so it can exit without a display.");
@@ -1282,6 +1314,7 @@ int run(const std::vector<std::string>& args)
                          "--no-audio runs --vulkan without sound.\n"
                          "--model FILE shows a glTF model (.gltf or .glb) beside the crates, with its\n"
                          "  base colour materials and textures (PNG or JPEG).\n"
+                         "--play-input FILE runs bounded version1 offscreen intents at60Hz; optional --frames must match.\n"
                          "--play with --vulkan puts a character on an obstacle course beside the crates,\n"
                          "  with a follow camera: WASD or the left stick to move, Shift or L3 to run,\n"
                          "  Space or South to jump, the mouse wheel or d-pad to zoom (in to first\n"

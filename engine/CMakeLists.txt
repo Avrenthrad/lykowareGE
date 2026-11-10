@@ -4,6 +4,9 @@ configure_file(
     @ONLY)
 
 add_library(lykoware_engine STATIC
+    src/foot_plant.cpp
+    src/animation_graph.cpp
+    src/retarget.cpp
     src/character_asset.cpp
     src/audio.cpp
     src/audio_output.cpp

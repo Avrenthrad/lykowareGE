@@ -7,7 +7,7 @@ import struct
 import subprocess
 import sys
 
-exe, directory = sys.argv[1:]
+exe, directory, lyko = sys.argv[1:]
 root = pathlib.Path(directory)
 root.mkdir(parents=True, exist_ok=True)
 blob = bytearray()
@@ -53,6 +53,14 @@ profile_args=['--window','--offscreen','--vulkan','--play','--no-audio','--frame
 r=run(profile_args)
 assert r.returncode==0 and 'visual scale 1.800000' in r.stdout+r.stderr, r.stdout+r.stderr
 assert 'Locomotion diagnostics:' in r.stdout+r.stderr, r.stdout+r.stderr
+graph_file=root/'animation.json'
+graph_file.write_text(json.dumps(dict(version=1,states=[dict(name='idle',clip='breathe',events=[dict(name='entry',seconds=0)])])))
+profile.write_text(json.dumps(dict(version=1,model=path.name,animation_graph=graph_file.name)))
+r=run(profile_args)
+assert r.returncode==0 and 'Locomotion diagnostics:' in r.stdout+r.stderr,r.stdout+r.stderr
+graph_file.write_text(json.dumps(dict(version=1,states=[dict(name='idle',clip='missing')])))
+r=run(profile_args)
+assert r.returncode!=0 and 'Graph state clip is missing' in r.stdout+r.stderr,r.stdout+r.stderr
 for key in ['run_clip','jump_clip','fall_clip','land_clip']:
     profile.write_text(json.dumps(dict(version=1, model=path.name, **{key: 'breathe'})))
     r=run(profile_args)
@@ -123,6 +131,33 @@ assert r.returncode==0 and 'failures=0' in rotated and re.search(r'contacts=[1-9
 profile.write_text(json.dumps(dict(version=1,model=path.name,bones={name:name for name in role_names},foot_ik=True,foot_clearance=.12)))
 r=run(ik_args)
 assert r.returncode==0 and 'failures=0' in r.stdout+r.stderr, r.stdout+r.stderr
+profile.write_text(json.dumps(dict(version=1,model=path.name,bones={name:name for name in role_names},foot_ik=True,foot_align_normals=True,foot_max_slope_degrees=40,foot_pelvis=True,foot_max_pelvis_drop=.12)))
+r=run(ik_args);stance=r.stdout+r.stderr
+assert r.returncode==0 and 'failures=0' in stance and re.search(r'oriented=[1-9]\d*',stance) and re.search(r'applied_frames=[1-9]\d*',stance),stance
+plant_graph=root/'plants.graph.json'
+markers=[]
+for half in range(15):
+    names=['left_plant','right_lift'] if half%2==0 else ['left_lift','right_plant']
+    markers.extend(dict(name=name,seconds=half*.2) for name in names)
+plant_definition=dict(version=1,states=[dict(name='gait',clip='breathe',fade=0,events=markers)])
+plant_graph.write_text(json.dumps(plant_definition))
+profile.write_text(json.dumps(dict(version=1,model=path.name,bones={name:name for name in role_names},foot_ik=True,animation_graph=plant_graph.name,foot_align_normals=True,foot_pelvis=True,foot_locking=True,foot_max_plant_distance=.35)))
+input_file=root/'walking.input.json';input_file.write_text(json.dumps(dict(version=1,frames=[dict(repeat=30),dict(forward=.1,repeat=90)])))
+walking_args=ik_args.copy();frame_index=walking_args.index('--frames');del walking_args[frame_index:frame_index+2];walking_args+=['--play-input',str(input_file)]
+def walking_run(use_cli=False):
+    result=subprocess.run([lyko,"run","--",*walking_args],capture_output=True,text=True,timeout=60) if use_cli else run(walking_args);text=result.stdout+result.stderr
+    assert result.returncode==0 and 'failures=0' in text,text
+    counts=tuple(int(re.search(key+r'=(\d+)',text).group(1)) for key in ['planted','released','applied_frames'])
+    assert min(counts)>0 and re.search(r'walk=[1-9]\d*',text),text
+    return counts
+assert walking_run()==walking_run(True),'fixed-clock offscreen walking replay must reproduce plant/lift counters'
+r=run(walking_args+['--frames','1']);assert r.returncode!=0 and 'must match expanded play replay' in r.stdout+r.stderr,r.stdout+r.stderr
+plant_definition['states'][0]['events']=[e for e in markers if e['name']!='right_lift'];plant_graph.write_text(json.dumps(plant_definition))
+r=run(walking_args);assert r.returncode!=0 and 'plant and lift markers' in r.stdout+r.stderr,r.stdout+r.stderr
+plant_graph.write_text(json.dumps(dict(version=1,states=[dict(name='gait',clip='breathe',events=markers)])))
+for extra in [dict(foot_align_normals=True,foot_max_slope_degrees=61),dict(foot_pelvis=True,foot_max_pelvis_drop=.31),dict(foot_max_slope_degrees=20),dict(foot_max_pelvis_drop=.1),dict(foot_align_normals='yes'),dict(foot_locking=True),dict(foot_max_plant_distance=.2),dict(foot_locking=True,animation_graph=plant_graph.name,foot_max_plant_distance=2)]:
+    profile.write_text(json.dumps(dict(version=1,model=path.name,bones={name:name for name in role_names},foot_ik=True,**extra)))
+    r=run(ik_args);assert r.returncode!=0,r.stdout+r.stderr
 profile.write_text(json.dumps(dict(version=1,model=path.name,bones={name:name for name in role_names},foot_ik=True,foot_clearance=-1)))
 r=run(ik_args)
 assert r.returncode!=0 and 'foot_clearance must' in r.stdout+r.stderr
