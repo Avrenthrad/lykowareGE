@@ -139,10 +139,13 @@ void test_engine_heading()
     platform.motion = p::MotionType::Kinematic;
     platform.shape = p::BoxShape{{5, .5F, 5}};
     platform.position = {0, -.5, 0};
+    // Already turned when the foot plants, so support and world coordinates differ.
+    platform.rotation = m::from_axis_angle({0, 1, 0}, .7F);
     const auto id = moving->create_body(platform, error);
     auto carried = a::FootPlant::create({.03, 1, 35}, error);
-    check(carried->update(*moving, {}, m::Vec3{0, 0, -1}, true, result, error) && result.heading,
-          "a heading is held on a kinematic support");
+    check(carried->update(*moving, {}, m::Vec3{0, 0, -1}, true, result, error) && result.heading &&
+              near(*result.heading, {0, 0, -1}),
+          "a heading is held on a kinematic support, as animated");
     const auto start = moving->state(*id)->rotation;
     check(moving->set_velocity(*id, {}, {0, 1.F, 0}), "the support turns");
     bool followed = true;
