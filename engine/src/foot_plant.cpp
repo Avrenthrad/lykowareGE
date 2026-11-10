@@ -45,6 +45,21 @@ std::optional<FootPlant> FootPlant::create(FootPlantPolicy policy, std::string& 
 bool FootPlant::update(const physics::World& world, V foot, bool planted, FootPlantResult& out,
                        std::string& error)
 {
+    return step(world, foot, std::nullopt, planted, out, error);
+}
+bool FootPlant::update(const physics::World& world, V foot, math::Vec3 heading, bool planted, FootPlantResult& out,
+                       std::string& error)
+{
+    if (!std::isfinite(heading.x) || !std::isfinite(heading.y) || !std::isfinite(heading.z) ||
+        !(math::length(heading) > 0.F) || !std::isfinite(math::length(heading))) {
+        error = "Foot-plant heading must be a finite non-zero direction";
+        return false;
+    }
+    return step(world, foot, heading, planted, out, error);
+}
+bool FootPlant::step(const physics::World& world, V foot, std::optional<math::Vec3> heading, bool planted,
+                     FootPlantResult& out, std::string& error)
+{
     constexpr double ray_limit = static_cast<double>(std::numeric_limits<float>::max()) / 4;
     if (!finite(foot) || std::abs(foot.x) > ray_limit || std::abs(foot.y) > ray_limit ||
         std::abs(foot.z) > ray_limit) {
@@ -94,6 +109,14 @@ bool FootPlant::update(const physics::World& world, V foot, bool planted, FootPl
         result.normal = normal;
         result.support = next.support_;
         result.status = FootPlantStatus::Planted;
+        if (next.local_heading_) {
+            const auto held = math::normalize(math::rotate(body->rotation, *next.local_heading_));
+            if (!std::isfinite(held.x) || !std::isfinite(held.y) || !std::isfinite(held.z)) {
+                error = "Foot-plant held heading is nonfinite";
+                return false;
+            }
+            result.heading = held;
+        }
         return finish();
     }
     if (!next.armed_) {
@@ -124,6 +147,18 @@ bool FootPlant::update(const physics::World& world, V foot, bool planted, FootPl
     if (!finite(next.local_point_)) {
         error = "Foot-plant local support position is nonfinite";
         return false;
+    }
+    next.local_heading_.reset();
+    if (heading) {
+        // The heading's part in the surface plane; none when it points along the normal.
+        const auto n = hit->normal;
+        const auto along = math::dot(*heading, n);
+        const math::Vec3 flat = *heading - n * along;
+        if (math::length(flat) > 1e-3F * math::length(*heading)) {
+            const auto world_heading = math::normalize(flat);
+            next.local_heading_ = math::normalize(math::rotate(math::conjugate(body->rotation), world_heading));
+            result.heading = world_heading;
+        }
     }
     next.support_ = hit->body;
     result.target = target;

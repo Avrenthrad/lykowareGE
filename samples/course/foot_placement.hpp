@@ -65,6 +65,24 @@ inline V position(const math::Mat4& m)
 {
     return {m.m[3][0], m.m[3][1], m.m[3][2]};
 }
+inline double dot(V a, V b)
+{
+    return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+// A joint-local direction carried into model space by a joint's (unit-scale) global transform.
+inline V direction(const math::Mat4& m, V local)
+{
+    return {m.m[0][0] * local.x + m.m[1][0] * local.y + m.m[2][0] * local.z,
+            m.m[0][1] * local.x + m.m[1][1] * local.y + m.m[2][1] * local.z,
+            m.m[0][2] * local.x + m.m[1][2] * local.y + m.m[2][2] * local.z};
+}
+// The joint-local direction that `model` (a model-space direction) has at a joint's rest transform.
+inline V local_direction(const math::Mat4& rest, V model)
+{
+    return {rest.m[0][0] * model.x + rest.m[0][1] * model.y + rest.m[0][2] * model.z,
+            rest.m[1][0] * model.x + rest.m[1][1] * model.y + rest.m[1][2] * model.z,
+            rest.m[2][0] * model.x + rest.m[2][1] * model.y + rest.m[2][2] * model.z};
+}
 struct PlantPhases {
     std::array<bool, 2> planted;
     std::array<std::uint64_t, 2> cycles;
@@ -75,7 +93,7 @@ struct PlantPhases {
 };
 struct Stats {
     std::uint64_t frames = 0, contacts = 0, misses = 0, clamped = 0, resets = 0, oriented = 0,
-                  slope_rejected = 0, pelvis_frames = 0, planted = 0, released = 0;
+                  slope_rejected = 0, pelvis_frames = 0, planted = 0, released = 0, headed = 0, heading_clamped = 0;
 };
 class Controller {
 public:
@@ -99,6 +117,9 @@ public:
         std::array<std::optional<animation::PreparedTwoBone>, 2> prepared{
             {calibrated->legs[0], calibrated->legs[1]}};
         std::array<std::optional<animation::PreparedJointAxis>, 2> axes{};
+        // Heading lock (ADR 0068): the foot's model -Z, a horizontal reference at right angles to its
+        // up axis (model +Y), is what a planted foot keeps pointing along its held heading.
+        std::array<V, 2> local_reference{};
         double shorter_leg = std::numeric_limits<double>::max();
         for (std::size_t side = 0; side < 2; ++side) {
             const std::size_t leg = side == 0 ? 1 : 4;
@@ -109,6 +130,7 @@ public:
                     return false;
                 }
             }
+            local_reference[side] = local_direction(fk[roles[leg + 2]], {0, 0, -1});
             shorter_leg =
                 std::min(shorter_leg, norm(position(fk[roles[leg + 1]]) - position(fk[roles[leg]])) +
                                           norm(position(fk[roles[leg + 2]]) - position(fk[roles[leg + 1]])));
@@ -133,6 +155,7 @@ public:
         clearance_ = clearance;
         settings_ = settings;
         axes_ = std::move(axes);
+        local_reference_ = local_reference;
         plants_ = std::move(plants);
         shorter_leg_ = shorter_leg;
         ready_ = true;
@@ -214,6 +237,8 @@ public:
         std::array<V, 2> targets{};
         std::array<double, 2> desired{};
         std::array<bool, 2> contact{};
+        std::array<std::optional<V>, 2> headings{};
+        std::array<V, 2> support_normals{};
         const double alpha = 1.0 - std::exp(-12.0 * seconds);
         const double maximum_angle = settings_.max_slope_degrees * std::numbers::pi / 180.0;
         for (std::size_t side = 0; side < 2; ++side) {
@@ -235,7 +260,16 @@ public:
                     cycles[side] = planting->cycles[side];
                 }
                 animation::FootPlantResult result;
-                if (!plants[side]->update(world, foot, planting->planted[side], result, error)) {
+                if (settings_.heading) {
+                    const V model = direction(fk_[roles_[leg + 2]], local_reference_[side]);
+                    const V heading = rotate(actor.rotation, model);
+                    if (!plants[side]->update(world, foot,
+                                              math::Vec3{static_cast<float>(heading.x), static_cast<float>(heading.y),
+                                                         static_cast<float>(heading.z)},
+                                              planting->planted[side], result, error)) {
+                        return false;
+                    }
+                } else if (!plants[side]->update(world, foot, planting->planted[side], result, error)) {
                     return false;
                 }
                 if (result.acquired) {
@@ -257,6 +291,10 @@ public:
                 }
                 targets[side] = result.target;
                 target_normal = {result.normal.x, result.normal.y, result.normal.z};
+                if (result.heading) {
+                    headings[side] = V{result.heading->x, result.heading->y, result.heading->z};
+                    support_normals[side] = V{result.normal.x, result.normal.y, result.normal.z};
+                }
                 desired[side] = result.target.y - foot.y;
                 next[side] = desired[side];
                 contact[side] = true;
@@ -370,6 +408,42 @@ public:
                         ++stats.clamped;
                     }
                 }
+                if (settings_.heading && headings[side]) {
+                    // Turn the planted foot about the support's normal so its reference axis, laid
+                    // in the support plane, points along the held heading: at most
+                    // max_heading_degrees. With normal alignment that normal is the foot's up axis,
+                    // so the alignment is kept.
+                    for (std::size_t i = 0; i < candidate_.size(); ++i) {
+                        const auto parent = skeleton_.joints[i].parent;
+                        rotations_[i] = math::normalize(parent ? rotations_[*parent] * candidate_[i].rotation
+                                                               : candidate_[i].rotation);
+                    }
+                    const std::size_t joint = roles_[leg + 2];
+                    V n = rotate(math::conjugate(actor.rotation), support_normals[side]);
+                    n = scale(n, 1.0 / norm(n));
+                    V current = rotate(rotations_[joint], local_reference_[side]);
+                    current = current - scale(n, dot(n, current));
+                    V wanted = rotate(math::conjugate(actor.rotation), *headings[side]);
+                    wanted = wanted - scale(n, dot(n, wanted));
+                    const double current_length = norm(current), wanted_length = norm(wanted);
+                    if (current_length > 1e-6 && wanted_length > 1e-6) {
+                        current = scale(current, 1.0 / current_length);
+                        wanted = scale(wanted, 1.0 / wanted_length);
+                        const double angle = std::atan2(dot(n, cross(current, wanted)), dot(current, wanted));
+                        const double bound = settings_.max_heading_degrees * std::numbers::pi / 180.0;
+                        const auto turn = math::from_axis_angle(
+                            {static_cast<float>(n.x), static_cast<float>(n.y), static_cast<float>(n.z)},
+                            static_cast<float>(std::clamp(angle, -bound, bound)));
+                        const auto parent = skeleton_.joints[joint].parent;
+                        const math::Quat above = parent ? rotations_[*parent] : math::Quat{};
+                        candidate_[joint].rotation =
+                            math::normalize(math::conjugate(above) * turn * rotations_[joint]);
+                        ++stats.headed;
+                        if (std::abs(angle) > bound) {
+                            ++stats.heading_clamped;
+                        }
+                    }
+                }
             }
             if (!retry) {
                 return commit();
@@ -383,6 +457,7 @@ private:
     double clearance_ = 0.03, pelvis_drop_ = 0, shorter_leg_ = 0;
     lykoware::character::FootSettings settings_;
     std::array<std::optional<animation::PreparedJointAxis>, 2> axes_{};
+    std::array<V, 2> local_reference_{};
     std::array<std::optional<animation::FootPlant>, 2> plants_{};
     std::array<std::uint64_t, 2> plant_cycles_{};
     std::array<V, 2> normals_{{{0, 1, 0}, {0, 1, 0}}};
