@@ -641,6 +641,7 @@ public:
             const auto planting=walking?std::optional{foot_placement::PlantPhases{playback_.planted,playback_.plant_cycles}}:std::nullopt;
             const bool active=state.ground==lykoware::physics::GroundState::OnGround && (speed<0.2F||walking)
                 && player.camera().current_distance()>=0.5F;
+            if (!drawn.empty()) { ++drawn_offered_frames_; }
             if (foot_->update(playback_.blended,placement,world,seconds,active,corrected_,reason,planting,drawn)) {
                 lykoware::animation::skinning_matrices(asset_.skeleton,corrected_,playback_.matrices);
                 final_pose=corrected_;
@@ -689,7 +690,7 @@ public:
                 +" planted="+std::to_string(s.planted)+" released="+std::to_string(s.released)
                 +" oriented="+std::to_string(s.oriented)+" slope_rejected="+std::to_string(s.slope_rejected)+" pelvis_frames="+std::to_string(s.pelvis_frames)
                 +" headed="+std::to_string(s.headed)+" heading_clamped="+std::to_string(s.heading_clamped)
-                +" drawn="+std::to_string(s.drawn)
+                +" drawn="+std::to_string(s.drawn)+" drawn_offered="+std::to_string(drawn_offered_frames_)
                 +" failures="+std::to_string(foot_failures_)+" applied_frames="+std::to_string(foot_applied_frames_));
         }
     }
@@ -712,6 +713,7 @@ private:
     std::uint64_t motion_fallback_frames_ = 0;
     std::optional<foot_placement::Controller> foot_;
     std::uint64_t foot_failures_=0;
+    std::uint64_t drawn_offered_frames_=0;
     float visual_scale_ = 1.F;
     lykoware::math::Vec3 visual_offset_{};
     lykoware::math::Quat visual_rotation_{};
