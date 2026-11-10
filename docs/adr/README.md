@@ -83,3 +83,4 @@ Use [the template](TEMPLATE.md). Record context, options, decision/status, contr
 
 - [0067: Authored foot-plant phases and support anchors](0067-authored-foot-plants.md) — Proposed; fixed-storage support-local position locks, authored cycle epochs and actual offscreen input replay.
 - [0068: Planted feet keep their heading](0068-planted-foot-heading.md) — Proposed; `FootPlant` holds a planted foot's heading in support coordinates, the sample turns the foot about the support normal back to it within a bound (`foot_heading_lock`).
+- [0069: Feet stay still on moving supports as drawn](0069-feet-on-drawn-supports.md) — Proposed; callers list drawn support poses (`DrawnBody`), and planted and standing feet resolve against them instead of the latest physics state.
