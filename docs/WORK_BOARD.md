@@ -14,7 +14,7 @@ Branch `claude/drawn-support-feet`, stacked on the heading lock (#75). [ADR 0069
   - controller: standing on a lift matches a still floor at the drawn height; feet planted on a moving platform stay still as drawn;
   - the real imported-player replay offers the crates' drawn poses every frame.
 - **Deliberate breaks:** 17 of 17 caught (11 engine, 4 controller, 2 sandbox). One was first written in a form that did not compile and was re-run in one that did.
-- **Local checks:** the touched tests and the full Debug suite (84/84) pass; the other presets follow in the next commit.
+- **Local checks:** 84/84 pass in each of the Debug, ASan/UBSan and clang-tidy presets, with no skips. A GCC `-Wshadow -Wconversion -Wsign-conversion -Wold-style-cast -Wdouble-promotion` sweep finds nothing in the new code.
 - **02.11c:** with this and the heading lock merged, its listed parts are done; the owner's feel review stays open under 02.16.
 
 ## Planted foot heading — 02.11c heading lock (Claude, in review)
