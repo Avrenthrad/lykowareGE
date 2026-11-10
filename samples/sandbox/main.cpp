@@ -45,6 +45,7 @@
 #include <iostream>
 #include <memory>
 #include <optional>
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -412,6 +413,7 @@ public:
     void present(float alpha)
     {
         const float t = std::isfinite(alpha) ? std::clamp(alpha, 0.F, 1.F) : 1.F;
+        drawn_.clear();
         for (std::size_t i = 0; i < crates_.size(); ++i) {
             auto* transform = entities_.get<lykoware::Transform>(crates_[i]);
             if (transform == nullptr) {
@@ -422,8 +424,14 @@ public:
             const auto mix = [t](double a, double b) { return a + (b - a) * static_cast<double>(t); };
             transform->position = {mix(from.x, now.position.x), mix(from.y, now.position.y), mix(from.z, now.position.z)};
             transform->rotation = blend(before_[i].rotation, now.rotation, t);
+            if (const auto* body = entities_.get<lykoware::physics_ecs::RigidBody>(crates_[i])) {
+                drawn_.push_back({body->id(), transform->position, transform->rotation});
+            }
         }
     }
+
+    // Where each crate is drawn this frame, for feet standing on one (ADR 0069).
+    std::span<const lykoware::animation::DrawnBody> drawn() const { return drawn_; }
 
     lykoware::ecs::World& entities() { return entities_; }
     // Impacts since the last take_impacts(), oldest first.
@@ -556,6 +564,7 @@ private:
     std::vector<lykoware::math::Vec3> last_velocity_;
     std::vector<float> quiet_;
     std::vector<Pose> before_;
+    std::vector<lykoware::animation::DrawnBody> drawn_;
     std::vector<Impact> impacts_;
     double elapsed_ = 0.0;
     // Where the crates fall: the middle of the flat ground, or beside the course.
@@ -603,7 +612,9 @@ public:
     }
 
     // Draws the body `alpha` of the way between the last two steps (ADR 0048).
-    void place(const lykoware::PlayerCharacter& player, float alpha, float seconds, const lykoware::physics::World& world)
+    // `drawn`: where moving supports are drawn this frame, so planted feet stay on them as drawn (ADR 0069).
+    void place(const lykoware::PlayerCharacter& player, float alpha, float seconds, const lykoware::physics::World& world,
+               std::span<const lykoware::animation::DrawnBody> drawn = {})
     {
         const lykoware::math::DVec3 feet = player.drawn_feet(alpha);
         const lykoware::math::Quat facing = lykoware::math::from_axis_angle({0.F, 1.F, 0.F}, player.drawn_facing(alpha));
@@ -630,7 +641,7 @@ public:
             const auto planting=walking?std::optional{foot_placement::PlantPhases{playback_.planted,playback_.plant_cycles}}:std::nullopt;
             const bool active=state.ground==lykoware::physics::GroundState::OnGround && (speed<0.2F||walking)
                 && player.camera().current_distance()>=0.5F;
-            if (foot_->update(playback_.blended,placement,world,seconds,active,corrected_,reason,planting)) {
+            if (foot_->update(playback_.blended,placement,world,seconds,active,corrected_,reason,planting,drawn)) {
                 lykoware::animation::skinning_matrices(asset_.skeleton,corrected_,playback_.matrices);
                 final_pose=corrected_;
             } else {
@@ -678,6 +689,7 @@ public:
                 +" planted="+std::to_string(s.planted)+" released="+std::to_string(s.released)
                 +" oriented="+std::to_string(s.oriented)+" slope_rejected="+std::to_string(s.slope_rejected)+" pelvis_frames="+std::to_string(s.pelvis_frames)
                 +" headed="+std::to_string(s.headed)+" heading_clamped="+std::to_string(s.heading_clamped)
+                +" drawn="+std::to_string(s.drawn)
                 +" failures="+std::to_string(foot_failures_)+" applied_frames="+std::to_string(foot_applied_frames_));
         }
     }
@@ -998,7 +1010,7 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
         scene->present(alpha);
         if (player) {
             camera = player->view(frame_seconds, alpha);
-            player_body->place(*player, alpha, frame_seconds, *physics);
+            player_body->place(*player, alpha, frame_seconds, *physics, scene->drawn());
         }
         const auto listener = lykoware::audio::Listener::looking_at(camera.eye, camera.target, camera.up);
         if (audio) {

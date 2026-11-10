@@ -27,7 +27,65 @@ double length(V p)
 {
     return std::hypot(p.x, p.y, p.z);
 }
+bool finite(math::Vec3 v)
+{
+    return std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z);
+}
+bool finite(math::Quat q)
+{
+    return std::isfinite(q.x) && std::isfinite(q.y) && std::isfinite(q.z) && std::isfinite(q.w);
+}
+struct Pose {
+    V position;
+    math::Quat rotation;
+};
+// A drawn pose fit to use: finite, with a non-zero rotation, which is normalised.
+std::optional<Pose> usable(const DrawnBody& drawn)
+{
+    const auto& q = drawn.rotation;
+    const float size = std::sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
+    if (!finite(drawn.position) || !finite(q) || !std::isfinite(size) || size < 1e-6F) {
+        return std::nullopt;
+    }
+    return Pose{drawn.position, math::normalize(q)};
+}
 } // namespace
+const DrawnBody* find_drawn(std::span<const DrawnBody> drawn, physics::BodyId body) noexcept
+{
+    for (const auto& entry : drawn) {
+        if (entry.body == body) {
+            return &entry;
+        }
+    }
+    return nullptr;
+}
+std::optional<physics::RayHit> drawn_hit(const physics::RayHit& hit, const physics::BodyState& state,
+                                         const DrawnBody& drawn, V from)
+{
+    const auto pose = usable(drawn);
+    if (!pose || !finite(hit.point) || !finite(hit.normal) || !finite(from) || !finite(state.position) ||
+        !finite(state.rotation)) {
+        return std::nullopt;
+    }
+    // Carry the hit with the body from its physics pose to its drawn pose.
+    const auto inverse = math::conjugate(state.rotation);
+    const V point = pose->position + rotate(pose->rotation, rotate(inverse, hit.point - state.position));
+    const auto normal = math::normalize(math::rotate(pose->rotation, math::rotate(inverse, hit.normal)));
+    if (!finite(point) || !finite(normal)) {
+        return std::nullopt;
+    }
+    auto moved = hit;
+    moved.normal = normal;
+    moved.point = point;
+    // Then straight below `from` on the drawn tangent plane through that point.
+    const V n{normal.x, normal.y, normal.z};
+    if (n.y > 1e-6) {
+        const V offset = from - point;
+        const double down = (offset.x * n.x + offset.y * n.y + offset.z * n.z) / n.y;
+        moved.point = {from.x, from.y - down, from.z};
+    }
+    return finite(moved.point) ? std::optional{moved} : std::nullopt;
+}
 std::optional<FootPlant> FootPlant::create(FootPlantPolicy policy, std::string& error)
 {
     if (!std::isfinite(policy.clearance) || policy.clearance < 0 || policy.clearance > .3 ||
@@ -43,22 +101,22 @@ std::optional<FootPlant> FootPlant::create(FootPlantPolicy policy, std::string& 
     return plant;
 }
 bool FootPlant::update(const physics::World& world, V foot, bool planted, FootPlantResult& out,
-                       std::string& error)
+                       std::string& error, std::span<const DrawnBody> drawn)
 {
-    return step(world, foot, std::nullopt, planted, out, error);
+    return step(world, foot, std::nullopt, planted, out, error, drawn);
 }
 bool FootPlant::update(const physics::World& world, V foot, math::Vec3 heading, bool planted, FootPlantResult& out,
-                       std::string& error)
+                       std::string& error, std::span<const DrawnBody> drawn)
 {
     if (!std::isfinite(heading.x) || !std::isfinite(heading.y) || !std::isfinite(heading.z) ||
         !(math::length(heading) > 0.F) || !std::isfinite(math::length(heading))) {
         error = "Foot-plant heading must be a finite non-zero direction";
         return false;
     }
-    return step(world, foot, heading, planted, out, error);
+    return step(world, foot, heading, planted, out, error, drawn);
 }
 bool FootPlant::step(const physics::World& world, V foot, std::optional<math::Vec3> heading, bool planted,
-                     FootPlantResult& out, std::string& error)
+                     FootPlantResult& out, std::string& error, std::span<const DrawnBody> drawn)
 {
     constexpr double ray_limit = static_cast<double>(std::numeric_limits<float>::max()) / 4;
     if (!finite(foot) || std::abs(foot.x) > ray_limit || std::abs(foot.y) > ray_limit ||
@@ -89,8 +147,19 @@ bool FootPlant::step(const physics::World& world, V foot, std::optional<math::Ve
             result.status = FootPlantStatus::SupportLost;
             return finish();
         }
-        const auto target = body->position + rotate(body->rotation, next.local_point_);
-        const auto normal = math::normalize(math::rotate(body->rotation, next.local_normal_));
+        // The support as drawn when the caller lists it (ADR 0069), else as simulated.
+        Pose support{body->position, body->rotation};
+        if (const auto* listed = find_drawn(drawn, *next.support_)) {
+            const auto pose = usable(*listed);
+            if (!pose) {
+                error = "Foot-plant drawn support pose must be finite with a non-zero rotation";
+                return false;
+            }
+            support = *pose;
+            result.drawn = true;
+        }
+        const auto target = support.position + rotate(support.rotation, next.local_point_);
+        const auto normal = math::normalize(math::rotate(support.rotation, next.local_normal_));
         if (!finite(target) || !finite(V{normal.x, normal.y, normal.z})) {
             error = "Foot-plant support transform is nonfinite";
             return false;
@@ -110,7 +179,7 @@ bool FootPlant::step(const physics::World& world, V foot, std::optional<math::Ve
         result.support = next.support_;
         result.status = FootPlantStatus::Planted;
         if (next.local_heading_) {
-            const auto held = math::normalize(math::rotate(body->rotation, *next.local_heading_));
+            const auto held = math::normalize(math::rotate(support.rotation, *next.local_heading_));
             if (!std::isfinite(held.x) || !std::isfinite(held.y) || !std::isfinite(held.z)) {
                 error = "Foot-plant held heading is nonfinite";
                 return false;
@@ -123,7 +192,27 @@ bool FootPlant::step(const physics::World& world, V foot, std::optional<math::Ve
         return finish();
     }
     next.armed_ = false;
-    const auto hit = world.cast_ray(foot + V{0, .35, 0}, {0, -1, 0});
+    auto hit = world.cast_ray(foot + V{0, .35, 0}, {0, -1, 0});
+    // A support listed as drawn elsewhere is probed where it is drawn (ADR 0069).
+    std::optional<Pose> drawn_support;
+    if (hit) {
+        if (const auto* listed = find_drawn(drawn, hit->body)) {
+            const auto pose = usable(*listed);
+            if (!pose) {
+                error = "Foot-plant drawn support pose must be finite with a non-zero rotation";
+                return false;
+            }
+            if (const auto state = world.state(hit->body)) {
+                const auto moved = drawn_hit(*hit, *state, *listed, foot);
+                if (!moved) {
+                    error = "Foot-plant drawn support hit is nonfinite";
+                    return false;
+                }
+                hit = moved;
+                drawn_support = pose;
+            }
+        }
+    }
     if (!hit || std::abs(hit->point.y + policy_.clearance - foot.y) > .3) {
         result.status = FootPlantStatus::MissingSurface;
         return finish();
@@ -142,8 +231,13 @@ bool FootPlant::step(const physics::World& world, V foot, std::optional<math::Ve
         result.status = FootPlantStatus::SupportLost;
         return finish();
     }
-    next.local_point_ = rotate(math::conjugate(body->rotation), target - body->position);
-    next.local_normal_ = math::normalize(math::rotate(math::conjugate(body->rotation), hit->normal));
+    Pose support{body->position, body->rotation};
+    if (drawn_support) {
+        support = *drawn_support;
+        result.drawn = true;
+    }
+    next.local_point_ = rotate(math::conjugate(support.rotation), target - support.position);
+    next.local_normal_ = math::normalize(math::rotate(math::conjugate(support.rotation), hit->normal));
     if (!finite(next.local_point_)) {
         error = "Foot-plant local support position is nonfinite";
         return false;
@@ -156,7 +250,7 @@ bool FootPlant::step(const physics::World& world, V foot, std::optional<math::Ve
         const math::Vec3 flat = *heading - n * along;
         if (math::length(flat) > 1e-3F * math::length(*heading)) {
             const auto world_heading = math::normalize(flat);
-            next.local_heading_ = math::normalize(math::rotate(math::conjugate(body->rotation), world_heading));
+            next.local_heading_ = math::normalize(math::rotate(math::conjugate(support.rotation), world_heading));
             result.heading = world_heading;
         }
     }
