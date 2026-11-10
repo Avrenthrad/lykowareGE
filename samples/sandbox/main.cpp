@@ -589,6 +589,7 @@ public:
         entities_.add<lykoware::Transform>(body_, lykoware::Transform{});
         entities_.add<lykoware::Transform>(visor_, lykoware::Transform{});
         playback_.advance(asset_, 0.F, 0.F);
+        if(asset_.graph){socket_poses_.resize(asset_.graph->sockets.size());}
         entities_.add<lykoware::render::SkinPose>(body_, lykoware::render::SkinPose{playback_.matrices});
     }
 
@@ -615,6 +616,7 @@ public:
         playback_.advance_character(asset_, seconds, state);
         ++motion_frames_[static_cast<std::size_t>(playback_.selector.state())];
         if (playback_.used_fallback) { ++motion_fallback_frames_; }
+        std::span<const lykoware::animation::JointPose> final_pose=playback_.blended;
         const auto base_palette = foot_ ? palette_hash(playback_.matrices) : 0;
         if (foot_) {
             const auto local_offset=lykoware::math::rotate(lykoware::math::conjugate(visual_rotation_),visual_offset_);
@@ -625,11 +627,15 @@ public:
                 && player.camera().current_distance()>=0.5F;
             if (foot_->update(playback_.blended,placement,world,seconds,active,corrected_,reason)) {
                 lykoware::animation::skinning_matrices(asset_.skeleton,corrected_,playback_.matrices);
+                final_pose=corrected_;
             } else {
                 ++foot_failures_;
                 foot_->reset();
                 if (foot_failures_==1) { lykoware::log(lykoware::LogLevel::warning,"Foot IK fallback: "+reason); }
             }
+        }
+        if(asset_.graph){
+            if(!lykoware::animation::evaluate_sockets(asset_.skeleton,final_pose,asset_.graph->sockets,socket_poses_,socket_error_)){throw std::invalid_argument(socket_error_);}
         }
         if (!imported_) { const auto face = lykoware::animation::skin_point(playback_.matrices, {2, 0, 0, 0}, {1.F, 0.F, 0.F, 0.F},
                                                           {0.F, 1.58F, -0.18F});
@@ -679,6 +685,8 @@ private:
         return hash;
     }
     lykoware::animation::Pose corrected_;
+    std::vector<lykoware::math::Mat4> socket_poses_;
+    std::string socket_error_;
     std::uint64_t foot_applied_frames_=0;
     std::array<std::uint64_t,6> motion_frames_{};
     std::uint64_t motion_fallback_frames_ = 0;
@@ -857,6 +865,7 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
             mannequin.joints = imported->joints;
             mannequin.weights = imported->weights;
             mannequin.skeleton = imported->skeleton;
+            mannequin.graph_clips=imported->clips;
             if (options.bones) {
                 rig_roles::Indices roles;
                 if (!rig_roles::resolve(mannequin.skeleton, *options.bones, roles, reason)) { throw std::invalid_argument(reason); }
@@ -870,6 +879,12 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
             if (!upload_model(*renderer, imported->model, error, &mannequin)) { return EXIT_FAILURE; }
         }
 
+        if(!options.character_settings.animation_graph.empty()){
+            auto graph=std::make_shared<lykoware::animation::Graph>();std::string reason;
+            if(!lykoware::animation::load_graph(options.character_settings.animation_graph,*graph,reason)){throw std::invalid_argument(reason);}
+            if(mannequin.graph_clips.empty()){mannequin.graph_clips={mannequin.idle,mannequin.walk,mannequin.run,mannequin.jump,mannequin.fall,mannequin.land};}
+            mannequin.graph=std::move(graph);
+        }
         float visual_scale = 1.F;
         lykoware::math::Vec3 visual_offset{};
         lykoware::math::Quat visual_rotation{};

@@ -247,3 +247,7 @@ Rendering and terrain IK share the same facing/yaw/scale/offset conversion. Insp
 The controller/Jolt remains authoritative for translation and collision. Skeleton root tracks are visual-only. Profiles may explicitly set `"motion_authority":"controller"`; unsupported requests fail. A future extraction adapter must feed collision-resolved controller input, not teleport the physics body.
 
 The sample uses bounded facing at 720 degrees/s, interpolated between fixed ticks consistently with feet and foot probes. Optional `turn_degrees_per_second` accepts 0..3600; 0 removes the rate limit (rendering may still interpolate between ticks). Idle turning finishes towards the last requested heading. Engine `PlayerConfig::max_turn_rate` defaults to 0 for backward compatibility. Existing course tests traverse rolling terrain, ramps, stairs, ledges, tunnel and a steep non-walkable slope with rate-limited facing enabled. Slope-specific animation, walking locks and subjective feel remain later acceptance work.
+
+### Authored animation checks
+
+See [ANIMATION_RUNTIME](ANIMATION_RUNTIME.md) for JSON configuration and `lyko animate-character --model FILE --graph FILE --inputs FILE [--target-model FILE]`. This command works without Vulkan. `animation.authored` exercises graph transitions, interval events, sockets, retargeting and allocation reuse; `animation.replay_cli` exercises actual glTF loading and replay. Optional character-profile `animation_graph` enables the same runtime in the sandbox.

@@ -1,6 +1,7 @@
 #include "commands.hpp"
 #include "scene_command.hpp"
 #include "character_command.hpp"
+#include "animation_command.hpp"
 
 #include "lyko_sandbox_path.hpp"
 #include "process.hpp"
@@ -53,6 +54,7 @@ void usage()
                  "             [--cmake EXECUTABLE]\n"
                  "  lyko test  [--source DIR] [--preset NAME] [--ctest EXECUTABLE]\n"
                  "  lyko run\n"
+                 "  lyko animate-character --model FILE --graph FILE --inputs FILE [--target-model FILE]\n"
                  "  lyko inspect-character (--model FILE | --profile FILE) [--compare-model FILE] [--output FILE]\n"
                  "  lyko trace --frames N [--gpu] [--output FILE]\n"
                  "  lyko --help | --version\n"
@@ -334,6 +336,7 @@ int route(std::string_view program, const std::vector<std::string>& arguments)
         {"run", run_command},
         {"screenshot", screenshot_command},
         {"trace", trace_command},
+        {"animate-character", [](std::string_view, std::span<const std::string> args) { return lykoware::cli::animation_command(args); }},
         {"inspect-character", [](std::string_view, std::span<const std::string> args) { return lykoware::cli::character_command(args); }},
     };
     const std::string& name = arguments[0];

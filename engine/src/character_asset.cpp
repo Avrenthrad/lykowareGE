@@ -1,4 +1,5 @@
 #include <lykoware/character_asset.hpp>
+#include <lykoware/animation_graph.hpp>
 #include <lykoware/ik.hpp>
 #include <nlohmann/json.hpp>
 #include <algorithm>
@@ -38,7 +39,7 @@ bool decode_profile(std::string_view text,const std::filesystem::path& directory
         if(!j.is_object()||!j.contains("version")||!j["version"].is_number_integer()||j["version"]!=1
             ||!j.contains("model")||!j["model"].is_string()){return fail(error,"Character profile requires version 1 and model string");}
         const std::set<std::string> allowed{"version","model","idle_clip","walk_clip","run_clip","jump_clip","fall_clip","land_clip",
-            "motion_authority","turn_degrees_per_second","height","yaw_degrees","capsule_height","capsule_radius","eye_height","bones","foot_ik","foot_clearance"};
+            "animation_graph","motion_authority","turn_degrees_per_second","height","yaw_degrees","capsule_height","capsule_radius","eye_height","bones","foot_ik","foot_clearance"};
         for(const auto& item:j.items()){if(!allowed.contains(item.key())){return fail(error,"Unknown character profile key: "+item.key());}}
         if(j.contains("motion_authority")&&(!j["motion_authority"].is_string()||j["motion_authority"]!=motion_authority)){
             return fail(error,"Only controller motion authority is currently supported; root tracks are visual-only");
@@ -47,6 +48,12 @@ bool decode_profile(std::string_view text,const std::filesystem::path& directory
         const auto model=j["model"].get<std::string>();
         if(model.empty()||model.find('\0')!=std::string::npos){return fail(error,"Invalid profile model path");}
         result.model=utf8(model);if(result.model.is_relative()){result.model=directory/result.model;}
+        if(j.contains("animation_graph")){
+            if(!j["animation_graph"].is_string()){return fail(error,"animation_graph must be a path string");}
+            const auto graph=j["animation_graph"].get<std::string>();
+            if(graph.empty()||graph.find('\0')!=std::string::npos){return fail(error,"Invalid animation graph path");}
+            result.animation_graph=utf8(graph);if(result.animation_graph.is_relative()){result.animation_graph=directory/result.animation_graph;}
+        }
         for(std::size_t i=0;i<clip_keys.size();++i){
             const auto* key=clip_keys[i];if(!j.contains(key)){continue;}
             if(!j[key].is_string()||j[key].get<std::string>().empty()){return fail(error,i<2?"Profile clip names must be nonempty strings":"Profile locomotion clip names must be nonempty strings");}
@@ -215,6 +222,10 @@ RigCompatibility compare_rigs(const animation::Skeleton& source,const animation:
 }
 bool inspect(const gltf::SkinnedModel& asset,const Profile& profile,Inspection& out,std::string& error)
 {
+    if(!profile.animation_graph.empty()){
+        animation::Graph graph;if(!animation::load_graph(profile.animation_graph,graph,error)){return false;}
+        if(!animation::GraphPlayer::create(asset.skeleton,asset.clips,graph,error)){return false;}
+    }
     if(profile.turn_degrees_per_second&&(!std::isfinite(*profile.turn_degrees_per_second)||*profile.turn_degrees_per_second<0||*profile.turn_degrees_per_second>3600)){return fail(error,"Invalid turn_degrees_per_second");}
     if(!std::isfinite(profile.foot_clearance)||profile.foot_clearance<0||profile.foot_clearance>.3){return fail(error,"foot_clearance must be 0..0.3 metres");}
     if(!valid_mesh(asset.model.mesh,error)||!animation::valid_skeleton(asset.skeleton,error)){return false;}

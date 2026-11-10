@@ -1,0 +1,11 @@
+# ADR 0065: bounded authored animation runtime
+
+Status: Proposed. Owner: Codex; base 0487221, batch 02.08–02.10.
+
+Provide an owned reusable finite-state animation configuration, rather than embedding game rules in the engine. Version-1 JSON names parameters, states, clips and ordered conditional edges. A player owns snapshots of its skeleton/clips/configuration, evaluates one edge per step against caller parameters and previous state age, samples a live target and crossfades from the last visible pose. Time is presentation-only; no root track changes physics. Setup allocates; successful steps reuse storage. Bool-returning updates preserve state and caller output on failure. Separate players/scratch are required for concurrent use.
+
+States also author named clip-time events. Entry includes time zero, subsequent steps use (old,new], with loop repetitions explicitly ordered. Events describe intent only; consumers decide effects. A step refuses more than 256 events rather than dropping them. Sockets name a skeleton joint plus local TRS; output is the posed joint global matrix times socket offset, never an inverse-bind skin matrix. Consumers compose model matrices with their double-precision actor origin; the engine does not create gameplay equipment.
+
+Supported retargeting is intentionally strict: the existing unique-name bijection, matching topology, unit rest scale, matching rest axes/directions up to one root basis. A prepared plan owns both skeleton snapshots; application preserves target bone lengths, transfers rotation deltas and transforms root translation by the root basis and explicit positive scale. Dynamic scaling/non-root translation is refused. Alias-safe fixed scratch validates before committing output. General helper-bone, A/T-pose conversion and authoring tools remain Track C.
+
+The same APIs serve native callers and CPU-only `lyko animate-character` JSON replay. CLI output stays on stdout to avoid overwriting source dependencies. Authored inputs are bounded and reject unknown/duplicate fields. Native tests cover transition ordering, interruption/failure preservation, event interval/loop boundaries, animated sockets and retarget refusal/length/axis behavior. Hardware feel, production content and general rig conversion remain separate gates.

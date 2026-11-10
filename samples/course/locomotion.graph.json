@@ -1,0 +1,438 @@
+{
+  "version": 1,
+  "parameters": [
+    {
+      "name": "speed"
+    },
+    {
+      "name": "grounded",
+      "initial": 1
+    },
+    {
+      "name": "vertical_speed"
+    }
+  ],
+  "states": [
+    {
+      "name": "idle",
+      "clip": "breathe",
+      "loop": true,
+      "fade": 0.14
+    },
+    {
+      "name": "walk",
+      "clip": "walk",
+      "loop": true,
+      "fade": 0.14,
+      "events": [
+        {
+          "name": "footstep",
+          "seconds": 0.25
+        },
+        {
+          "name": "footstep",
+          "seconds": 0.75
+        }
+      ]
+    },
+    {
+      "name": "run",
+      "clip": "run",
+      "loop": true,
+      "fade": 0.14
+    },
+    {
+      "name": "jump",
+      "clip": "jump",
+      "loop": false,
+      "fade": 0.14
+    },
+    {
+      "name": "fall",
+      "clip": "fall",
+      "loop": false,
+      "fade": 0.14
+    },
+    {
+      "name": "land",
+      "clip": "land",
+      "loop": false,
+      "fade": 0.08
+    }
+  ],
+  "edges": [
+    {
+      "from": 0,
+      "to": 3,
+      "conditions": [
+        {
+          "parameter": 1,
+          "op": "<",
+          "value": 0.5
+        },
+        {
+          "parameter": 2,
+          "op": ">",
+          "value": 0.15
+        }
+      ],
+      "minimum_age": 0
+    },
+    {
+      "from": 0,
+      "to": 4,
+      "conditions": [
+        {
+          "parameter": 1,
+          "op": "<",
+          "value": 0.5
+        },
+        {
+          "parameter": 2,
+          "op": "<=",
+          "value": 0.15
+        }
+      ],
+      "minimum_age": 0
+    },
+    {
+      "from": 1,
+      "to": 3,
+      "conditions": [
+        {
+          "parameter": 1,
+          "op": "<",
+          "value": 0.5
+        },
+        {
+          "parameter": 2,
+          "op": ">",
+          "value": 0.15
+        }
+      ],
+      "minimum_age": 0
+    },
+    {
+      "from": 1,
+      "to": 4,
+      "conditions": [
+        {
+          "parameter": 1,
+          "op": "<",
+          "value": 0.5
+        },
+        {
+          "parameter": 2,
+          "op": "<=",
+          "value": 0.15
+        }
+      ],
+      "minimum_age": 0
+    },
+    {
+      "from": 2,
+      "to": 3,
+      "conditions": [
+        {
+          "parameter": 1,
+          "op": "<",
+          "value": 0.5
+        },
+        {
+          "parameter": 2,
+          "op": ">",
+          "value": 0.15
+        }
+      ],
+      "minimum_age": 0
+    },
+    {
+      "from": 2,
+      "to": 4,
+      "conditions": [
+        {
+          "parameter": 1,
+          "op": "<",
+          "value": 0.5
+        },
+        {
+          "parameter": 2,
+          "op": "<=",
+          "value": 0.15
+        }
+      ],
+      "minimum_age": 0
+    },
+    {
+      "from": 5,
+      "to": 3,
+      "conditions": [
+        {
+          "parameter": 1,
+          "op": "<",
+          "value": 0.5
+        },
+        {
+          "parameter": 2,
+          "op": ">",
+          "value": 0.15
+        }
+      ],
+      "minimum_age": 0
+    },
+    {
+      "from": 5,
+      "to": 4,
+      "conditions": [
+        {
+          "parameter": 1,
+          "op": "<",
+          "value": 0.5
+        },
+        {
+          "parameter": 2,
+          "op": "<=",
+          "value": 0.15
+        }
+      ],
+      "minimum_age": 0
+    },
+    {
+      "from": 3,
+      "to": 5,
+      "conditions": [
+        {
+          "parameter": 1,
+          "op": ">=",
+          "value": 0.5
+        }
+      ],
+      "minimum_age": 0
+    },
+    {
+      "from": 4,
+      "to": 5,
+      "conditions": [
+        {
+          "parameter": 1,
+          "op": ">=",
+          "value": 0.5
+        }
+      ],
+      "minimum_age": 0
+    },
+    {
+      "from": 3,
+      "to": 4,
+      "conditions": [
+        {
+          "parameter": 1,
+          "op": "<",
+          "value": 0.5
+        },
+        {
+          "parameter": 2,
+          "op": "<",
+          "value": -0.15
+        }
+      ],
+      "minimum_age": 0
+    },
+    {
+      "from": 4,
+      "to": 3,
+      "conditions": [
+        {
+          "parameter": 1,
+          "op": "<",
+          "value": 0.5
+        },
+        {
+          "parameter": 2,
+          "op": ">",
+          "value": 0.15
+        }
+      ],
+      "minimum_age": 0
+    },
+    {
+      "from": 0,
+      "to": 2,
+      "conditions": [
+        {
+          "parameter": 0,
+          "op": ">=",
+          "value": 5
+        },
+        {
+          "parameter": 1,
+          "op": ">=",
+          "value": 0.5
+        }
+      ],
+      "minimum_age": 0
+    },
+    {
+      "from": 0,
+      "to": 1,
+      "conditions": [
+        {
+          "parameter": 0,
+          "op": ">=",
+          "value": 0.22
+        },
+        {
+          "parameter": 0,
+          "op": "<",
+          "value": 5
+        },
+        {
+          "parameter": 1,
+          "op": ">=",
+          "value": 0.5
+        }
+      ],
+      "minimum_age": 0
+    },
+    {
+      "from": 1,
+      "to": 2,
+      "conditions": [
+        {
+          "parameter": 0,
+          "op": ">=",
+          "value": 5
+        },
+        {
+          "parameter": 1,
+          "op": ">=",
+          "value": 0.5
+        }
+      ],
+      "minimum_age": 0
+    },
+    {
+      "from": 1,
+      "to": 0,
+      "conditions": [
+        {
+          "parameter": 0,
+          "op": "<",
+          "value": 0.12
+        },
+        {
+          "parameter": 1,
+          "op": ">=",
+          "value": 0.5
+        }
+      ],
+      "minimum_age": 0
+    },
+    {
+      "from": 2,
+      "to": 1,
+      "conditions": [
+        {
+          "parameter": 0,
+          "op": ">=",
+          "value": 0.22
+        },
+        {
+          "parameter": 0,
+          "op": "<",
+          "value": 4.5
+        },
+        {
+          "parameter": 1,
+          "op": ">=",
+          "value": 0.5
+        }
+      ],
+      "minimum_age": 0
+    },
+    {
+      "from": 2,
+      "to": 0,
+      "conditions": [
+        {
+          "parameter": 0,
+          "op": "<",
+          "value": 0.12
+        },
+        {
+          "parameter": 1,
+          "op": ">=",
+          "value": 0.5
+        }
+      ],
+      "minimum_age": 0
+    },
+    {
+      "from": 5,
+      "to": 2,
+      "conditions": [
+        {
+          "parameter": 0,
+          "op": ">=",
+          "value": 5
+        },
+        {
+          "parameter": 1,
+          "op": ">=",
+          "value": 0.5
+        }
+      ],
+      "minimum_age": 0.18
+    },
+    {
+      "from": 5,
+      "to": 1,
+      "conditions": [
+        {
+          "parameter": 0,
+          "op": ">=",
+          "value": 0.22
+        },
+        {
+          "parameter": 0,
+          "op": "<",
+          "value": 5
+        },
+        {
+          "parameter": 1,
+          "op": ">=",
+          "value": 0.5
+        }
+      ],
+      "minimum_age": 0.18
+    },
+    {
+      "from": 5,
+      "to": 0,
+      "conditions": [
+        {
+          "parameter": 0,
+          "op": "<",
+          "value": 0.12
+        },
+        {
+          "parameter": 1,
+          "op": ">=",
+          "value": 0.5
+        }
+      ],
+      "minimum_age": 0.18
+    }
+  ],
+  "sockets": [
+    {
+      "name": "right_hand",
+      "joint": "right arm",
+      "translation": [
+        0,
+        -0.25,
+        0
+      ]
+    }
+  ]
+}

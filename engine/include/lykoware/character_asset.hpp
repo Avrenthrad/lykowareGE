@@ -20,6 +20,7 @@ using RoleNames = std::array<std::string,7>;
 using Roles = std::array<std::size_t,7>;
 struct Profile {
     std::filesystem::path model;
+    std::filesystem::path animation_graph;
     std::array<std::string,6> clips{};
     std::optional<float> height, yaw_degrees, capsule_height, capsule_radius, eye_height, turn_degrees_per_second;
     std::optional<RoleNames> bones;

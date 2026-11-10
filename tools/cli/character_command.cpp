@@ -36,7 +36,7 @@ int character_command(std::span<const std::string> args)
         if(!profile_file.empty()){if(!character::load_profile(profile_file,profile,error)){throw std::invalid_argument(error);}model=profile.model;}else{profile.model=model;}
         resolved_inputs=true;
         if(!output.empty()){
-            for(const auto& input:{model,profile_file,compare}){if(same_file(input,output)){throw std::invalid_argument("Inspection output must not replace an input file");}}
+            for(const auto& input:{model,profile_file,compare,profile.animation_graph}){if(same_file(input,output)){throw std::invalid_argument("Inspection output must not replace an input file");}}
         }
         const auto asset=gltf::load_skinned(model,error);if(!asset){throw std::invalid_argument(error);}
         character::Inspection inspected;if(!character::inspect(*asset,profile,inspected,error)){throw std::invalid_argument(error);}
@@ -60,7 +60,7 @@ int character_command(std::span<const std::string> args)
     const auto text=report.dump(2)+"\n";
     if(output.empty()||!resolved_inputs){std::cout<<text;}else{
         // A rejected source/output collision must not open the source even for an error report.
-        for(const auto& input:{model,profile_file,compare}){if(same_file(input,output)){std::cout<<text;return 2;}}
+        for(const auto& input:{model,profile_file,compare,profile.animation_graph}){if(same_file(input,output)){std::cout<<text;return 2;}}
         std::ofstream file(output,std::ios::binary);file<<text;file.close();if(!file){throw std::runtime_error("Cannot write character inspection");}
     }
     return report["ok"].get<bool>()?0:2;
