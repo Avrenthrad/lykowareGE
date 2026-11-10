@@ -19,8 +19,8 @@ inline constexpr float default_turn_degrees_per_second = 720.F;
 using RoleNames = std::array<std::string,7>;
 using Roles = std::array<std::size_t,7>;
 struct FootSettings {
-    bool align_normals=false, pelvis=false, locking=false;
-    double max_slope_degrees=35, max_pelvis_drop=.15, max_plant_distance=.35;
+    bool align_normals=false, pelvis=false, locking=false, heading=false;
+    double max_slope_degrees=35, max_pelvis_drop=.15, max_plant_distance=.35, max_heading_degrees=60;
 };
 [[nodiscard]] bool valid_foot_settings(const FootSettings& settings,std::string& error);
 struct Profile {

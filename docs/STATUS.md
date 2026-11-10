@@ -1,5 +1,20 @@
 # Lykoware status
 
+## Planted foot heading — 02.11c heading lock (Claude, in review)
+
+Branch `claude/foot-heading-lock`, based on `main` after #74. [ADR 0068](adr/0068-planted-foot-heading.md) (Proposed).
+
+- **What:** a planted foot now keeps its heading as well as its position.
+  - `FootPlant` holds the animated foot's heading from the moment it plants, flattened onto the support and carried with it.
+  - The sample controller turns each planted foot about the support normal back to that heading, by at most `foot_max_heading_degrees` (default 60).
+  - Opt in per profile with `foot_heading_lock` (needs `foot_locking`).
+- **Tests:**
+  - new `animation.foot_heading`: engine holding and carrying, refusals, a 30° body turn held within 0.05°, clamping, replanting, normal alignment kept on a slope, zero allocations over 1,000 updates;
+  - the real imported-player walking replay runs with the lock on.
+- **Deliberate breaks:** 15 of 15 real faults caught. The first run missed a heading kept in world rather than support coordinates (the turning support started unrotated); the test now plants on an already-turned support. One further mutation (not clearing the heading in `reset()`) has no observable effect, because a fresh plant resets it first.
+- **Local checks:** 83/83 pass in each of the Debug, ASan/UBSan and clang-tidy presets, with no skips. A GCC `-Wshadow -Wconversion -Wsign-conversion -Wold-style-cast -Wdouble-promotion` sweep finds nothing in the new code (two float-to-double spots in the new direction helpers were fixed).
+- **Still open in 02.11c:** moving-support render interpolation (next).
+
 ## Animation stack integrated — #71, #72 and #73 merged (10 November 2026)
 
 At the owner's request, Claude reviewed #71–#74, re-verified the integrated stack and merged it in dependency order:

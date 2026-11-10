@@ -85,6 +85,7 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
   - [ ] **02.11c** Terrain probes, foot planting, offsets and temporal smoothing. **Partial:** stationary placement merged #64; orientation/normal smoothing (#72, `58e170e`) and walking position/normal anchors (#73, `6cabcf3`) are merged. Full foot heading and support render interpolation remain separate.
     - [x] **02.11c-normals** Apply bounded/smoothed surface orientation to stationary feet — verified #72 `e21f797`, 81/81 each native profile and all five hosted checks; merged as `58e170e`.
     - [x] **02.11c-locks** Authored walking plant/lift cycles and position/normal anchors — verified #73 runtime `b7dbd153`,82/82 each native profile and all five hosted checks. Real translating/rotating/tilting supports pass; merged as `6cabcf3`. Heading/interpolation remain separate.
+    - [ ] **02.11c-heading** Planted feet keep their heading, carried with the support and bounded — `claude/foot-heading-lock`, ADR 0068; verified locally, merge pending.
   - [ ] **02.11d** Integrate pelvis/body constraints and verify varied terrain/character rigs. **Partial:** bounded bilateral visual pelvis correction merged with #72/#73; one-foot/full-body balance and broad rig acceptance remain open.
     - [x] **02.11d-pelvis** Apply bounded visual pelvis compensation through posed parents with bilateral stance failure/reset behavior — verified #72/#73, full native/hosted checks and review passed; merged as `58e170e` and `6cabcf3`.
 - [ ] **02.12** Add ragdolls and animation/physics blending.
