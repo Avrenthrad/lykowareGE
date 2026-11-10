@@ -1,5 +1,18 @@
 # Shared work board
 
+## One-foot pelvis — 02.11d single support (Claude, in review)
+
+Branch `claude/single-support-pelvis`, based on `main` after #76. [ADR 0070](adr/0070-single-support-pelvis.md) (Proposed). The owner chose this part of 02.11d first.
+
+- **What:** while walking with one foot planted, the pelvis now drops so that leg reaches lower ground (a step down, a downhill stride) instead of letting the plant go.
+  - Smoothed toward the planted foot's depth, and at once at least as low as its leg needs to reach, within the existing pelvis bound.
+  - The swing foot is solved back to its animated place, so it does not sink with the pelvis.
+  - Opt in per profile with `foot_pelvis_single_support` (needs `foot_pelvis` and `foot_locking`). Two-foot support and standing still are unchanged.
+- **Tests:** new `animation.single_support` (straight-legged rig on an 8 cm step: reaches from the first frame, never let go, swing foot unmoved; positive control lets go; mirrored; past the bound; bit-for-bit unchanged otherwise; zero allocations; settings); the real imported-player walk runs with the key on.
+- **Deliberate breaks:** sweep in progress.
+- **Local checks:** Debug 85/85; the other presets follow in the next commit.
+- **Still open in 02.11d:** a balance lean of the upper body and acceptance across varied rigs.
+
 ## Feet on drawn supports — 02.11c render interpolation (merged with #76, 10 November 2026)
 
 Branch `claude/drawn-support-feet`, reviewed and merged at the owner's request after #75. All five hosted checks passed. [ADR 0069](adr/0069-feet-on-drawn-supports.md) (Proposed).
