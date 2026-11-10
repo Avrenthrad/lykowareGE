@@ -59,14 +59,14 @@ Other local branch tips were found to be ancestors of main at the original pause
 - Actual RTX4070 inventory: exact VRAM/driver still unmeasured.
 - Windows physical-PC startup/input/render behavior, pacing/hitches and RAM/VRAM measurements; calibrated performance budgets.
 - Owner character-feel/play review and production-asset acceptance.
-- Walking foot-heading locks, support render interpolation, full body balance and ragdolls are future/unfinished work, not completion claims for #72 or #73.
+- Walking foot-heading locks (#75, `635aec5`, ADR 0068) and drawn-support resolution (#76, ADR 0069) were merged later on 10 November 2026, completing 02.11c. Full body balance and ragdolls are future/unfinished work.
 - Public/Pax/legal and any paid-service authorization remain later gates.
 
 ## Safe continuation point
 
 1. The #71 → #72 → #73 stack is integrated. Further merges to `main` still need the owner's say-so.
 2. Read this checkpoint, AGENTS, STATUS and WORK_BOARD before editing; older pause and WIP paragraphs describe historical commits.
-3. Resume the next roadmap module only as a separate scoped task. Walking foot heading, render interpolation, one-foot balance, full body constraints and ragdolls are still future work.
+3. Resume the next roadmap module only as a separate scoped task. One-foot balance, full body constraints (02.11d) and ragdolls are still future work; 02.11c is complete with #75 and #76.
 4. Collect physical Windows/RTX 4070 measurements and the owner's play review when the PC is available. Software and hosted graphics checks cannot close those gates.
 
 Ignored build outputs under the primary checkout may be from the selected feature tree (currently walking-anchor runtime), even after checkout returns to main. They are preserved generated artifacts, not main verification. Reconfigure/rebuild the selected source before running them; do not interpret a stale executable as the main engine. Source commits, CI results and external validator reports are the recorded evidence.

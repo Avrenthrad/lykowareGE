@@ -155,6 +155,8 @@ assert walking_run()==walking_run(True),'fixed-clock offscreen walking replay mu
 profile.write_text(json.dumps(dict(version=1,model=path.name,bones={name:name for name in role_names},foot_ik=True,animation_graph=plant_graph.name,foot_align_normals=True,foot_pelvis=True,foot_locking=True,foot_max_plant_distance=.35,foot_heading_lock=True,foot_max_heading_degrees=45)))
 r=run(walking_args);headed_text=r.stdout+r.stderr
 assert r.returncode==0 and 'failures=0' in headed_text and re.search(r'headed=[1-9]\d*',headed_text) and re.search(r'planted=[1-9]\d*',headed_text),headed_text
+# Drawn supports (ADR 0069): the falling crates' drawn poses are offered to the feet every frame.
+assert re.search(r' drawn=\d+',headed_text) and re.search(r'drawn_offered=[1-9]\d*',headed_text),headed_text
 profile.write_text(json.dumps(dict(version=1,model=path.name,bones={name:name for name in role_names},foot_ik=True,animation_graph=plant_graph.name,foot_align_normals=True,foot_pelvis=True,foot_locking=True,foot_max_plant_distance=.35)))
 r=run(walking_args+['--frames','1']);assert r.returncode!=0 and 'must match expanded play replay' in r.stdout+r.stderr,r.stdout+r.stderr
 plant_definition['states'][0]['events']=[e for e in markers if e['name']!='right_lift'];plant_graph.write_text(json.dumps(plant_definition))

@@ -10,6 +10,7 @@
 #include <lykoware/physics.hpp>
 #include <numbers>
 #include <optional>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -95,7 +96,8 @@ struct PlantPhases {
 };
 struct Stats {
     std::uint64_t frames = 0, contacts = 0, misses = 0, clamped = 0, resets = 0, oriented = 0,
-                  slope_rejected = 0, pelvis_frames = 0, planted = 0, released = 0, headed = 0, heading_clamped = 0;
+                  slope_rejected = 0, pelvis_frames = 0, planted = 0, released = 0, headed = 0, heading_clamped = 0,
+                  drawn = 0;
 };
 class Controller {
 public:
@@ -188,9 +190,12 @@ public:
         return stats_;
     }
     // Transactional pose/contact state; caller can preserve base animation on false.
+    // `drawn` (ADR 0069): where moving supports are drawn this frame. Feet on a listed support,
+    // planted or standing, are placed against its drawn pose, the one the actor is drawn with.
     bool update(const animation::Pose& base, const Placement& actor, const lykoware::physics::World& world,
                 float seconds, bool active, animation::Pose& out, std::string& error,
-                std::optional<PlantPhases> planting = std::nullopt)
+                std::optional<PlantPhases> planting = std::nullopt,
+                std::span<const animation::DrawnBody> drawn = {})
     {
         if (!ready_ || !valid(actor)) {
             error = "Invalid foot IK configuration or placement";
@@ -268,11 +273,14 @@ public:
                     if (!plants[side]->update(world, foot,
                                               math::Vec3{static_cast<float>(heading.x), static_cast<float>(heading.y),
                                                          static_cast<float>(heading.z)},
-                                              planting->planted[side], result, error)) {
+                                              planting->planted[side], result, error, drawn)) {
                         return false;
                     }
-                } else if (!plants[side]->update(world, foot, planting->planted[side], result, error)) {
+                } else if (!plants[side]->update(world, foot, planting->planted[side], result, error, drawn)) {
                     return false;
+                }
+                if (result.drawn) {
+                    ++stats.drawn;
                 }
                 if (result.acquired) {
                     ++stats.planted;
@@ -310,7 +318,21 @@ public:
                         ++stats.released;
                     }
                 }
-                const auto hit = world.cast_ray(foot + V{0, .35, 0}, {0, -1, 0});
+                auto hit = world.cast_ray(foot + V{0, .35, 0}, {0, -1, 0});
+                // A support drawn elsewhere than its physics state is stood on where it is drawn.
+                if (hit) {
+                    if (const auto* listed = animation::find_drawn(drawn, hit->body)) {
+                        if (const auto state = world.state(hit->body)) {
+                            const auto moved = animation::drawn_hit(*hit, *state, *listed, foot);
+                            if (!moved) {
+                                error = "Drawn support pose must be finite with a non-zero rotation";
+                                return false;
+                            }
+                            hit = moved;
+                            ++stats.drawn;
+                        }
+                    }
+                }
                 if (!hit || !finite(hit->point) || std::abs(hit->point.y + clearance_ - foot.y) > .3) {
                     next[side] = 0;
                     normals[side] = {0, 1, 0};

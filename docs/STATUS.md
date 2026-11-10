@@ -1,6 +1,23 @@
 # Lykoware status
 
-## Planted foot heading — 02.11c heading lock (Claude, in review)
+## Feet on drawn supports — 02.11c render interpolation (merged with #76, 10 November 2026)
+
+Branch `claude/drawn-support-feet`, reviewed and merged at the owner's request after #75. All five hosted checks passed. [ADR 0069](adr/0069-feet-on-drawn-supports.md) (Proposed).
+
+- **What:** planted and standing feet now stay still on a moving support as it is drawn.
+  - Supports and the actor are drawn between physics steps (ADR 0048), but anchors resolved through the latest physics state, so on a moving support the foot slid back and forth by up to one step of its motion.
+  - `FootPlant::update` takes an optional list of drawn support poses (`DrawnBody`). A listed support is resolved, and a fresh plant on it anchored, against its drawn pose; `drawn_hit` carries a probe hit there. Physics still decides whether the support exists.
+  - The sample controller passes the list to its plants and stance probes; the sandbox lists its crates' drawn poses.
+  - Unlisted supports and an empty list behave exactly as before. No profile key: it is a correction, not a policy.
+- **Tests:**
+  - new `animation.drawn_support`: a drawn hit matches a real probe of the support placed at its drawn pose; planted feet on sideways, rising and turning supports stay still as drawn (positive controls slide by most of a step); exact old results without a list; refusals; zero allocations;
+  - controller: standing on a lift matches a still floor at the drawn height; feet planted on a moving platform stay still as drawn;
+  - the real imported-player replay offers the crates' drawn poses every frame.
+- **Deliberate breaks:** 17 of 17 caught (11 engine, 4 controller, 2 sandbox). One was first written in a form that did not compile and was re-run in one that did.
+- **Local checks:** 84/84 pass in each of the Debug, ASan/UBSan and clang-tidy presets, with no skips. A GCC `-Wshadow -Wconversion -Wsign-conversion -Wold-style-cast -Wdouble-promotion` sweep finds nothing in the new code.
+- **02.11c:** done; the owner's feel review stays open under 02.16. ADRs 0068 and 0069 remain Proposed until the owner accepts them.
+
+## Planted foot heading — 02.11c heading lock (merged #75 as `635aec5`, 10 November 2026)
 
 Branch `claude/foot-heading-lock`, based on `main` after #74. [ADR 0068](adr/0068-planted-foot-heading.md) (Proposed).
 
@@ -13,7 +30,7 @@ Branch `claude/foot-heading-lock`, based on `main` after #74. [ADR 0068](adr/006
   - the real imported-player walking replay runs with the lock on.
 - **Deliberate breaks:** 15 of 15 real faults caught. The first run missed a heading kept in world rather than support coordinates (the turning support started unrotated); the test now plants on an already-turned support. One further mutation (not clearing the heading in `reset()`) has no observable effect, because a fresh plant resets it first.
 - **Local checks:** 83/83 pass in each of the Debug, ASan/UBSan and clang-tidy presets, with no skips. A GCC `-Wshadow -Wconversion -Wsign-conversion -Wold-style-cast -Wdouble-promotion` sweep finds nothing in the new code (two float-to-double spots in the new direction helpers were fixed).
-- **Still open in 02.11c:** moving-support render interpolation (next).
+- **Merged:** reviewed at the owner's request; all five hosted checks passed on head `4126897`.
 
 ## Animation stack integrated — #71, #72 and #73 merged (10 November 2026)
 
