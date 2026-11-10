@@ -93,5 +93,8 @@ Proposed:
     - standing on a lift drawn 5 cm below its physics top gives the same ankles as a still floor at the drawn height (within 1e-5); positive control: without the list the feet stand more than 2 cm higher;
     - both feet planted on a platform moving at 1.5 m/s, the actor riding it as drawn: the ankles stay still on the platform as drawn (within 1e-4); positive control: without the list they slide by more than 0.7 of a step.
 - **`sandbox.imported_player`:** the real walking replay reports `drawn` and offers the crates' drawn poses on every frame (`drawn_offered` above 0), with no failures.
-- **Deliberate breaks:** the sweep runs next; results follow in the next commit.
+- **Deliberate breaks:** 17 of 17 caught:
+  - **engine (11):** the held drawn pose ignored; a fresh plant anchored through the physics pose; the probe hit not carried to the drawn pose; no tangent-plane projection; the normal not turned; the physics rotation not inverted; no validation of a used pose (first written in a form that did not compile, then re-run in one that did); `find_drawn` never matching; a listed support surviving physics loss; `result.drawn` never set; the heading turned by the physics rotation;
+  - **controller (4):** the list not passed to the plants; stance probes not carried; walking and stance `drawn` counts not kept;
+  - **sandbox (2):** crates not offered to the feet; the drawn list not filled.
 - **Local results:** the full preset runs follow in the next commit.

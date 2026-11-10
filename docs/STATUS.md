@@ -13,7 +13,7 @@ Branch `claude/drawn-support-feet`, stacked on the heading lock (#75). [ADR 0069
   - new `animation.drawn_support`: a drawn hit matches a real probe of the support placed at its drawn pose; planted feet on sideways, rising and turning supports stay still as drawn (positive controls slide by most of a step); exact old results without a list; refusals; zero allocations;
   - controller: standing on a lift matches a still floor at the drawn height; feet planted on a moving platform stay still as drawn;
   - the real imported-player replay offers the crates' drawn poses every frame.
-- **Deliberate breaks:** sweep in progress.
+- **Deliberate breaks:** 17 of 17 caught (11 engine, 4 controller, 2 sandbox). One was first written in a form that did not compile and was re-run in one that did.
 - **Local checks:** the touched tests and the full Debug suite (84/84) pass; the other presets follow in the next commit.
 - **02.11c:** with this and the heading lock merged, its listed parts are done; the owner's feel review stays open under 02.16.
 
