@@ -20,7 +20,7 @@ with tempfile.TemporaryDirectory(prefix='lyko character ') as folder:
         assert (r.returncode==0)==ok,(r.returncode,r.stdout,r.stderr)
         return r
     r=run('--model',asset);data=json.loads(r.stdout);assert data['motion_authority']=='controller' and data['turn_degrees_per_second']==720
-    assert data['foot_policy']==dict(align_normals=False,max_slope_degrees=35,pelvis=False,max_pelvis_drop=.15)
+    assert data['foot_policy']==dict(align_normals=False,max_slope_degrees=35,pelvis=False,max_pelvis_drop=.15,locking=False,max_plant_distance=.35)
     assert data['ok'] and data['joints']==1 and data['clips'][0]['translated_root']
     original=asset.read_bytes();r=run('--model',asset,'--output',asset,ok=False);assert asset.read_bytes()==original and not json.loads(r.stdout)['ok']
     absent=root/'absent.gltf';run('--model',absent,'--output',absent,ok=False);assert not absent.exists()

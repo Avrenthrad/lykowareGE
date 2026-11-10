@@ -33,7 +33,7 @@ Authoritative architecture: [AGENTS](../../AGENTS.md), [CONTRIBUTING](../../CONT
 
 ## Explicitly deferred / out of scope
 
-Actual RTX 4070 VRAM/driver/frame pacing/RAM/VRAM budgets, owner character-feel acceptance, production rigs/art, general A/T-pose/helper/scaled retargeting, root-motion-driven collision, walking foot locks/active ragdolls, game/editor/content-suite systems and public/Pax gates. These remain UNVERIFIED or future requirements; this loop does not close Phase 1 hardware or broad Phase 2 acceptance. Generic authored playback supports bounded unit-scale poses; lower-level clip sampling retains broader scale support. No feature is represented by a stub: current CLI/native/sample callers must exercise the real runtime.
+Actual RTX 4070 VRAM/driver/frame pacing/RAM/VRAM budgets, owner character-feel acceptance, production rigs/art, general A/T-pose/helper/scaled retargeting, root-motion-driven collision, full foot-heading locks/active ragdolls, game/editor/content-suite systems and public/Pax gates. These remain UNVERIFIED or future requirements; this loop does not close Phase 1 hardware or broad Phase 2 acceptance. Generic authored playback supports bounded unit-scale poses; lower-level clip sampling retains broader scale support. No feature is represented by a stub: current CLI/native/sample callers must exercise the real runtime.
 
 Final runtime evidence: `bb47ca7`, CI run [42480515225](https://github.com/Avrenthrad/lykowareGE/actions/runs/42480515225) all five profiles; local clean build plus 79/79 each Debug/sanitizers/analysis, zero skips, install/staged CLI and unchanged fingerprint. Independent reviewer recheck: no blocking findings. Windows hosted graphics remain 21 skips; actual target hardware is unverified. Exact commands, review fixes, captures and final documentation-tip verification location are in [progress](engine-progress.md). Final milestone status: **PARTIAL — integration intentionally pending**, not an iteration-limit stop.
 
@@ -41,10 +41,21 @@ Final runtime evidence: `bb47ca7`, CI run [42480515225](https://github.com/Avren
 
 Owner's subsequent instruction explicitly expands the active work beyond the completed runtime batch: continue overall development and save integration/manual matters for later. The previous instruction not to start future work was superseded. Preserve [deferred items](deferred.md), including no merges/main pushes. Base #71 `7197587`; current branch `codex/terrain-foot-constraints`, ADR0066.
 
-- [ ] Owned physics surface normals, preserving existing ray/camera callers and read-only behavior.
-- [ ] Prepared joint-axis alignment with bounded rotations, snapshot lifetime, overlap/failure and allocation tests.
-- [ ] Opt-in stationary slope-normal orientation through actual profile/sandbox callers.
-- [ ] Bounded, smoothed visual pelvis compensation with full bilateral transaction/reset behavior.
-- [ ] Real terrain/far-origin/rig/normal/smoothing/refusal and actual imported-render checks.
-- [ ] Independent review, clean integration build, full native matrix and exact-head hosted profiles.
-- [ ] Record verified branch evidence and the next actionable project requirement; leave integration/hardware parked.
+- [x] Owned physics surface normals, preserving existing ray/camera callers and read-only behavior.
+- [x] Prepared joint-axis alignment with bounded rotations, snapshot lifetime, overlap/failure and allocation tests.
+- [x] Opt-in stationary slope-normal orientation through actual profile/sandbox callers.
+- [x] Bounded, smoothed visual pelvis compensation with full bilateral transaction/reset behavior.
+- [x] Real terrain/far-origin/rig/normal/smoothing/refusal and actual imported-render checks.
+- [x] Independent review, clean integration build, full native matrix and exact-head hosted profiles.
+- [x] Record verified branch evidence and the next actionable project requirement; leave integration/hardware parked.
+
+## Resumed owner request — finish the four listed work points
+
+Work resumes on #73 at the owner's instruction; #71 and #72 are already verified and remain unmerged. This run completes walking acceptance and reconciles #74's status snapshot; it does not lift the no-merge/main-push restriction or start ragdolls/new roadmap modules.
+
+- [x] Compile saved WIP and add real static/kinematic transport, stale/world-lifetime, phase, numeric and allocation checks.
+- [x] Test controller held/swing/reach-release/bilateral rollback and authored entry/wrap/reset/hidden lift-replant cycles.
+- [x] Exercise actual offscreen moving player through bounded input replay, direct/lyko parity and GPU-versus-CPU held-foot capture.
+- [x] Independent review, clean build and full exact-source native/hosted matrix.
+- [x] Reconcile STATUS, WORK_BOARD, master checklist, WIP history and #74 snapshot with verified evidence.
+- [x] Commit/push all completed work; keep integration/hardware explicitly pending.

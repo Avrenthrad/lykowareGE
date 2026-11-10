@@ -255,3 +255,7 @@ See [ANIMATION_RUNTIME](ANIMATION_RUNTIME.md) for JSON configuration and `lyko a
 ### Terrain stance verification
 
 `animation.joint_axis` and `animation.terrain_stance` verify read-only normals, bounded ankle/pelvis corrections, real terrain, transaction/reset behavior and allocation reuse. `render.gpu_skinning` also saves `gpu-skinning/terrain-stance.ppm` and compares corrected-pose GPU pixels against CPU deformation. Actual imported profile playback covers the same settings. See [TERRAIN_STANCE](TERRAIN_STANCE.md).
+
+### Walking-foot acceptance
+
+Run `animation.foot_plant`, `sandbox.imported_player`, `render.gpu_skinning` and `cli.integration`. The imported fixture drives the actual moving player through fixed-delta JSON intents both directly and via `lyko run --`; the GPU test saves `walking-foot-plants.ppm` and compares CPU geometry. See [WALKING_FOOT_PLANTS](WALKING_FOOT_PLANTS.md).

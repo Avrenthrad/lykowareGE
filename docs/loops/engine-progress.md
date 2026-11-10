@@ -1,10 +1,8 @@
 # Engine loop progress
 
-## Active continuation — terrain foot constraints
+## Active continuation — finish listed PR work
 
-Owner explicitly expanded scope to continue the overall project and park matters needing later attention. Previous 15-item runtime batch remains verified on #71 and unmerged. Active branch `codex/terrain-foot-constraints`, base #71 `7197587`, ADR0066. Current task: read-only physics surface normals, prepared ankle-axis alignment, opt-in stationary slope orientation and bounded pelvis compensation, actual profile/sample integration and meaningful terrain tests. [Deferred ledger](deferred.md) preserves integrations/manual gates; no merge or main push.
-
-Iteration4 starts by reproducing missing normal/orientation/pelvis behavior (current RayHit has no normal; controller only corrects vertical foot height). Implement minimum complete APIs/callers, then focused/native/hosted checks and independent review. Prior loop used3/20 iterations; continue within the remaining allowance. No need to repeat already-passed #71 tests unless affected.
+Owner requested completing the four listed points after the pause. Main remains9555fea. #71 source7197587 and #72 sourcee21f797 retain all five CI passes; #73 saved WIP84d036b also compiled/passed baseline draft CI but had no behavior coverage for anchors. Active branch is `codex/walking-foot-anchors` based on #72. Scope: finish/verify anchors, then reconcile the documentation snapshot #74; no merge/main push. Previous loop used5/20 iterations; current implementation/verification is iteration6.
 
 
 ## Iteration 1 — establish current milestone and reproduce missing integrations
@@ -78,3 +76,33 @@ Current source needs independent review, clean integration build and all native/
 Reviewer found one P2 issue on `127e836`: prepared ankle verification used normalized quaternion accumulation while rendering uses raw pose FK matrices. A parent quaternion with norm1.0009 passes the existing near-unit tolerance but can cause rendered-axis error0.00127269, greater than the1e-4 verification tolerance. Corrected the final check to normalize the actual global matrix applied to the calibrated local axis, and added a near-unit-parent refusal/unchanged-output regression plus normalized-parent success. This preserves all caller outputs/diagnostics on inconsistency. Independent static review found no other blockers in pelvis/bilateral/normal/profile/sample integration. Added inside-solid ray-hit regression to protect the camera/query baseline.
 
 Corrections were staged in a separate worktree while the initial unchanged-source clean build/matrix ran; do not claim initial127e836 evidence for corrected source. Focused/full native and hosted checks on the corrected commit remain required. Iteration5/20.
+
+## Owner-requested pause and checkpoint
+
+Development paused on explicit owner instruction to commit outstanding work, establish a solid status and return the primary checkout to main. Walking anchors were being drafted in a separate worktree while #72 validation completed. This branch saves that partial source as WIP; see [walking-foot-anchors-wip](walking-foot-anchors-wip.md). No walking build/test/review result exists. Do not continue automatically from this checkpoint until the owner evaluates next steps.
+
+## Iteration 6 — anchor behavior and actual moving player verification
+
+Added real collision/support tests, destroyed/reused/cross-world/lifetime checks, rotating/translating/tilting kinematic bodies and64km submillimetre transport. Added controller held-versus-swing targets, reach-release retries, no hidden reacquisition, second-leg rollback and positive-control zero-allocation fixtures. Added graph entry/wrap/reset tests; discovered final phase booleans lose a lift/replant when both markers occur within one rendered frame. Per-leg cycle epochs now force a fresh anchor and a regression proves the new target is acquired.
+
+A first test compared acquired and reconstructed double world positions with exact equality; corrected it to1e-12m tolerance for the unavoidable support-local round trip (not a solver change). A range-loop copy warning was fixed by binding a const reference; warnings remain errors. No behavior check was disabled.
+
+Added bounded strict offscreen player-intent replay and `lyko run --` forwarding so actual PlayerBody walking is tested, not just a stationary fixture. Original imported glTF replay requires walking, planted/released/applied-palette counters and direct/lyko repeatability. New held-foot GPU pixels match CPU-deformed geometry; visually inspected `gpu-skinning/walking-foot-plants.ppm`. Focused four tests pass; 1,000 standalone anchor and full planted-controller calls each record zero ordinary C++ allocations after setup. Full/review checks remain pending.
+
+Commands: configure/build linux-debug; with recorded Mesa driver variables, `ctest --preset linux-debug -R 'animation.foot_plant|render.gpu_skinning|sandbox.imported_player|cli.integration' --output-on-failure`. Logs `/workspace/foot-plants-build.log`, `/workspace/foot-plants-integration.log`. Next: independent review and clean/full exact-head validation; then update #74/status and leave integration parked.
+
+## Iteration 7 — independent loop-boundary marker finding
+
+Independent static review of04e9cb4 found one P2 gap: generic graph ties intentionally sort by authored event index, so plant@0 could be consumed before outgoing lift@duration at a wrap and leave the new cycle unplanted. The sample now groups simultaneous markers and applies nonzero/end markers before incoming zero markers, preserving generic GraphPlayer behavior and authored order within each class. Added graph+controller boundary regression proving phase remains planted and reacquires at the current actor, alongside the existing hidden within-cycle lift/replant test. Reviewer reported no other blockers in lifetime/transport, suppression, numeric checks, rollback, parser/loop bounds or actual CLI/GPU integration.
+
+The initial candidate clean build was stopped as superseded before accepting its source; it is not final verification. Rebuild and full native/hosted verification on the corrected commit remain required. Iteration7/20.
+
+## Iteration 8 — walking acceptance and reconciled handoff
+
+Verified runtime source `b7dbd15319fe7e292bb0c86abaccaee66a754d52`, tree `335ef411e82468b985efc854d1857e97d1d82381`. [Hosted CI42542802775](https://github.com/Avrenthrad/lykowareGE/actions/runs/42542802775) passed Windows Debug/Release and all three Linux profiles. Clean Debug rebuild passed all561 steps; local Debug, ASan/UBSan and clang-tidy18 each passed82/82, zero failures/skips, including configure/build/install/staged CLI. Report `/workspace/lykoware-foot-plants-reviewed-validation/report.json`, unchanged clean-source fingerprint `36d8d05922141fa3fd4693406b2aba866423a6160ff678efc7c7a4b50f6dfe5c`. The native report names local review commit `ba473cba7fc167afd644008e379cd7bcea4b9bb3`; its entire Git tree equals published `b7dbd153`, with only commit metadata different. Independent reviewer rechecked the loop-boundary correction and found no blocking issues. Hosted Windows has21 graphics skips per pass; physical RTX4070 acceptance is still unverified.
+
+The independent recheck is read-only. Actual execution evidence includes moving imported player replay directly/through lyko, repeatable plant/lift/applied counters, support transport and lifetime checks, graph entry/wrap/hidden-cycle regressions, read-only simulation hashes, transaction and positive-control allocation tests, plus CPU-versus-GPU held-foot pixels and visually inspected capture. No renderer/shader algorithm changes. Initial candidate build was superseded; only this corrected-tree matrix is final evidence.
+
+Exact commands: `cmake --build --preset linux-debug --clean-first -j2`; then the same recorded Mesa driver/PATH variables and `python3 tools/validation/verify.py --preset linux-debug --preset linux-sanitizers --preset linux-analysis --clang-tidy /workspace/.analysis-tools/clang_tidy/data/bin/clang-tidy --output /workspace/lykoware-foot-plants-reviewed-validation --jobs 2`. Logs `/workspace/foot-plants-final-clean-build.log` and `/workspace/foot-plants-reviewed-validation.log`. Final handoff edits are documentation only; reviewed runtime tree remains unchanged.
+
+Reconciled #74/current docs and saved WIP history; preserved verified #71/#72 and branch order. All requested implementation/verification/documentation work is complete. Overall milestone remains PARTIAL solely for intentionally parked integration and actual hardware/owner gates; no merge/main push or new module is authorized here. Iterations8/20, no blocker exceeded three corrective attempts.

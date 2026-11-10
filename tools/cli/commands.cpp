@@ -53,7 +53,7 @@ void usage()
                  "  lyko build [--source DIR] [--configure-preset NAME] [--preset NAME]\n"
                  "             [--cmake EXECUTABLE]\n"
                  "  lyko test  [--source DIR] [--preset NAME] [--ctest EXECUTABLE]\n"
-                 "  lyko run\n"
+                 "  lyko run [-- SANDBOX_OPTIONS]\n"
                  "  lyko animate-character --model FILE --graph FILE --inputs FILE [--target-model FILE]\n"
                  "  lyko inspect-character (--model FILE | --profile FILE) [--compare-model FILE] [--output FILE]\n"
                  "  lyko trace --frames N [--gpu] [--output FILE]\n"
@@ -229,6 +229,11 @@ int run_command(std::string_view program, std::span<const std::string> arguments
         usage();
         return lykoware::cli::exit_ok;
     }
+    if(!arguments.empty()&&arguments.front()=="--"){
+        const auto sandbox=find_sandbox(program);
+        if(sandbox.empty()){std::cerr<<"lyko: cannot launch lykoware_sandbox (not found).\n";return lykoware::cli::exit_not_launched;}
+        return lykoware::cli::run_process(path_to_utf8(sandbox),std::vector<std::string>(arguments.begin()+1,arguments.end()),std::filesystem::current_path());
+    }
     for (const std::string& argument : arguments) {
         if (argument == "--scene" || argument.starts_with("--scene=")) {
             return lykoware::cli::scene_command(arguments, false);
@@ -236,7 +241,7 @@ int run_command(std::string_view program, std::span<const std::string> arguments
     }
     if (!arguments.empty()) {
         throw std::invalid_argument(
-            "run accepts no options until a renderer exists. Use --help.");
+            "run accepts no options without a scene or explicit -- separator. Use --help.");
     }
     const std::filesystem::path sandbox = find_sandbox(program);
     if (sandbox.empty()) {
