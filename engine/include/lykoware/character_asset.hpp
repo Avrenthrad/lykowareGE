@@ -20,6 +20,9 @@ using RoleNames = std::array<std::string,7>;
 using Roles = std::array<std::size_t,7>;
 struct FootSettings {
     bool align_normals=false, pelvis=false, locking=false, heading=false;
+    // While walking with one foot planted, drop the pelvis so that leg reaches (ADR 0070).
+    // Requires pelvis and locking.
+    bool single_support=false;
     double max_slope_degrees=35, max_pelvis_drop=.15, max_plant_distance=.35, max_heading_degrees=60;
 };
 [[nodiscard]] bool valid_foot_settings(const FootSettings& settings,std::string& error);

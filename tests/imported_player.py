@@ -152,17 +152,19 @@ def walking_run(use_cli=False):
     return counts
 assert walking_run()==walking_run(True),'fixed-clock offscreen walking replay must reproduce plant/lift counters'
 # Heading lock (ADR 0068): the same walk holds each planted foot's heading.
-profile.write_text(json.dumps(dict(version=1,model=path.name,bones={name:name for name in role_names},foot_ik=True,animation_graph=plant_graph.name,foot_align_normals=True,foot_pelvis=True,foot_locking=True,foot_max_plant_distance=.35,foot_heading_lock=True,foot_max_heading_degrees=45)))
+profile.write_text(json.dumps(dict(version=1,model=path.name,bones={name:name for name in role_names},foot_ik=True,animation_graph=plant_graph.name,foot_align_normals=True,foot_pelvis=True,foot_locking=True,foot_max_plant_distance=.35,foot_heading_lock=True,foot_max_heading_degrees=45,foot_pelvis_single_support=True)))
 r=run(walking_args);headed_text=r.stdout+r.stderr
 assert r.returncode==0 and 'failures=0' in headed_text and re.search(r'headed=[1-9]\d*',headed_text) and re.search(r'planted=[1-9]\d*',headed_text),headed_text
 # Drawn supports (ADR 0069): the falling crates' drawn poses are offered to the feet every frame.
 assert re.search(r' drawn=\d+',headed_text) and re.search(r'drawn_offered=[1-9]\d*',headed_text),headed_text
+# Single support (ADR 0070) runs in the same walk on flat ground and reports its counts.
+assert re.search(r'single_support=\d+ swing_held=\d+',headed_text),headed_text
 profile.write_text(json.dumps(dict(version=1,model=path.name,bones={name:name for name in role_names},foot_ik=True,animation_graph=plant_graph.name,foot_align_normals=True,foot_pelvis=True,foot_locking=True,foot_max_plant_distance=.35)))
 r=run(walking_args+['--frames','1']);assert r.returncode!=0 and 'must match expanded play replay' in r.stdout+r.stderr,r.stdout+r.stderr
 plant_definition['states'][0]['events']=[e for e in markers if e['name']!='right_lift'];plant_graph.write_text(json.dumps(plant_definition))
 r=run(walking_args);assert r.returncode!=0 and 'plant and lift markers' in r.stdout+r.stderr,r.stdout+r.stderr
 plant_graph.write_text(json.dumps(dict(version=1,states=[dict(name='gait',clip='breathe',events=markers)])))
-for extra in [dict(foot_align_normals=True,foot_max_slope_degrees=61),dict(foot_pelvis=True,foot_max_pelvis_drop=.31),dict(foot_max_slope_degrees=20),dict(foot_max_pelvis_drop=.1),dict(foot_align_normals='yes'),dict(foot_locking=True),dict(foot_max_plant_distance=.2),dict(foot_locking=True,animation_graph=plant_graph.name,foot_max_plant_distance=2),dict(foot_heading_lock=True),dict(foot_locking=True,animation_graph=plant_graph.name,foot_heading_lock=True,foot_max_heading_degrees=91),dict(foot_locking=True,animation_graph=plant_graph.name,foot_max_heading_degrees=30)]:
+for extra in [dict(foot_align_normals=True,foot_max_slope_degrees=61),dict(foot_pelvis=True,foot_max_pelvis_drop=.31),dict(foot_max_slope_degrees=20),dict(foot_max_pelvis_drop=.1),dict(foot_align_normals='yes'),dict(foot_locking=True),dict(foot_max_plant_distance=.2),dict(foot_locking=True,animation_graph=plant_graph.name,foot_max_plant_distance=2),dict(foot_heading_lock=True),dict(foot_locking=True,animation_graph=plant_graph.name,foot_heading_lock=True,foot_max_heading_degrees=91),dict(foot_locking=True,animation_graph=plant_graph.name,foot_max_heading_degrees=30),dict(foot_pelvis=True,foot_pelvis_single_support=True),dict(foot_locking=True,animation_graph=plant_graph.name,foot_pelvis_single_support=True),dict(foot_pelvis=True,foot_locking=True,animation_graph=plant_graph.name,foot_pelvis_single_support='yes')]:
     profile.write_text(json.dumps(dict(version=1,model=path.name,bones={name:name for name in role_names},foot_ik=True,**extra)))
     r=run(ik_args);assert r.returncode!=0,r.stdout+r.stderr
 profile.write_text(json.dumps(dict(version=1,model=path.name,bones={name:name for name in role_names},foot_ik=True,foot_clearance=-1)))
