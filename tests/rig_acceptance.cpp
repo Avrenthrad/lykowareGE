@@ -103,6 +103,14 @@ bool prepare(foot_placement::Controller& controller, const Case& c, lykoware::ch
     return ok;
 }
 
+// A refused update leaves no pose to measure: report it and skip the measurements.
+bool posed(bool ran, const a::Pose& out, const Case& c, const std::string& label, const std::string& error)
+{
+    const bool ok = ran && out.size() == c.rig.skeleton.joints.size();
+    check(ok, label + ": the update ran and gave a full pose: " + error);
+    return ok;
+}
+
 void run_case(const Case& c)
 {
     std::string error;
@@ -119,10 +127,12 @@ void run_case(const Case& c)
             for (int i = 0; i < 30; ++i) {
                 ran = controller.update(c.rest, actor, *world, .02F, true, out, error) && ran;
             }
-            const double moved = std::max(norm(ankle(c, out, actor, 0) - ankle(c, c.rest, actor, 0)),
-                                          norm(ankle(c, out, actor, 1) - ankle(c, c.rest, actor, 1)));
-            check(ran && moved < 1e-3 && controller.stats().contacts >= 60,
-                  "A: on flat ground the feet stay where animated: " + std::to_string(moved) + " " + error);
+            if (posed(ran, out, c, "A", error)) {
+                const double moved = std::max(norm(ankle(c, out, actor, 0) - ankle(c, c.rest, actor, 0)),
+                                              norm(ankle(c, out, actor, 1) - ankle(c, c.rest, actor, 1)));
+                check(moved < 1e-3 && controller.stats().contacts >= 60,
+                      "A: on flat ground the feet stay where animated: " + std::to_string(moved));
+            }
         }
     }
     // B. A step under the left foot, with pelvis correction.
@@ -137,10 +147,12 @@ void run_case(const Case& c)
             for (int i = 0; i < 150; ++i) {
                 ran = controller.update(c.rest, actor, *world, .02F, true, out, error) && ran;
             }
-            const double left = std::abs(ankle(c, out, actor, 0).y - (clearance - step));
-            const double right = std::abs(ankle(c, out, actor, 1).y - clearance);
-            check(ran && left < 2e-3 && right < 2e-3 && controller.pelvis_offset() < 0,
-                  "B: across a step each foot reaches its ground: " + std::to_string(left) + ", " + std::to_string(right));
+            if (posed(ran, out, c, "B", error)) {
+                const double left = std::abs(ankle(c, out, actor, 0).y - (clearance - step));
+                const double right = std::abs(ankle(c, out, actor, 1).y - clearance);
+                check(left < 2e-3 && right < 2e-3 && controller.pelvis_offset() < 0,
+                      "B: across a step each foot reaches its ground: " + std::to_string(left) + ", " + std::to_string(right));
+            }
         }
     }
     // C. A 0.2 rad slope with normal alignment.
@@ -156,13 +168,15 @@ void run_case(const Case& c)
             for (int i = 0; i < 120; ++i) {
                 ran = controller.update(c.rest, actor, *world, .02F, true, out, error) && ran;
             }
-            const auto normal = m::rotate(tilt, m::Vec3{0, 1, 0});
-            double worst = 0;
-            for (const std::size_t side : {std::size_t{0}, std::size_t{1}}) {
-                const V up = joint_axis(c, out, actor, c.rig.roles[side == 0 ? 3 : 6], {0, 1, 0});
-                worst = std::max(worst, norm(up - V{normal.x, normal.y, normal.z}));
+            if (posed(ran, out, c, "C", error)) {
+                const auto normal = m::rotate(tilt, m::Vec3{0, 1, 0});
+                double worst = 0;
+                for (const std::size_t side : {std::size_t{0}, std::size_t{1}}) {
+                    const V up = joint_axis(c, out, actor, c.rig.roles[side == 0 ? 3 : 6], {0, 1, 0});
+                    worst = std::max(worst, norm(up - V{normal.x, normal.y, normal.z}));
+                }
+                check(worst < 3e-3, "C: on a slope each foot's up axis meets the normal: " + std::to_string(worst));
             }
-            check(ran && worst < 3e-3, "C: on a slope each foot's up axis meets the normal: " + std::to_string(worst));
         }
     }
     // D. Walking, both feet planted with heading lock, the body turned 30 degrees.
@@ -184,13 +198,15 @@ void run_case(const Case& c)
             bool ran = controller.update(c.rest, low, *world, .01F, true, out, error, both);
             turned.rotation = m::from_axis_angle({0, 1, 0}, 30.F * std::numbers::pi_v<float> / 180.F);
             ran = controller.update(c.rest, turned, *world, .01F, true, out, error, both) && ran;
-            double worst = 0;
-            for (const std::size_t side : {std::size_t{0}, std::size_t{1}}) {
-                V forward = joint_axis(c, out, turned, c.rig.roles[side == 0 ? 3 : 6], {0, 0, -1});
-                worst = std::max(worst, std::abs(std::atan2(-forward.x, -forward.z)) * 180.0 / std::numbers::pi);
+            if (posed(ran, out, c, "D", error)) {
+                double worst = 0;
+                for (const std::size_t side : {std::size_t{0}, std::size_t{1}}) {
+                    const V forward = joint_axis(c, out, turned, c.rig.roles[side == 0 ? 3 : 6], {0, 0, -1});
+                    worst = std::max(worst, std::abs(std::atan2(-forward.x, -forward.z)) * 180.0 / std::numbers::pi);
+                }
+                check(worst < .1 && controller.stats().headed >= 2 && controller.stats().released == 0,
+                      "D: planted feet keep their heading as the body turns: " + std::to_string(worst) + " degrees");
             }
-            check(ran && worst < .1 && controller.stats().headed >= 2 && controller.stats().released == 0,
-                  "D: planted feet keep their heading as the body turns: " + std::to_string(worst) + " degrees " + error);
         }
     }
     // E. Walking, the left foot planted on a step down with single support.
@@ -208,14 +224,20 @@ void run_case(const Case& c)
             bool ran = true;
             double reach = 0;
             double swing = 0;
-            for (int i = 0; i < 30; ++i) {
-                ran = controller.update(c.rest, actor, *world, .02F, true, out, error, left_only) && ran;
+            for (int i = 0; i < 30 && ran; ++i) {
+                ran = controller.update(c.rest, actor, *world, .02F, true, out, error, left_only) &&
+                      out.size() == c.rig.skeleton.joints.size();
+                if (!ran) {
+                    break;
+                }
                 reach = std::max(reach, std::abs(ankle(c, out, actor, 0).y - (clearance - step)));
                 swing = std::max(swing, norm(ankle(c, out, actor, 1) - ankle(c, c.rest, actor, 1)));
             }
-            check(ran && controller.stats().released == 0 && reach < 2e-3 && swing < 1e-4,
-                  "E: one planted foot reaches a step down, the swing foot stays: " + std::to_string(reach) + ", " +
-                      std::to_string(swing));
+            if (posed(ran, out, c, "E", error)) {
+                check(controller.stats().released == 0 && reach < 2e-3 && swing < 1e-4,
+                      "E: one planted foot reaches a step down, the swing foot stays: " + std::to_string(reach) + ", " +
+                          std::to_string(swing));
+            }
         }
     }
 }
