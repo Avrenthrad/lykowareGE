@@ -84,13 +84,13 @@ inline Rig make(const Spec& spec)
         const V knee = hip + foot_placement::scale(thigh_dir, thigh);
         const V ankle = knee + foot_placement::scale(shin_dir, shin);
         rig.roles[leg] = add(std::string{rig_roles::names[leg]}, pelvis, hip, thigh_dir);
-        rig.roles[leg + 1] = add(std::string{rig_roles::names[leg + 1]}, rig.roles[leg], knee, shin_dir);
-        rig.roles[leg + 2] = add(std::string{rig_roles::names[leg + 2]}, rig.roles[leg + 1], ankle, {0, 0, -1});
+        rig.roles[leg + 1] = add(std::string{rig_roles::names[leg + 1]}, static_cast<std::uint16_t>(rig.roles[leg]), knee, shin_dir);
+        rig.roles[leg + 2] = add(std::string{rig_roles::names[leg + 2]}, static_cast<std::uint16_t>(rig.roles[leg + 1]), ankle, {0, 0, -1});
     }
     if (spec.extras) {
         add("spine", pelvis, {0, height + .3 * spec.leg, 0}, {0, 1, 0});
         for (std::size_t side = 0; side < 2; ++side) {
-            const auto ankle = rig.roles[side == 0 ? 3 : 6];
+            const auto ankle = static_cast<std::uint16_t>(rig.roles[side == 0 ? 3 : 6]);
             const V at = joints[ankle].position + V{0, 0, -.15 * spec.leg};
             add(side == 0 ? "toe_l" : "toe_r", ankle, at, {0, 0, -1});
         }
