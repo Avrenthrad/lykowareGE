@@ -1,5 +1,17 @@
 # Lykoware status
 
+## Rig acceptance — 02.11d varied rigs (branch `claude/rig-acceptance`, 11 November 2026)
+
+Open for review; not merged. [ADR 0071](adr/0071-rig-acceptance.md) (Proposed). The owner chose this part of 02.11d next.
+
+- **What:** every foot feature is now tested on eight original procedural rigs instead of one: baseline, child, tall, long thighs, knees bent at rest, bone-aligned joint frames, extra joints (tilted root, spine, toes) and centimetre units at 0.01 scale.
+  - Five checks per rig on real Jolt ground: flat stance, step with pelvis, slope alignment, heading lock under a 30 degree turn, single support on a step down.
+  - Tests only. No engine or sample change was needed; all rigs passed as written.
+- **Deliberate breaks:** 7 of 7 caught. The knee pole behind the leg was first missed; the step check now requires the folded knee to point forward. Four faults (parent rotation, actor scale) fail only on the new rigs.
+- **Local checks:** 86/86 in each of the Debug, ASan/UBSan and clang-tidy presets, no skips.
+- **Note:** fully straight legs have no slack, so a body turn can correctly let a plant go; the heading check rides the body 2% of a leg lower.
+- **Still open in 02.11d:** a balance lean of the upper body.
+
 ## One-foot pelvis — 02.11d single support (merged with #77, 10 November 2026)
 
 Branch `claude/single-support-pelvis`, reviewed and merged at the owner's request; all five hosted checks passed. [ADR 0070](adr/0070-single-support-pelvis.md) (Proposed). The owner chose this part of 02.11d first.
