@@ -6,9 +6,13 @@
 #include "foot_placement.hpp"
 #include "rig_roles.hpp"
 
+#include <array>
 #include <cmath>
+#include <cstdint>
+#include <numbers>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace rig_variants {
@@ -77,20 +81,25 @@ inline Rig make(const Spec& spec)
     Rig rig;
     const auto pelvis = add(std::string{rig_roles::names[0]}, top, {0, height, 0}, {0, 1, .3});
     rig.roles[0] = pelvis;
+    std::array<std::uint16_t, 2> ankles{};
     for (std::size_t side = 0; side < 2; ++side) {
         const double x = side == 0 ? -spec.hip_half_width : spec.hip_half_width;
         const std::size_t leg = side == 0 ? 1 : 4;
         const V hip{x, height, 0};
         const V knee = hip + foot_placement::scale(thigh_dir, thigh);
         const V ankle = knee + foot_placement::scale(shin_dir, shin);
-        rig.roles[leg] = add(std::string{rig_roles::names[leg]}, pelvis, hip, thigh_dir);
-        rig.roles[leg + 1] = add(std::string{rig_roles::names[leg + 1]}, rig.roles[leg], knee, shin_dir);
-        rig.roles[leg + 2] = add(std::string{rig_roles::names[leg + 2]}, rig.roles[leg + 1], ankle, {0, 0, -1});
+        const auto hip_joint = add(std::string{rig_roles::names[leg]}, pelvis, hip, thigh_dir);
+        const auto knee_joint = add(std::string{rig_roles::names[leg + 1]}, hip_joint, knee, shin_dir);
+        const auto ankle_joint = add(std::string{rig_roles::names[leg + 2]}, knee_joint, ankle, {0, 0, -1});
+        rig.roles[leg] = hip_joint;
+        rig.roles[leg + 1] = knee_joint;
+        rig.roles[leg + 2] = ankle_joint;
+        ankles[side] = ankle_joint;
     }
     if (spec.extras) {
         add("spine", pelvis, {0, height + .3 * spec.leg, 0}, {0, 1, 0});
         for (std::size_t side = 0; side < 2; ++side) {
-            const auto ankle = rig.roles[side == 0 ? 3 : 6];
+            const auto ankle = ankles[side];
             const V at = joints[ankle].position + V{0, 0, -.15 * spec.leg};
             add(side == 0 ? "toe_l" : "toe_r", ankle, at, {0, 0, -1});
         }
