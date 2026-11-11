@@ -72,7 +72,7 @@ inline Rig make(const Spec& spec)
     };
     std::optional<std::uint16_t> top;
     if (spec.extras) {
-        top = add("root", std::nullopt, {0, 0, 0}, {0, 1, 0});
+        top = add("root", std::nullopt, {0, 0, 0}, {.6, .8, 0}); // a tilted frame above the pelvis
     }
     Rig rig;
     const auto pelvis = add(std::string{rig_roles::names[0]}, top, {0, height, 0}, {0, 1, .3});
