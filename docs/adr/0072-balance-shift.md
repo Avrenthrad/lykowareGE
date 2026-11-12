@@ -21,7 +21,7 @@ Supersedes / superseded by: none. Extends ADR 0070's one-foot pelvis.
   The pelvis shift was chosen. It works on every rig the foot features already accept (ADR 0071) and changes no rig contract. A spine tilt can be added later on top of it.
 - **When it applies:**
   - **on every one-foot stride,** which stacks on the sway already authored in a walk;
-  - **only as far as the pelvis has dropped for the planted foot.**
+  - **only as far as the planted foot's ground is lower.**
 
   The second was chosen: flat-ground walking is untouched, and the shift grows with the step down.
 - **Direction:**
@@ -42,16 +42,17 @@ Proposed:
   - `lyko inspect-character` reports `balance_shift` and `max_balance_shift`.
 - **Sample controller (`samples/course/foot_placement.hpp`):**
   - in single support (ADR 0070), the pelvis also moves along the actor's left–right axis toward the planted foot;
-  - the wanted shift is the smallest of: the pelvis drop, `foot_max_balance_shift`, and the sideways distance from pelvis to foot (so it never passes the foot);
+  - the wanted shift is the smallest of: the planted foot's depth (the same depth the pelvis follows, within the pelvis bound), `foot_max_balance_shift`, and the sideways distance from pelvis to foot (so the pelvis never passes the foot);
+  - the sideways move takes the hip out from above the foot, so the pelvis is lowered a little further, by what each leg in contact then needs to reach, within the pelvis bound;
   - it is smoothed like the drop, and eases back to nothing when single support ends;
-  - while any shift remains, a foot without contact is solved back to its animated place, as the swing foot already is;
+  - while any shift remains, a foot without contact is solved back to its animated place, as the swing foot already is (on fully straight legs with no pelvis drop it can lift by under a millimetre while the shift eases out);
   - `balance_frames` joins the foot diagnostics, and `balance_shift()` reports the current signed shift;
   - presentation only, as before.
 
 ## Contracts and compatibility
 
 - **Additions only:** two settings fields, two profile keys, two inspection fields, one diagnostics count.
-- **Unchanged without the opt-in.** With it, poses are unchanged until a single-support drop occurs: flat-ground walking, two-foot support and standing still give exactly the same poses.
+- **Unchanged without the opt-in.** With it, poses are unchanged until single support meets lower ground: flat-ground walking, two-foot support and standing still give exactly the same poses.
 - **Not yet:**
   - a spine or upper-body tilt;
   - any shift while standing still;

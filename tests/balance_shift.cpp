@@ -99,9 +99,9 @@ struct Rig {
     rig_variants::Rig rig;
     a::Pose rest;
 };
-Rig make(double hip_half_width = .2)
+Rig make(double hip_half_width = .2, double leg = 1.6)
 {
-    Rig r{rig_variants::make({"test", 1.6, .5, hip_half_width, 0, false, false, 1}), {}};
+    Rig r{rig_variants::make({"test", leg, .5, hip_half_width, 0, false, false, 1}), {}};
     r.rest = a::rest_pose(r.rig.skeleton);
     return r;
 }
@@ -234,6 +234,13 @@ void test_limits()
     const Run close = walk(narrow, wide, .08, 0, -1);
     check(close.ran && std::abs(close.shift + .02) < 1e-3, "the shift stops over the foot: " + std::to_string(close.shift));
     check(close.reach < 2e-3 && close.stats.released == 0, "over the foot, the planted foot still reaches");
+    // The sideways move takes the hip out from above the foot, so a straight leg needs the pelvis
+    // a little lower still. Short legs and a wide shift make that 8 mm: without it the plant is let go.
+    const Rig small = make(.2, .5);
+    const Run far = walk(small, wide, .09, 0, -1);
+    check(far.ran && std::abs(far.shift + .09) < 1.5e-3 && far.reach < 2e-3 && far.stats.released == 0,
+          "a short straight leg still reaches after a wide shift: shift " + std::to_string(far.shift) + ", reach " +
+              std::to_string(far.reach) + ", released " + std::to_string(far.stats.released));
     // A zero bound gives no shift at all.
     Settings none = walking();
     none.max_balance_shift = 0;
@@ -287,9 +294,52 @@ void test_ease_out()
     }
     check(ran && std::abs(engaged + .04) < 1e-3 && shrinking && controller.balance_shift() == 0 && frames_to_zero > 3,
           "the shift eases out to nothing after single support: took " + std::to_string(frames_to_zero) + " frames");
+    // Both feet lifted: the shift eases out, and while it does both feet keep their animated places.
+    for (int i = 0; i < 80 && ran; ++i) {
+        ran = controller.update(r.rest, actor, *world, tick, true, out, error, foot_placement::PlantPhases{{true, false}, {1, 1}});
+    }
+    const double again = controller.balance_shift();
+    double moved = 0;
+    int eased = 0;
+    for (int i = 0; i < 400 && ran; ++i) {
+        ran = controller.update(r.rest, actor, *world, tick, true, out, error, foot_placement::PlantPhases{{false, false}, {2, 2}});
+        if (controller.balance_shift() != 0) {
+            ++eased;
+            for (const std::size_t role : {std::size_t{3}, std::size_t{6}}) {
+                moved = std::max(moved, norm(joint(r, out, actor, role) - joint(r, r.rest, actor, role)));
+            }
+        }
+    }
+    check(ran && std::abs(again + .04) < 1e-3 && eased > 3 && controller.balance_shift() == 0 && moved < 1e-3,
+          "with both feet lifted the shift eases out and the feet stay where animated (straight legs: within 1 mm): " + std::to_string(moved));
+    // Short straight legs and a wide shift: when the other foot plants too, the easing shift
+    // must not pull either plant out of reach.
+    {
+        const Rig small = make(.2, .5);
+        Settings wide = walking();
+        wide.max_balance_shift = .1;
+        auto low = ground(.09);
+        foot_placement::Controller short_legs;
+        bool ok = short_legs.configure(small.rig.skeleton, small.rig.roles, error, clearance, wide);
+        a::Pose pose;
+        for (int i = 0; i < 80 && ok; ++i) {
+            ok = short_legs.update(small.rest, actor, *low, tick, true, pose, error, foot_placement::PlantPhases{{true, false}});
+        }
+        const double wide_shift = short_legs.balance_shift();
+        double worst = 0;
+        for (int i = 0; i < 400 && ok; ++i) {
+            ok = short_legs.update(small.rest, actor, *low, tick, true, pose, error, foot_placement::PlantPhases{{true, true}});
+            worst = std::max(worst, std::abs(joint(small, pose, actor, 3).y - (clearance - .09)));
+            worst = std::max(worst, std::abs(joint(small, pose, actor, 6).y - clearance));
+        }
+        check(ok && std::abs(wide_shift + .09) < 1.5e-3 && short_legs.balance_shift() == 0 &&
+                  short_legs.stats().released == 0 && worst < 2e-3,
+              "easing out a wide shift in two-foot support lets no plant go: released " +
+                  std::to_string(short_legs.stats().released) + ", worst reach " + std::to_string(worst));
+    }
     // A reset clears it at once.
     for (int i = 0; i < 40 && ran; ++i) {
-        ran = controller.update(r.rest, actor, *world, tick, true, out, error, foot_placement::PlantPhases{{true, false}, {1, 1}});
+        ran = controller.update(r.rest, actor, *world, tick, true, out, error, foot_placement::PlantPhases{{true, false}, {3, 3}});
     }
     const bool was_engaged = controller.balance_shift() != 0;
     controller.reset();

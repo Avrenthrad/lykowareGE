@@ -384,11 +384,11 @@ public:
             // that foot alone, so its leg reaches lower ground instead of letting go.
             const bool single = settings_.single_support && walking && contact[0] != contact[1];
             const bool lowered = settings_.pelvis && ((contact[0] && contact[1]) || single);
+            double depth = 0; // how far the pelvis is asked down for the feet in contact
             const double bound = std::min(settings_.max_pelvis_drop, shorter_leg_ * actor.uniform_scale * .25);
-            // The pelvis at least as low as the planted leg needs to reach its anchor, with the
+            // The pelvis at least as low as a leg in contact needs to reach its target, with the
             // hips moved sideways by `shift`, within the bound.
-            const auto reach_floor = [&](double from, V shift) {
-                const std::size_t planted = contact[0] ? 0 : 1;
+            const auto reach_floor = [&](double from, V shift, std::size_t planted) {
                 const V hip = to_world(actor, position(fk_[roles_[planted == 0 ? 1 : 4]])) + shift;
                 const V gap = hip - targets[planted];
                 const double reach = leg_length_[planted] * actor.uniform_scale;
@@ -402,33 +402,38 @@ public:
             if (lowered) {
                 const double lowest = single ? desired[contact[0] ? 0 : 1] : std::min(desired[0], desired[1]);
                 const double wanted = std::clamp(lowest, -bound, 0.0);
+                depth = -wanted;
                 pelvis = std::clamp(pelvis + alpha * (wanted - pelvis), -bound, 0.0);
                 if (single) {
                     // At once at least as low as the planted leg needs to reach its anchor, so a
                     // fresh plant on lower ground is not let go while the smoothing catches up.
-                    pelvis = reach_floor(pelvis, V{});
+                    pelvis = reach_floor(pelvis, V{}, contact[0] ? 0 : 1);
                 }
             } else {
                 pelvis = 0;
             }
             // Balance (ADR 0072): in single support the pelvis also slides sideways toward the
-            // planted foot, as far as it dropped, within the bound and never past the foot. It
-            // eases back when single support ends.
+            // planted foot, as far as that foot's ground is lower, within the bound and never
+            // past the foot. It eases back when single support ends.
             const V lateral = rotate(actor.rotation, V{1, 0, 0});
             double wanted_shift = 0;
             if (settings_.balance_shift && single && pelvis < 0) {
                 const V hips = to_world(actor, position(fk_[roles_[0]]));
                 const double sideways = dot(targets[contact[0] ? 0 : 1] - hips, lateral);
-                wanted_shift = std::copysign(std::min({std::abs(sideways), settings_.max_balance_shift, -pelvis}),
+                wanted_shift = std::copysign(std::min({std::abs(sideways), settings_.max_balance_shift, depth}),
                                              sideways);
             }
             balance = balance_ + alpha * (wanted_shift - balance_);
             if (std::abs(balance) < 1e-6) {
                 balance = 0;
             }
-            if (balance != 0 && lowered && single) {
-                // The sideways move changes what the planted leg needs to reach.
-                pelvis = reach_floor(pelvis, scale(lateral, balance));
+            if (balance != 0 && lowered) {
+                // The sideways move changes what each leg in contact needs to reach.
+                for (std::size_t side = 0; side < 2; ++side) {
+                    if (contact[side]) {
+                        pelvis = reach_floor(pelvis, scale(lateral, balance), side);
+                    }
+                }
             }
             if (lowered || balance != 0) {
                 V world_delta{0, pelvis, 0};
