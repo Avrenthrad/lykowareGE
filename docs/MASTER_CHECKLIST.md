@@ -101,6 +101,12 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
 - [ ] **02.14** Refine first/third-person camera transitions.
 - [ ] **02.15** Validate character feel on Windows hardware.
 - [ ] **02.16** Complete character correctness and performance gates.
+- [ ] **02.17** Locomotion feel for players and NPCs (owner request, 12 November 2026; ADR 0074). Added after 02.16 was numbered; done before 02.12b–d by the owner's order.
+  - [ ] **02.17a** ADR: quality bar, sharpness versus weight, directional fluidity, agility profiles, the animation–physics contract and the legal line — ADR 0074 written, Proposed; unmerged.
+  - [ ] **02.17b** The motor: acceleration, braking, turn rate by speed, gaits, plant-and-pivot and agility profiles in data, with feel checks in `player.course` — not started.
+  - [ ] **02.17c** Directional fluidity: continuous heading, mid-stride redirects, strafe and backward movement, a direction-change fixture — not started.
+  - [ ] **02.17d** Animation on the motor: stride matching, lean, starts, stops and pivots, with feet planted — not started.
+  - [ ] **02.17e** NPCs on the same controller with their own agility — not started.
 
 ## 3. Combat slice
 

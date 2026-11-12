@@ -1,5 +1,21 @@
 # Lykoware status
 
+## Locomotion feel — owner request of 12 November 2026 (ADR 0074, PR 1 of 5, open)
+
+Branch `ccr-178f7225-atvbfx`, based on `main` after #81. [ADR 0074](adr/0074-locomotion-feel.md) (Proposed). Documentation only so far.
+
+- **The request:** player and NPC movement that is realistic, weighted and grounded, and also sharper when called for and more fluid in direction, with one controller for both and agility as a tunable number.
+- **The plan, as five stacked PRs:**
+  1. this ADR;
+  2. the motor: acceleration, braking, turn rate by speed, gaits, plant-and-pivot, agility profiles in data, with feel checks in `player.course`;
+  3. directional fluidity: continuous heading, strafe and backward movement, a direction-change fixture;
+  4. animation: stride matching, lean, starts, stops and pivots on the existing crossfade and foot stack;
+  5. NPCs on the same controller.
+- **Kept:** physics authority (ADR 0064), drawing between steps (ADR 0048), and the foot stack (ADRs 0066–0072). A character with no locomotion data moves exactly as before.
+- **Legal line:** the reference game named by the owner is a feel target only; nothing is copied from it. Motion matching is stopped for the owner's patent review (ADR 0074 records what a search found; it is not legal advice).
+- **Open questions for the owner:** starting gait speeds, default agility, TOML or JSON for tuning, and what to do about motion matching.
+- **Paused:** ragdoll parts 02.12b–d, until this work is done or the owner reorders.
+
 ## Physics joints — 02.12 ragdolls, part 1 (merged with #81, 12 November 2026)
 
 Branch `ccr-178f7225-atvbfx`, based on `main` after #80. [ADR 0073](adr/0073-physics-joints.md) (Proposed). Reviewed and merged at the owner's request.
