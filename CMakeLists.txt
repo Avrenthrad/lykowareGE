@@ -302,6 +302,12 @@ if(BUILD_TESTING)
     target_link_libraries(lykoware_physics_world_test PRIVATE lykoware::engine)
     lykoware_configure_target(lykoware_physics_world_test)
     add_test(NAME physics.world COMMAND lykoware_physics_world_test)
+    # Joints between bodies (ADR 0073).
+    add_executable(lykoware_physics_joints_test tests/physics_joints.cpp)
+    target_link_libraries(lykoware_physics_joints_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_physics_joints_test)
+    add_test(NAME physics.joints COMMAND lykoware_physics_joints_test)
+    set_tests_properties(physics.joints PROPERTIES TIMEOUT 60)
     set_tests_properties(physics.world PROPERTIES TIMEOUT 120)
 
     # The audio mixer and WAV reader (ADR 0032). Links only the engine; no audio device.

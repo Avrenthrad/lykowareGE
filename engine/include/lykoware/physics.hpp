@@ -90,6 +90,53 @@ struct BodyState {
     Vec3 angular_velocity;
 };
 
+// Stable handle to a joint, with the same rules as BodyId.
+struct JointId {
+    std::uint32_t index = 0;
+    std::uint32_t generation = 0;
+    std::uint64_t owner = 0;
+
+    friend bool operator==(const JointId&, const JointId&) = default;
+};
+
+// Joints (ADR 0073) hold two bodies together at an anchor point. Angles are radians.
+
+// No relative movement: the two bodies keep the relative pose they have when the joint is made.
+struct FixedJoint {
+};
+
+// A door or knee: the child turns only about the joint's axis, between min_angle (-pi..0) and
+// max_angle (0..pi) from the pose it has when the joint is made.
+struct HingeJoint {
+    float min_angle = -3.14159265F;
+    float max_angle = 3.14159265F;
+};
+
+// A shoulder or hip: the child's axis swings within a cone of swing_half_angle (0..pi) around
+// where it points when the joint is made, and the child twists about that axis between
+// twist_min (-pi..0) and twist_max (0..pi).
+struct SwingTwistJoint {
+    float swing_half_angle = 0.78539816F; // 45 degrees
+    float twist_min = -0.34906585F;       // -20 degrees
+    float twist_max = 0.34906585F;        // 20 degrees
+};
+
+using JointKind = std::variant<FixedJoint, HingeJoint, SwingTwistJoint>;
+
+struct JointDesc {
+    BodyId parent;
+    BodyId child;
+    JointKind kind = FixedJoint{};
+    // Where the two bodies are held together, in world space, as they are now.
+    DVec3 anchor;
+    // World-space direction, as the bodies are now: the hinge's turning axis, or the swing-twist
+    // joint's twist axis (along the child's bone). Any non-zero length; unused by a fixed joint.
+    Vec3 axis{0.F, 1.F, 0.F};
+    // Whether the two bodies still collide with each other. Jointed bodies usually overlap at
+    // the joint, so the default is that they do not.
+    bool collide = false;
+};
+
 // Stable handle to a character, with the same rules as BodyId.
 struct CharacterId {
     std::uint32_t index = 0;
@@ -143,6 +190,7 @@ struct WorldConfig {
     std::uint32_t max_bodies = 4096;
     std::uint32_t max_body_pairs = 8192;
     std::uint32_t max_contact_constraints = 8192;
+    std::uint32_t max_joints = 4096;
     Vec3 gravity{0.F, -9.81F, 0.F};
     // Worker threads for the physics step; 0 picks a number from the CPU. Results do not depend
     // on this number.
@@ -158,8 +206,8 @@ struct WorldConfig {
 // compiler, OS and build type (Jolt's cross-platform determinism, ADR 0003). Step once per
 // simulation tick with FixedStep::tick_seconds() (ADR 0017). state_hash() checks it.
 //
-// Ownership: create() returns the sole owner. The world owns its bodies; destroying the world
-// destroys them. Copy and move are not provided.
+// Ownership: create() returns the sole owner. The world owns its bodies and joints; destroying
+// the world destroys them. Copy and move are not provided.
 //
 // Threading: one thread at a time. Several worlds may exist; create and destroy them on one
 // thread, because the first world sets up and the last tears down Jolt's process-wide state.
@@ -191,6 +239,18 @@ public:
     // Sets velocities, waking the body. False if the handle is not valid or the body is static.
     bool set_velocity(BodyId body, Vec3 linear, Vec3 angular);
 
+    // Joints (ADR 0073). Creates a joint between two different live bodies of this world, at
+    // least one of them dynamic. Fails (nullopt, error filled) for an invalid, destroyed or
+    // foreign body, the same body twice, no dynamic body, a non-finite anchor, a zero or
+    // non-finite axis, angles outside their ranges, or when max_joints are alive. Both bodies
+    // are woken.
+    [[nodiscard]] std::optional<JointId> create_joint(const JointDesc& desc, std::string& error);
+    // Removes a joint; the bodies stay. False if the handle is not valid. Destroying a body
+    // destroys its joints, whose handles then stop being valid.
+    bool destroy_joint(JointId joint);
+    [[nodiscard]] bool is_valid(JointId joint) const;
+    [[nodiscard]] std::size_t joint_count() const;
+
     // Characters. Same handle rules and failure behaviour as bodies; create_character fails for
     // non-positive sizes or mass, a slope outside (0, pi/2) or a negative step height.
     [[nodiscard]] std::optional<CharacterId> create_character(const CharacterDesc& desc, std::string& error);
@@ -212,8 +272,8 @@ public:
     // ray's length; nullopt if nothing is hit.
     [[nodiscard]] std::optional<RayHit> cast_ray(DVec3 origin, Vec3 direction) const;
 
-    // FNV-1a hash of every live body's and character's exact state in handle order: equal
-    // hashes mean bit-identical simulations.
+    // FNV-1a hash of every live body's and character's exact state, and which bodies each live
+    // joint holds, in handle order: equal hashes mean bit-identical simulations.
     [[nodiscard]] std::uint64_t state_hash() const;
 
 private:
