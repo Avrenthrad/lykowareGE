@@ -23,7 +23,10 @@ struct FootSettings {
     // While walking with one foot planted, drop the pelvis so that leg reaches (ADR 0070).
     // Requires pelvis and locking.
     bool single_support=false;
-    double max_slope_degrees=35, max_pelvis_drop=.15, max_plant_distance=.35, max_heading_degrees=60;
+    // In single support, slide the pelvis sideways over the planted foot, as far as it dropped
+    // and at most max_balance_shift metres (ADR 0072). Requires single_support.
+    bool balance_shift=false;
+    double max_slope_degrees=35, max_pelvis_drop=.15, max_plant_distance=.35, max_heading_degrees=60, max_balance_shift=.04;
 };
 [[nodiscard]] bool valid_foot_settings(const FootSettings& settings,std::string& error);
 struct Profile {

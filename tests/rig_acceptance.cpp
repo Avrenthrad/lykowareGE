@@ -4,7 +4,8 @@
 //   B. standing across a step with pelvis correction: each foot reaches its own ground, knees fold forward;
 //   C. standing on a slope with normal alignment: each foot's up axis meets the surface normal;
 //   D. walking, planted with heading lock, body turned 30 degrees: feet keep their heading;
-//   E. walking, one foot planted on a step down with single support: it reaches, the swing foot stays.
+//   E. walking, one foot planted on a step down with single support: it reaches, the swing foot stays;
+//   F. the same with the balance shift (ADR 0072): the pelvis also moves sideways over the planted foot.
 
 #include "support/rig_variants.hpp"
 
@@ -254,6 +255,44 @@ void run_case(const Case& c)
             if (posed(ran, out, c, "E", error)) {
                 check(controller.stats().released == 0 && reach < 2e-3 && swing < 1e-4,
                       "E: one planted foot reaches a step down, the swing foot stays: " + std::to_string(reach) + ", " +
+                          std::to_string(swing));
+            }
+        }
+    }
+    // F. The same step down with the balance shift: the pelvis moves toward the planted left foot,
+    // as far as it dropped, within the 4 cm default and never past the foot.
+    {
+        auto world = ground(step);
+        lykoware::character::FootSettings settings;
+        settings.locking = true;
+        settings.pelvis = true;
+        settings.single_support = true;
+        settings.balance_shift = true;
+        settings.max_plant_distance = 1;
+        foot_placement::Controller controller;
+        if (prepare(controller, c, settings)) {
+            const foot_placement::PlantPhases left_only{{true, false}};
+            a::Pose out;
+            bool ran = true;
+            double reach = 0;
+            double swing = 0;
+            for (int i = 0; i < 100 && ran; ++i) {
+                ran = controller.update(c.rest, actor, *world, .02F, true, out, error, left_only) &&
+                      out.size() == c.rig.skeleton.joints.size();
+                if (!ran) {
+                    break;
+                }
+                reach = std::max(reach, std::abs(ankle(c, out, actor, 0).y - (clearance - step)));
+                swing = std::max(swing, norm(ankle(c, out, actor, 1) - ankle(c, c.rest, actor, 1)));
+            }
+            if (posed(ran, out, c, "F", error)) {
+                const double expected = -std::min({step, settings.max_balance_shift, c.spec.hip_half_width * c.spec.actor_scale});
+                const double drawn = joint_at(c, out, actor, 0).x - joint_at(c, c.rest, actor, 0).x;
+                check(std::abs(controller.balance_shift() - expected) < 1.5e-3 && std::abs(drawn - expected) < 1.5e-3,
+                      "F: the pelvis shifts over the planted foot: " + std::to_string(controller.balance_shift()) +
+                          ", drawn " + std::to_string(drawn) + ", expected " + std::to_string(expected));
+                check(controller.stats().released == 0 && reach < 2e-3 && swing < 1e-4,
+                      "F: shifted, the planted foot reaches and the swing foot stays: " + std::to_string(reach) + ", " +
                           std::to_string(swing));
             }
         }

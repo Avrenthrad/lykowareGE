@@ -97,7 +97,7 @@ struct PlantPhases {
 struct Stats {
     std::uint64_t frames = 0, contacts = 0, misses = 0, clamped = 0, resets = 0, oriented = 0,
                   slope_rejected = 0, pelvis_frames = 0, planted = 0, released = 0, headed = 0, heading_clamped = 0,
-                  drawn = 0, single_support = 0, swing_held = 0;
+                  drawn = 0, single_support = 0, swing_held = 0, balance_frames = 0;
 };
 class Controller {
 public:
@@ -180,12 +180,18 @@ public:
         correction_ = {};
         normals_ = {V{0, 1, 0}, V{0, 1, 0}};
         pelvis_drop_ = 0;
+        balance_ = 0;
         previous_ = false;
         ++stats_.resets;
     }
     double pelvis_offset() const
     {
         return pelvis_drop_;
+    }
+    // The pelvis's sideways shift over the planted foot (ADR 0072), in metres along the actor's +X.
+    double balance_shift() const
+    {
+        return balance_;
     }
     const Stats& stats() const
     {
@@ -213,6 +219,7 @@ public:
         auto next = correction_;
         auto normals = normals_;
         double pelvis = pelvis_drop_;
+        double balance = balance_;
         Stats stats = stats_;
         ++stats.frames;
         const bool jump = previous_ && norm(actor.feet - previous_feet_) > 1.0;
@@ -223,6 +230,7 @@ public:
             plant_cycles_ = cycles;
             normals_ = normals;
             pelvis_drop_ = pelvis;
+            balance_ = balance;
             previous_feet_ = actor.feet;
             previous_ = true;
             stats_ = stats;
@@ -239,6 +247,7 @@ public:
             next = {};
             normals = {V{0, 1, 0}, V{0, 1, 0}};
             pelvis = 0;
+            balance = 0;
             ++stats.resets;
             return commit();
         }
@@ -369,31 +378,71 @@ public:
             candidate_ = base;
             stats = probes;
             pelvis = pelvis_drop_;
+            balance = balance_;
 
             // Single support (ADR 0070): walking with exactly one foot planted, the pelvis follows
             // that foot alone, so its leg reaches lower ground instead of letting go.
             const bool single = settings_.single_support && walking && contact[0] != contact[1];
-            if (settings_.pelvis && ((contact[0] && contact[1]) || single)) {
-                const double bound =
-                    std::min(settings_.max_pelvis_drop, shorter_leg_ * actor.uniform_scale * .25);
+            const bool lowered = settings_.pelvis && ((contact[0] && contact[1]) || single);
+            double depth = 0; // how far the pelvis is asked down for the feet in contact
+            const double pelvis_bound = std::min(settings_.max_pelvis_drop, shorter_leg_ * actor.uniform_scale * .25);
+            // The pelvis at least as low as a leg in contact needs to reach its target, with the
+            // hips moved sideways by `shift`, within the pelvis bound.
+            const auto reach_floor = [&](double from, V shift, std::size_t planted) {
+                const V hip = to_world(actor, position(fk_[roles_[planted == 0 ? 1 : 4]])) + shift;
+                const V gap = hip - targets[planted];
+                const double reach = leg_length_[planted] * actor.uniform_scale;
+                const double across = gap.x * gap.x + gap.z * gap.z;
+                if (reach * reach > across) {
+                    const double needed = gap.y - std::sqrt(reach * reach - across);
+                    return std::clamp(std::min(from, -needed), -pelvis_bound, 0.0);
+                }
+                return from;
+            };
+            if (lowered) {
                 const double lowest = single ? desired[contact[0] ? 0 : 1] : std::min(desired[0], desired[1]);
-                const double wanted = std::clamp(lowest, -bound, 0.0);
-                pelvis = std::clamp(pelvis + alpha * (wanted - pelvis), -bound, 0.0);
+                const double wanted = std::clamp(lowest, -pelvis_bound, 0.0);
+                depth = -wanted;
+                pelvis = std::clamp(pelvis + alpha * (wanted - pelvis), -pelvis_bound, 0.0);
                 if (single) {
                     // At once at least as low as the planted leg needs to reach its anchor, so a
                     // fresh plant on lower ground is not let go while the smoothing catches up.
-                    const std::size_t planted = contact[0] ? 0 : 1;
-                    const V hip = to_world(actor, position(fk_[roles_[planted == 0 ? 1 : 4]]));
-                    const V gap = hip - targets[planted];
-                    const double reach = leg_length_[planted] * actor.uniform_scale;
-                    const double across = gap.x * gap.x + gap.z * gap.z;
-                    if (reach * reach > across) {
-                        const double needed = gap.y - std::sqrt(reach * reach - across);
-                        pelvis = std::clamp(std::min(pelvis, -needed), -bound, 0.0);
+                    pelvis = reach_floor(pelvis, V{}, contact[0] ? 0 : 1);
+                }
+            } else {
+                pelvis = 0;
+            }
+            // Balance (ADR 0072): in single support the pelvis also slides sideways toward the
+            // planted foot, as far as that foot's ground is lower, within the bound and never
+            // past the foot. It eases back when single support ends.
+            const V lateral = rotate(actor.rotation, V{1, 0, 0});
+            double wanted_shift = 0;
+            if (settings_.balance_shift && single && pelvis < 0) {
+                const V hips = to_world(actor, position(fk_[roles_[0]]));
+                const double sideways = dot(targets[contact[0] ? 0 : 1] - hips, lateral);
+                wanted_shift = std::copysign(std::min({std::abs(sideways), settings_.max_balance_shift, depth}),
+                                             sideways);
+            }
+            balance = balance_ + alpha * (wanted_shift - balance_);
+            if (std::abs(balance) < 1e-6) {
+                balance = 0;
+            }
+            if (balance != 0 && lowered) {
+                // The sideways move changes what each leg in contact needs to reach.
+                for (std::size_t side = 0; side < 2; ++side) {
+                    if (contact[side]) {
+                        pelvis = reach_floor(pelvis, scale(lateral, balance), side);
                     }
                 }
-                const auto model_delta = scale(rotate(math::conjugate(actor.rotation), V{0, pelvis, 0}),
-                                               1.0 / actor.uniform_scale);
+            }
+            if (lowered || balance != 0) {
+                V world_delta{0, pelvis, 0};
+                if (balance != 0) {
+                    world_delta = world_delta + scale(lateral, balance);
+                    ++stats.balance_frames;
+                }
+                const auto model_delta =
+                    scale(rotate(math::conjugate(actor.rotation), world_delta), 1.0 / actor.uniform_scale);
                 math::Quat parent{};
                 if (skeleton_.joints[roles_[0]].parent) {
                     for (std::size_t i = 0; i < base.size(); ++i) {
@@ -414,15 +463,13 @@ public:
                         ++stats.single_support;
                     }
                 }
-            } else {
-                pelvis = 0;
             }
             bool retry = false;
             for (std::size_t side = 0; side < 2; ++side) {
                 if (!contact[side]) {
                     // The swing foot keeps its animated place while the pelvis is lowered for the
                     // planted one; only its knee bends more.
-                    if (single && pelvis < 0) {
+                    if ((single && pelvis < 0) || balance != 0) {
                         const std::size_t leg = side == 0 ? 1 : 4;
                         const V pole = position(fk_[roles_[leg + 1]]) + V{0, 0, -0.5};
                         animation::TwoBoneSolution swing;
@@ -517,7 +564,7 @@ public:
     }
 
 private:
-    double clearance_ = 0.03, pelvis_drop_ = 0, shorter_leg_ = 0;
+    double clearance_ = 0.03, pelvis_drop_ = 0, balance_ = 0, shorter_leg_ = 0;
     std::array<double, 2> leg_length_{};
     lykoware::character::FootSettings settings_;
     std::array<std::optional<animation::PreparedJointAxis>, 2> axes_{};
