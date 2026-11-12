@@ -216,7 +216,8 @@ void test_fixed()
     // A box fixed to a falling, spinning box keeps its place on it.
     auto world = make_world();
     const auto a = body(*world, physics::MotionType::Dynamic, {0, 10, 0}, small_box, {1, 0, 0}, {0, 0, 3});
-    const auto b = body(*world, physics::MotionType::Dynamic, {.5, 10, 0}, small_box);
+    // The second box starts with its own spin about every axis; the joint has to absorb it.
+    const auto b = body(*world, physics::MotionType::Dynamic, {.5, 10, 0}, small_box, {}, {3, 4, 5});
     std::string error;
     physics::JointDesc desc;
     desc.parent = a;
@@ -231,6 +232,7 @@ void test_fixed()
         const auto sa = *world->state(a), sb = *world->state(b);
         worst = std::max(worst, std::abs(distance(sa.position, sb.position) - .5));
         worst_turn = std::max(worst_turn, angle_between(turned(sa, {1, 0, 0}), turned(sb, {1, 0, 0})));
+        worst_turn = std::max(worst_turn, angle_between(turned(sa, {0, 1, 0}), turned(sb, {0, 1, 0})));
     }
     check(worst < .005 && worst_turn < .02F, "fixed bodies keep their relative pose: " + std::to_string(worst) + ", " +
                                                  std::to_string(worst_turn));
@@ -477,6 +479,25 @@ void test_determinism()
         }
     }
     check(a->state_hash() != b->state_hash(), "the state hash tells a jointed world from an unjointed one");
+    // And which bodies, and what kind: three bodies, one joint, before any step.
+    const auto hashed = [](bool to_third, physics::JointKind kind, bool swap) {
+        auto world = make_world();
+        const auto p = body(*world, physics::MotionType::Dynamic, {0, 0, 0}, small_box);
+        const auto q = body(*world, physics::MotionType::Dynamic, {1, 0, 0}, small_box);
+        const auto r = body(*world, physics::MotionType::Dynamic, {2, 0, 0}, small_box);
+        std::string error;
+        physics::JointDesc desc;
+        desc.parent = swap ? q : p;
+        desc.child = to_third ? r : (swap ? p : q);
+        desc.kind = kind;
+        check(world->create_joint(desc, error).has_value(), "a hashed joint is made: " + error);
+        return world->state_hash();
+    };
+    const auto base = hashed(false, physics::FixedJoint{}, false);
+    check(base == hashed(false, physics::FixedJoint{}, false), "the same joint hashes the same");
+    check(base != hashed(true, physics::FixedJoint{}, false), "the state hash covers a joint's child");
+    check(base != hashed(false, physics::HingeJoint{}, false), "the state hash covers a joint's kind");
+    check(hashed(true, physics::FixedJoint{}, false) != hashed(true, physics::FixedJoint{}, true), "the state hash covers a joint's parent");
 }
 } // namespace
 
