@@ -1,5 +1,19 @@
 # Shared work board
 
+## Physics joints — 02.12 ragdolls, part 1 (merged with #81, 12 November 2026)
+
+Branch `ccr-178f7225-atvbfx`, based on `main` after #80. [ADR 0073](adr/0073-physics-joints.md) (Proposed). Reviewed and merged at the owner's request.
+
+- **What:** physics bodies can now be joined, the first building block of ragdolls.
+  - Three joints on `physics::World`: fixed, hinge (knee, elbow, door) and swing-twist (hip, shoulder, spine).
+  - Described in world space as the bodies are now: an anchor and one axis.
+  - Jointed bodies do not collide with each other unless asked. Destroying a body destroys its joints. The state hash covers joints. No Jolt type is exposed.
+- **Tests:** new `physics.joints` through the public API only (each kind, limits with positive controls, collision, lifetime, refusals, bit-identical repeats).
+- **Deliberate breaks:** 29 of 29 caught; two test gaps found by the sweep were closed.
+- **Local checks:** 88/88 in each of the Debug, ASan/UBSan and clang-tidy presets, no skips.
+- **Hosted checks:** the first two pushes failed the clang-tidy job (an analyzer report it could not follow through Jolt's reference counting); `create_joint` was restructured, with no suppression, and all five hosted checks then passed.
+- **Next parts of 02.12:** body mass and moving a body to a pose; building a ragdoll from a skeleton and reading a pose back; blending between animation and physics.
+
 ## Balance shift — 02.11d balance (merged with #80, 12 November 2026)
 
 Branch `ccr-178f7225-atvbfx`, based on `main` after #78. [ADR 0072](adr/0072-balance-shift.md) (Proposed). Reviewed and merged at the owner's request.

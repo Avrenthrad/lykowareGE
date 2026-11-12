@@ -14,11 +14,16 @@
 #include <Jolt/Physics/Body/BodyLock.h>
 #include <Jolt/Physics/Character/CharacterVirtual.h>
 #include <Jolt/Physics/Collision/CastResult.h>
+#include <Jolt/Physics/Collision/CollisionGroup.h>
+#include <Jolt/Physics/Collision/GroupFilter.h>
 #include <Jolt/Physics/Collision/RayCast.h>
 #include <Jolt/Physics/Collision/Shape/BoxShape.h>
 #include <Jolt/Physics/Collision/Shape/CapsuleShape.h>
 #include <Jolt/Physics/Collision/Shape/HeightFieldShape.h>
 #include <Jolt/Physics/Collision/Shape/SphereShape.h>
+#include <Jolt/Physics/Constraints/FixedConstraint.h>
+#include <Jolt/Physics/Constraints/HingeConstraint.h>
+#include <Jolt/Physics/Constraints/SwingTwistConstraint.h>
 #include <Jolt/Physics/PhysicsSystem.h>
 #include <Jolt/RegisterTypes.h>
 
@@ -361,6 +366,45 @@ private:
     std::size_t live_ = 0;
 };
 
+// Which pairs of bodies do not collide because a joint holds them (ADR 0073). Each such body
+// carries a collision group whose sub-group is its slot index. Pairs change only between steps;
+// the step's worker threads only read them.
+class JointPairs final : public JPH::GroupFilter {
+public:
+    bool CanCollide(const JPH::CollisionGroup& a, const JPH::CollisionGroup& b) const override
+    {
+        return !std::binary_search(pairs_.begin(), pairs_.end(), key(a.GetSubGroupID(), b.GetSubGroupID()));
+    }
+    void add(std::uint32_t a, std::uint32_t b)
+    {
+        const std::uint64_t pair = key(a, b);
+        pairs_.insert(std::upper_bound(pairs_.begin(), pairs_.end(), pair), pair);
+    }
+    // Two joints may hold the same pair; one entry goes per joint.
+    void remove(std::uint32_t a, std::uint32_t b)
+    {
+        const auto found = std::lower_bound(pairs_.begin(), pairs_.end(), key(a, b));
+        if (found != pairs_.end() && *found == key(a, b)) {
+            pairs_.erase(found);
+        }
+    }
+
+private:
+    static std::uint64_t key(std::uint32_t a, std::uint32_t b)
+    {
+        return (static_cast<std::uint64_t>(std::min(a, b)) << 32U) | std::max(a, b);
+    }
+    std::vector<std::uint64_t> pairs_;
+};
+
+struct Joint {
+    JPH::Ref<JPH::TwoBodyConstraint> jolt;
+    std::uint32_t parent = 0; // body slot indices
+    std::uint32_t child = 0;
+    std::uint32_t kind = 0;
+    bool collide = false;
+};
+
 struct Character {
     JPH::Ref<JPH::CharacterVirtual> jolt;
     JPH::Vec3 input = JPH::Vec3::sZero();
@@ -408,6 +452,7 @@ struct World::Impl : private Runtime {
         : jobs(JPH::cMaxPhysicsJobs, JPH::cMaxPhysicsBarriers, static_cast<int>(worker_count(config.worker_threads)))
         , temp_allocator(static_cast<JPH::uint>(config.step_memory_bytes))
         , max_bodies(config.max_bodies)
+        , max_joints(config.max_joints)
     {
         system.Init(config.max_bodies, 0, config.max_body_pairs, config.max_contact_constraints, g_broad_phase_layers,
                     g_object_vs_broad_phase, g_object_pairs);
@@ -419,6 +464,13 @@ struct World::Impl : private Runtime {
         // Characters refer to the physics system; release them first.
         for (std::uint32_t index = 0; index < characters.size(); ++index) {
             characters.payload(index).jolt = nullptr;
+        }
+        // Joints refer to bodies; remove them before the bodies go.
+        for (std::uint32_t index = 0; index < joints.size(); ++index) {
+            if (joints.alive(index)) {
+                system.RemoveConstraint(joints.payload(index).jolt);
+                joints.payload(index).jolt = nullptr;
+            }
         }
         JPH::BodyInterface& interface = system.GetBodyInterface();
         for (std::uint32_t index = 0; index < bodies.size(); ++index) {
@@ -443,6 +495,20 @@ struct World::Impl : private Runtime {
             return std::nullopt;
         }
         return BodyId{index, bodies.generation(index), bodies.owner()};
+    }
+
+    void remove_joint(std::uint32_t index)
+    {
+        Joint& joint = joints.payload(index);
+        // Freed bodies move again; wake them so they do not hang asleep in mid-air.
+        JPH::BodyInterface& interface = system.GetBodyInterface();
+        interface.ActivateBody(bodies.payload(joint.parent));
+        interface.ActivateBody(bodies.payload(joint.child));
+        system.RemoveConstraint(joint.jolt);
+        if (!joint.collide) {
+            joint_pairs->remove(joint.parent, joint.child);
+        }
+        joints.release(index);
     }
 
     void move_character(Character& character, float seconds)
@@ -478,10 +544,13 @@ struct World::Impl : private Runtime {
     JPH::PhysicsSystem system;
     Slots<JPH::BodyID> bodies;
     Slots<Character> characters;
+    Slots<Joint> joints;
+    JPH::Ref<JointPairs> joint_pairs = new JointPairs;
     // Falls back to the heap when a step needs more than step_memory_bytes; Jolt's plain
     // TempAllocatorImpl aborts the process instead (found by the body-count benchmark).
     JPH::TempAllocatorImplWithMallocFallback temp_allocator;
     std::uint32_t max_bodies;
+    std::uint32_t max_joints;
 };
 
 World::World(std::unique_ptr<Impl> impl)
@@ -496,6 +565,10 @@ std::unique_ptr<World> World::create(const WorldConfig& config, std::string& err
     error.clear();
     if (config.max_bodies < 1 || config.max_bodies > JPH::BodyID::cMaxBodyIndex) {
         error = "max_bodies must be from 1 to " + std::to_string(JPH::BodyID::cMaxBodyIndex);
+        return nullptr;
+    }
+    if (config.max_joints < 1) {
+        error = "max_joints must be at least 1";
         return nullptr;
     }
     if (config.max_body_pairs < 1 || config.max_contact_constraints < 1) {
@@ -573,6 +646,13 @@ bool World::destroy_body(BodyId body)
     if (jolt == nullptr) {
         return false;
     }
+    // A joint cannot outlive either of its bodies.
+    for (std::uint32_t index = 0; index < impl.joints.size(); ++index) {
+        if (impl.joints.alive(index) &&
+            (impl.joints.payload(index).parent == body.index || impl.joints.payload(index).child == body.index)) {
+            impl.remove_joint(index);
+        }
+    }
     JPH::BodyInterface& interface = impl.system.GetBodyInterface();
     interface.RemoveBody(*jolt);
     interface.DestroyBody(*jolt);
@@ -617,6 +697,132 @@ bool World::set_velocity(BodyId body, Vec3 linear, Vec3 angular)
     interface.SetLinearAndAngularVelocity(*jolt, to_jolt(linear), to_jolt(angular));
     interface.ActivateBody(*jolt);
     return true;
+}
+
+std::optional<JointId> World::create_joint(const JointDesc& desc, std::string& error)
+{
+    error.clear();
+    Impl& impl = *impl_;
+    if (impl.joints.live() >= impl.max_joints) {
+        error = "the world already has max_joints (" + std::to_string(impl.max_joints) + ") joints";
+        return std::nullopt;
+    }
+    const JPH::BodyID* parent = impl.bodies.find(desc.parent.index, desc.parent.generation, desc.parent.owner);
+    const JPH::BodyID* child = impl.bodies.find(desc.child.index, desc.child.generation, desc.child.owner);
+    if (parent == nullptr || child == nullptr) {
+        error = "a joint needs two live bodies of this world";
+        return std::nullopt;
+    }
+    if (desc.parent.index == desc.child.index) {
+        error = "a joint needs two different bodies";
+        return std::nullopt;
+    }
+    JPH::BodyInterface& interface = impl.system.GetBodyInterface();
+    if (interface.GetMotionType(*parent) != JPH::EMotionType::Dynamic &&
+        interface.GetMotionType(*child) != JPH::EMotionType::Dynamic) {
+        error = "a joint needs at least one dynamic body";
+        return std::nullopt;
+    }
+    if (!finite(desc.anchor)) {
+        error = "a joint's anchor must be finite";
+        return std::nullopt;
+    }
+    const bool fixed = std::holds_alternative<FixedJoint>(desc.kind);
+    const JPH::Vec3 raw_axis = to_jolt(desc.axis);
+    if (!fixed && (!finite(desc.axis) || !(raw_axis.LengthSq() > 1e-12F) || !std::isfinite(raw_axis.LengthSq()))) {
+        error = "a joint's axis must be finite and non-zero";
+        return std::nullopt;
+    }
+    const auto within = [](float value, float low, float high) { return std::isfinite(value) && value >= low && value <= high; };
+    constexpr float pi = JPH::JPH_PI;
+    const JPH::RVec3 anchor = to_jolt_position(desc.anchor);
+    // Reserve the slot before Jolt allocates the constraint, so nothing is left unowned if the
+    // slot table cannot grow. The system's reference keeps the constraint alive from
+    // AddConstraint on; the slot's reference is taken last.
+    const std::uint32_t index = impl.joints.reserve();
+    const auto refuse = [&](const char* why) {
+        impl.joints.unreserve(index);
+        error = why;
+        return std::optional<JointId>{};
+    };
+    JPH::TwoBodyConstraint* jolt = nullptr;
+    if (fixed) {
+        JPH::FixedConstraintSettings settings;
+        settings.mSpace = JPH::EConstraintSpace::WorldSpace;
+        settings.mPoint1 = settings.mPoint2 = anchor;
+        jolt = interface.CreateConstraint(&settings, *parent, *child);
+    } else {
+        const JPH::Vec3 axis = raw_axis.Normalized();
+        const JPH::Vec3 normal = axis.GetNormalizedPerpendicular();
+        if (const auto* hinge = std::get_if<HingeJoint>(&desc.kind)) {
+            if (!within(hinge->min_angle, -pi, 0.F) || !within(hinge->max_angle, 0.F, pi)) {
+                return refuse("a hinge's min_angle must be from -pi to 0 and its max_angle from 0 to pi");
+            }
+            JPH::HingeConstraintSettings settings;
+            settings.mSpace = JPH::EConstraintSpace::WorldSpace;
+            settings.mPoint1 = settings.mPoint2 = anchor;
+            settings.mHingeAxis1 = settings.mHingeAxis2 = axis;
+            settings.mNormalAxis1 = settings.mNormalAxis2 = normal;
+            settings.mLimitsMin = hinge->min_angle;
+            settings.mLimitsMax = hinge->max_angle;
+            jolt = interface.CreateConstraint(&settings, *parent, *child);
+        } else {
+            const SwingTwistJoint& swing = std::get<SwingTwistJoint>(desc.kind);
+            if (!within(swing.swing_half_angle, 0.F, pi) || !within(swing.twist_min, -pi, 0.F) ||
+                !within(swing.twist_max, 0.F, pi)) {
+                return refuse("a swing-twist joint's swing_half_angle must be from 0 to pi, twist_min from -pi to 0 "
+                              "and twist_max from 0 to pi");
+            }
+            JPH::SwingTwistConstraintSettings settings;
+            settings.mSpace = JPH::EConstraintSpace::WorldSpace;
+            settings.mPosition1 = settings.mPosition2 = anchor;
+            settings.mTwistAxis1 = settings.mTwistAxis2 = axis;
+            settings.mPlaneAxis1 = settings.mPlaneAxis2 = normal;
+            settings.mNormalHalfConeAngle = settings.mPlaneHalfConeAngle = swing.swing_half_angle;
+            settings.mTwistMinAngle = swing.twist_min;
+            settings.mTwistMaxAngle = swing.twist_max;
+            jolt = interface.CreateConstraint(&settings, *parent, *child);
+        }
+    }
+    if (jolt == nullptr) {
+        return refuse("Jolt could not create the joint");
+    }
+    if (!desc.collide) {
+        impl.joint_pairs->add(desc.parent.index, desc.child.index);
+        interface.SetCollisionGroup(*parent, JPH::CollisionGroup(impl.joint_pairs, 0, desc.parent.index));
+        interface.SetCollisionGroup(*child, JPH::CollisionGroup(impl.joint_pairs, 0, desc.child.index));
+    }
+    impl.system.AddConstraint(jolt);
+    interface.ActivateBody(*parent);
+    interface.ActivateBody(*child);
+    const std::uint32_t generation = impl.joints.activate(index, Joint{});
+    Joint& joint = impl.joints.payload(index);
+    joint.jolt = jolt;
+    joint.parent = desc.parent.index;
+    joint.child = desc.child.index;
+    joint.kind = static_cast<std::uint32_t>(desc.kind.index());
+    joint.collide = desc.collide;
+    return JointId{index, generation, impl.joints.owner()};
+}
+
+bool World::destroy_joint(JointId joint)
+{
+    Impl& impl = *impl_;
+    if (impl.joints.find(joint.index, joint.generation, joint.owner) == nullptr) {
+        return false;
+    }
+    impl.remove_joint(joint.index);
+    return true;
+}
+
+bool World::is_valid(JointId joint) const
+{
+    return impl_->joints.find(joint.index, joint.generation, joint.owner) != nullptr;
+}
+
+std::size_t World::joint_count() const
+{
+    return impl_->joints.live();
 }
 
 std::optional<CharacterId> World::create_character(const CharacterDesc& desc, std::string& error)
@@ -768,6 +974,15 @@ std::uint64_t World::state_hash() const
         hash.add(impl_->characters.payload(index).jolt->GetPosition());
         hash.add(character->velocity);
         hash.add(static_cast<std::uint32_t>(character->ground));
+    }
+    for (std::uint32_t index = 0; index < impl_->joints.size(); ++index) {
+        if (!impl_->joints.alive(index)) {
+            continue;
+        }
+        const Joint& joint = impl_->joints.payload(index);
+        hash.add(joint.parent);
+        hash.add(joint.child);
+        hash.add(joint.kind);
     }
     return hash.value();
 }
