@@ -1,7 +1,7 @@
 // animation.rig_acceptance (ADR 0071): every foot feature works across varied rigs, not only the
 // stance fixture. Each rig in rig_variants::all() runs, on real Jolt ground:
 //   A. standing on flat ground: feet stay where animated;
-//   B. standing across a step with pelvis correction: each foot reaches its own ground;
+//   B. standing across a step with pelvis correction: each foot reaches its own ground, knees fold forward;
 //   C. standing on a slope with normal alignment: each foot's up axis meets the surface normal;
 //   D. walking, planted with heading lock, body turned 30 degrees: feet keep their heading;
 //   E. walking, one foot planted on a step down with single support: it reaches, the swing foot stays.
@@ -76,6 +76,21 @@ V ankle(const Case& c, const a::Pose& pose, const foot_placement::Placement& act
     std::vector<m::Mat4> fk;
     a::global_transforms(c.rig.skeleton, pose, fk);
     return foot_placement::to_world(actor, foot_placement::position(fk[c.rig.roles[side == 0 ? 3 : 6]]));
+}
+V joint_at(const Case& c, const a::Pose& pose, const foot_placement::Placement& actor, std::size_t role)
+{
+    std::vector<m::Mat4> fk;
+    a::global_transforms(c.rig.skeleton, pose, fk);
+    return foot_placement::to_world(actor, foot_placement::position(fk[c.rig.roles[role]]));
+}
+// How far the knee sits in front (-Z) of the straight line from hip to ankle.
+double knee_forward(const Case& c, const a::Pose& pose, const foot_placement::Placement& actor, std::size_t side)
+{
+    const std::size_t leg = side == 0 ? 1 : 4;
+    const V hip = joint_at(c, pose, actor, leg), knee = joint_at(c, pose, actor, leg + 1),
+            foot = joint_at(c, pose, actor, leg + 2);
+    const double t = (knee.y - hip.y) / (foot.y - hip.y);
+    return (hip.z + t * (foot.z - hip.z)) - knee.z;
 }
 // A model-space direction fixed to a joint at rest, carried by the pose into world space.
 V joint_axis(const Case& c, const a::Pose& pose, const foot_placement::Placement& actor, std::size_t joint, V model)
@@ -152,6 +167,9 @@ void run_case(const Case& c)
                 const double right = std::abs(ankle(c, out, actor, 1).y - clearance);
                 check(left < 2e-3 && right < 2e-3 && controller.pelvis_offset() < 0,
                       "B: across a step each foot reaches its ground: " + std::to_string(left) + ", " + std::to_string(right));
+                // The higher (right) leg has to fold, and its knee folds forward, never backward.
+                const double knee = knee_forward(c, out, actor, 1);
+                check(knee > .05 * c.leg_world, "B: the folded knee points forward: " + std::to_string(knee));
             }
         }
     }

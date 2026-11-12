@@ -43,7 +43,7 @@ Proposed:
 
 - **The five checks, per rig:**
   - **A.** flat ground: the feet stay where animated (within 1 mm);
-  - **B.** a step under one foot, pelvis correction on: each foot reaches its own ground (within 2 mm);
+  - **B.** a step under one foot, pelvis correction on: each foot reaches its own ground (within 2 mm), and the folded knee points forward;
   - **C.** a 0.2 rad slope, normal alignment on: each foot's up axis meets the surface normal;
   - **D.** walking, both feet planted with heading lock, the body turned 30°: the feet keep their heading (within 0.1°) and no plant is let go;
   - **E.** walking, one foot planted on a step down with single support: it reaches (within 2 mm), is not let go, and the swing foot stays (within 0.1 mm).
@@ -73,7 +73,7 @@ Proposed:
 ## Verification
 
 - **`animation.rig_acceptance`:** all eight rigs pass all five checks with no engine change.
-- **Deliberate breaks:** 7 of 7 faults caught. Each one is a fault that the stance fixture alone could not show, or that the engine's own checks turn into a refusal:
+- **Deliberate breaks:** 8 of 8 faults caught. Each one is a fault that the stance fixture alone could not show, or that the engine's own checks turn into a refusal:
 
   | Fault | Caught by | On rigs |
   | --- | --- | --- |
@@ -84,8 +84,10 @@ Proposed:
   | heading turn ignores the parent's rotation | D | all eight |
   | foot up axis taken as the joint's own +Y | C | the three bone-axes rigs |
   | two-bone hip rotation ignores the parent's rotation | A–E (update refused) | the three bone-axes rigs |
+  | knee pole behind the leg | B | seven (all but centimetre) |
 
   - **One weakness found and fixed:** the last fault made the controller refuse the update, and the test then read an empty pose and crashed without a message. Each check now reports a refused update with its error.
+  - **The knee check came from a parallel PR (#79)** that covered the same task; its one extra check and fault were folded in here so that nothing was lost.
   - Two of the faults were first written in a form that did not compile (an unused variable under warnings-as-errors) and were re-run in a form that did.
 - **Hosted Windows:** the first push failed to compile under MSVC (`size_t` to 16-bit joint index, warning C4267 as an error) in the rig builder. Fixed in the test support header; GCC and Clang do not warn there.
 - **Local results:** see STATUS for the per-preset counts of this change.

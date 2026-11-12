@@ -90,7 +90,7 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
   - [ ] **02.11d** Integrate pelvis/body constraints and verify varied terrain/character rigs. **Partial:** bounded bilateral visual pelvis correction merged with #72/#73; the one-foot pelvis merged with #77; rig acceptance merged with #78; a full-body balance lean remains open.
     - [x] **02.11d-pelvis** Apply bounded visual pelvis compensation through posed parents with bilateral stance failure/reset behavior — verified #72/#73, full native/hosted checks and review passed; merged as `58e170e` and `6cabcf3`.
     - [x] **02.11d-single** One planted foot lowers the pelvis to reach while walking; the swing foot keeps its animated place — ADR 0070; 85/85 each native profile and all five hosted checks; merged with #77.
-    - [x] **02.11d-rigs** Foot features pass on varied rigs (size, proportions, bent rest, bone-aligned frames, extra joints, centimetre units) — ADR 0071; `animation.rig_acceptance`, 8 rigs × 5 checks, 7 of 7 deliberate breaks caught, 86/86 each native profile and all five hosted checks; merged with #78.
+    - [x] **02.11d-rigs** Foot features pass on varied rigs (size, proportions, bent rest, bone-aligned frames, extra joints, centimetre units) — ADR 0071; `animation.rig_acceptance`, 8 rigs × 5 checks, 8 of 8 deliberate breaks caught, 86/86 each native profile and all five hosted checks; merged with #78.
     - [ ] **02.11d-lean** Balance lean of the upper body over the support — not started.
 - [ ] **02.12** Add ragdolls and animation/physics blending.
 - [ ] **02.13** Add stumble, recovery and active ragdoll.

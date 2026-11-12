@@ -6,10 +6,11 @@ Branch `ccr-178f7225-atvbfx` (first pushed as `claude/rig-acceptance`), based on
 
 - **What:** a standing test, `animation.rig_acceptance`, runs five foot checks on eight procedural rigs. No engine change: all eight pass as the engine stands.
   - **Rigs:** baseline, child, tall, long thighs, knees bent at rest, bone-aligned joint frames, extra joints (tilted root, spine, toes), centimetre units.
-  - **Checks:** flat ground; a step with pelvis correction; a slope with normal alignment; a 30° turn with heading lock; a step down on one planted foot with single support.
+  - **Checks:** flat ground; a step with pelvis correction (knees fold forward); a slope with normal alignment; a 30° turn with heading lock; a step down on one planted foot with single support.
 - **Straight-leg note:** the heading check rides the body 2% of a leg lower. On fully straight legs a turn pulls the plant out of reach and it is let go, as ADR 0067 designs. The test was adjusted, not the engine.
-- **Deliberate breaks:** 7 of 7 caught (pelvis shift without the parent's rotation or the actor scale; reach without the scale; heading reference and turn in the wrong frame; foot up axis in the wrong frame; two-bone hip rotation without the parent's rotation).
+- **Deliberate breaks:** 8 of 8 caught (pelvis shift without the parent's rotation or the actor scale; reach without the scale; heading reference and turn in the wrong frame; foot up axis in the wrong frame; two-bone hip rotation without the parent's rotation; knee pole behind the leg).
   - One weakness fixed: a refused update made the test crash on an empty pose instead of reporting; each check now reports it.
+  - A parallel PR (#79) covered the same task; its one extra check (knees fold forward) is folded in here.
 - **Local checks:** 86/86 in each of the Debug, ASan/UBSan and clang-tidy presets, no skips.
 - **Hosted checks:** the first push failed both Windows jobs (MSVC refuses a `size_t` to 16-bit index conversion in the rig builder); fixed in the test support header. All five hosted checks then passed.
 - **Still open in 02.11d:** a balance lean of the upper body.
