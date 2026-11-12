@@ -1,19 +1,19 @@
 # Lykoware status
 
-## Balance shift — 02.11d balance (PR #80, open, 12 November 2026)
+## Balance shift — 02.11d balance (merged with #80, 12 November 2026)
 
-Branch `ccr-178f7225-atvbfx`, based on `main` after #78. [ADR 0072](adr/0072-balance-shift.md) (Proposed). Not merged; waiting for the owner's review.
+Branch `ccr-178f7225-atvbfx`, based on `main` after #78. [ADR 0072](adr/0072-balance-shift.md) (Proposed). Reviewed and merged at the owner's request.
 
 - **What:** stepping down onto one planted foot, the pelvis now also slides sideways over that foot instead of sinking straight down.
   - As far as the foot's ground is lower, at most `foot_max_balance_shift` (default 4 cm), never past the foot; eased in and out.
   - The swing foot is held at its animated place; the pelvis goes a little lower when a leg needs it to keep reaching.
   - Opt in per profile with `foot_balance_shift` (needs `foot_pelvis_single_support`). Flat ground, two-foot support and standing still are unchanged bit for bit.
-- **Owner choices used without an answer:** the pelvis shifts (not a spine tilt), and only on lower ground (not every stride). The question was cut off by a session restart; both are easy to change before ADR 0072 is accepted.
+- **Owner choices:** the pelvis shifts (not a spine tilt), and only on lower ground (not every stride). These were the recommended answers, used while the question was unanswered; the owner then asked for the merge without changing them.
 - **Tests:** new `animation.balance_shift`; a sixth check on all eight rigs in `animation.rig_acceptance`; the real imported-player walk runs with the key on.
 - **Deliberate breaks:** 20 of 20 real faults caught. The sweep found two weaknesses in the feature itself (a feedback between shift and drop; a short straight leg losing its plant), both fixed and tested. Two further mutations have no observable effect.
 - **Local checks:** 87/87 in each of the Debug, ASan/UBSan and clang-tidy presets, no skips.
-- **Hosted checks:** one push failed both Windows jobs (MSVC refuses a local that hides an outer one); fixed. See the PR for the current run.
-- **Still open:** a spine or upper-body tilt (not planned unless the owner asks), and the owner's feel review (02.16).
+- **Hosted checks:** one push failed both Windows jobs (MSVC refuses a local that hides an outer one); fixed. All five hosted checks then passed.
+- **02.11d:** done. Not included: a spine or upper-body tilt (not planned unless the owner asks), and the owner's feel review (02.16).
 
 ## Rig acceptance — 02.11d varied rigs (merged with #78, 12 November 2026)
 
@@ -28,7 +28,7 @@ Branch `ccr-178f7225-atvbfx` (first pushed as `claude/rig-acceptance`), based on
   - A parallel PR (#79) covered the same task; its one extra check (knees fold forward) is folded in here.
 - **Local checks:** 86/86 in each of the Debug, ASan/UBSan and clang-tidy presets, no skips.
 - **Hosted checks:** the first push failed both Windows jobs (MSVC refuses a `size_t` to 16-bit index conversion in the rig builder); fixed in the test support header. All five hosted checks then passed.
-- **Still open in 02.11d:** the balance part (PR #80).
+- **Still open in 02.11d:** the balance part (done with #80).
 
 ## One-foot pelvis — 02.11d single support (merged with #77, 10 November 2026)
 
