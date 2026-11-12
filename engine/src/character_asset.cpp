@@ -30,6 +30,8 @@ bool valid_foot_settings(const FootSettings& settings,std::string& error)
         ||!std::isfinite(settings.max_heading_degrees)||settings.max_heading_degrees<0||settings.max_heading_degrees>90){return fail(error,"Invalid foot slope/pelvis/plant/heading bounds");}
     if(settings.heading&&!settings.locking){return fail(error,"foot_heading_lock requires foot_locking");}
     if(settings.single_support&&(!settings.pelvis||!settings.locking)){return fail(error,"foot_pelvis_single_support requires foot_pelvis and foot_locking");}
+    if(!std::isfinite(settings.max_balance_shift)||settings.max_balance_shift<0||settings.max_balance_shift>.1){return fail(error,"Invalid foot balance shift bound");}
+    if(settings.balance_shift&&!settings.single_support){return fail(error,"foot_balance_shift requires foot_pelvis_single_support");}
     error.clear();return true;
 }
 bool decode_profile(std::string_view text,const std::filesystem::path& directory,Profile& out,std::string& error)
@@ -48,7 +50,7 @@ bool decode_profile(std::string_view text,const std::filesystem::path& directory
         if(!j.is_object()||!j.contains("version")||!j["version"].is_number_integer()||j["version"]!=1
             ||!j.contains("model")||!j["model"].is_string()){return fail(error,"Character profile requires version 1 and model string");}
         const std::set<std::string> allowed{"version","model","idle_clip","walk_clip","run_clip","jump_clip","fall_clip","land_clip",
-            "animation_graph","motion_authority","turn_degrees_per_second","height","yaw_degrees","capsule_height","capsule_radius","eye_height","bones","foot_ik","foot_clearance","foot_align_normals","foot_max_slope_degrees","foot_pelvis","foot_max_pelvis_drop","foot_locking","foot_max_plant_distance","foot_heading_lock","foot_max_heading_degrees","foot_pelvis_single_support"};
+            "animation_graph","motion_authority","turn_degrees_per_second","height","yaw_degrees","capsule_height","capsule_radius","eye_height","bones","foot_ik","foot_clearance","foot_align_normals","foot_max_slope_degrees","foot_pelvis","foot_max_pelvis_drop","foot_locking","foot_max_plant_distance","foot_heading_lock","foot_max_heading_degrees","foot_pelvis_single_support","foot_balance_shift","foot_max_balance_shift"};
         for(const auto& item:j.items()){if(!allowed.contains(item.key())){return fail(error,"Unknown character profile key: "+item.key());}}
         if(j.contains("motion_authority")&&(!j["motion_authority"].is_string()||j["motion_authority"]!=motion_authority)){
             return fail(error,"Only controller motion authority is currently supported; root tracks are visual-only");
@@ -121,6 +123,14 @@ bool decode_profile(std::string_view text,const std::filesystem::path& directory
         if(j.contains("foot_pelvis_single_support")){
             if(!result.foot_settings.pelvis||!result.foot_settings.locking||!j["foot_pelvis_single_support"].is_boolean()){return fail(error,"foot_pelvis_single_support requires foot_pelvis, foot_locking and a boolean");}
             result.foot_settings.single_support=j["foot_pelvis_single_support"].get<bool>();
+        }
+        if(j.contains("foot_balance_shift")){
+            if(!result.foot_settings.single_support||!j["foot_balance_shift"].is_boolean()){return fail(error,"foot_balance_shift requires foot_pelvis_single_support and a boolean");}
+            result.foot_settings.balance_shift=j["foot_balance_shift"].get<bool>();
+        }
+        if(j.contains("foot_max_balance_shift")){
+            if(!result.foot_settings.balance_shift||!j["foot_max_balance_shift"].is_number()){return fail(error,"foot_max_balance_shift requires foot_balance_shift and a number");}
+            result.foot_settings.max_balance_shift=j["foot_max_balance_shift"].get<double>();
         }
         if(!valid_foot_settings(result.foot_settings,error)){return false;}
         Capsule checked;if(!capsule(result,checked,error)){return false;}
