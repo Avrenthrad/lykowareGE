@@ -671,13 +671,17 @@ private:
     int sunk_ = 0;
 };
 
-Results run_course(std::uint32_t seed)
+// `motor`: move by the locomotion motor (ADR 0074) with its default profile instead of at once.
+Results run_course(std::uint32_t seed, bool motor = false)
 {
     Results results;
     Course course = build_course();
     PlayerConfig config;
     config.body.position = obstacle_course::start;
     config.max_turn_rate = 12.F;
+    if (motor) {
+        config.locomotion = lykoware::locomotion::Profile{};
+    }
     auto player = make_player(*course.world, config);
     Bot bot{course, *player, results, seed};
     const auto check = [&results](bool ok, const std::string& what) {
@@ -743,6 +747,19 @@ void test_course()
     const Results other = run_course(seed + 1);
     expect(other.failures.empty(), "another seed finishes the course too");
     expect(other.hash != first.hash, "and a different seed takes a different path");
+
+    // The same course moved by the locomotion motor (ADR 0074): it has to speed up, brake and
+    // turn within its limits, and still meets every checkpoint with the same guarantees.
+    const Results driven = run_course(seed, true);
+    for (const std::string& failure : driven.failures) {
+        expect(false, "course with the motor: " + failure);
+    }
+    expect(driven.steps_ok && driven.lowest_feet > -0.05 && driven.longest_sunk <= 2,
+           "with the motor the feet stay on the ground: " + std::to_string(driven.longest_sunk) + " ticks at worst, " +
+               text(driven.deepest) + " m deepest");
+    expect(driven.view_clear && driven.view_outside, "with the motor the camera stays clear: " + driven.first_view_failure);
+    expect(driven.hash != first.hash, "the motor moves the character differently");
+    expect(run_course(seed, true).hash == driven.hash, "and the same seed repeats identically with the motor");
 }
 
 }

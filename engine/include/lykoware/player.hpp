@@ -2,6 +2,7 @@
 
 #include <lykoware/follow_camera.hpp>
 #include <lykoware/input.hpp>
+#include <lykoware/locomotion.hpp>
 #include <lykoware/math.hpp>
 #include <lykoware/physics.hpp>
 #include <lykoware/render.hpp>
@@ -9,6 +10,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 
 // A player-controlled character: input becomes camera-relative movement, jumps and a follow
 // camera's turns (ADR 0047).
@@ -40,10 +42,12 @@ struct PlayerIntent {
     float zoom = 0.F;
     bool jump = false; // pressed this frame
     bool run = false;  // held
+    bool walk = false; // held: go no faster than a walk (used only with a locomotion profile)
 };
 
 // One frame's intent from keyboard, mouse and gamepad together:
 //   move: W A S D, or the left stick;    run: Shift, or the left stick pressed in
+//   walk: Ctrl
 //   look: mouse motion (only when `mouse_look`), the arrow keys, or the right stick
 //   jump: Space, or the South face button
 //   zoom: the mouse wheel, or the d-pad up (in) and down (out)
@@ -71,6 +75,12 @@ struct PlayerConfig {
     float max_distance = 8.F;
     // Visual yaw only, radians/second. 0 preserves legacy instant facing.
     float max_turn_rate = 0.F;
+    // Movement by the locomotion motor (ADR 0074). Without a profile the character moves as
+    // before: at walk_speed or run_speed at once. With one, walk_speed, run_speed and
+    // max_turn_rate are unused: a full push asks for the run gait's speed, `run` for the
+    // sprint gait's, `walk` for the walk gait's, and a partial stick push for part of it; the
+    // motor decides how the character gets there.
+    std::optional<locomotion::Profile> locomotion;
 };
 
 // A character in a physics world that a player steers, with a follow camera.
@@ -127,20 +137,31 @@ public:
     [[nodiscard]] float facing() const { return facing_; }
     [[nodiscard]] float drawn_facing(float alpha) const;
     [[nodiscard]] const FollowCamera& camera() const { return camera_; }
+    // The locomotion motor's state after the latest before_step(), or nullptr without a
+    // locomotion profile.
+    [[nodiscard]] const locomotion::State* locomotion() const { return motor_ ? &motor_->state() : nullptr; }
+    // Selects a variant of the locomotion profile by name (empty for the base), or sets the
+    // selected variant's agility. False without a profile or for an unknown variant.
+    bool select_locomotion(std::string_view variant);
+    bool set_agility(float agility);
 
 private:
-    PlayerCharacter(physics::World& world, physics::CharacterId character, const PlayerConfig& config);
+    PlayerCharacter(physics::World& world, physics::CharacterId character, const PlayerConfig& config,
+                    std::optional<locomotion::Motor> motor);
 
     physics::World& world_;
     physics::CharacterId character_;
     PlayerConfig config_;
     FollowCamera camera_;
     PlayerIntent intent_{};
+    std::optional<locomotion::Motor> motor_;
     float jump_wait_ = 0.F;
     float facing_ = 0.F;
     float target_facing_ = 0.F, previous_facing_ = 0.F;
     // The feet before the latest step, for drawing between steps.
     math::DVec3 previous_feet_;
+    // The length of the latest step, to know how fast the feet really moved in it.
+    float previous_seconds_ = 0.F;
 };
 
 }

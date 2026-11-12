@@ -4,6 +4,7 @@
 #include <cmath>
 #include <numbers>
 #include <cstddef>
+#include <utility>
 
 namespace lykoware {
 namespace {
@@ -94,6 +95,7 @@ PlayerIntent read_player_intent(const InputState& input, const PlayerInputConfig
                                                                pressed(input, GamepadButton::DpadDown));
     intent.jump = input.keys[static_cast<std::size_t>(Key::Space)].pressed || pressed(input, GamepadButton::South);
     intent.run = held(input, Key::LeftShift) || held(input, Key::RightShift) || held(input, GamepadButton::LeftStick);
+    intent.walk = held(input, Key::LeftCtrl) || held(input, Key::RightCtrl);
     return intent;
 }
 
@@ -112,24 +114,51 @@ std::unique_ptr<PlayerCharacter> PlayerCharacter::create(physics::World& world, 
         error = "the eye height must be inside the character's capsule, above its feet and below its top";
         return nullptr;
     }
+    std::optional<locomotion::Motor> motor;
+    if (config.locomotion) {
+        motor = locomotion::Motor::create(*config.locomotion, error);
+        if (!motor) {
+            error = "the locomotion profile is not usable: " + error;
+            return nullptr;
+        }
+    }
     const std::optional<physics::CharacterId> character = world.create_character(config.body, error);
     if (!character) {
         return nullptr;
     }
-    return std::unique_ptr<PlayerCharacter>(new PlayerCharacter(world, *character, config));
+    return std::unique_ptr<PlayerCharacter>(new PlayerCharacter(world, *character, config, std::move(motor)));
 }
 
-PlayerCharacter::PlayerCharacter(physics::World& world, physics::CharacterId character, const PlayerConfig& config)
+PlayerCharacter::PlayerCharacter(physics::World& world, physics::CharacterId character, const PlayerConfig& config,
+                                 std::optional<locomotion::Motor> motor)
     : world_{world}
     , character_{character}
     , config_{config}
     , camera_{config.camera}
+    , motor_{std::move(motor)}
     , facing_{camera_.yaw()}
     , target_facing_{facing_}
     , previous_facing_{facing_}
     , previous_feet_{state().position}
 {
     config_.max_distance = std::max(config_.max_distance, camera_.distance());
+    if (motor_) {
+        motor_->reset(facing_);
+    }
+}
+
+bool PlayerCharacter::select_locomotion(std::string_view variant)
+{
+    return motor_ && motor_->select(variant);
+}
+
+bool PlayerCharacter::set_agility(float agility)
+{
+    if (!motor_ || !std::isfinite(agility)) {
+        return false;
+    }
+    motor_->set_agility(agility);
+    return true;
 }
 
 PlayerCharacter::~PlayerCharacter()
@@ -158,6 +187,7 @@ void PlayerCharacter::steer(const PlayerIntent& intent)
     intent_.right = move.x;
     intent_.forward = move.y;
     intent_.run = intent.run;
+    intent_.walk = intent.walk;
     if (intent.jump) {
         // Kept for a short time, so a press just before landing still jumps.
         jump_wait_ = config_.jump_buffer;
@@ -166,25 +196,50 @@ void PlayerCharacter::steer(const PlayerIntent& intent)
 
 void PlayerCharacter::before_step(float seconds)
 {
+    const std::optional<physics::CharacterState> now = world_.character_state(character_);
+    // How fast the feet really moved in the latest step: the world reports the velocity it was
+    // asked for, not the one a wall or a slope allowed.
+    std::optional<math::Vec3> moved;
+    if (now && previous_seconds_ > 0.F) {
+        moved = math::Vec3{static_cast<float>((now->position.x - previous_feet_.x) / static_cast<double>(previous_seconds_)), 0.F,
+                           static_cast<float>((now->position.z - previous_feet_.z) / static_cast<double>(previous_seconds_))};
+    }
     previous_feet_ = state().position;
     previous_facing_ = facing_;
-    const float speed = intent_.run ? config_.run_speed : config_.walk_speed;
-    const math::Vec3 velocity = (camera_.forward() * intent_.forward + camera_.right() * intent_.right) * speed;
-    if (intent_.forward != 0.F || intent_.right != 0.F) {
-        // Yaw of a horizontal direction d is atan2(-d.x, -d.z) (FollowCamera::forward()).
-        target_facing_ = std::atan2(-velocity.x, -velocity.z);
-    }
-
-    if (config_.max_turn_rate == 0.F) { facing_ = target_facing_; }
-    else if (std::isfinite(seconds) && seconds > 0.F) {
-        const float delta = std::remainder(target_facing_ - facing_, 2.F * std::numbers::pi_v<float>);
-        const double limit = static_cast<double>(config_.max_turn_rate) * seconds;
-        const float change = static_cast<float>(std::clamp(static_cast<double>(delta), -limit, limit));
-        facing_ = std::remainder(facing_ + change, 2.F * std::numbers::pi_v<float>);
-    }
-
-    const std::optional<physics::CharacterState> now = world_.character_state(character_);
+    previous_seconds_ = std::isfinite(seconds) && seconds > 0.F ? seconds : 0.F;
     const bool grounded = now && now->ground == physics::GroundState::OnGround;
+    math::Vec3 velocity{};
+    if (motor_) {
+        // The motor (ADR 0074): the push asks for a speed and a direction relative to the
+        // camera; the motor decides how the character gets there.
+        const locomotion::Gait top = intent_.run    ? locomotion::Gait::Sprint
+                                     : intent_.walk ? locomotion::Gait::Walk
+                                                    : locomotion::Gait::Run;
+        locomotion::Request request;
+        request.velocity = (camera_.forward() * intent_.forward + camera_.right() * intent_.right) * motor_->gait_speed(top);
+        request.grounded = grounded;
+        request.actual_velocity = moved;
+        const locomotion::State& driven = motor_->step(request, seconds);
+        velocity = driven.velocity;
+        target_facing_ = driven.facing;
+        facing_ = driven.facing;
+    } else {
+        const float speed = intent_.run ? config_.run_speed : config_.walk_speed;
+        velocity = (camera_.forward() * intent_.forward + camera_.right() * intent_.right) * speed;
+        if (intent_.forward != 0.F || intent_.right != 0.F) {
+            // Yaw of a horizontal direction d is atan2(-d.x, -d.z) (FollowCamera::forward()).
+            target_facing_ = std::atan2(-velocity.x, -velocity.z);
+        }
+
+        if (config_.max_turn_rate == 0.F) { facing_ = target_facing_; }
+        else if (std::isfinite(seconds) && seconds > 0.F) {
+            const float delta = std::remainder(target_facing_ - facing_, 2.F * std::numbers::pi_v<float>);
+            const double limit = static_cast<double>(config_.max_turn_rate) * seconds;
+            const float change = static_cast<float>(std::clamp(static_cast<double>(delta), -limit, limit));
+            facing_ = std::remainder(facing_ + change, 2.F * std::numbers::pi_v<float>);
+        }
+    }
+
     float jump = 0.F;
     if (jump_wait_ > 0.F && grounded) {
         jump = config_.jump_speed;
