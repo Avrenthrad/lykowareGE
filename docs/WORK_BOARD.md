@@ -1,8 +1,8 @@
 # Shared work board
 
-## Rig acceptance — 02.11d varied rigs (PR #78, open, 11 November 2026)
+## Rig acceptance — 02.11d varied rigs (merged with #78, 12 November 2026)
 
-Branch `ccr-178f7225-atvbfx` (first pushed as `claude/rig-acceptance`), based on `main` after #77. [ADR 0071](adr/0071-rig-acceptance.md) (Proposed). Not merged; waiting for the owner's review.
+Branch `ccr-178f7225-atvbfx` (first pushed as `claude/rig-acceptance`), based on `main` after #77. [ADR 0071](adr/0071-rig-acceptance.md) (Proposed). Reviewed and merged at the owner's request.
 
 - **What:** a standing test, `animation.rig_acceptance`, runs five foot checks on eight procedural rigs. No engine change: all eight pass as the engine stands.
   - **Rigs:** baseline, child, tall, long thighs, knees bent at rest, bone-aligned joint frames, extra joints (tilted root, spine, toes), centimetre units.
@@ -11,7 +11,7 @@ Branch `ccr-178f7225-atvbfx` (first pushed as `claude/rig-acceptance`), based on
 - **Deliberate breaks:** 7 of 7 caught (pelvis shift without the parent's rotation or the actor scale; reach without the scale; heading reference and turn in the wrong frame; foot up axis in the wrong frame; two-bone hip rotation without the parent's rotation).
   - One weakness fixed: a refused update made the test crash on an empty pose instead of reporting; each check now reports it.
 - **Local checks:** 86/86 in each of the Debug, ASan/UBSan and clang-tidy presets, no skips.
-- **Hosted checks:** the first push failed both Windows jobs (MSVC refuses a `size_t` to 16-bit index conversion in the rig builder); fixed in the test support header. See the PR for the current run.
+- **Hosted checks:** the first push failed both Windows jobs (MSVC refuses a `size_t` to 16-bit index conversion in the rig builder); fixed in the test support header. All five hosted checks then passed.
 - **Still open in 02.11d:** a balance lean of the upper body.
 
 ## One-foot pelvis — 02.11d single support (merged with #77, 10 November 2026)
