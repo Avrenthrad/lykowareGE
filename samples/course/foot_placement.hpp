@@ -385,9 +385,9 @@ public:
             const bool single = settings_.single_support && walking && contact[0] != contact[1];
             const bool lowered = settings_.pelvis && ((contact[0] && contact[1]) || single);
             double depth = 0; // how far the pelvis is asked down for the feet in contact
-            const double bound = std::min(settings_.max_pelvis_drop, shorter_leg_ * actor.uniform_scale * .25);
+            const double pelvis_bound = std::min(settings_.max_pelvis_drop, shorter_leg_ * actor.uniform_scale * .25);
             // The pelvis at least as low as a leg in contact needs to reach its target, with the
-            // hips moved sideways by `shift`, within the bound.
+            // hips moved sideways by `shift`, within the pelvis bound.
             const auto reach_floor = [&](double from, V shift, std::size_t planted) {
                 const V hip = to_world(actor, position(fk_[roles_[planted == 0 ? 1 : 4]])) + shift;
                 const V gap = hip - targets[planted];
@@ -395,15 +395,15 @@ public:
                 const double across = gap.x * gap.x + gap.z * gap.z;
                 if (reach * reach > across) {
                     const double needed = gap.y - std::sqrt(reach * reach - across);
-                    return std::clamp(std::min(from, -needed), -bound, 0.0);
+                    return std::clamp(std::min(from, -needed), -pelvis_bound, 0.0);
                 }
                 return from;
             };
             if (lowered) {
                 const double lowest = single ? desired[contact[0] ? 0 : 1] : std::min(desired[0], desired[1]);
-                const double wanted = std::clamp(lowest, -bound, 0.0);
+                const double wanted = std::clamp(lowest, -pelvis_bound, 0.0);
                 depth = -wanted;
-                pelvis = std::clamp(pelvis + alpha * (wanted - pelvis), -bound, 0.0);
+                pelvis = std::clamp(pelvis + alpha * (wanted - pelvis), -pelvis_bound, 0.0);
                 if (single) {
                     // At once at least as low as the planted leg needs to reach its anchor, so a
                     // fresh plant on lower ground is not let go while the smoothing catches up.
