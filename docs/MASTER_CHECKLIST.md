@@ -92,7 +92,11 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
     - [x] **02.11d-single** One planted foot lowers the pelvis to reach while walking; the swing foot keeps its animated place — ADR 0070; 85/85 each native profile and all five hosted checks; merged with #77.
     - [x] **02.11d-rigs** Foot features pass on varied rigs (size, proportions, bent rest, bone-aligned frames, extra joints, centimetre units) — ADR 0071; `animation.rig_acceptance`, 8 rigs × 5 checks, 8 of 8 deliberate breaks caught, 86/86 each native profile and all five hosted checks; merged with #78.
     - [x] **02.11d-lean** The body's weight moves over the support: the pelvis shifts sideways over the planted foot on lower ground — ADR 0072; `animation.balance_shift`, a sixth check on all eight rigs, 20 of 20 deliberate breaks caught, 87/87 each native profile and all five hosted checks; merged with #80. A spine tilt is not included.
-- [ ] **02.12** Add ragdolls and animation/physics blending.
+- [ ] **02.12** Add ragdolls and animation/physics blending. **Partial:** joints verified on PR #81, unmerged; the parts below remain.
+  - [ ] **02.12a** Joints between physics bodies (fixed, hinge, swing-twist) behind the owned API — ADR 0073; `physics.joints`, 29 of 29 deliberate breaks caught, 88/88 each native profile; PR #81, **unmerged**.
+  - [ ] **02.12b** Body mass, and moving a body to a pose — not started.
+  - [ ] **02.12c** Build a ragdoll from a skeleton (one body per bone, joints with limits) and read a pose back from it — not started.
+  - [ ] **02.12d** Blend between animation and physics, in the sample and replay — not started.
 - [ ] **02.13** Add stumble, recovery and active ragdoll.
 - [ ] **02.14** Refine first/third-person camera transitions.
 - [ ] **02.15** Validate character feel on Windows hardware.

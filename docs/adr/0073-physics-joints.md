@@ -73,8 +73,16 @@ Proposed:
 
 ## Verification
 
-Planned; results are recorded in STATUS when the work is done:
-
-- a new `physics.joints` test through the public API only: each joint kind holds and limits as described, with positive controls; the collide flag; two joints on one pair; a third body still collides; lifetime (destroying a body, removing a joint, handle reuse, the joint limit); every refusal; bit-identical repeats and hash coverage;
-- deliberate breaks;
-- the Debug, ASan/UBSan and clang-tidy presets, and the five hosted jobs.
+- **`physics.joints`** (new; links only the public API):
+  - **hinge:** a weight on a 1 m arm stays on its arm (within 1 cm) and in the hinge's plane; with limits it overshoots a struck limit by under 0.15 rad and rests within 0.03 rad of it; a positive control without limits turns much further;
+  - **swing-twist:** an arm thrown sideways and spun swings to its 0.4 rad cone and at most 0.15 rad past it, twists no further than its limit, and stays on its shoulder; a positive control with a wide cone swings much further;
+  - **fixed:** two falling boxes, one spinning about every axis, keep their relative pose (within 5 mm and 0.02 rad); without the joint they part;
+  - **collision:** a jointed body passes through its partner by default and is stopped by it with `collide`; with two joints on one pair, removing one keeps the pair quiet and removing both lets it collide again; a third body still hits a jointed pair;
+  - **lifetime:** destroying a body destroys its joints and the freed body falls; a removed joint's handle stays invalid when its slot is reused; `max_joints` is enforced;
+  - **refusals:** destroyed, default and foreign bodies; the same body twice; two static bodies; a non-finite anchor; a zero or non-finite axis; each angle range; a fixed joint needs no axis;
+  - **determinism:** a six-link chain repeats bit for bit; the hash covers a joint's parent, child and kind.
+- **Deliberate breaks:** 29 of 29 faults caught.
+  - **Found by the sweep and fixed in the test:** a fixed joint built as a free hinge passed (the pair had no spin to absorb), and a hash that ignored a joint's kind, child or parent passed. Both are now covered.
+  - Three faults were first written in a form that did not compile and were re-run in one that did.
+- **clang-tidy:** the analyzer reported a use-after-free it could not follow through Jolt's reference counting. The code was restructured to take one reference, with no suppression.
+- **Local results:** 88/88 pass in each of the Debug, ASan/UBSan and clang-tidy presets, with no skips.

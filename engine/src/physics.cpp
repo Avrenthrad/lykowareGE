@@ -736,7 +736,16 @@ std::optional<JointId> World::create_joint(const JointDesc& desc, std::string& e
     const auto within = [](float value, float low, float high) { return std::isfinite(value) && value >= low && value <= high; };
     constexpr float pi = JPH::JPH_PI;
     const JPH::RVec3 anchor = to_jolt_position(desc.anchor);
-    JPH::Ref<JPH::TwoBodyConstraint> jolt;
+    // Reserve the slot before Jolt allocates the constraint, so nothing is left unowned if the
+    // slot table cannot grow. The system's reference keeps the constraint alive from
+    // AddConstraint on; the slot's reference is taken last.
+    const std::uint32_t index = impl.joints.reserve();
+    const auto refuse = [&](const char* why) {
+        impl.joints.unreserve(index);
+        error = why;
+        return std::optional<JointId>{};
+    };
+    JPH::TwoBodyConstraint* jolt = nullptr;
     if (fixed) {
         JPH::FixedConstraintSettings settings;
         settings.mSpace = JPH::EConstraintSpace::WorldSpace;
@@ -747,8 +756,7 @@ std::optional<JointId> World::create_joint(const JointDesc& desc, std::string& e
         const JPH::Vec3 normal = axis.GetNormalizedPerpendicular();
         if (const auto* hinge = std::get_if<HingeJoint>(&desc.kind)) {
             if (!within(hinge->min_angle, -pi, 0.F) || !within(hinge->max_angle, 0.F, pi)) {
-                error = "a hinge's min_angle must be from -pi to 0 and its max_angle from 0 to pi";
-                return std::nullopt;
+                return refuse("a hinge's min_angle must be from -pi to 0 and its max_angle from 0 to pi");
             }
             JPH::HingeConstraintSettings settings;
             settings.mSpace = JPH::EConstraintSpace::WorldSpace;
@@ -762,9 +770,8 @@ std::optional<JointId> World::create_joint(const JointDesc& desc, std::string& e
             const SwingTwistJoint& swing = std::get<SwingTwistJoint>(desc.kind);
             if (!within(swing.swing_half_angle, 0.F, pi) || !within(swing.twist_min, -pi, 0.F) ||
                 !within(swing.twist_max, 0.F, pi)) {
-                error = "a swing-twist joint's swing_half_angle must be from 0 to pi, twist_min from -pi to 0 and "
-                        "twist_max from 0 to pi";
-                return std::nullopt;
+                return refuse("a swing-twist joint's swing_half_angle must be from 0 to pi, twist_min from -pi to 0 "
+                              "and twist_max from 0 to pi");
             }
             JPH::SwingTwistConstraintSettings settings;
             settings.mSpace = JPH::EConstraintSpace::WorldSpace;
@@ -778,10 +785,8 @@ std::optional<JointId> World::create_joint(const JointDesc& desc, std::string& e
         }
     }
     if (jolt == nullptr) {
-        error = "Jolt could not create the joint";
-        return std::nullopt;
+        return refuse("Jolt could not create the joint");
     }
-    const std::uint32_t index = impl.joints.reserve();
     if (!desc.collide) {
         impl.joint_pairs->add(desc.parent.index, desc.child.index);
         interface.SetCollisionGroup(*parent, JPH::CollisionGroup(impl.joint_pairs, 0, desc.parent.index));
@@ -790,13 +795,14 @@ std::optional<JointId> World::create_joint(const JointDesc& desc, std::string& e
     impl.system.AddConstraint(jolt);
     interface.ActivateBody(*parent);
     interface.ActivateBody(*child);
-    Joint joint;
+    const std::uint32_t generation = impl.joints.activate(index, Joint{});
+    Joint& joint = impl.joints.payload(index);
     joint.jolt = jolt;
     joint.parent = desc.parent.index;
     joint.child = desc.child.index;
     joint.kind = static_cast<std::uint32_t>(desc.kind.index());
     joint.collide = desc.collide;
-    return JointId{index, impl.joints.activate(index, std::move(joint)), impl.joints.owner()};
+    return JointId{index, generation, impl.joints.owner()};
 }
 
 bool World::destroy_joint(JointId joint)

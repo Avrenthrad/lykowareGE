@@ -13,7 +13,7 @@ Game applications, CLI tools and future Howler editor -> Lykoware runtime -> wra
 | Window/input | SDL 3.4.18 behind owned APIs; keyboard/mouse/gamepad, dummy/offscreen test modes; ADR 0008 |
 | Clocks | Monotonic FrameClock and exact fixed-tick accumulator; 60 Hz default is proposed, alpha is presentation-only; ADR 0017 |
 | ECS | Sparse-set packed component arrays, generation/owner handles, deterministic local iteration, deferred changes and removal hooks; ADRs 0023/0030 |
-| Physics | Jolt 5.6.0 behind `physics::World`; double world positions, float velocities/rotations; state hashes, bodies, height fields, walking characters and queries; ADRs 0018/0020/0022 |
+| Physics | Jolt 5.6.0 behind `physics::World`; double world positions, float velocities/rotations; state hashes, bodies, joints, height fields, walking characters and queries; ADRs 0018/0020/0022/0073 |
 | Physics/ECS link | Exclusive cleanup-hook claim; physics world outlives linked ECS world; transactional attachment; cannot rebind or move linked worlds; ADR 0030 |
 | Math/transform | Owned RH +Y-up math, double transform positions, quaternion rotation; ADRs 0024/0026 |
 | RHI/render | Vulkan 1.3 loaded at runtime through volk; VMA allocations, owned buffers/pipelines/targets/swapchain, Slang ahead-of-time shaders; first cube renderer uses reversed depth and camera-relative floats; ADRs 0009–0016/0025/0026 |
