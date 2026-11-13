@@ -35,6 +35,10 @@ struct Profile {
     std::filesystem::path animation_graph;
     std::array<std::string,6> clips{};
     std::optional<float> height, yaw_degrees, capsule_height, capsule_radius, eye_height, turn_degrees_per_second;
+    // The ground speed (m/s) the walk and run clips were authored at, for stride matching (ADR 0074,
+    // "the clip interface"). Absent means the caller's default (the mannequin's measured speeds).
+    // Each 0.05..20; when both are given, walk is slower than run.
+    std::optional<float> walk_clip_speed, run_clip_speed;
     std::optional<RoleNames> bones;
     bool foot_ik = false;
     double foot_clearance = .03;

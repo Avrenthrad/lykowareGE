@@ -49,6 +49,8 @@ int character_command(std::span<const std::string> args)
         report["alignment"]={{"scale",a.scale},{"offset",vec(a.offset)},{"rotation",{a.rotation.x,a.rotation.y,a.rotation.z,a.rotation.w}}};
         report["capsule"]={{"height",c.height},{"radius",c.radius},{"cylinder_half_height",c.cylinder_half_height},{"eye_height",c.eye_height}};
         report["foot_policy"]={{"align_normals",profile.foot_settings.align_normals},{"max_slope_degrees",profile.foot_settings.max_slope_degrees},{"pelvis",profile.foot_settings.pelvis},{"max_pelvis_drop",profile.foot_settings.max_pelvis_drop},{"locking",profile.foot_settings.locking},{"max_plant_distance",profile.foot_settings.max_plant_distance},{"heading",profile.foot_settings.heading},{"max_heading_degrees",profile.foot_settings.max_heading_degrees},{"single_support",profile.foot_settings.single_support},{"balance_shift",profile.foot_settings.balance_shift},{"max_balance_shift",profile.foot_settings.max_balance_shift}};
+        const auto optional_speed=[](const std::optional<float>& v){return v?Json(*v):Json(nullptr);};
+        report["clip_speeds"]={{"walk",optional_speed(profile.walk_clip_speed)},{"run",optional_speed(profile.run_clip_speed)}};
         report["locomotion"]=nullptr;
         if(profile.locomotion){
             const auto& m=*profile.locomotion;

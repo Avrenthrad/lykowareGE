@@ -919,6 +919,8 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
             mannequin.weights = imported->weights;
             mannequin.skeleton = imported->skeleton;
             mannequin.graph_clips=imported->clips;
+            if (options.character_settings.walk_clip_speed) { mannequin.walk_speed = *options.character_settings.walk_clip_speed; }
+            if (options.character_settings.run_clip_speed) { mannequin.run_speed = *options.character_settings.run_clip_speed; }
             if (options.bones) {
                 rig_roles::Indices roles;
                 if (!rig_roles::resolve(mannequin.skeleton, *options.bones, roles, reason)) { throw std::invalid_argument(reason); }

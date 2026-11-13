@@ -21,7 +21,7 @@ with tempfile.TemporaryDirectory(prefix='lyko character ') as folder:
         return r
     r=run('--model',asset);data=json.loads(r.stdout);assert data['motion_authority']=='controller' and data['turn_degrees_per_second']==720
     assert data['foot_policy']==dict(align_normals=False,max_slope_degrees=35,pelvis=False,max_pelvis_drop=.15,locking=False,max_plant_distance=.35,heading=False,max_heading_degrees=60,single_support=False,balance_shift=False,max_balance_shift=.04)
-    assert data['locomotion'] is None
+    assert data['locomotion'] is None and data['clip_speeds']=={'walk':None,'run':None}
     assert data['ok'] and data['joints']==1 and data['clips'][0]['translated_root']
     original=asset.read_bytes();r=run('--model',asset,'--output',asset,ok=False);assert asset.read_bytes()==original and not json.loads(r.stdout)['ok']
     absent=root/'absent.gltf';run('--model',absent,'--output',absent,ok=False);assert not absent.exists()
@@ -33,6 +33,12 @@ with tempfile.TemporaryDirectory(prefix='lyko character ') as folder:
     profile.write_text(json.dumps(dict(version=1,model=asset.name,locomotion=dict(agility=.75,gaits=dict(walk=1.5,jog=3,run=5,sprint=8),variants=dict(combat=dict(agility=.9),sneak={})))))
     data=json.loads(run('--profile',profile,'--compare-model',asset).stdout)
     assert data['locomotion']=={'agility':.75,'gaits':{'walk':1.5,'jog':3,'run':5,'sprint':8},'variants':['combat','sneak']},data['locomotion']
+    profile.write_text(json.dumps(dict(version=1,model=asset.name,walk_clip_speed=1.25,run_clip_speed=4.5)))
+    assert json.loads(run('--profile',profile).stdout)['clip_speeds']=={'walk':1.25,'run':4.5}
+    profile.write_text(json.dumps(dict(version=1,model=asset.name,walk_clip_speed=5,run_clip_speed=2)))
+    data=json.loads(run('--profile',profile,ok=False).stdout);assert not data['ok'] and 'walk_clip_speed' in data['error'],data
+    profile.write_text(json.dumps(dict(version=1,model=asset.name,run_clip_speed=-1)))
+    data=json.loads(run('--profile',profile,ok=False).stdout);assert not data['ok'] and 'run_clip_speed' in data['error'],data
     profile.write_text(json.dumps(dict(version=1,model=asset.name,locomotion={})))
     data=json.loads(run('--profile',profile).stdout);assert data['locomotion']['agility']==.5 and data['locomotion']['variants']==[]
     profile.write_text(json.dumps(dict(version=1,model=asset.name,locomotion=dict(agility=2))))
