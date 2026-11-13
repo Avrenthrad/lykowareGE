@@ -168,6 +168,7 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
 ## 7. Shared runtime systems — alongside the slices
 
 - [ ] **07.01** Add asset identifiers, dependency tracking and cooked packages.
+  - GPT: ADR 0082 stable IDs/edges, standalone cook CLI and source-free C++ byte-package loader; deterministic cook, stale/missing dependency and atomic failure tests pass locally. Hosted CI/merge pending.
 - [ ] **07.02** Add import diagnostics and incremental rebuilds.
 - [ ] **07.03** Complete flagship lighting, shadows, materials, transparency and post-processing.
 - [ ] **07.04** Add visibility, batching and GPU resource management.
