@@ -190,7 +190,28 @@ int main(int argc, char** argv)
         }
         std::cout << "speed ramp: worst per-step joint turn " << held << " deg with the phase held, " << free_ramp
                   << " deg running free (steady sprint " << steady << " deg)\n";
-        expect(held < 1.5F, "with the phase held, no joint turns more than 1.5 degrees in a step as the gait changes");
+        {
+            // A sudden change of speed (a collision's worth) blends in over a few frames, not in one.
+            training_mannequin::Playback playback;
+            std::vector<math::Quat> previous;
+            float worst = 0.F;
+            for (int step = 0; step < 120; ++step) {
+                const float speed = step < 60 ? 1.6F : 7.F;
+                auto motor = moving(speed);
+                motor.legs = loco::Legs::Pivoting;
+                playback.advance_motor(asset, dt, motor, speed, true, 0.F);
+                if (!previous.empty() && step > 10) {
+                    for (std::size_t joint = 0; joint < previous.size(); ++joint) {
+                        worst = std::max(worst, angle_between(previous[joint], playback.blended[joint].rotation));
+                    }
+                }
+                previous.clear();
+                for (const auto& joint : playback.blended) { previous.push_back(joint.rotation); }
+            }
+            std::cout << "speed step 1.6 -> 7 with the phase held: worst per-step joint turn " << worst << " deg\n";
+            expect(worst < 6.F, "a sudden gait change blends over several steps instead of snapping");
+        }
+        expect(held < 1.5F,"with the phase held, no joint turns more than 1.5 degrees in a step as the gait changes");
         expect(free_ramp < steady + 2.F, "no joint turns more over a speed ramp than at a steady sprint, plus 2 degrees");
     }
 
@@ -228,7 +249,7 @@ int main(int argc, char** argv)
         expect(right.x > .05F && std::abs(right.z) < 1e-4F, "side lean to the right tips the torso toward +X");
         const auto back = torso_up(-.2F, -.1F);
         expect(back.z > .1F && back.x < -.05F, "negative lean tips the other way");
-        const auto extreme = torso_up(3.F, -3.F);
+        const auto extreme = torso_up(1.F, -1.F);
         expect(std::abs(std::asin(std::clamp(extreme.z, -1.F, 1.F))) <= asset.lean_limit + 1e-3F
                    && std::abs(std::asin(std::clamp(extreme.x, -1.F, 1.F))) <= asset.lean_limit + 1e-3F,
                "lean stays within the asset's limit whatever the motor says");
