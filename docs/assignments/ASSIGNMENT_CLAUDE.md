@@ -13,7 +13,7 @@ Tick only after the PR is merged with all five CI checks green. One line of note
 - [ ] `07.04` visibility, batching, GPU resources
 - [ ] `07.05` environment rendering
 - [ ] `06.10` pipeline warmup (world-scale half: **Joshua runs this**)
-- [ ] `02.12b` → `02.12c` → `02.12d` → `02.13` ragdolls — 02.12b merged #99 (`1e65373`); 02.12c merged #102 (`e81568b`); 02.12d next
+- [ ] `02.12b` → `02.12c` → `02.12d` → `02.13` ragdolls — 02.12b #99 (`1e65373`), 02.12c #102 (`e81568b`), 02.12d #104 (`588f8c1`) merged; `02.12` ticked; `02.13` next
 - [ ] `06.08` — blocked on GPT `06.01`, `06.04`
 - [ ] `02.16` gates (perf run: **Joshua runs this**)
 
@@ -137,15 +137,17 @@ Merged in #102 (`e81568b`): `ragdoll::Ragdoll`, ADR 0079; test `physics.ragdoll`
 
 ### 5. `02.12d` — blend animation and physics
 
-Blocked on `02.12c`. In the sample and in replay, as the checklist says.
+Unblocked: `02.12c` merged. In the sample and in replay, as the checklist says.
 
-- [ ] ADR: blend weight 0 is the animated pose, 1 is the physics pose, and a value between is defined. Done when: the ADR says who owns the weight, that physics still resolves contacts, and that replay records the weight.
-- [ ] Drive it from the sample and from a headless replay. Done when: both paths agree at 30, 60 and 144 Hz, and a weight outside 0..1 is refused.
-- [ ] Standard close. Done when: `02.12d` and the `02.12` parent are ticked.
+- [x] ADR: blend weight 0 is the animated pose, 1 is the physics pose, and a value between is defined. Done when: the ADR says who owns the weight, that physics still resolves contacts, and that replay records the weight.
+- [x] Drive it from the sample and from a headless replay. Done when: both paths agree at 30, 60 and 144 Hz, and a weight outside 0..1 is refused.
+- [x] Standard close. Done when: `02.12d` and the `02.12` parent are ticked.
+
+Merged in #104 (`588f8c1`): `Ragdoll::follow` and `blended_pose`, ADR 0080; sample `samples/course/ragdoll_blend.hpp`; test `physics.ragdoll_blend` (sample and replay agree at 30/60/144 Hz).
 
 ### 6. `02.13` — stumble, recovery, active ragdoll
 
-Blocked on `02.12d`. Motors are this ID, not `02.12` (ADR 0073).
+Unblocked: `02.12d` merged. Motors are this ID, not `02.12` (ADR 0073).
 
 - [ ] ADR: a stumble, a recovery, and motors that drive the ragdoll toward the animated pose. Done when: the ADR states the fixed-seed fixture, what "recovered" means in numbers, and that the feature is off when the profile does not ask for it.
 - [ ] Implement the fixture: a fall, a stumble, and a return to the animated pose. Done when: the test fails if the body never leaves the animated pose, and fails if it never returns.
