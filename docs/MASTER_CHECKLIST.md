@@ -175,6 +175,7 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
 - [ ] **07.07** Complete audio mixing, spatialisation, streaming and prioritisation.
 - [ ] **07.08** Generate navigation and update it dynamically.
 - [ ] **07.09** Complete jobs, threading, scheduling and resource budgets.
+  - [PR #95](https://github.com/Avrenthrad/lykowareGE/pull/95): bounded owner-fenced queue, joined shutdown, exception counts and lifetime tests (ADR 0077); local lifetime, deliberate failure and ASan/UBSan checks pass; merge and five hosted checks pending. Explicit limits only; hardware budgets remain **Joshua runs this** under `01.11`.
 - [ ] **07.10** Add save migrations, recovery and corruption handling.
 - [ ] **07.11** Complete input rebinding and controller support.
 - [ ] **07.12** Complete logging, crash reports, profiling and diagnostic capture.

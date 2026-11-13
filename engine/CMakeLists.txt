@@ -15,6 +15,7 @@ add_library(lykoware_engine STATIC
     src/skinning.cpp
     src/audio_spatial.cpp
     src/navigation.cpp
+    src/jobs.cpp
     src/clock.cpp
     src/scene.cpp
     src/scene_script.cpp
@@ -53,6 +54,8 @@ target_include_directories(lykoware_engine PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
     "${CMAKE_CURRENT_BINARY_DIR}/generated")
 target_link_libraries(lykoware_engine PRIVATE SDL3-static lykoware_volk lykoware_vma lykoware_wuffs lykoware_lua Jolt)
+
+target_link_libraries(lykoware_engine PRIVATE Threads::Threads)
 
 lykoware_configure_target(lykoware_engine)
 

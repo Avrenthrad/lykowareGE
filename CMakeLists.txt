@@ -21,6 +21,7 @@ lykoware_add_jolt()
 include(cmake/HostTools.cmake)
 lykoware_add_host_tools()
 include(cmake/Shaders.cmake)
+find_package(Threads REQUIRED)
 add_subdirectory(engine)
 add_subdirectory(samples/sandbox)
 add_subdirectory(tools/cli)
@@ -37,6 +38,12 @@ if(BUILD_TESTING)
     target_link_libraries(lykoware_trace_test PRIVATE lykoware::engine)
     lykoware_configure_target(lykoware_trace_test)
     add_test(NAME trace.api COMMAND lykoware_trace_test)
+
+    add_executable(lykoware_jobs_test tests/jobs.cpp)
+    target_link_libraries(lykoware_jobs_test PRIVATE lykoware::engine Threads::Threads)
+    lykoware_configure_target(lykoware_jobs_test)
+    add_test(NAME jobs.lifetime COMMAND lykoware_jobs_test)
+    set_tests_properties(jobs.lifetime PROPERTIES TIMEOUT 30)
 
     # The simulation clock (ADR 0017): exact tick counts, frame-rate
     # independence and limits, all from fixed frame times.
