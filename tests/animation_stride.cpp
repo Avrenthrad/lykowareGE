@@ -271,25 +271,10 @@ int main(int argc, char** argv)
         expect(playback.selector.state() == locomotion::State::Walk, "landing releases into the gait");
     }
 
-    // 8. The sandbox's PlayerBody drives the animation from the motor when the player has one. (The
-    // sandbox has no option that gives its player a profile yet, so check the source.)
-    if (argc > 1) {
-        std::ifstream in(argv[1]);
-        const std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-        const auto place = text.find("void place(const lykoware::PlayerCharacter&");
-        const auto report = text.find("void report() const", place);
-        const auto body = place == std::string::npos || report == std::string::npos ? std::string{} : text.substr(place, report - place);
-        const auto locomotion_check = body.find("player.locomotion()");
-        const auto motor_call = body.find("playback_.advance_motor(");
-        const auto old_call = body.find("playback_.advance_character(");
-        expect(!body.empty(), "found PlayerBody::place in the sandbox source");
-        expect(locomotion_check != std::string::npos && motor_call != std::string::npos && locomotion_check < motor_call,
-               "PlayerBody::place calls advance_motor when the player has a motor");
-        expect(old_call != std::string::npos && motor_call < old_call,
-               "PlayerBody::place keeps advance_character for players without a motor");
-    } else {
-        expect(false, "the sandbox source path is passed");
-    }
+    // The sandbox's PlayerBody using advance_motor is checked by sandbox.play, which counts the
+    // motor-driven frames of a real --directions run.
+    (void)argc;
+    (void)argv;
 
     return failures == 0 ? 0 : 1;
 }
