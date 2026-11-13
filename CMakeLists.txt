@@ -438,6 +438,12 @@ if(BUILD_TESTING)
     add_test(NAME animation.prepared_ik COMMAND lykoware_prepared_ik_test)
     set_tests_properties(animation.prepared_ik PROPERTIES TIMEOUT 60)
 
+    add_executable(lykoware_ik_runtime_scale tests/ik_runtime_scale.cpp)
+    target_link_libraries(lykoware_ik_runtime_scale PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_ik_runtime_scale)
+    add_test(NAME animation.ik_runtime_scale COMMAND lykoware_ik_runtime_scale)
+    set_tests_properties(animation.ik_runtime_scale PROPERTIES TIMEOUT 120)
+
     add_executable(lykoware_foot_placement_test tests/foot_placement.cpp)
     target_link_libraries(lykoware_foot_placement_test PRIVATE lykoware::engine)
     target_include_directories(lykoware_foot_placement_test PRIVATE "${CMAKE_SOURCE_DIR}/samples/course")

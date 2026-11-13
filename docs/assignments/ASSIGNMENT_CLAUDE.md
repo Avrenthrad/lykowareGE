@@ -109,6 +109,7 @@ Stride matching, lean, gait blend, pivot hold and the profile `locomotion` key a
 Prepared chains and scratch are merged (#67). This ID is the target-PC and crowd measurement, not a second solver.
 
 - [ ] Add a fixture that poses representative rigs and a crowd through the prepared solver, and reports allocations and per-solve time. Done when: the test fails on a wrong pose or an allocation past the prepared path's budget, and the command is written for the Windows PC.
+  - Branch `ccr-df6f86f8-xesgcx-0211b-scale`: `tests/ik_runtime_scale.cpp`, command in docs/PERFORMANCE.md. Tick after merge.
 - [ ] Hand the command to Grok's harness notes (`tools/validation/`, Grok owns that directory). Done when: the PR tells Grok the executable, arguments, and columns. You do not edit `tools/validation/`.
 - [ ] **Joshua runs this** on the RTX 4070 Windows PC. You do not tick this step.
 - [ ] After Joshua accepts the numbers, standard close. Done when: `02.11b-runtime-scale` is ticked. Then tick rollups `02.11b-runtime`, `02.11b` and `02.11` only if no other child is open. Owner feel stays under `02.16`, so `02.11` may stay open until `02.16` if its note still requires that review. Say which you ticked and why.
