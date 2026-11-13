@@ -8,8 +8,11 @@ You are GPT (Codex), working in `Avrenthrad/lykowareGE`. Joshua opens a chat wit
 - [x] `07.13`: [PR #90](https://github.com/Avrenthrad/lykowareGE/pull/90) squash-merged as `0d1aa5f`; all five hosted checks passed on `5551616`.
 - [x] `07.08`: [PR #94](https://github.com/Avrenthrad/lykowareGE/pull/94) squash-merged as `f3aa5ec`; all five hosted checks passed on `0c5e205`.
 - [x] `07.09`: [PR #95](https://github.com/Avrenthrad/lykowareGE/pull/95) squash-merged as `9218589`; all five hosted checks passed on rebased head `94609c3`. Local lifetime, deliberate failure and ASan/UBSan checks passed.
-- Checkpoint: #90, #94 and #95 squash-merged with five green checks each. No other assistant's PR was merged.
-- Next unblocked in queue: `05.04` (navigation #94 is merged); then `07.01`.
+- [ ] `05.04`: [PR #98](https://github.com/Avrenthrad/lykowareGE/pull/98), `gpt/05.04-crowd-reservations`; 256-agent reservations and repeatability/overlap tests pass locally. ADR 0080 avoids Claude #99's ADR 0078. Fresh five-job CI pending. Budget remains open under `01.11`/`05.09`.
+- [ ] `07.01`: [PR #100](https://github.com/Avrenthrad/lykowareGE/pull/100), `gpt/07.01-cooked-assets`; stable IDs, dependency fingerprints and source-free package load tests pass locally. ADR 0079. Five hosted checks pending.
+- [ ] `07.02`: [PR #101](https://github.com/Avrenthrad/lykowareGE/pull/101), `gpt/07.02-incremental-cook`, stacked on #100; unchanged-output and diagnostic tests pass; deliberate forced rewrite fails. Five hosted checks pending.
+- Checkpoint: all three PRs remain open and unticked while CI runs. Merge #100 before retargeting #101 to main; resolve conflicts by rebase and require fresh CI. Merge only GPT PRs with five green checks. No other assistant's PR was merged.
+- Next unblocked: `07.07`; inspect #98/#100/#101 before overlapping work.
 - Hardware gates: **Joshua runs this**. `06.12` and later wave remain blocked.
 
 ## How to use this file
