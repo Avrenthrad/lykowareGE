@@ -23,6 +23,7 @@ add_library(lykoware_engine STATIC
     src/image/image_decode.cpp
     src/mesh.cpp
     src/world_identity.cpp
+    src/locomotion.cpp
     src/log.cpp
     src/paths.cpp
     src/physics.cpp

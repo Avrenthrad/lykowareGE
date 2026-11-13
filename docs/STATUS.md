@@ -1,5 +1,27 @@
 # Lykoware status
 
+## Locomotion motor — 02.17b (PR 2 of 5, open, 12 November 2026)
+
+Branch `ccr-178f7225-atvbfx-motor`, stacked on PR #82 (ADR 0074). Not merged; waiting for the owner's review.
+
+- **What:** `lykoware/locomotion.hpp`, a motor used by the player now and by NPCs later. It turns a wanted velocity into the velocity to ask physics for, and the body's facing, gait and lean.
+  - **Speed:** acceleration and braking limits; analog speeds anywhere up to the sprint speed.
+  - **Turning:** a turn rate that falls as speed rises.
+  - **Plant and pivot:** a redirect wider than the pivot angle brakes along the old heading (at the pivot braking) to the pivot speed, turns, and pushes off. The heading never moves while braking into it.
+  - **Gaits:** idle, walk, jog, run, sprint, with a margin and a shortest stay so they do not flicker; stopping and starting are never held back.
+  - **Lean:** forward into speeding up, back when braking, into turns; bounded and eased.
+  - **Air:** speed is kept; a small steering allowance; no braking.
+  - **Agility 0..1** sets every limit on a straight line between a heavy and a sharp set; any limit can be set directly; named variants (for example `combat`) have their own agility.
+  - **Data:** version 1 JSON (`decode_profile`), every value range-checked.
+- **Player:** `PlayerConfig::locomotion` is optional. Without it the player moves exactly as before (4 and 7 m/s at once). With it, a full push asks for a run, Shift for a sprint, Ctrl for a walk, part of a stick for part of the speed. The motor is told how fast the feet really moved, from the body's positions, so it does not build up speed against a wall.
+- **Tests:**
+  - new `locomotion.motor`: starts, stops and the stopping distance; analog speed and the sprint limit; turn rate by speed; pivots (when, how they brake, that the heading holds, changing one's mind); no step changes velocity past its limits over 20,000 random requests at three agilities; sharp versus heavy (to a run, stopping, reversing, turning circle, a right-angle cut); gaits and their margins; air; facing and lean; variants; bit-identical repeats; refusals; zero allocations;
+  - new `player.locomotion` on real Jolt ground: no instant speed, braking distance on the ground, speeds from input, no velocity jump past the limits over 6,000 random pushes with the camera swinging, bit-identical results at 30, 48, 60, 144 and 237 frames a second, sharp versus heavy on the ground, a wall, a jump, facing drawn between steps, refusals;
+  - `player.course` also runs the whole obstacle course with the motor: every checkpoint, feet never sunk, camera clear, repeatable.
+- **Deliberate breaks:** 50 of 50 caught. The sweep found two gaps, both closed: pivot braking was not measured on its own, and a body that stopped mid-turn froze half turned (now it finishes the turn).
+- **Local checks:** 90/90 in each of the Debug, ASan/UBSan and clang-tidy presets, no skips.
+- **Not yet (later PRs):** a wanted facing separate from heading, strafe and backward movement (PR 3); animation on the motor (PR 4); NPCs (PR 5); the `--play` sandbox does not use the motor yet.
+
 ## Locomotion feel — owner request of 12 November 2026 (ADR 0074, PR 1 of 5, open)
 
 Branch `ccr-178f7225-atvbfx`, based on `main` after #81. [ADR 0074](adr/0074-locomotion-feel.md) (Proposed). Documentation only so far.

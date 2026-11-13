@@ -398,6 +398,18 @@ if(BUILD_TESTING)
 
     # A player-steered character over a fixed-seed obstacle course: slopes, steps, a jump, a
     # fall and walls for the camera (ADR 0047). Physics and input only.
+    # The locomotion motor on its own (ADR 0074).
+    add_executable(lykoware_locomotion_motor_test tests/locomotion_motor.cpp)
+    target_link_libraries(lykoware_locomotion_motor_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_locomotion_motor_test)
+    add_test(NAME locomotion.motor COMMAND lykoware_locomotion_motor_test)
+    set_tests_properties(locomotion.motor PROPERTIES TIMEOUT 60)
+    # The player moved by the motor, on real physics (ADR 0074).
+    add_executable(lykoware_player_locomotion_test tests/player_locomotion.cpp)
+    target_link_libraries(lykoware_player_locomotion_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_player_locomotion_test)
+    add_test(NAME player.locomotion COMMAND lykoware_player_locomotion_test)
+    set_tests_properties(player.locomotion PROPERTIES TIMEOUT 120)
     add_executable(lykoware_player_course_test tests/player_course.cpp)
     target_link_libraries(lykoware_player_course_test PRIVATE lykoware::engine)
     target_include_directories(lykoware_player_course_test PRIVATE "${CMAKE_SOURCE_DIR}/samples/course")

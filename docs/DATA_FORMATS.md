@@ -38,6 +38,18 @@ The image harness writes diagnostic PPM P6 fixtures. That file is not an authore
 
 Version 1 character profiles retain `model`, idle/walk, height, bones and stationary foot-IK settings. Optional `run_clip`, `jump_clip`, `fall_clip`, `land_clip` are nonempty strings naming unique imported animation clips. Missing run uses walk; missing airborne/landing clips use idle. Invalid/unknown/ambiguous selectors are refused. These select presentation clips; they do not author a general state graph, configure thresholds, retarget a rig or drive root motion. See [BUILDING](BUILDING.md#locomotion-clips-and-transitions).
 
+## Locomotion motor profiles (ADR 0074)
+
+A locomotion profile is version 1 JSON, at most 64 KiB, read by `locomotion::decode_profile`. Every key is optional except `version`; missing parts keep their defaults; unknown keys, wrong types, duplicate keys and out-of-range values are refused.
+
+- `agility` (0..1), `gait_margin` (0..0.45), `air_control` (m/s², 0..100), `max_lean` (radians, 0..1), `lean_seconds` (0..5);
+- `gaits`: `walk`, `jog`, `run`, `sprint` in m/s, strictly rising, each 0.05..20;
+- `heavy` and `sharp`: the limits at agility 0 and 1 — `acceleration`, `braking`, `pivot_braking` (m/s²), `turn_rate_rest`, `turn_rate_sprint`, `facing_rate` (degrees/second), `pivot_angle` (degrees, 10..180), `pivot_speed` (m/s, not above the sprint speed), `gait_change_seconds`, `lean` (radians per m/s²);
+- `overrides`: any of those limits set directly for the base;
+- `variants`: up to 16 named variants, each with its own `agility` and `overrides`.
+
+It is not yet read from character profiles; callers pass it to `PlayerConfig::locomotion`. TOML for hand tuning (ADR 0004) waits on the owner's choice of a reader.
+
 ## Character alignment and inspection (ADR 0063)
 
 Shared version-1 profile loading is owned by `character::load_profile/decode_profile`. Optional `yaw_degrees`, `capsule_height`, `capsule_radius`, `eye_height` augment the existing visual-only `height` field. Root and nested duplicates/unknown keys, depth >8 and files >64 KiB are rejected. Fit height/capsule height are 0.1..10 metres; yaw is -180..180 degrees; positive radius must be below half standing height and eye height strictly inside standing height. All values must be finite. Existing profiles retain visual-height semantics.
