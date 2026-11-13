@@ -30,6 +30,7 @@ FollowCamera::FollowCamera(const FollowCameraConfig& config)
     config_.min_pitch = std::clamp(config_.min_pitch, -1.5F, 1.5F);
     config_.max_pitch = std::clamp(config_.max_pitch, -1.5F, 1.5F);
     config_.return_speed = std::max(0.F, config_.return_speed);
+    config_.transition_speed = std::isfinite(config_.transition_speed) ? std::max(0.F, config_.transition_speed) : 0.F;
     pitch_ = std::clamp(pitch_, config_.min_pitch, config_.max_pitch);
 }
 
@@ -50,7 +51,11 @@ void FollowCamera::set_distance(float distance)
     if (!std::isfinite(distance)) {
         return;
     }
-    config_.distance = std::max(0.F, distance);
+    distance = std::max(0.F, distance);
+    if (config_.transition_speed > 0.F && placed_ && distance != config_.distance) {
+        transitioning_ = true;
+    }
+    config_.distance = distance;
     config_.min_distance = std::min(config_.min_distance, config_.distance);
 }
 
@@ -72,16 +77,21 @@ math::Vec3 FollowCamera::right() const
 
 float FollowCamera::allowed_distance(const physics::World& world, math::DVec3 pivot, math::Vec3 back) const
 {
+    return allowed_distance(world, pivot, back, config_.distance);
+}
+
+float FollowCamera::allowed_distance(const physics::World& world, math::DVec3 pivot, math::Vec3 back, float limit) const
+{
     // Five rays fan out from the pivot: to the camera's place and to four points `clearance`
     // across the view from it, each reaching past it by the clearance. They all start at the
     // pivot, which is in open space, so a wall beside the character does not count as a hit at
     // the start of a ray.
-    const float reach = config_.distance + config_.clearance;
+    const float reach = limit + config_.clearance;
     const math::Vec3 side = math::normalize(math::cross(back, {0.F, 1.F, 0.F}));
     const math::Vec3 lift = math::cross(side, back);
     const std::array<math::Vec3, 5> spreads{math::Vec3{}, side * config_.clearance, side * -config_.clearance,
                                             lift * config_.clearance, lift * -config_.clearance};
-    float allowed = config_.distance;
+    float allowed = limit;
     for (const math::Vec3 spread : spreads) {
         if (const auto hit = world.cast_ray(pivot, back * reach + spread)) {
             allowed = std::min(allowed, hit->fraction * reach - config_.clearance);
@@ -93,12 +103,32 @@ float FollowCamera::allowed_distance(const physics::World& world, math::DVec3 pi
 render::Camera FollowCamera::update(const physics::World& world, math::DVec3 pivot, float seconds)
 {
     const math::Vec3 direction = back();
-    const float allowed = config_.distance > 0.F ? allowed_distance(world, pivot, direction) : 0.F;
-    if (!placed_ || allowed <= current_) {
-        current_ = allowed; // pull in at once
-        placed_ = true;
-    } else if (std::isfinite(seconds) && seconds > 0.F) {
-        current_ = std::min(allowed, current_ + config_.return_speed * seconds);
+    const float step = std::isfinite(seconds) && seconds > 0.F ? seconds : 0.F;
+    if (transitioning_) {
+        // Walls are probed out to wherever the camera is now, so one between the old and new
+        // distance still pulls it in at once; the change of distance itself is travelled.
+        const float wall = current_ > 0.F || config_.distance > 0.F
+            ? std::max(0.F, allowed_distance(world, pivot, direction, std::max(current_, config_.distance)))
+            : 0.F;
+        const float goal = std::min(config_.distance, wall);
+        if (current_ > wall) {
+            current_ = wall;
+        } else if (goal < current_) {
+            current_ = std::max(goal, current_ - config_.transition_speed * step);
+        } else {
+            current_ = std::min(goal, current_ + config_.transition_speed * step);
+        }
+        if (current_ == goal) {
+            transitioning_ = false;
+        }
+    } else {
+        const float allowed = config_.distance > 0.F ? allowed_distance(world, pivot, direction) : 0.F;
+        if (!placed_ || allowed <= current_) {
+            current_ = allowed; // pull in at once
+            placed_ = true;
+        } else if (step > 0.F) {
+            current_ = std::min(allowed, current_ + config_.return_speed * step);
+        }
     }
     render::Camera camera;
     camera.vertical_fov = config_.vertical_fov;
