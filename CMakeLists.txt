@@ -539,6 +539,13 @@ if(BUILD_TESTING)
     add_test(NAME animation.stride COMMAND lykoware_animation_stride_test)
     set_tests_properties(animation.stride PROPERTIES TIMEOUT 120)
 
+    add_executable(lykoware_animation_leg_clips_test tests/animation_leg_clips.cpp)
+    target_link_libraries(lykoware_animation_leg_clips_test PRIVATE lykoware::engine)
+    target_include_directories(lykoware_animation_leg_clips_test PRIVATE "${CMAKE_SOURCE_DIR}/samples/course")
+    lykoware_configure_target(lykoware_animation_leg_clips_test)
+    add_test(NAME animation.leg_clips COMMAND lykoware_animation_leg_clips_test)
+    set_tests_properties(animation.leg_clips PROPERTIES TIMEOUT 120)
+
     add_executable(lykoware_mannequin_test tests/mannequin.cpp)
     target_link_libraries(lykoware_mannequin_test PRIVATE lykoware::engine)
     target_include_directories(lykoware_mannequin_test PRIVATE "${CMAKE_SOURCE_DIR}/samples/course")
