@@ -6,14 +6,14 @@ You are Claude, working in `Avrenthrad/lykowareGE`. Joshua opens a chat with you
 
 Tick only after the PR is merged with all five CI checks green. One line of notes per item.
 
-- [ ] `02.17d` remainder (clips + imported speeds) — in progress, branch `ccr-df6f86f8-xesgcx-0217d`
-- [ ] `02.11b-runtime-scale` fixture (run: **Joshua runs this**)
+- [x] `02.17d` remainder (clips + imported speeds) — #89 merged `7e67a06`; `02.17` parent ticked.
+- [ ] `02.11b-runtime-scale` — fixture merged #92 `74009df`; waiting: **Joshua runs this** (`lykoware_ik_runtime_scale --characters 500 --frames 600 --csv ik_scale.csv`, Release).
 - [ ] `02.14` camera transitions
 - [ ] `07.03` lighting/shadows/materials/transparency/post (lettered slices)
 - [ ] `07.04` visibility, batching, GPU resources
 - [ ] `07.05` environment rendering
 - [ ] `06.10` pipeline warmup (world-scale half: **Joshua runs this**)
-- [ ] `02.12b` → `02.12c` → `02.12d` → `02.13` ragdolls — paused until `02.17d` merges
+- [ ] `02.12b` → `02.12c` → `02.12d` → `02.13` ragdolls — unpaused (02.17d merged); next after 02.14
 - [ ] `06.08` — blocked on GPT `06.01`, `06.04`
 - [ ] `02.16` gates (perf run: **Joshua runs this**)
 
@@ -99,18 +99,19 @@ Tick the boxes in this file. Order is the order you start work, skipping anythin
 
 Stride matching, lean, gait blend, pivot hold and the profile `locomotion` key are merged. Left: authored start, stop and pivot clips, and imported characters' authored speeds. ADR 0074 already allows a fallback blend when a clip is absent, and it allows placeholder clips. A placeholder motor is not acceptable; the motor stays as merged.
 
-- [ ] Read ADR 0074's animation section and `tests/animation_stride.cpp`. List, in the PR, what #86 already checks, so the new tests do not duplicate it. Done when: the PR names those existing checks and does not change their expected numbers.
-- [ ] Play start, stop and pivot clips from the motor's leg state when the locomotion set has them, and keep today's blend when it does not. Done when: a test selects each clip, a missing clip falls back without a pop, and feet still plant.
-- [ ] Let an imported profile supply authored gait speeds. The mannequin's measured speeds stay the default when the profile omits them. Done when: `lyko inspect-character` reports the speeds and a malformed speed is refused.
-- [ ] Standard close. Done when: `02.17d` is ticked. The `02.17` parent stays open until this PR merges; tick the parent in this PR only if every `02.17` child is then done.
+- [x] Read ADR 0074's animation section and `tests/animation_stride.cpp`. List, in the PR, what #86 already checks, so the new tests do not duplicate it. Done when: the PR names those existing checks and does not change their expected numbers.
+- [x] Play start, stop and pivot clips from the motor's leg state when the locomotion set has them, and keep today's blend when it does not. Done when: a test selects each clip, a missing clip falls back without a pop, and feet still plant.
+- [x] Let an imported profile supply authored gait speeds. The mannequin's measured speeds stay the default when the profile omits them. Done when: `lyko inspect-character` reports the speeds and a malformed speed is refused.
+- [x] Standard close. Done when: `02.17d` is ticked. The `02.17` parent stays open until this PR merges; tick the parent in this PR only if every `02.17` child is then done.
+  - Done: #89 (`7e67a06`), all five checks green. `02.17d` and `02.17` ticked.
 
 ### 2. `02.11b-runtime-scale` — fixture now, run is Joshua's
 
 Prepared chains and scratch are merged (#67). This ID is the target-PC and crowd measurement, not a second solver.
 
-- [ ] Add a fixture that poses representative rigs and a crowd through the prepared solver, and reports allocations and per-solve time. Done when: the test fails on a wrong pose or an allocation past the prepared path's budget, and the command is written for the Windows PC.
-  - Branch `ccr-df6f86f8-xesgcx-0211b-scale`: `tests/ik_runtime_scale.cpp`, command in docs/PERFORMANCE.md. Tick after merge.
-- [ ] Hand the command to Grok's harness notes (`tools/validation/`, Grok owns that directory). Done when: the PR tells Grok the executable, arguments, and columns. You do not edit `tools/validation/`.
+- [x] Add a fixture that poses representative rigs and a crowd through the prepared solver, and reports allocations and per-solve time. Done when: the test fails on a wrong pose or an allocation past the prepared path's budget, and the command is written for the Windows PC.
+  - Merged #92 (`74009df`): `tests/ik_runtime_scale.cpp`; command, args and columns in docs/PERFORMANCE.md and the PR.
+- [x] Hand the command to Grok's harness notes (`tools/validation/`, Grok owns that directory). Done when: the PR tells Grok the executable, arguments, and columns. You do not edit `tools/validation/`.
 - [ ] **Joshua runs this** on the RTX 4070 Windows PC. You do not tick this step.
 - [ ] After Joshua accepts the numbers, standard close. Done when: `02.11b-runtime-scale` is ticked. Then tick rollups `02.11b-runtime`, `02.11b` and `02.11` only if no other child is open. Owner feel stays under `02.16`, so `02.11` may stay open until `02.16` if its note still requires that review. Say which you ticked and why.
 
