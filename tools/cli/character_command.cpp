@@ -49,6 +49,12 @@ int character_command(std::span<const std::string> args)
         report["alignment"]={{"scale",a.scale},{"offset",vec(a.offset)},{"rotation",{a.rotation.x,a.rotation.y,a.rotation.z,a.rotation.w}}};
         report["capsule"]={{"height",c.height},{"radius",c.radius},{"cylinder_half_height",c.cylinder_half_height},{"eye_height",c.eye_height}};
         report["foot_policy"]={{"align_normals",profile.foot_settings.align_normals},{"max_slope_degrees",profile.foot_settings.max_slope_degrees},{"pelvis",profile.foot_settings.pelvis},{"max_pelvis_drop",profile.foot_settings.max_pelvis_drop},{"locking",profile.foot_settings.locking},{"max_plant_distance",profile.foot_settings.max_plant_distance},{"heading",profile.foot_settings.heading},{"max_heading_degrees",profile.foot_settings.max_heading_degrees},{"single_support",profile.foot_settings.single_support},{"balance_shift",profile.foot_settings.balance_shift},{"max_balance_shift",profile.foot_settings.max_balance_shift}};
+        report["locomotion"]=nullptr;
+        if(profile.locomotion){
+            const auto& m=*profile.locomotion;
+            Json variants=Json::array();for(const auto& v:m.variants){variants.push_back(v.name);}
+            report["locomotion"]={{"agility",m.base.agility},{"gaits",{{"walk",m.gait_speeds[0]},{"jog",m.gait_speeds[1]},{"run",m.gait_speeds[2]},{"sprint",m.gait_speeds[3]}}},{"variants",variants}};
+        }
         report["warnings"]=inspected.warnings;report["clips"]=Json::array();
         for(const auto& clip:inspected.clips){report["clips"].push_back({{"name",clip.name},{"seconds",clip.seconds},{"translated_root",clip.translated_root}});}
         if(inspected.roles){report["roles"]=*inspected.roles;}

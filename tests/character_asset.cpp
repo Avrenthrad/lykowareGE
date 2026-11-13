@@ -18,6 +18,36 @@ int main(){
         expect(!c::decode_profile(bad,"",profile,error)&&profile.model==old.model&&profile.height==old.height,"invalid profile is transactional");
     }
     expect(!c::decode_profile(std::string(65537,' '),"",profile,error),"profile size bounded");
+    {   // Optional locomotion object (ADR 0074): the motor profile without its own version.
+        c::Profile plain;expect(c::decode_profile(R"({"version":1,"model":"x"})","",plain,error)&&!plain.locomotion,"locomotion absent means nullopt");
+        c::Profile loco;
+        const std::string full=R"({"version":1,"model":"x","locomotion":{"agility":0.8,"gaits":{"walk":1.5,"jog":3,"run":5.5,"sprint":8},"gait_margin":0.2,"air_control":3,"max_lean":0.3,"lean_seconds":0.2,"strafe_scale":0.8,"backward_scale":0.6,"heavy":{"acceleration":7},"sharp":{"braking":40},"overrides":{"lean":0.05},"variants":{"combat":{"agility":0.9,"overrides":{"acceleration":30}},"sneak":{}}}})";
+        expect(c::decode_profile(full,"",loco,error)&&loco.locomotion.has_value(),"profile with locomotion decodes");
+        if(loco.locomotion){
+            const auto& m=*loco.locomotion;
+            expect(m.base.agility==.8F&&m.gait_speeds==std::array<float,4>{1.5F,3.F,5.5F,8.F},"locomotion agility and gaits are copied");
+            expect(m.gait_margin==.2F&&m.air_control==3.F&&m.max_lean==.3F&&m.lean_seconds==.2F,"locomotion scalars are copied");
+            expect(m.strafe_scale==.8F&&m.backward_scale==.6F,"locomotion strafe and backward scales are copied");
+            expect(m.heavy.acceleration==7.F&&m.sharp.braking==40.F&&m.base.overrides[9]==.05F,"locomotion tuning and overrides are copied");
+            expect(m.variants.size()==2&&m.variants[0].name=="combat"&&m.variants[0].agility==.9F&&m.variants[0].overrides[0]==30.F&&m.variants[1].name=="sneak","locomotion variants are copied");
+        }
+        expect(c::decode_profile(R"({"version":1,"model":"x","locomotion":{}})","",plain,error)&&plain.locomotion.has_value()&&plain.locomotion->base.agility==.5F,"an empty locomotion object means defaults");
+        const auto before_model=loco.model;const auto before_loco=loco.locomotion;
+        for(const char* bad:{R"("locomotion":3)",R"("locomotion":[])",R"("locomotion":null)",R"("locomotion":{"agility":"high"})",R"("locomotion":{"typo":1})",R"("locomotion":{"gaits":{"amble":1}})",
+                R"("locomotion":{"version":1})",R"("locomotion":{"agility":2})",R"("locomotion":{"gait_margin":0.9})",R"("locomotion":{"strafe_scale":2})",R"("locomotion":{"gaits":{"walk":9,"jog":3}})",
+                R"("locomotion":{"agility":0.5,"agility":0.6})",R"("locomotion":{"variants":{"a":{"overrides":{"lean":1,"lean":1}}}})"}){
+            c::Profile target=loco;error.clear();
+            expect(!c::decode_profile(std::string(R"({"version":1,"model":"y",)")+bad+"}","",target,error)&&target.model==before_model&&target.locomotion.has_value()&&target.locomotion->base.agility==before_loco->base.agility,bad);
+            const bool scoped=error.rfind("Character profile locomotion: ",0)==0;
+            if(!scoped){std::cerr<<"error not scoped: "<<error<<" for "<<bad<<'\n';}
+            expect(scoped,"locomotion errors name the locomotion object");
+        }
+        expect(!c::decode_profile(R"({"version":1,"model":"x","locomotion":{"agility":0.5,"agility":0.6}})","",plain,error)&&error=="Character profile locomotion: Duplicate locomotion profile key","duplicate key inside locomotion is refused with its own message");
+        expect(!c::decode_profile(R"({"version":1,"model":"x","bones":{"pelvis":"a","pelvis":"b"}})","",plain,error)&&error=="Duplicate character bone key","a duplicate bone key keeps its message");
+        expect(!c::decode_profile(R"({"version":1,"model":"x","locomotion":{},"locomotion":{}})","",plain,error)&&error=="Duplicate character profile key","a duplicate locomotion key at top level is refused");
+        // The 64 KiB bound covers the nested object.
+        expect(!c::decode_profile(std::string(R"({"version":1,"model":"x","locomotion":{"variants":{)")+std::string(70000,' ')+"}}}","",plain,error),"oversize locomotion profile refused");
+    }
     c::Alignment aligned;const lykoware::Bounds box{{10,-4,20},{14,4,26}};
     expect(c::align(box,2,90,aligned,error)&&aligned.scale==.25F,"yaw and visual height fit");
     const auto direction=m::rotate(aligned.rotation,m::Vec3{0,0,-1});
