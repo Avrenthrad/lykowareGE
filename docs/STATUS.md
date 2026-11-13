@@ -1,8 +1,24 @@
 # Lykoware status
 
-## Locomotion motor — 02.17b (PR 2 of 5, open, 12 November 2026)
+## Directional fluidity — 02.17c (PR 3 of 5, open, 13 November 2026)
 
-Branch `ccr-178f7225-atvbfx-motor`, stacked on PR #82 (ADR 0074). Not merged; waiting for the owner's review.
+Branch `ccr-178f7225-atvbfx-fluid`, based on `main` after #83. [ADR 0074](adr/0074-locomotion-feel.md).
+
+- **What:** the motor can face one way and move another.
+  - `locomotion::Request::facing`: a wanted facing (aiming, a locked-on target). The body turns to it at its facing rate and keeps it while it moves any way.
+  - Sideways and backward speeds are scaled (`strafe_scale` 0.9, `backward_scale` 0.75 by default, in data), smoothly with the angle, so a stick swept round never pops.
+  - `State::travel`: the way the character travels relative to its facing, as a continuous angle, for animation to blend directions by.
+  - Lean is now in the body's own frame.
+  - The player aims with the right mouse button or the left trigger past half; Ctrl walks.
+- **The direction-change fixture** (`samples/course/direction_fixture.hpp`): 45, 90, 135 and 180 degree cuts, a stop, a loop each way, a camera sweep, a strafe box and a backward diagonal, keyed to simulation ticks.
+- **Tests:**
+  - new `player.directions` on real ground, through the fixture: no velocity, heading, facing or travel jumps; cuts inside the pivot angle keep full speed and never pivot, wider ones pivot once; every heading is taken (widest gap under 5 degrees, where eight-way would leave 45); the heading follows a sweeping stick within 5 degrees and a turning camera within 2; aiming, the body faces the camera within half a degree and strafes, backs and goes diagonally at the scaled speeds; heavy pivots only to reverse, sharp on every cut past 75 degrees; identical at 30, 60, 144 and 241 frames a second;
+  - `locomotion.motor` and `player.locomotion` extended (facing, strafe and backward scaling, travel, body-frame lean, aim and walk input).
+- **Still to come in this PR:** sandbox options to feel it (`--agility`, `--locomotion FILE`, `--directions`), being written by a helper.
+
+## Locomotion motor — 02.17b (merged with #83, 13 November 2026)
+
+Branch `ccr-178f7225-atvbfx-motor`, stacked on PR #82 (ADR 0074). Merged at the owner's request; all five hosted checks passed.
 
 - **What:** `lykoware/locomotion.hpp`, a motor used by the player now and by NPCs later. It turns a wanted velocity into the velocity to ask physics for, and the body's facing, gait and lean.
   - **Speed:** acceleration and braking limits; analog speeds anywhere up to the sprint speed.
@@ -22,7 +38,7 @@ Branch `ccr-178f7225-atvbfx-motor`, stacked on PR #82 (ADR 0074). Not merged; wa
 - **Local checks:** 90/90 in each of the Debug, ASan/UBSan and clang-tidy presets, no skips.
 - **Not yet (later PRs):** a wanted facing separate from heading, strafe and backward movement (PR 3); animation on the motor (PR 4); NPCs (PR 5); the `--play` sandbox does not use the motor yet.
 
-## Locomotion feel — owner request of 12 November 2026 (ADR 0074, PR 1 of 5, open)
+## Locomotion feel — owner request of 12 November 2026 (ADR 0074, merged with #82)
 
 Branch `ccr-178f7225-atvbfx`, based on `main` after #81. [ADR 0074](adr/0074-locomotion-feel.md) (Proposed). Documentation only so far.
 
