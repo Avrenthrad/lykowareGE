@@ -70,6 +70,21 @@ public:
     // after destroy(), if any body is gone, or if `animated` has the wrong size.
     bool read_pose(const physics::World& world, const animation::Pose& animated, animation::Pose& out) const;
 
+    // Blending (ADR 0080). `weight` 0 is the animated pose, 1 is the physics pose; the caller owns
+    // it and passes it every tick. follow() pulls each body (1 - weight) of the way toward where
+    // `animated` puts it, by velocities for the next step(seconds), so contacts and joints still
+    // act; at weight 1 it leaves the bodies alone. Call it once per tick before World::step.
+    // False, changing nothing, for a weight outside 0..1 or not finite, seconds not finite and
+    // > 0, `animated` of the wrong size, after destroy(), or with a body gone.
+    bool follow(physics::World& world, const animation::Pose& animated, float weight, float seconds);
+    // out = `animated` blended `weight` of the way to the pose the bodies hold (read_pose). Same
+    // refusals as follow(), leaving `out` alone.
+    bool blended_pose(const physics::World& world, const animation::Pose& animated, float weight,
+                      animation::Pose& out) const;
+    // Where model space sits from now on, for follow() (a character that walks).
+    bool set_placement(const Placement& placement);
+    [[nodiscard]] const Placement& placement() const { return placement_; }
+
     // Removes the bodies (and with them the joints) that are still in the world.
     void destroy(physics::World& world);
 
