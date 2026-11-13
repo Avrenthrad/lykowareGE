@@ -179,7 +179,8 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
 - [ ] **07.11** Complete input rebinding and controller support.
 - [ ] **07.12** Complete logging, crash reports, profiling and diagnostic capture.
 - [ ] **07.13** Add replay/determinism where required.
-- [ ] **07.14** Maintain co-op boundaries; implement/test networking if committed to release scope.
+- [x] **07.14** Maintain co-op boundaries; implement/test networking if committed to release scope.
+  - [PR #88](https://github.com/Avrenthrad/lykowareGE/pull/88): concatenated box-command replay at 30/60/144 Hz and deliberate mutated-stream rejection; all five checks passed on `1641ac3` ([run 43347414176](https://github.com/Avrenthrad/lykowareGE/actions/runs/43347414176)). Networking was not implemented because it is not committed (ADR 0021).
 - [ ] **07.15** Audit dependencies, licences and installed packages.
 
 ## 8. Custom editor — Track E, after the core gate
