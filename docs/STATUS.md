@@ -14,7 +14,7 @@ Branch `ccr-178f7225-atvbfx-fluid`, based on `main` after #83. [ADR 0074](adr/00
 - **Tests:**
   - new `player.directions` on real ground, through the fixture: no velocity, heading, facing or travel jumps; cuts inside the pivot angle keep full speed and never pivot, wider ones pivot once; every heading is taken (widest gap under 5 degrees, where eight-way would leave 45); the heading follows a sweeping stick within 5 degrees and a turning camera within 2; aiming, the body faces the camera within half a degree and strafes, backs and goes diagonally at the scaled speeds; heavy pivots only to reverse, sharp on every cut past 75 degrees; identical at 30, 60, 144 and 241 frames a second;
   - `locomotion.motor` and `player.locomotion` extended (facing, strafe and backward scaling, travel, body-frame lean, aim and walk input).
-- **Still to come in this PR:** sandbox options to feel it (`--agility`, `--locomotion FILE`, `--directions`), being written by a helper.
+- **Sandbox:** `--play` takes `--agility X`, `--locomotion FILE` and `--directions` (drives the player through the fixture; repeatable offscreen). The direction fixture gives 6 pivots at agility 1 and 1 at agility 0. `sandbox.play` checks the refusals, a full fixture run and its repeatability; 10 of 10 deliberate faults in the new options caught.
 
 ## Locomotion motor — 02.17b (merged with #83, 13 November 2026)
 
