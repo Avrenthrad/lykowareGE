@@ -21,6 +21,7 @@ with tempfile.TemporaryDirectory(prefix='lyko character ') as folder:
         return r
     r=run('--model',asset);data=json.loads(r.stdout);assert data['motion_authority']=='controller' and data['turn_degrees_per_second']==720
     assert data['foot_policy']==dict(align_normals=False,max_slope_degrees=35,pelvis=False,max_pelvis_drop=.15,locking=False,max_plant_distance=.35,heading=False,max_heading_degrees=60,single_support=False,balance_shift=False,max_balance_shift=.04)
+    assert data['locomotion'] is None
     assert data['ok'] and data['joints']==1 and data['clips'][0]['translated_root']
     original=asset.read_bytes();r=run('--model',asset,'--output',asset,ok=False);assert asset.read_bytes()==original and not json.loads(r.stdout)['ok']
     absent=root/'absent.gltf';run('--model',absent,'--output',absent,ok=False);assert not absent.exists()
@@ -29,6 +30,17 @@ with tempfile.TemporaryDirectory(prefix='lyko character ') as folder:
     r=run('--profile',profile,'--compare-model',asset);data=json.loads(r.stdout)
     assert data['compatibility']['compatible'] and math.isclose(data['alignment']['scale'],.25,abs_tol=1e-7)
     assert math.isclose(data['capsule']['eye_height'],1.7,abs_tol=1e-6) and data['capsule']['height']==2
+    profile.write_text(json.dumps(dict(version=1,model=asset.name,locomotion=dict(agility=.75,gaits=dict(walk=1.5,jog=3,run=5,sprint=8),variants=dict(combat=dict(agility=.9),sneak={})))))
+    data=json.loads(run('--profile',profile,'--compare-model',asset).stdout)
+    assert data['locomotion']=={'agility':.75,'gaits':{'walk':1.5,'jog':3,'run':5,'sprint':8},'variants':['combat','sneak']},data['locomotion']
+    profile.write_text(json.dumps(dict(version=1,model=asset.name,locomotion={})))
+    data=json.loads(run('--profile',profile).stdout);assert data['locomotion']['agility']==.5 and data['locomotion']['variants']==[]
+    profile.write_text(json.dumps(dict(version=1,model=asset.name,locomotion=dict(agility=2))))
+    data=json.loads(run('--profile',profile,ok=False).stdout);assert not data['ok'] and data['error'].startswith('Character profile locomotion: ')
+    profile.write_text('{"version":1,"model":"hero.gltf","locomotion":{"agility":0.5,"agility":0.6}}')
+    assert 'Character profile locomotion: Duplicate' in run('--profile',profile,ok=False).stdout
+    profile.write_text(json.dumps(dict(version=1,model=asset.name,height=2,run_clip='breathe')))
+    assert json.loads(run('--profile',profile).stdout)['locomotion'] is None
     for fields in [dict(yaw_degrees=181),dict(capsule_height=2,capsule_radius=1),dict(eye_height=2),dict(run_clip='missing'),dict(capsule_height=True)]:
         profile.write_text(json.dumps(dict(version=1,model=asset.name,**fields)))
         data=json.loads(run('--profile',profile,ok=False).stdout);assert not data['ok']

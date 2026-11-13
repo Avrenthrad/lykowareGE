@@ -615,6 +615,7 @@ public:
     void reset_animation()
     {
         playback_.reset();
+        last_feet_.reset();
         if (foot_) { foot_->reset(); }
     }
 
@@ -634,7 +635,24 @@ public:
         const auto state = player.state();
         const float speed = state.ground == lykoware::physics::GroundState::OnGround
             ? std::hypot(state.velocity.x, state.velocity.z) : 0.F;
-        playback_.advance_character(asset_, seconds, state);
+        if (const auto* motor = player.locomotion()) {
+            // Stride matching wants the speed the feet really covered, not the speed asked for. The
+            // drawn feet are that: what the viewer sees move between two frames. A jump of position
+            // (respawn, teleport), a stopped clock or a first frame has no meaningful speed, so the
+            // physics state's horizontal velocity stands in.
+            float actual = std::hypot(state.velocity.x, state.velocity.z);
+            if (last_feet_ && seconds > 1e-4F) {
+                const float drawn_speed = static_cast<float>(std::hypot(feet.x - last_feet_->x, feet.z - last_feet_->z)) / seconds;
+                if (drawn_speed < 30.F) { actual = drawn_speed; }
+            }
+            last_feet_ = feet;
+            const bool grounded = state.ground == lykoware::physics::GroundState::OnGround;
+            playback_.advance_motor(asset_, seconds, *motor, grounded ? actual : 0.F, grounded, state.velocity.y);
+            ++motor_frames_;
+        } else {
+            last_feet_.reset();
+            playback_.advance_character(asset_, seconds, state);
+        }
         ++motion_frames_[static_cast<std::size_t>(playback_.selector.state())];
         if (playback_.used_fallback) { ++motion_fallback_frames_; }
         std::span<const lykoware::animation::JointPose> final_pose=playback_.blended;
@@ -688,7 +706,8 @@ public:
         for (std::size_t i = 0; i < motion_frames_.size(); ++i) {
             motion += " " + std::string(locomotion::name(static_cast<locomotion::State>(i))) + "=" + std::to_string(motion_frames_[i]);
         }
-        lykoware::log(lykoware::LogLevel::info, motion + " fallback_frames=" + std::to_string(motion_fallback_frames_));
+        lykoware::log(lykoware::LogLevel::info, motion + " fallback_frames=" + std::to_string(motion_fallback_frames_)
+                                                    + " motor_frames=" + std::to_string(motor_frames_));
         if (foot_) {
             const auto& s=foot_->stats();
             lykoware::log(lykoware::LogLevel::info,"Foot IK diagnostics: frames="+std::to_string(s.frames)
@@ -713,6 +732,9 @@ private:
         return hash;
     }
     lykoware::animation::Pose corrected_;
+    std::optional<lykoware::math::DVec3> last_feet_;
+    // Frames animated from the locomotion motor (stride matching, ADR 0074).
+    std::uint64_t motor_frames_ = 0;
     std::vector<lykoware::math::Mat4> socket_poses_;
     std::string socket_error_;
     std::uint64_t foot_applied_frames_=0;
@@ -1288,6 +1310,11 @@ int run_window(const std::vector<std::string>& args)
         for(std::size_t i=0;i<options.locomotion_clips.size();++i){options.locomotion_clips[i]=profile.clips[i+2];}
         options.character_height=profile.height;options.bones=profile.bones;
         options.foot_ik=profile.foot_ik;options.foot_clearance=profile.foot_clearance;
+        // A profile's locomotion object moves the player by the motor, unless --locomotion or
+        // --agility already chose a profile (those apply on top of the defaults, not the file's).
+        if (profile.locomotion && !options.locomotion) {
+            options.locomotion = profile.locomotion;
+        }
     }
     options.character_settings.model=utf8_path(options.character);
     options.character_settings.height=options.character_height;

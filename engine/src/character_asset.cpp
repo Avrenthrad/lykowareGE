@@ -39,18 +39,20 @@ bool decode_profile(std::string_view text,const std::filesystem::path& directory
     if(text.size()>65536){return fail(error,"Character profile exceeds 64 KiB");}
     try {
         std::array<std::set<std::string>,9> keys;
+        std::string top_key; // the root member being parsed, to name the subtree of a duplicate key
         const auto j=Json::parse(text,[&](int depth,Json::parse_event_t event,Json& value){
             if(depth>8){throw std::invalid_argument("Character profile nesting exceeds limit");}
             if(event==Json::parse_event_t::object_start){keys[static_cast<std::size_t>(depth)].clear();}
+            if(event==Json::parse_event_t::key&&depth==1){top_key=value.get<std::string>();}
             if(event==Json::parse_event_t::key&&!keys[static_cast<std::size_t>(depth-1)].insert(value.get<std::string>()).second){
-                throw std::invalid_argument(depth==1?"Duplicate character profile key":"Duplicate character bone key");
+                throw std::invalid_argument(depth==1?"Duplicate character profile key":(top_key=="locomotion"?"Character profile locomotion: Duplicate locomotion profile key":"Duplicate character bone key"));
             }
             return true;
         });
         if(!j.is_object()||!j.contains("version")||!j["version"].is_number_integer()||j["version"]!=1
             ||!j.contains("model")||!j["model"].is_string()){return fail(error,"Character profile requires version 1 and model string");}
         const std::set<std::string> allowed{"version","model","idle_clip","walk_clip","run_clip","jump_clip","fall_clip","land_clip",
-            "animation_graph","motion_authority","turn_degrees_per_second","height","yaw_degrees","capsule_height","capsule_radius","eye_height","bones","foot_ik","foot_clearance","foot_align_normals","foot_max_slope_degrees","foot_pelvis","foot_max_pelvis_drop","foot_locking","foot_max_plant_distance","foot_heading_lock","foot_max_heading_degrees","foot_pelvis_single_support","foot_balance_shift","foot_max_balance_shift"};
+            "animation_graph","motion_authority","turn_degrees_per_second","height","yaw_degrees","capsule_height","capsule_radius","eye_height","bones","foot_ik","foot_clearance","foot_align_normals","foot_max_slope_degrees","foot_pelvis","foot_max_pelvis_drop","foot_locking","foot_max_plant_distance","foot_heading_lock","foot_max_heading_degrees","foot_pelvis_single_support","foot_balance_shift","foot_max_balance_shift","locomotion"};
         for(const auto& item:j.items()){if(!allowed.contains(item.key())){return fail(error,"Unknown character profile key: "+item.key());}}
         if(j.contains("motion_authority")&&(!j["motion_authority"].is_string()||j["motion_authority"]!=motion_authority)){
             return fail(error,"Only controller motion authority is currently supported; root tracks are visual-only");
@@ -131,6 +133,16 @@ bool decode_profile(std::string_view text,const std::filesystem::path& directory
         if(j.contains("foot_max_balance_shift")){
             if(!result.foot_settings.balance_shift||!j["foot_max_balance_shift"].is_number()){return fail(error,"foot_max_balance_shift requires foot_balance_shift and a number");}
             result.foot_settings.max_balance_shift=j["foot_max_balance_shift"].get<double>();
+        }
+        if(j.contains("locomotion")){
+            const auto locomotion_fail=[&](const std::string& text){return fail(error,"Character profile locomotion: "+text);};
+            if(!j["locomotion"].is_object()){return locomotion_fail("must be an object");}
+            Json body=j["locomotion"];
+            if(body.contains("version")){return locomotion_fail("version belongs to the character profile");}
+            body["version"]=1;
+            locomotion::Profile decoded;std::string inner;
+            if(!locomotion::decode_profile(body.dump(),decoded,inner)){return locomotion_fail(inner);}
+            result.locomotion=std::move(decoded);
         }
         if(!valid_foot_settings(result.foot_settings,error)){return false;}
         Capsule checked;if(!capsule(result,checked,error)){return false;}

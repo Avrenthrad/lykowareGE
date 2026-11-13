@@ -1,6 +1,7 @@
 #pragma once
 #include <lykoware/gltf.hpp>
 #include <lykoware/ik.hpp>
+#include <lykoware/locomotion.hpp>
 #include <array>
 #include <filesystem>
 #include <optional>
@@ -38,6 +39,9 @@ struct Profile {
     bool foot_ik = false;
     double foot_clearance = .03;
     FootSettings foot_settings;
+    // Optional "locomotion" object: a version 1 locomotion profile without its own version
+    // (ADR 0074). Absent means the caller's default motor profile.
+    std::optional<locomotion::Profile> locomotion;
 };
 struct Alignment { float scale=1.F; math::Vec3 offset{}; math::Quat rotation{}; };
 struct Capsule { float height=1.8F, radius=.3F, cylinder_half_height=.6F, eye_height=1.6F; };

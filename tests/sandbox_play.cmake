@@ -43,6 +43,10 @@ endif()
 if(NOT output MATCHES "Animation: GPU-skinned training mannequin")
     message(FATAL_ERROR "the GPU-skinned mannequin did not initialise")
 endif()
+# Without a locomotion profile no frame is animated from the motor.
+if(NOT output MATCHES "motor_frames=0[^0-9]")
+    message(FATAL_ERROR "without a profile the body must not be animated from the motor")
+endif()
 
 # The locomotion options (ADR 0074): refused unless valid and with --play.
 foreach(refused IN ITEMS "--agility;2" "--agility;x" "--agility;-0.1" "--directions" "--agility;0.5")
@@ -117,6 +121,10 @@ set(end_x "${CMAKE_MATCH_1}")
 set(end_z "${CMAKE_MATCH_3}")
 if(end_x MATCHES "^-?0\\.0" AND end_z MATCHES "^21\\.0")
     message(FATAL_ERROR "--directions: the player did not leave the start (${end_x}, ${end_z})")
+endif()
+# With the motor on, the body is animated from it (stride matching, ADR 0074) on most frames.
+if(NOT output MATCHES "motor_frames=([0-9]+)" OR CMAKE_MATCH_1 LESS 1000)
+    message(FATAL_ERROR "--directions: the body was not animated from the motor (${CMAKE_MATCH_1} frames)")
 endif()
 if(NOT output MATCHES "Play: WASD[^\n]*Ctrl to walk")
     message(FATAL_ERROR "the play help line does not mention Ctrl to walk")

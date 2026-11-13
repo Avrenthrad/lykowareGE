@@ -48,7 +48,9 @@ A locomotion profile is version 1 JSON, at most 64 KiB, read by `locomotion::dec
 - `overrides`: any of those limits set directly for the base;
 - `variants`: up to 16 named variants, each with its own `agility` and `overrides`.
 
-It is not yet read from character profiles; callers pass it to `PlayerConfig::locomotion`. TOML for hand tuning (ADR 0004) waits on the owner's choice of a reader.
+- `strafe_scale`, `backward_scale` (0.1..1): speed multipliers for sideways and backward movement relative to facing.
+
+A character profile may carry the same keys, except `version`, in an optional `"locomotion"` object (`character::Profile::locomotion`, absent means `nullopt`); the character profile's own `version` covers it. The object is decoded by `locomotion::decode_profile`, so every rule above applies, and any refusal (wrong type, unknown key, a `version` key, out-of-range value, duplicate key) is reported as `Character profile locomotion: <reason>`; the 64 KiB limit covers the whole character profile. `lyko inspect-character` reports `locomotion` as `null` or as `{agility, gaits:{walk,jog,run,sprint}, variants:[names]}`. Callers pass the decoded profile to `PlayerConfig::locomotion`. TOML for hand tuning (ADR 0004) waits on the owner's choice of a reader.
 
 ## Character alignment and inspection (ADR 0063)
 

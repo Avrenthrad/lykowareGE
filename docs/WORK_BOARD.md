@@ -1,5 +1,18 @@
 # Shared work board
 
+## Animation on the motor, and locomotion in character profiles — 02.17d (PR 4 of 5, open, 13 November 2026)
+
+Branch `ccr-178f7225-atvbfx-anim`, stacked on PR #85. [ADR 0074](adr/0074-locomotion-feel.md).
+
+- **Stride matching:** the mannequin's walk and run are now stance-then-swing gaits whose authored ground speed is measured from the clips (walk 1.76 m/s, run 5.0 m/s). `Playback::advance_motor` plays them at the speed the feet really covered divided by the authored speed, so the stance foot stays put.
+  - Worst stance-foot world speed at 1.6 / 3.2 / 5.0 / 7.0 m/s: 0.064 / 0.120 / 0.031 / 0.092 m/s with matching, against 1.80 / 0.51 / 1.26 / 1.76 with the old speed guess.
+  - Gaits blend by speed (sprint is the run clip faster); the stride holds still while the motor pivots; the torso leans by the motor's lean, bounded; jump, fall and land are unchanged.
+  - The sandbox body uses it whenever the player has a motor; `sandbox.play` checks a `--directions` run is animated from the motor (`motor_frames`) and a plain run is not.
+- **Character profiles** take an optional `locomotion` object (the locomotion profile's keys without `version`); `lyko inspect-character` reports it; the sandbox's `--character-profile` uses it.
+- **Tests:** new `animation.stride` (authored speeds, no stance slide with a positive control, no pops across speed ramps and steps, pivot hold, lean); `character.assets` and `character.inspect_cli` extended.
+- **Deliberate breaks:** 10 of 10 (animation) and 9 of 9 (profiles) caught by the helpers; two first missed and strengthened.
+- **Not yet:** authored start, stop and pivot clips (the stride holds during a pivot instead); imported characters' authored speeds from data; the owner's feel review.
+
 ## NPCs on the motor — 02.17e (PR 5 of 5, open, 13 November 2026)
 
 Branch `ccr-178f7225-atvbfx-npc`, stacked on PR #84. [ADR 0074](adr/0074-locomotion-feel.md).
