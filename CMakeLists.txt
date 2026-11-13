@@ -612,6 +612,11 @@ if(BUILD_TESTING)
         "${CMAKE_SOURCE_DIR}/samples/scenes/falling-crates.commands.json"
         "${CMAKE_SOURCE_DIR}/samples/scenes/falling-crates.lua")
     set_tests_properties(scene.script PROPERTIES TIMEOUT 120)
+    add_test(NAME scene.script_omitted_tick COMMAND lykoware_scene_script_test
+        "${CMAKE_SOURCE_DIR}/samples/scenes/falling-crates.scene.json"
+        "${CMAKE_SOURCE_DIR}/samples/scenes/falling-crates.commands.json"
+        "${CMAKE_SOURCE_DIR}/samples/scenes/falling-crates.lua" --omit-command-tick)
+    set_tests_properties(scene.script_omitted_tick PROPERTIES TIMEOUT 120 WILL_FAIL TRUE)
 
     add_executable(lykoware_ecs_test tests/ecs.cpp)
     target_link_libraries(lykoware_ecs_test PRIVATE lykoware::engine)
