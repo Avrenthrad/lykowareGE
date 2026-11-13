@@ -8,12 +8,12 @@ Tick only after the PR is merged with all five CI checks green. One line of note
 
 - [x] `02.17d` remainder (clips + imported speeds) — #89 merged `7e67a06`; `02.17` parent ticked.
 - [ ] `02.11b-runtime-scale` — fixture merged #92 `74009df`; waiting: **Joshua runs this** (`lykoware_ik_runtime_scale --characters 500 --frames 600 --csv ik_scale.csv`, Release).
-- [ ] `02.14` camera transitions
+- [x] `02.14` camera transitions — merged #96 (89dc40e)
 - [ ] `07.03` lighting/shadows/materials/transparency/post (lettered slices)
 - [ ] `07.04` visibility, batching, GPU resources
 - [ ] `07.05` environment rendering
 - [ ] `06.10` pipeline warmup (world-scale half: **Joshua runs this**)
-- [ ] `02.12b` → `02.12c` → `02.12d` → `02.13` ragdolls — unpaused (02.17d merged); next after 02.14
+- [ ] `02.12b` → `02.12c` → `02.12d` → `02.13` ragdolls — unpaused (02.17d merged); next
 - [ ] `06.08` — blocked on GPT `06.01`, `06.04`
 - [ ] `02.16` gates (perf run: **Joshua runs this**)
 
@@ -151,8 +151,10 @@ Blocked on `02.12d`. Motors are this ID, not `02.12` (ADR 0073).
 
 Not blocked on ragdolls. `follow_camera.hpp` (ADR 0044) stays the camera. Refine it. Combat lock-on is Grok's `03.03`; do not add it here.
 
-- [ ] A transition between first and third person that does not pass through a wall, and does not pop. Done when: an obstruction test and a transition test pass, and today's follow behavior stays when the new path is off.
-- [ ] Standard close. Done when: `02.14` is ticked.
+- [x] A transition between first and third person that does not pass through a wall, and does not pop. Done when: an obstruction test and a transition test pass, and today's follow behavior stays when the new path is off.
+- [x] Standard close. Done when: `02.14` is ticked.
+
+Merged in #96 (89dc40e): `FollowCameraConfig::transition_speed`, ADR 0075; test `follow_camera` covers transitions, walls and the speed-0 pop.
 
 ### 8. `07.03` — lighting, shadows, materials, transparency, post
 

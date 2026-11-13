@@ -100,7 +100,7 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
   - [ ] **02.12c** Build a ragdoll from a skeleton (one body per bone, joints with limits) and read a pose back from it — not started.
   - [ ] **02.12d** Blend between animation and physics, in the sample and replay — not started.
 - [ ] **02.13** Add stumble, recovery and active ragdoll.
-- [ ] **02.14** Refine first/third-person camera transitions.
+- [x] **02.14** Refine first/third-person camera transitions. Evidence: #96 (89dc40e), ADR 0075, `follow_camera` test.
 - [ ] **02.15** Validate character feel on Windows hardware.
 - [ ] **02.16** Complete character correctness and performance gates.
 - [x] **02.17** Locomotion feel for players and NPCs (owner request, 12 November 2026; ADR 0074). Added after 02.16 was numbered; done before 02.12b–d by the owner's order.
