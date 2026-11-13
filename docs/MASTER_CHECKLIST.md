@@ -97,7 +97,7 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
 - [ ] **02.12** Add ragdolls and animation/physics blending. **Partial:** joints merged with #81; the parts below remain.
   - [x] **02.12a** Joints between physics bodies (fixed, hinge, swing-twist) behind the owned API — ADR 0073; `physics.joints`, 29 of 29 deliberate breaks caught, 88/88 each native profile and all five hosted checks; merged with #81.
   - [x] **02.12b** Body mass, and moving a body to a pose. Evidence: #99 (`1e65373`), ADR 0078, `physics.body_pose`.
-  - [ ] **02.12c** Build a ragdoll from a skeleton (one body per bone, joints with limits) and read a pose back from it — not started.
+  - [x] **02.12c** Build a ragdoll from a skeleton (one body per bone, joints with limits) and read a pose back from it. Evidence: #102 (`e81568b`), ADR 0079, `physics.ragdoll`.
   - [ ] **02.12d** Blend between animation and physics, in the sample and replay — not started.
 - [ ] **02.13** Add stumble, recovery and active ragdoll.
 - [x] **02.14** Refine first/third-person camera transitions. Evidence: #96 (89dc40e), ADR 0075, `follow_camera` test.

@@ -13,7 +13,7 @@ Tick only after the PR is merged with all five CI checks green. One line of note
 - [ ] `07.04` visibility, batching, GPU resources
 - [ ] `07.05` environment rendering
 - [ ] `06.10` pipeline warmup (world-scale half: **Joshua runs this**)
-- [ ] `02.12b` → `02.12c` → `02.12d` → `02.13` ragdolls — 02.12b merged #99 (`1e65373`); 02.12c next
+- [ ] `02.12b` → `02.12c` → `02.12d` → `02.13` ragdolls — 02.12b merged #99 (`1e65373`); 02.12c merged #102 (`e81568b`); 02.12d next
 - [ ] `06.08` — blocked on GPT `06.01`, `06.04`
 - [ ] `02.16` gates (perf run: **Joshua runs this**)
 
@@ -127,11 +127,13 @@ Merged in #99 (`1e65373`): `BodyDesc::mass`, `World::mass`, `World::drive_to_pos
 
 ### 4. `02.12c` — ragdoll from a skeleton, pose read back
 
-Blocked on `02.12b`.
+Unblocked: `02.12b` merged.
 
-- [ ] ADR: one body per bone, joints from `02.12a` with limits, and a pose read back from the bodies. Done when: the ADR names limits, what a missing bone does, and that the ragdoll's lifetime follows the world.
-- [ ] Build and read back on the mannequin and on one rig from `animation.rig_acceptance`. Done when: the round trip matches within a stated tolerance, and a zero-length bone or a reversed limit is refused.
-- [ ] Standard close. Done when: `02.12c` is ticked. `02.12` stays open.
+- [x] ADR: one body per bone, joints from `02.12a` with limits, and a pose read back from the bodies. Done when: the ADR names limits, what a missing bone does, and that the ragdoll's lifetime follows the world.
+- [x] Build and read back on the mannequin and on one rig from `animation.rig_acceptance`. Done when: the round trip matches within a stated tolerance, and a zero-length bone or a reversed limit is refused.
+- [x] Standard close. Done when: `02.12c` is ticked. `02.12` stays open.
+
+Merged in #102 (`e81568b`): `ragdoll::Ragdoll`, ADR 0079; test `physics.ragdoll` (mannequin and all `rig_variants` rigs, round trip within 1e-5 rad).
 
 ### 5. `02.12d` — blend animation and physics
 
