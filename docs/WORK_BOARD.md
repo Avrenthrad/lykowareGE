@@ -2,7 +2,7 @@
 
 ## Locomotion PRs #84–#86 merged (13 November 2026)
 
-The three sections below were written while the PRs were open. They merged the same day. 02.17c and 02.17e are done. 02.17d still needs authored start, stop and pivot clips and imported authored speeds. Ragdoll parts 02.12b–d stay paused until that remainder lands, or until Joshua reorders. The active split of remaining engine work is [docs/assignments](assignments/COORDINATION.md).
+The three sections below were written while the PRs were open. They merged the same day. 02.17c and 02.17e are done. 02.17d still needs authored start, stop and pivot clips and imported authored speeds. Ragdoll parts 02.12b–d stay paused until that remainder lands, or until Joshua reorders. The active split of remaining engine work is [docs/assignments](assignments/COORDINATION.md). Those chats stay across steps and squash-merge only their own green PRs at a checkpoint. Older "Joshua merges" notes on this board are past handoffs.
 
 ## Animation on the motor, and locomotion in character profiles — 02.17d (PR 4 of 5, open, 13 November 2026)
 
@@ -341,7 +341,7 @@ Canonical plan: [ROADMAP.md](ROADMAP.md).
 
 Owner-supplied vision is captured in [ENGINE_VISION.md](ENGINE_VISION.md).
 
-Owner rules for every task: small stacked PRs; commit small and often; keep all five CI jobs green; record each decision as an ADR; keep STATUS handoff-ready after every task; Joshua merges; no regenerable generated files in commits; artifact upload stays opt-in and no storage or service is bought; no roadmap box ticked unless truly done.
+Owner rules for every task: small stacked PRs; commit small and often; keep all five CI jobs green; record each decision as an ADR; keep STATUS handoff-ready after every task; assignment chats squash-merge their own green PRs at a checkpoint (see the assignments page); no regenerable generated files in commits; artifact upload stays opt-in and no storage or service is bought; no roadmap box ticked unless truly done.
 
 Check latest main and open PRs before starting. Documents do not automatically synchronize assistants or reserve work.
 

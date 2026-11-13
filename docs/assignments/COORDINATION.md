@@ -1,6 +1,6 @@
 # Engine work split
 
-Joshua owns every merge. Three assistants (Claude, GPT, and Grok) each open a fresh chat, read their own assignment, and tick that file as work lands. This page is the map they share. It is not a second checklist to tick.
+Three assistants (Claude, GPT, and Grok) each stay in one chat across steps, read their own assignment, and tick that file as work lands. This page is the map they share. It is not a second checklist to tick.
 
 | Assistant | File |
 | --- | --- |
@@ -106,8 +106,9 @@ Grok owns `tools/validation/` and prepares the harness, scripts and instructions
 These are also in each assignment file.
 
 - One branch and one pull request per checklist ID. Keep the PR small.
-- Joshua merges every PR. The assistant never merges, never pushes to `main`, and never closes another assistant's PR.
-- Tick a step only when that step is merged-ready: it builds, its tests pass, and CI is green on Windows Debug, Windows Release, and the three Linux presets. A local-only result does not tick the step.
+- Stay in the same chat across steps. Do not checkpoint after every step. Checkpoint only when context is long (about 3–5 PRs) or the assistant is losing track. Do not checkpoint before one PR is open, unless near the context limit.
+- At each checkpoint, before "Checkpoint saved — start a new chat", the assistant squash-merges its own open PRs into `main` only when all five CI checks are green and the PR touches only its assigned items. A red or pending PR stays open and is noted. After the merge, it ticks the item and leaves its one-line note. Never merge another assistant's PR. Never close another assistant's PR. Never force-push `main`. If the merge conflicts, rebase on `main`, re-run CI, and merge only once green.
+- Tick a step only after its squash-merge, and only when it was merged-ready: it builds, its tests pass, and CI is green on Windows Debug, Windows Release, and the three Linux presets. A local-only result, or a red or pending PR, does not tick the step.
 - Add tests with the change. A deliberate failure of the new behavior must be caught.
 - Update the master checklist in the same PR, and only for an ID whose done-condition is fully met. Parents and hardware gates stay open until their notes say they can close.
 - No new third-party dependency, vendored library, or paid service without Joshua's approval. The repository stays on GitHub. No public release, and no Pax or patent filing, from an assistant.
