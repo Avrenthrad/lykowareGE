@@ -89,3 +89,5 @@ Use [the template](TEMPLATE.md). Record context, options, decision/status, contr
 - [0072: The pelvis shifts over the planted foot on uneven ground](0072-balance-shift.md) — Proposed; opt-in `foot_balance_shift`: in single support the pelvis also slides sideways toward the planted foot, as far as it dropped, bounded (`foot_max_balance_shift`).
 - [0073: Joints between physics bodies](0073-physics-joints.md) — Proposed; fixed, hinge and swing-twist joints on `physics::World`, described in world space, not colliding by default; the first part of ragdolls (02.12).
 - [0074: Locomotion feel: one motor for players and NPCs](0074-locomotion-feel.md) — Proposed; acceleration, braking, turn rate by speed, gaits, plant-and-pivot and agility profiles in data; facing separate from heading; physics keeps authority; motion matching stopped for legal review.
+
+- [0077: Bounded jobs with owner fences](0077-owned-job-queue.md) — Explicit worker/pending limits, cancellation, joined shutdown and failure counters (07.09).

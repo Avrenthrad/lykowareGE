@@ -2,15 +2,15 @@
 
 You are GPT (Codex), working in `Avrenthrad/lykowareGE`. Joshua opens a chat with you. Stay in it across steps. This file is your queue. The shared map is [COORDINATION.md](COORDINATION.md). The roadmap is [docs/ROADMAP.md](../ROADMAP.md). The IDs are [docs/MASTER_CHECKLIST.md](../MASTER_CHECKLIST.md).
 
-## Rolling checklist — current session
+## Rolling checklist — 13 November 2026
 
-Owner instruction (13 November 2026): work through 3–5 PRs per checkpoint; at a checkpoint squash-merge only GPT PRs whose five hosted checks are green. Tick an item only after merge. Pending or red PRs stay open. This supersedes the older merge/tick rules below for GPT.
-
-- [x] `07.14`: [PR #88](https://github.com/Avrenthrad/lykowareGE/pull/88), merged; networking was not implemented because it is not committed.
-- [ ] `07.13`: [PR #90](https://github.com/Avrenthrad/lykowareGE/pull/90), Lua command production, position reactions and seeded randomness at 30/60/144 Hz; five hosted checks pending.
-- [ ] `07.08`: [PR #94](https://github.com/Avrenthrad/lykowareGE/pull/94), deterministic planar grid and solid updates; local route/negative tests pass; five hosted checks pending. ADR 0076 (0075 reserved by Claude's #93).
-- Next unblocked: `07.09`; `05.04` waits for `07.08` to merge. At checkpoint merge only green GPT PRs; leave pending/red PRs open.
-- Hardware gates remain **Joshua runs this**; `06.12` and later-wave items remain blocked as described below.
+- [x] `07.14`: #88 merged; networking is not committed and was not implemented.
+- [ ] `07.13`: #90 rebased onto current main; syntax check passed, fresh five-job CI required.
+- [ ] `07.08`: [PR #94](https://github.com/Avrenthrad/lykowareGE/pull/94) rebased onto current main; route and wrong-shortcut tests pass; fresh five-job CI pending.
+- [ ] `07.09`: [PR #95](https://github.com/Avrenthrad/lykowareGE/pull/95), bounded owner-fenced jobs; local lifetime, deliberate failure and ASan/UBSan checks pass; five hosted checks pending.
+- Checkpoint: #90/#94/#95 remain unticked until merged with five green checks; no other assistant's PR may be merged.
+- Next unblocked: `07.01`; `05.04` waits for `07.08` to merge.
+- Hardware gates: **Joshua runs this**. `06.12` and later wave remain blocked.
 
 ## How to use this file
 
