@@ -93,3 +93,4 @@ Use [the template](TEMPLATE.md). Record context, options, decision/status, contr
 
 - [0077: Bounded jobs with owner fences](0077-owned-job-queue.md) — Explicit worker/pending limits, cancellation, joined shutdown and failure counters (07.09).
 - [0078: Body mass, and moving a body to a pose](0078-body-mass-and-pose.md) — Proposed; `BodyDesc::mass` in kg (0 = shape at 1000 kg/m³), `World::mass`, `World::drive_to_pose` by velocities with gravity and damping undone; old hashes unchanged (02.12b).
+- [0079: Ragdoll from a skeleton, pose read back](0079-ragdoll-from-skeleton.md) — Proposed; `ragdoll::Ragdoll`: one capsule per named bone segment, joints with limits to the nearest ancestor bone, one root bone; bodies are the world's; pose read back, bodiless joints keep the animated pose (02.12c).
