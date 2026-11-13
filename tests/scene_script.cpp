@@ -3,6 +3,7 @@
 // Usage: lykoware_scene_script_test SCENE.json COMMANDS.json SCRIPT.lua
 // The script and the command file are the falling-crates samples, which must give the same scene.
 
+#include <lykoware/clock.hpp>
 #include <lykoware/scene.hpp>
 #include <lykoware/scene_script.hpp>
 
@@ -66,7 +67,7 @@ std::vector<std::uint64_t> replay(const scene::Description& description, const s
 
 // Hashes after every tick of a run driven by a script, and the commands it recorded.
 std::vector<std::uint64_t> scripted(const scene::Description& description, std::string_view source, std::uint64_t ticks,
-                                    std::vector<scene::Command>* recorded = nullptr)
+                                    std::vector<scene::Command>* recorded = nullptr, int rate = 60, bool omit_command_tick = false)
 {
     std::string error;
     auto world = scene::Scene::create(description, error);
@@ -76,10 +77,28 @@ std::vector<std::uint64_t> scripted(const scene::Description& description, std::
         expect(false, "the script starts: " + error);
         return hashes;
     }
-    while (world->tick() < ticks) {
-        expect(driver->run_tick(error), "on_tick runs: " + error);
-        expect(world->advance_tick(error), "the scene advances");
-        hashes.push_back(world->state_hash());
+    auto clock = lykoware::FixedStep::create({}, error);
+    if (!clock) {
+        expect(false, "the fixed clock starts: " + error);
+        return hashes;
+    }
+    std::int64_t elapsed = 0;
+    for (std::int64_t frame = 1; world->tick() < ticks; ++frame) {
+        const auto end = frame * 1'000'000'000 / rate;
+        const auto steps = clock->advance(end - elapsed);
+        elapsed = end;
+        expect(steps.dropped_ns == 0, "the script fixture drops no simulation time");
+        for (std::uint32_t i = 0; i < steps.ticks && world->tick() < ticks; ++i) {
+            expect(world->tick() == steps.first_tick + i, "script and clock ticks agree");
+            if (!omit_command_tick || world->tick() != 10) {
+                expect(driver->run_tick(error), "on_tick runs: " + error);
+            }
+            expect(world->advance_tick(error), "the scene advances");
+            hashes.push_back(world->state_hash());
+        }
+        const auto before = world->state_hash();
+        static_cast<void>(world->presentation(steps.alpha));
+        expect(world->state_hash() == before, "presentation does not change the scripted scene");
     }
     if (recorded != nullptr) {
         *recorded = driver->commands();
@@ -97,7 +116,13 @@ void test_script_matches_command_file(const scene::Description& description,
     expect(scene::encode_commands(recorded) == scene::encode_commands(file_commands),
            "the script records exactly the command file's commands");
     expect(replay(description, recorded, 120) == by_script, "replaying the recording gives the same scene");
-    expect(scripted(description, source, 120) == by_script, "a second run of the script is identical");
+    for (int rate : {30, 60, 144}) {
+        std::vector<scene::Command> at_rate;
+        expect(scripted(description, source, 120, &at_rate, rate) == by_script,
+               "script states match at 30/60/144 Hz");
+        expect(scene::encode_commands(at_rate) == scene::encode_commands(recorded),
+               "script commands match at 30/60/144 Hz");
+    }
 }
 
 void test_reading_and_reacting(const scene::Description& description)
@@ -126,6 +151,35 @@ end
     }
     expect(rising, "commands are numbered 1, 2, 3... in tick order");
     expect(replay(description, recorded, 240) == hashes, "a reacting script replays from its recording");
+    for (int rate : {30, 60, 144}) {
+        std::vector<scene::Command> at_rate;
+        expect(scripted(description, source, 240, &at_rate, rate) == hashes,
+               "position-reactive script states match at 30/60/144 Hz");
+        expect(scene::encode_commands(at_rate) == scene::encode_commands(recorded),
+               "position-reactive script records the same ticks and commands");
+    }
+}
+
+void test_seeded_random(const scene::Description& description)
+{
+    constexpr std::string_view source = R"lua(
+function on_tick(tick)
+  if tick % 10 == 0 then
+    set_velocity("green", {math.random() * 2 - 1, 3 + math.random(), 0})
+  end
+end
+)lua";
+    std::vector<scene::Command> recorded;
+    const auto reference = scripted(description, source, 120, &recorded);
+    expect(recorded.size() == 12, "seeded fixture produces twelve commands");
+    expect(replay(description, recorded, 120) == reference, "seeded results replay without Lua");
+    for (int rate : {30, 60, 144}) {
+        std::vector<scene::Command> at_rate;
+        expect(scripted(description, source, 120, &at_rate, rate) == reference,
+               "seeded random script states match at 30/60/144 Hz in this build");
+        expect(scene::encode_commands(at_rate) == scene::encode_commands(recorded),
+               "seeded random commands match at every frame rate");
+    }
 }
 
 void test_errors(const scene::Description& description)
@@ -212,7 +266,7 @@ assert(position("red") == nil, "a destroyed entity has no position")
 
 int main(int argc, char* argv[])
 {
-    if (argc != 4) {
+    if (argc != 4 && argc != 5) {
         std::cerr << "usage: lykoware_scene_script_test SCENE.json COMMANDS.json SCRIPT.lua\n";
         return EXIT_FAILURE;
     }
@@ -223,7 +277,17 @@ int main(int argc, char* argv[])
         std::cerr << "FAIL: the samples decode: " << error << '\n';
         return EXIT_FAILURE;
     }
+    if (argc == 5) {
+        if (std::string_view(argv[4]) != "--omit-command-tick") {
+            return EXIT_FAILURE;
+        }
+        const auto reference = replay(description, commands, 120);
+        expect(scripted(description, read(argv[3]), 120, nullptr, 144, true) == reference,
+               "deliberately omitted script tick must fail the per-tick equality oracle");
+        return g_failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
+    }
     test_script_matches_command_file(description, commands, read(argv[3]));
+    test_seeded_random(description);
     test_reading_and_reacting(description);
     test_errors(description);
     if (g_failures != 0) {
