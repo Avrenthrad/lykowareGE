@@ -2,6 +2,16 @@
 
 You are GPT (Codex), working in `Avrenthrad/lykowareGE`. Joshua opens a chat with you. Stay in it across steps. This file is your queue. The shared map is [COORDINATION.md](COORDINATION.md). The roadmap is [docs/ROADMAP.md](../ROADMAP.md). The IDs are [docs/MASTER_CHECKLIST.md](../MASTER_CHECKLIST.md).
 
+## Rolling checklist — current session
+
+Owner instruction (13 November 2026): work through 3–5 PRs per checkpoint; at a checkpoint squash-merge only GPT PRs whose five hosted checks are green. Tick an item only after merge. Pending or red PRs stay open. This supersedes the older merge/tick rules below for GPT.
+
+- [x] `07.14`: [PR #88](https://github.com/Avrenthrad/lykowareGE/pull/88), merged; networking was not implemented because it is not committed.
+- [ ] `07.13`: [PR #90](https://github.com/Avrenthrad/lykowareGE/pull/90), Lua command production, position reactions and seeded randomness at 30/60/144 Hz; five hosted checks pending.
+- [ ] `07.08`: [PR #94](https://github.com/Avrenthrad/lykowareGE/pull/94), deterministic planar grid and solid updates; local route/negative tests pass; five hosted checks pending. ADR 0076 (0075 reserved by Claude's #93).
+- Next unblocked: `07.09`; `05.04` waits for `07.08` to merge. At checkpoint merge only green GPT PRs; leave pending/red PRs open.
+- Hardware gates remain **Joshua runs this**; `06.12` and later-wave items remain blocked as described below.
+
 ## How to use this file
 
 1. Read this file, the coordination page, the roadmap, and the top of [docs/STATUS.md](../STATUS.md).
@@ -90,6 +100,7 @@ ADR 0021: the simulation is deterministic and driven by per-tick commands so 2�
 Scene replay exists (ADR 0031). Extend it where a gap would let gameplay diverge. Do not claim every future system is covered.
 
 - [ ] Name the systems this PR puts under replay (the ones on `main` today that still change state off the command stream). Done when: the PR lists them, and each listed system has a 30/60/144 Hz equality test.
+  - [PR #90](https://github.com/Avrenthrad/lykowareGE/pull/90), `gpt/07.13-script-frame-replay`; Lua scene command production, position reactions and seeded random results compared at 30/60/144 Hz; deliberate omitted-tick probe. Hosted checks pending; no broader determinism claim.
 - [ ] Standard close. Done when: `07.13` is ticked for the systems you listed. A later system adds its own replay test in its own PR rather than reopening this ID without a checklist note.
 
 ### 3. `07.08` — generate navigation and update it
@@ -97,6 +108,7 @@ Scene replay exists (ADR 0031). Extend it where a gap would let gameplay diverge
 Grok's combat can ship without this, using `seek`. Your API is what they switch to.
 
 - [ ] ADR: a nav representation, a query (from, to, agent radius), and an update when a solid is added or removed. Done when: the ADR says the query does not write physics, what an unreachable goal returns, and that results are deterministic for the same solids.
+  - [PR #94](https://github.com/Avrenthrad/lykowareGE/pull/94), `gpt/07.08-navigation-grid`; ADR 0076 and `navigation.hpp` planar grid, dynamic solids and independent route validator; hosted checks pending. API: `Grid::query(Point from, Point to, double agent_radius) const`.
 - [ ] A fixture: a route around a block, a blocked route, and a route that changes after a solid is added. Done when: all three are tested, and a deliberate wrong shortcut fails the test.
 - [ ] Standard close. Done when: `07.08` is ticked. Tell Grok the header and the query signature in the PR.
 
