@@ -60,6 +60,25 @@ struct Frame {
 };
 
 // A joint's world frame from its parent's (or the placement's) and its local pose.
+bool valid_placement(const Placement& placement)
+{
+    const Quat q = placement.rotation;
+    return finite(placement.position) && std::isfinite(placement.scale) && placement.scale > 0.F && std::isfinite(q.x)
+           && std::isfinite(q.y) && std::isfinite(q.z) && std::isfinite(q.w)
+           && math::length(Vec3{q.x, q.y, q.z}) + std::abs(q.w) >= 1e-6F;
+}
+
+bool valid_weight(float weight) { return std::isfinite(weight) && weight >= 0.F && weight <= 1.F; }
+
+// t of the way from a to b along the shorter arc (normalised linear blend: exact at 0 and 1).
+Quat toward(Quat a, Quat b, float t)
+{
+    const float sign = a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w < 0.F ? -1.F : 1.F;
+    const float u = 1.F - t;
+    return math::normalize({u * a.x + t * sign * b.x, u * a.y + t * sign * b.y, u * a.z + t * sign * b.z,
+                            u * a.w + t * sign * b.w});
+}
+
 Frame child_of(const Frame& parent, const animation::JointPose& local, float scale)
 {
     return {add(parent.position, rotate(parent.rotation, mul(widen(local.translation), scale))),
@@ -81,10 +100,7 @@ std::optional<Ragdoll> Ragdoll::create(physics::World& world, const animation::S
         error = "the pose has " + std::to_string(pose.size()) + " joints; the skeleton has " + std::to_string(count);
         return std::nullopt;
     }
-    if (!finite(placement.position) || !std::isfinite(placement.scale) || placement.scale <= 0.F
-        || !std::isfinite(placement.rotation.x) || !std::isfinite(placement.rotation.y)
-        || !std::isfinite(placement.rotation.z) || !std::isfinite(placement.rotation.w)
-        || math::length(Vec3{placement.rotation.x, placement.rotation.y, placement.rotation.z}) + std::abs(placement.rotation.w) < 1e-6F) {
+    if (!valid_placement(placement)) {
         error = "the placement must be finite, with a non-zero rotation and a scale above 0";
         return std::nullopt;
     }
@@ -271,6 +287,70 @@ bool Ragdoll::read_pose(const physics::World& world, const animation::Pose& anim
         }
     }
     out = std::move(result);
+    return true;
+}
+
+bool Ragdoll::follow(physics::World& world, const animation::Pose& animated, float weight, float seconds)
+{
+    const std::size_t count = parents_.size();
+    if (bodies_.empty() || animated.size() != count || !valid_weight(weight) || !std::isfinite(seconds)
+        || seconds <= 0.F) {
+        return false;
+    }
+    std::vector<physics::BodyState> states;
+    states.reserve(bodies_.size());
+    for (const auto body : bodies_) {
+        const auto state = world.state(body);
+        if (!state) {
+            return false;
+        }
+        states.push_back(*state);
+    }
+    if (weight >= 1.F) {
+        return true; // all physics: the bodies are left to the world
+    }
+    const Frame origin{placement_.position, placement_.rotation};
+    std::vector<Frame> frames(count);
+    for (std::size_t j = 0; j < count; ++j) {
+        const auto parent = parents_[j];
+        frames[j] = child_of(parent ? frames[*parent] : origin, animated[j], placement_.scale);
+    }
+    const float pull = 1.F - weight;
+    for (std::size_t b = 0; b < bodies_.size(); ++b) {
+        const Link& link = links_[b];
+        const Frame& at = frames[link.joint];
+        // Where the body sits when its joint is at the animated frame.
+        const Quat rotation = math::normalize(at.rotation * math::conjugate(link.rotation));
+        const DVec3 position = sub(at.position, rotate(rotation, link.offset));
+        const auto& now = states[b];
+        const DVec3 goal = add(now.position, mul(sub(position, now.position), pull));
+        world.drive_to_pose(bodies_[b], goal, toward(now.rotation, rotation, pull), seconds);
+    }
+    return true;
+}
+
+bool Ragdoll::blended_pose(const physics::World& world, const animation::Pose& animated, float weight,
+                           animation::Pose& out) const
+{
+    if (!valid_weight(weight)) {
+        return false;
+    }
+    animation::Pose physical;
+    if (!read_pose(world, animated, physical)) {
+        return false;
+    }
+    animation::blend(animated, physical, weight, physical);
+    out = std::move(physical);
+    return true;
+}
+
+bool Ragdoll::set_placement(const Placement& placement)
+{
+    if (!valid_placement(placement)) {
+        return false;
+    }
+    placement_ = placement;
+    placement_.rotation = math::normalize(placement.rotation);
     return true;
 }
 

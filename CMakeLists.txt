@@ -330,6 +330,14 @@ if(BUILD_TESTING)
     lykoware_configure_target(lykoware_ragdoll_test)
     add_test(NAME physics.ragdoll COMMAND lykoware_ragdoll_test)
     set_tests_properties(physics.ragdoll PROPERTIES TIMEOUT 60)
+
+    # Blending animation and physics, sample and replay (ADR 0080).
+    add_executable(lykoware_ragdoll_blend_test tests/ragdoll_blend.cpp)
+    target_link_libraries(lykoware_ragdoll_blend_test PRIVATE lykoware::engine)
+    target_include_directories(lykoware_ragdoll_blend_test PRIVATE "${CMAKE_SOURCE_DIR}/samples/course")
+    lykoware_configure_target(lykoware_ragdoll_blend_test)
+    add_test(NAME physics.ragdoll_blend COMMAND lykoware_ragdoll_blend_test)
+    set_tests_properties(physics.ragdoll_blend PROPERTIES TIMEOUT 120)
     set_tests_properties(physics.world PROPERTIES TIMEOUT 120)
 
     # The audio mixer and WAV reader (ADR 0032). Links only the engine; no audio device.
