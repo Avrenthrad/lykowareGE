@@ -29,6 +29,7 @@ add_library(lykoware_engine STATIC
     src/log.cpp
     src/paths.cpp
     src/physics.cpp
+    src/ragdoll.cpp
     src/physics_ecs.cpp
     src/npc.cpp
     src/player.cpp

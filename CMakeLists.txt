@@ -322,6 +322,14 @@ if(BUILD_TESTING)
     lykoware_configure_target(lykoware_physics_body_pose_test)
     add_test(NAME physics.body_pose COMMAND lykoware_physics_body_pose_test)
     set_tests_properties(physics.body_pose PROPERTIES TIMEOUT 60)
+
+    # Ragdolls from a skeleton, pose read back (ADR 0079).
+    add_executable(lykoware_ragdoll_test tests/ragdoll.cpp)
+    target_link_libraries(lykoware_ragdoll_test PRIVATE lykoware::engine)
+    target_include_directories(lykoware_ragdoll_test PRIVATE "${CMAKE_SOURCE_DIR}/samples/course" "${CMAKE_SOURCE_DIR}/tests")
+    lykoware_configure_target(lykoware_ragdoll_test)
+    add_test(NAME physics.ragdoll COMMAND lykoware_ragdoll_test)
+    set_tests_properties(physics.ragdoll PROPERTIES TIMEOUT 60)
     set_tests_properties(physics.world PROPERTIES TIMEOUT 120)
 
     # The audio mixer and WAV reader (ADR 0032). Links only the engine; no audio device.
