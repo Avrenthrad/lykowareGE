@@ -21,6 +21,11 @@ struct FollowCameraConfig {
     // How fast the camera moves back out once the way is clear, in metres per second. Pulling
     // in is immediate.
     float return_speed = 6.F;
+    // First/third-person transitions (02.14). 0 (the default) keeps today's behaviour: a shorter
+    // distance from set_distance() is taken at once. Above 0, a change of distance is a transition:
+    // the camera travels between the old and new distance at this many metres per second, in and
+    // out, along its line of view, so it never pops. Walls still pull it in at once.
+    float transition_speed = 0.F;
     float vertical_fov = 1.0471976F; // 60 degrees
     float near = 0.1F;
 };
@@ -47,8 +52,10 @@ public:
     // yaw wraps to [-pi, pi). Non-finite input is ignored.
     void turn(float yaw_delta, float pitch_delta);
     // Sets the unobstructed distance, clamped to at least 0 (first person). Non-finite input is
-    // ignored.
+    // ignored. With a transition speed this starts a transition (see the config).
     void set_distance(float distance);
+    // True while a transition started by set_distance() is still travelling.
+    [[nodiscard]] bool transitioning() const { return transitioning_; }
 
     // Moves the camera for one frame of `seconds` around `pivot` and returns the view.
     [[nodiscard]] render::Camera update(const physics::World& world, math::DVec3 pivot, float seconds);
@@ -69,12 +76,15 @@ private:
     [[nodiscard]] math::Vec3 back() const;
     // The farthest the camera may be along `back`, given what the probes hit.
     [[nodiscard]] float allowed_distance(const physics::World& world, math::DVec3 pivot, math::Vec3 back) const;
+    // The same, probing out to `reach` metres rather than the configured distance.
+    [[nodiscard]] float allowed_distance(const physics::World& world, math::DVec3 pivot, math::Vec3 back, float reach) const;
 
     FollowCameraConfig config_;
     float yaw_ = 0.F;
     float pitch_ = 0.3F;
     float current_ = 0.F;
     bool placed_ = false;
+    bool transitioning_ = false;
 };
 
 }
