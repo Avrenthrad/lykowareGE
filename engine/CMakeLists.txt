@@ -14,6 +14,7 @@ add_library(lykoware_engine STATIC
     src/animation.cpp
     src/skinning.cpp
     src/audio_spatial.cpp
+    src/navigation_crowd.cpp
     src/navigation.cpp
     src/jobs.cpp
     src/clock.cpp
