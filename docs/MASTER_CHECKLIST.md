@@ -173,13 +173,15 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
 - [ ] **07.05** Add required terrain, foliage, water and environmental rendering.
 - [ ] **07.06** Add UI, text, fonts, localisation and accessibility foundations.
 - [ ] **07.07** Complete audio mixing, spatialisation, streaming and prioritisation.
-- [ ] **07.08** Generate navigation and update it dynamically.
-- [ ] **07.09** Complete jobs, threading, scheduling and resource budgets.
-  - [PR #95](https://github.com/Avrenthrad/lykowareGE/pull/95): bounded owner-fenced queue, joined shutdown, exception counts and lifetime tests (ADR 0077); local lifetime, deliberate failure and ASan/UBSan checks pass; merge and five hosted checks pending. Explicit limits only; hardware budgets remain **Joshua runs this** under `01.11`.
+- [x] **07.08** Generate navigation and update it dynamically.
+  - [PR #94](https://github.com/Avrenthrad/lykowareGE/pull/94) squash-merged as `f3aa5ec`; all five hosted checks passed on `0c5e205`. ADR 0076: deterministic planar routes, radius clearance and solid updates; route and deliberate wrong-shortcut tests.
+- [x] **07.09** Complete jobs, threading, scheduling and resource budgets.
+  - [PR #95](https://github.com/Avrenthrad/lykowareGE/pull/95): bounded owner-fenced queue, joined shutdown, exception counts and lifetime tests (ADR 0077); local lifetime, deliberate failure and ASan/UBSan checks passed; all five hosted checks passed on `94609c3`; squash-merged as `9218589`. Explicit limits only; hardware budgets remain **Joshua runs this** under `01.11`.
 - [ ] **07.10** Add save migrations, recovery and corruption handling.
 - [ ] **07.11** Complete input rebinding and controller support.
 - [ ] **07.12** Complete logging, crash reports, profiling and diagnostic capture.
-- [ ] **07.13** Add replay/determinism where required.
+- [x] **07.13** Add replay/determinism where required.
+  - [PR #90](https://github.com/Avrenthrad/lykowareGE/pull/90) squash-merged as `0d1aa5f`; all five hosted checks passed on `5551616`. Lua scene command production, position reactions and seeded randomness match at 30/60/144 Hz; omitted-tick probe detects divergence. Future systems require their own replay tests.
 - [x] **07.14** Maintain co-op boundaries; implement/test networking if committed to release scope.
   - [PR #88](https://github.com/Avrenthrad/lykowareGE/pull/88): concatenated box-command replay at 30/60/144 Hz and deliberate mutated-stream rejection; all five checks passed on `1641ac3` ([run 43347414176](https://github.com/Avrenthrad/lykowareGE/actions/runs/43347414176)). Networking was not implemented because it is not committed (ADR 0021).
 - [ ] **07.15** Audit dependencies, licences and installed packages.

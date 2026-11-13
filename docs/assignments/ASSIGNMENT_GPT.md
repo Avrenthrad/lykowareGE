@@ -5,11 +5,11 @@ You are GPT (Codex), working in `Avrenthrad/lykowareGE`. Joshua opens a chat wit
 ## Rolling checklist — 13 November 2026
 
 - [x] `07.14`: #88 merged; networking is not committed and was not implemented.
-- [ ] `07.13`: #90 rebased onto current main; syntax check passed, fresh five-job CI required.
-- [ ] `07.08`: [PR #94](https://github.com/Avrenthrad/lykowareGE/pull/94) rebased onto current main; route and wrong-shortcut tests pass; fresh five-job CI pending.
-- [ ] `07.09`: [PR #95](https://github.com/Avrenthrad/lykowareGE/pull/95), bounded owner-fenced jobs; local lifetime, deliberate failure and ASan/UBSan checks pass; five hosted checks pending.
-- Checkpoint: #90/#94/#95 remain unticked until merged with five green checks; no other assistant's PR may be merged.
-- Next unblocked: `07.01`; `05.04` waits for `07.08` to merge.
+- [x] `07.13`: [PR #90](https://github.com/Avrenthrad/lykowareGE/pull/90) squash-merged as `0d1aa5f`; all five hosted checks passed on `5551616`.
+- [x] `07.08`: [PR #94](https://github.com/Avrenthrad/lykowareGE/pull/94) squash-merged as `f3aa5ec`; all five hosted checks passed on `0c5e205`.
+- [x] `07.09`: [PR #95](https://github.com/Avrenthrad/lykowareGE/pull/95) squash-merged as `9218589`; all five hosted checks passed on rebased head `94609c3`. Local lifetime, deliberate failure and ASan/UBSan checks passed.
+- Checkpoint: #90, #94 and #95 squash-merged with five green checks each. No other assistant's PR was merged.
+- Next unblocked in queue: `05.04` (navigation #94 is merged); then `07.01`.
 - Hardware gates: **Joshua runs this**. `06.12` and later wave remain blocked.
 
 ## How to use this file
@@ -99,31 +99,33 @@ ADR 0021: the simulation is deterministic and driven by per-tick commands so 2�
 
 Scene replay exists (ADR 0031). Extend it where a gap would let gameplay diverge. Do not claim every future system is covered.
 
-- [ ] Name the systems this PR puts under replay (the ones on `main` today that still change state off the command stream). Done when: the PR lists them, and each listed system has a 30/60/144 Hz equality test.
-  - [PR #90](https://github.com/Avrenthrad/lykowareGE/pull/90), `gpt/07.13-script-frame-replay`; Lua scene command production, position reactions and seeded random results compared at 30/60/144 Hz; deliberate omitted-tick probe. Hosted checks pending; no broader determinism claim.
-- [ ] Standard close. Done when: `07.13` is ticked for the systems you listed. A later system adds its own replay test in its own PR rather than reopening this ID without a checklist note.
+- [x] Name the systems this PR puts under replay (the ones on `main` today that still change state off the command stream). Done when: the PR lists them, and each listed system has a 30/60/144 Hz equality test.
+  - [PR #90](https://github.com/Avrenthrad/lykowareGE/pull/90), `gpt/07.13-script-frame-replay`; Lua scene command production, position reactions and seeded random results compared at 30/60/144 Hz; deliberate omitted-tick probe. All five hosted checks passed on `5551616`; merged #90. No broader determinism claim.
+- [x] Standard close. Done when: `07.13` is ticked for the systems you listed. A later system adds its own replay test in its own PR rather than reopening this ID without a checklist note.
 
 ### 3. `07.08` — generate navigation and update it
 
 Grok's combat can ship without this, using `seek`. Your API is what they switch to.
 
-- [ ] ADR: a nav representation, a query (from, to, agent radius), and an update when a solid is added or removed. Done when: the ADR says the query does not write physics, what an unreachable goal returns, and that results are deterministic for the same solids.
-  - [PR #94](https://github.com/Avrenthrad/lykowareGE/pull/94), `gpt/07.08-navigation-grid`; ADR 0076 and `navigation.hpp` planar grid, dynamic solids and independent route validator; hosted checks pending. API: `Grid::query(Point from, Point to, double agent_radius) const`.
-- [ ] A fixture: a route around a block, a blocked route, and a route that changes after a solid is added. Done when: all three are tested, and a deliberate wrong shortcut fails the test.
-- [ ] Standard close. Done when: `07.08` is ticked. Tell Grok the header and the query signature in the PR.
+- [x] ADR: a nav representation, a query (from, to, agent radius), and an update when a solid is added or removed. Done when: the ADR says the query does not write physics, what an unreachable goal returns, and that results are deterministic for the same solids.
+  - [PR #94](https://github.com/Avrenthrad/lykowareGE/pull/94), `gpt/07.08-navigation-grid`; ADR 0076 and `navigation.hpp` planar grid, dynamic solids and independent route validator; all five hosted checks passed on `0c5e205`; merged #94. API: `Grid::query(Point from, Point to, double agent_radius) const`.
+- [x] A fixture: a route around a block, a blocked route, and a route that changes after a solid is added. Done when: all three are tested, and a deliberate wrong shortcut fails the test.
+- [x] Standard close. Done when: `07.08` is ticked. Tell Grok the header and the query signature in the PR.
 
 ### 4. `05.04` — scale navigation and avoidance
 
-Blocked on `07.08`. This is the crowd half of the battle slice. The rest of section 5 is Grok's.
+`07.08` is merged (#94), so this is unblocked. This is the crowd half of the battle slice. The rest of section 5 is Grok's.
 
 - [ ] Avoidance for many agents on the nav API, with a fixed seed. Done when: a test with overlapping goals does not let agents occupy the same point, and the result repeats bit for bit in one build.
 - [ ] A count toward the proposed 256 agents (roadmap Phase 5). The timing budget is not agreed until Joshua's `01.11`. Done when: the test runs the count and records time, and the checklist note says the budget tick waits on `01.11` and `05.09` (Grok). Tick `05.04` when avoidance and the count fixture pass, and state that the budget number is still open under those IDs.
 
 ### 5. `07.09` — jobs, threading, scheduling, budgets
 
-- [ ] ADR: a job queue, who may schedule, what runs on the main thread (physics and the command stream stay single-threaded as they are today), and how a job failure is reported. Done when: the ADR forbids a job from writing ECS or physics without a command.
-- [ ] A test that runs N jobs, shuts down without a leak, and refuses a job that outlives its owner. Done when: the shutdown test fails if a job is detached and abandoned.
-- [ ] Standard close. Done when: `07.09` is ticked. Resource budgets that need the RTX 4070 stay under Grok's `01.11`; your tests use explicit limits, not a silent default.
+- [x] ADR: a job queue, who may schedule, what runs on the main thread (physics and the command stream stay single-threaded as they are today), and how a job failure is reported. Done when: the ADR forbids a job from writing ECS or physics without a command.
+- [x] A test that runs N jobs, shuts down without a leak, and refuses a job that outlives its owner. Done when: the shutdown test fails if a job is detached and abandoned.
+- [x] Standard close. Done when: `07.09` is ticked. Resource budgets that need the RTX 4070 stay under Grok's `01.11`; your tests use explicit limits, not a silent default.
+
+  - [PR #95](https://github.com/Avrenthrad/lykowareGE/pull/95): ADR 0077, 256-job drain, owner cancellation/fence, exception counts and capture cleanup; all five hosted checks passed on `94609c3`; merged as `9218589`. Hardware budgets remain **Joshua runs this** under `01.11`.
 
 ### 6. `07.01` — asset identifiers, dependencies, cooked packages
 
