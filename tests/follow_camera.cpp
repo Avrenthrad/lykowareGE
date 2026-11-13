@@ -239,6 +239,113 @@ void test_controls()
     expect(camera.current_distance() == 0.F, "a negative distance is first person");
 }
 
+// 02.14: first/third-person transitions travel the distance instead of popping, and never put
+// the eye through a wall. Off by default, which keeps the pull-in of test_controls.
+struct Track {
+    float worst_step = 0.F;    // the most the eye moved in one frame, metres
+    float worst_turn = 0.F;    // the most the view direction turned in one frame, radians
+    bool through_wall = false; // the eye was ever behind a wall seen from the pivot
+    int frames = 0;            // frames until the camera stopped moving
+};
+
+// Measures from the view the camera last returned (`last`), so the first frame after a change counts.
+Track follow(FollowCamera& camera, const physics::World& world, math::DVec3 pivot, int frames,
+             lykoware::render::Camera& last)
+{
+    Track track;
+    const auto direction = [](const lykoware::render::Camera& view) {
+        return math::normalize(math::Vec3{static_cast<float>(view.target.x - view.eye.x),
+                                          static_cast<float>(view.target.y - view.eye.y),
+                                          static_cast<float>(view.target.z - view.eye.z)});
+    };
+    for (int i = 0; i < frames; ++i) {
+        const auto view = camera.update(world, pivot, 1.F / 60.F);
+        const math::Vec3 moved{static_cast<float>(view.eye.x - last.eye.x), static_cast<float>(view.eye.y - last.eye.y),
+                               static_cast<float>(view.eye.z - last.eye.z)};
+        track.worst_step = std::max(track.worst_step, math::length(moved));
+        track.worst_turn = std::max(track.worst_turn,
+            std::acos(std::clamp(math::dot(direction(view), direction(last)), -1.F, 1.F)));
+        if (math::length(moved) > 0.F) { track.frames = i + 1; }
+        const math::Vec3 out{static_cast<float>(view.eye.x - pivot.x), static_cast<float>(view.eye.y - pivot.y),
+                             static_cast<float>(view.eye.z - pivot.z)};
+        if (math::length(out) > 0.F && world.cast_ray(pivot, out)) { track.through_wall = true; }
+        last = view;
+    }
+    return track;
+}
+
+void test_transitions()
+{
+    const math::DVec3 pivot{0.0, 1.7, 0.0};
+    const float speed = 8.F;
+    const float bound = speed / 60.F + 1e-4F;
+    {
+        // Open ground: third to first person and back, each step no more than speed x dt.
+        auto room = make_room({ground});
+        FollowCameraConfig config;
+        config.transition_speed = speed;
+        FollowCamera camera{config};
+        lykoware::render::Camera view = camera.update(*room.world, pivot, 1.F / 60.F);
+        (void)follow(camera, *room.world, pivot, 5, view);
+        camera.set_distance(0.F);
+        expect(camera.transitioning(), "a distance change starts a transition");
+        const auto in = follow(camera, *room.world, pivot, 120, view);
+        expect(in.worst_step <= bound, "third to first person moves no more than the transition speed allows");
+        expect(in.worst_turn < 1e-3F, "the view direction does not turn while moving in");
+        expect(camera.current_distance() == 0.F && !camera.transitioning(), "the camera reaches first person and stops");
+        expect(in.frames >= 25 && in.frames <= 35, "4 m at 8 m/s takes about half a second");
+        camera.set_distance(4.F);
+        const auto out = follow(camera, *room.world, pivot, 120, view);
+        expect(out.worst_step <= bound && out.worst_turn < 1e-3F, "first to third person does not pop");
+        expect(near(camera.current_distance(), 4.0, 1e-5), "the camera reaches third person");
+    }
+    {
+        // A wall 2 m behind: going out to third person stops short of it and never passes it.
+        const Box wall{{0.0, 1.5, 2.5}, {5.F, 3.F, 0.5F}};
+        auto room = make_room({ground, wall});
+        FollowCameraConfig config;
+        config.transition_speed = speed;
+        config.distance = 0.F;
+        FollowCamera camera{config};
+        lykoware::render::Camera view = camera.update(*room.world, pivot, 1.F / 60.F);
+        (void)follow(camera, *room.world, pivot, 5, view);
+        camera.set_distance(4.F);
+        const auto out = follow(camera, *room.world, pivot, 120, view);
+        expect(!out.through_wall, "a transition out never puts the eye through a wall");
+        expect(camera.current_distance() < 2.5F && camera.current_distance() > .5F, "it stops at the wall");
+        expect(!camera.transitioning(), "the transition ends at the wall");
+    }
+    {
+        // A wall appearing mid-transition still pulls the camera in at once.
+        FollowCameraConfig config;
+        config.transition_speed = 1.F; // slow, so the wall lands while still travelling
+        auto open = make_room({ground});
+        FollowCamera camera{config};
+        lykoware::render::Camera view = camera.update(*open.world, pivot, 1.F / 60.F);
+        (void)follow(camera, *open.world, pivot, 5, view);
+        camera.set_distance(1.F);
+        (void)follow(camera, *open.world, pivot, 30, view);
+        expect(camera.transitioning() && camera.current_distance() > 3.F, "still travelling in");
+        const Box wall{{0.0, 1.5, 1.5}, {5.F, 3.F, 0.5F}};
+        auto walled = make_room({ground, wall});
+        (void)camera.update(*walled.world, pivot, 1.F / 60.F);
+        expect(camera.current_distance() < 1.F, "a wall during a transition pulls in at once");
+    }
+    {
+        // Deliberate break: with the transition off (today's behaviour) the same change pops, so
+        // the step bound above would catch it.
+        auto room = make_room({ground});
+        FollowCamera camera{FollowCameraConfig{}};
+        lykoware::render::Camera view = camera.update(*room.world, pivot, 1.F / 60.F);
+        (void)follow(camera, *room.world, pivot, 5, view);
+        camera.set_distance(0.F);
+        expect(!camera.transitioning(), "without a transition speed nothing transitions");
+        const auto snap = follow(camera, *room.world, pivot, 5, view);
+        expect(snap.worst_step > bound, "without a transition the change is a pop the bound catches");
+        expect(snap.frames == 1, "and today's behaviour takes it in one frame");
+    }
+}
+
 }
 
 int main()
@@ -249,6 +356,7 @@ int main()
     test_wall_just_past_the_camera();
     test_hugging_a_wall();
     test_controls();
+    test_transitions();
     if (g_failures != 0) {
         std::cerr << g_failures << " follow camera assertion(s) failed\n";
         return EXIT_FAILURE;
