@@ -121,3 +121,21 @@ endif()
 if(NOT output MATCHES "Play: WASD[^\n]*Ctrl to walk")
     message(FATAL_ERROR "the play help line does not mention Ctrl to walk")
 endif()
+
+# The fixed lap makes --directions deterministic: a second run ends in the same place with the
+# same pivots; a lap taken from the real clock would not.
+execute_process(
+    COMMAND "${SAMPLE}" --window --offscreen --vulkan --play --no-audio --directions --agility 0.8
+    RESULT_VARIABLE status
+    OUTPUT_VARIABLE again
+    ERROR_VARIABLE again)
+if(NOT status EQUAL 0)
+    message(FATAL_ERROR "--directions second run: expected exit 0, got ${status}")
+endif()
+string(REGEX MATCH "The player ended at \\([^)]*\\)" first_end "${output}")
+string(REGEX MATCH "The player ended at \\([^)]*\\)" second_end "${again}")
+string(REGEX MATCH "Locomotion: [^\n]*" first_loco "${output}")
+string(REGEX MATCH "Locomotion: [^\n]*" second_loco "${again}")
+if(NOT first_end STREQUAL second_end OR NOT first_loco STREQUAL second_loco)
+    message(FATAL_ERROR "--directions is not repeatable:\n${first_end} ${first_loco}\n${second_end} ${second_loco}")
+endif()
