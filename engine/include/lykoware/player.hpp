@@ -43,11 +43,14 @@ struct PlayerIntent {
     bool jump = false; // pressed this frame
     bool run = false;  // held
     bool walk = false; // held: go no faster than a walk (used only with a locomotion profile)
+    // Held: the body faces where the camera looks and strafes or backs away instead of turning
+    // (used only with a locomotion profile).
+    bool aim = false;
 };
 
 // One frame's intent from keyboard, mouse and gamepad together:
 //   move: W A S D, or the left stick;    run: Shift, or the left stick pressed in
-//   walk: Ctrl
+//   walk: Ctrl                           aim: the right mouse button, or the left trigger past half
 //   look: mouse motion (only when `mouse_look`), the arrow keys, or the right stick
 //   jump: Space, or the South face button
 //   zoom: the mouse wheel, or the d-pad up (in) and down (out)

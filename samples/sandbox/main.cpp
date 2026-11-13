@@ -1,4 +1,5 @@
 #include "animated_mannequin.hpp"
+#include "direction_fixture.hpp"
 #include "character_fit.hpp"
 #include "rig_roles.hpp"
 #include "foot_placement.hpp"
@@ -11,6 +12,7 @@
 #include <lykoware/character_asset.hpp>
 #include <lykoware/ecs.hpp>
 #include <lykoware/gltf.hpp>
+#include <lykoware/locomotion.hpp>
 #include <lykoware/log.hpp>
 #include <lykoware/math.hpp>
 #include <lykoware/mesh.hpp>
@@ -177,6 +179,11 @@ struct WindowOptions {
     std::string trace;
     // --play: a character to walk round the obstacle course, with a follow camera (ADR 0047).
     bool play = false;
+    // --agility X, --locomotion FILE, --directions: feel the locomotion motor (ADR 0074).
+    std::string locomotion_file;
+    std::optional<float> agility;
+    bool directions = false;
+    std::optional<lykoware::locomotion::Profile> locomotion;
 };
 
 // GPU frame times from the swapchain, as spans on the trace's GPU track (when tracing) and as a
@@ -851,6 +858,7 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
     player_config.body.radius=body_alignment.radius;player_config.body.cylinder_half_height=body_alignment.cylinder_half_height;
     player_config.eye_height=body_alignment.eye_height;
     player_config.max_turn_rate=options.character_settings.turn_degrees_per_second.value_or(lykoware::character::default_turn_degrees_per_second)*std::numbers::pi_v<float>/180.F;
+    player_config.locomotion = options.locomotion;
     const lykoware::PlayerInputConfig input_config;
     std::unique_ptr<lykoware::PlayerCharacter> player;
     std::optional<PlayerBody> player_body;
@@ -937,8 +945,8 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
         if (options.foot_ik) { lykoware::log(lykoware::LogLevel::info,"Foot IK: stationary terrain alignment enabled"); }
         lykoware::log(lykoware::LogLevel::info, options.character.empty() ? "Animation: GPU-skinned training mannequin (7 joints), idle/walk/run/jump/fall/land clips." : "Animation: GPU-skinned imported character; missing run/air/landing clips fall back to walk/idle.");
         lykoware::log(lykoware::LogLevel::info,
-                      "Play: WASD or the left stick to move, Shift or L3 to run, Space or South to jump, mouse wheel or "
-                      "d-pad to zoom. Click to look with the mouse, Esc to let it go, R to start again.");
+                      "Play: WASD or the left stick to move, Shift or L3 to run, Ctrl to walk, the right mouse button or left trigger to aim, "
+                      "Space or South to jump, mouse wheel or d-pad to zoom. Click to look with the mouse, Esc to let it go, R to start again.");
     }
     lykoware::audio::SpatialAudio spatial;
     std::uint64_t knocks = 0;
@@ -969,7 +977,7 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
     std::uint64_t frame = 0;
     while (window.pump()) {
         auto frame_zone = zone("sandbox.frame");
-        const std::int64_t lap = options.replay.empty()?frame_clock.lap():16666667;
+        const std::int64_t lap = (options.replay.empty()&&!(options.directions&&options.offscreen))?frame_clock.lap():16666667;
         const float frame_seconds = static_cast<float>(static_cast<double>(lap) * 1e-9);
         if (player) {
             const lykoware::InputState& input = window.input();
@@ -995,7 +1003,11 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
                 }
                 if (player_body) { player_body->reset_animation(); }
             }
-            player->steer(options.replay.empty()?lykoware::read_player_intent(input, input_config, frame_seconds, window.relative_mouse()):options.replay[static_cast<std::size_t>(frame)]);
+            if (options.directions) {
+                player->steer(direction_fixture::intent(static_cast<int>(simulation->tick()), frame_seconds));
+            } else {
+                player->steer(options.replay.empty()?lykoware::read_player_intent(input, input_config, frame_seconds, window.relative_mouse()):options.replay[static_cast<std::size_t>(frame)]);
+            }
         }
         const lykoware::FrameSteps steps = simulation->advance(lap);
         {
@@ -1056,6 +1068,11 @@ int present_loop(lykoware::Window& window, const WindowOptions& options, const S
         const lykoware::math::DVec3 feet = player->state().position;
         lykoware::log(lykoware::LogLevel::info, "The player ended at (" + std::to_string(feet.x) + ", " + std::to_string(feet.y)
                                                     + ", " + std::to_string(feet.z) + ").");
+        if (const lykoware::locomotion::State* motion = player->locomotion()) {
+            lykoware::log(lykoware::LogLevel::info, "Locomotion: agility " + std::to_string(options.locomotion->base.agility) + ", pivots "
+                                                        + std::to_string(motion->pivots) + ", gait " + lykoware::locomotion::name(motion->gait)
+                                                        + ", speed " + std::to_string(motion->speed) + " m/s");
+        }
         player.reset();
     }
     if (audio) {
@@ -1129,6 +1146,25 @@ int run_window(const std::vector<std::string>& args)
             flag(options.no_audio, option);
         } else if (option == "--play") {
             flag(options.play, option);
+        } else if (option == "--agility") {
+            if (options.agility || index + 1 >= args.size()) {
+                throw std::invalid_argument("Duplicate or missing --agility");
+            }
+            const auto& text = args[++index];
+            float agility = 0.F;
+            const auto parsed = std::from_chars(text.data(), text.data() + text.size(), agility);
+            if (parsed.ec != std::errc{} || parsed.ptr != text.data() + text.size() || !std::isfinite(agility)
+                || agility < 0.F || agility > 1.F) {
+                throw std::invalid_argument("--agility must be a number from 0 to 1");
+            }
+            options.agility = agility;
+        } else if (option == "--locomotion") {
+            if (!options.locomotion_file.empty() || index + 1 >= args.size() || args[index + 1].empty() || args[index + 1].starts_with("--")) {
+                throw std::invalid_argument("Duplicate or missing --locomotion");
+            }
+            options.locomotion_file = args[++index];
+        } else if (option == "--directions") {
+            flag(options.directions, option);
         } else if (option == "--play-input") {
             if(!options.play_input.empty()||index+1>=args.size()||args[index+1].empty()||args[index+1].starts_with("--")){throw std::invalid_argument("Duplicate or missing --play-input");}
             options.play_input=args[++index];
@@ -1192,6 +1228,39 @@ int run_window(const std::vector<std::string>& args)
     }
     if (options.dummy && options.vulkan) {
         throw std::invalid_argument("--dummy cannot host Vulkan; use --offscreen for a headless Vulkan window.");
+    }
+    if (options.directions && !options.play_input.empty()) {
+        throw std::invalid_argument("--directions cannot mix with --play-input");
+    }
+    if ((options.agility || !options.locomotion_file.empty() || options.directions) && !options.play) {
+        throw std::invalid_argument("--agility, --locomotion and --directions require --play");
+    }
+    if (options.agility || !options.locomotion_file.empty() || options.directions) {
+        lykoware::locomotion::Profile profile;
+        if (!options.locomotion_file.empty()) {
+            std::ifstream file(utf8_path(options.locomotion_file), std::ios::binary);
+            if (!file) {
+                throw std::invalid_argument("Cannot open locomotion profile " + options.locomotion_file);
+            }
+            std::string text(65537, '\0');
+            file.read(text.data(), static_cast<std::streamsize>(text.size()));
+            if (file.bad()) {
+                throw std::invalid_argument("Cannot read locomotion profile " + options.locomotion_file);
+            }
+            text.resize(static_cast<std::size_t>(file.gcount()));
+            std::string reason;
+            if (!lykoware::locomotion::decode_profile(text, profile, reason)) {
+                throw std::invalid_argument("Locomotion profile: " + reason);
+            }
+        }
+        if (options.agility) {
+            profile.base.agility = *options.agility;
+        }
+        options.locomotion = profile;
+    }
+    if (options.directions && options.offscreen && !options.has_frames) {
+        options.frames = static_cast<std::uint64_t>(direction_fixture::total_ticks());
+        options.has_frames = true;
     }
     if(!options.play_input.empty()){
         if(!options.play||!options.offscreen||!options.vulkan){throw std::invalid_argument("--play-input requires --play --offscreen --vulkan");}
@@ -1316,7 +1385,8 @@ int run(const std::vector<std::string>& args)
             std::cout << "Usage: lykoware_sandbox [--version|--help]\n"
                          "       lykoware_sandbox --frames N --trace FILE\n"
                          "       lykoware_sandbox --window [--dummy | --offscreen] [--vulkan] [--no-audio]\n"
-                         "                        [--model FILE] [--play [--character FILE --idle-clip NAME --walk-clip NAME]] [--frames N [--trace FILE]]\n"
+                         "                        [--model FILE] [--play [--character FILE --idle-clip NAME --walk-clip NAME]\n"
+                         "                                [--agility X] [--locomotion FILE] [--directions]] [--frames N [--trace FILE]]\n"
                          "Without options, runs the console foundation check.\n"
                          "--frames with --trace runs N CPU iterations and writes a Chrome trace.\n"
                          "--window opens a window and pumps input until it closes.\n"
@@ -1334,6 +1404,13 @@ int run(const std::vector<std::string>& args)
                          "  with a follow camera: WASD or the left stick to move, Shift or L3 to run,\n"
                          "  Space or South to jump, the mouse wheel or d-pad to zoom (in to first\n"
                          "  person). Click to look with the mouse, Esc to let go, R to start again.\n"
+                         "  Ctrl walks; the right mouse button or left trigger aims.\n"
+                         "--agility X (0..1, with --play) moves the player by the locomotion motor at that\n"
+                         "  agility; --locomotion FILE loads a version1 JSON profile for it (--agility\n"
+                         "  overrides the file's). --directions drives the player through the fixed\n"
+                         "  direction-change sequence instead of the keyboard; with --offscreen it runs\n"
+                         "  fixed 60 Hz laps and, without --frames, the whole sequence. Not with\n"
+                         "  --play-input. A run with the motor logs a Locomotion summary line.\n"
                          "--trace FILE with --vulkan and --frames writes a Chrome trace of each frame's\n"
                          "  CPU zones and, where the GPU has timestamps, its GPU time.\n"
                          "--vulkan logs the average GPU time per frame on exit.\n";

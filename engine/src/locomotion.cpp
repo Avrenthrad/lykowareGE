@@ -181,6 +181,9 @@ bool valid(const Profile& profile, std::string& error)
         !within(profile.lean_seconds, 0.F, 5.F)) {
         return fail(error, "air_control must be 0..100, max_lean 0..1 and lean_seconds 0..5");
     }
+    if (!within(profile.strafe_scale, 0.1F, 1.F) || !within(profile.backward_scale, 0.1F, 1.F)) {
+        return fail(error, "strafe_scale and backward_scale must be from 0.1 to 1");
+    }
     std::set<std::string_view> names;
     const auto check = [&](const Variant& variant) {
         if (variant.name.empty() || !names.insert(variant.name).second) {
@@ -240,7 +243,8 @@ bool decode_profile(std::string_view json, Profile& out, std::string& error)
             return fail(error, "Locomotion profile requires version 1");
         }
         const std::set<std::string> allowed{"version",     "agility",  "gaits",        "gait_margin", "heavy",   "sharp",
-                                            "overrides",   "variants", "air_control",  "max_lean",    "lean_seconds"};
+                                            "overrides",   "variants", "air_control",  "max_lean",    "lean_seconds",
+                                            "strafe_scale", "backward_scale"};
         for (const auto& item : j.items()) {
             if (!allowed.contains(item.key())) {
                 return fail(error, "Unknown locomotion profile key: " + item.key());
@@ -277,7 +281,8 @@ bool decode_profile(std::string_view json, Profile& out, std::string& error)
         };
         if (!number(j, "agility", result.base.agility) || !number(j, "gait_margin", result.gait_margin) ||
             !number(j, "air_control", result.air_control) || !number(j, "max_lean", result.max_lean) ||
-            !number(j, "lean_seconds", result.lean_seconds)) {
+            !number(j, "lean_seconds", result.lean_seconds) || !number(j, "strafe_scale", result.strafe_scale) ||
+            !number(j, "backward_scale", result.backward_scale)) {
             return false;
         }
         if (j.contains("gaits")) {
@@ -420,7 +425,8 @@ float Motor::gait_speed(Gait gait) const
 const State& Motor::step(const Request& request, float seconds)
 {
     if (!std::isfinite(seconds) || seconds <= 0.F || !finite(request.velocity) ||
-        (request.actual_velocity && !finite(*request.actual_velocity))) {
+        (request.actual_velocity && !finite(*request.actual_velocity)) ||
+        (request.facing && !std::isfinite(*request.facing))) {
         return state_;
     }
     const float sprint = profile_.gait_speeds[3];
@@ -439,6 +445,15 @@ const State& Motor::step(const Request& request, float seconds)
     if (wanted_speed > no_request) {
         wanted_direction = {wanted.x / wanted_speed, 0.F, wanted.z / wanted_speed};
         wanted_speed = std::min(wanted_speed, sprint);
+        if (request.facing) {
+            // Facing one way and moving another: sideways and backward steps are shorter. The
+            // scale follows the angle smoothly, so a stick swept round never pops.
+            const float yaw = *request.facing;
+            const float along = -std::sin(yaw) * wanted_direction.x - std::cos(yaw) * wanted_direction.z;
+            const float scale = along >= 0.F ? profile_.strafe_scale + (1.F - profile_.strafe_scale) * along
+                                             : profile_.strafe_scale + (profile_.backward_scale - profile_.strafe_scale) * -along;
+            wanted_speed *= scale;
+        }
     } else {
         wanted_speed = 0.F;
     }
@@ -508,10 +523,13 @@ const State& Motor::step(const Request& request, float seconds)
     state_.legs = legs;
     state_.heading = yaw_of(direction_);
 
-    // The body turns to face the way it travels, at its own rate, and finishes the turn even if
-    // it has stopped meanwhile (as ADR 0064's facing does).
+    // The body turns, at its own rate, to the wanted facing if there is one, otherwise to the way
+    // it travels; it finishes a turn begun even after stopping (as ADR 0064's facing does).
     const float facing_limit = tuning_.facing_rate * radians_per_degree * seconds;
-    state_.facing = wrap(state_.facing + std::clamp(wrap(state_.heading - state_.facing), -facing_limit, facing_limit));
+    const float facing_target = request.facing ? wrap(*request.facing) : state_.heading;
+    state_.facing = wrap(state_.facing + std::clamp(wrap(facing_target - state_.facing), -facing_limit, facing_limit));
+    state_.facing_held = request.facing.has_value();
+    state_.travel = speed > standing_speed ? wrap(state_.heading - state_.facing) : 0.F;
 
     // Gait from speed, with a margin and a shortest stay so it does not flicker. Stopping and
     // starting are never held back.
@@ -542,8 +560,10 @@ const State& Motor::step(const Request& request, float seconds)
     float lean_forward = 0.F, lean_side = 0.F;
     if (legs != Legs::Airborne) {
         const math::Vec3 acceleration{(state_.velocity.x - before.x) / seconds, 0.F, (state_.velocity.z - before.z) / seconds};
-        const math::Vec3 right{-direction_.z, 0.F, direction_.x};
-        lean_forward = std::clamp(tuning_.lean * (acceleration.x * direction_.x + acceleration.z * direction_.z),
+        // In the body's frame: forward is where it faces, right is its right.
+        const math::Vec3 body{-std::sin(state_.facing), 0.F, -std::cos(state_.facing)};
+        const math::Vec3 right{-body.z, 0.F, body.x};
+        lean_forward = std::clamp(tuning_.lean * (acceleration.x * body.x + acceleration.z * body.z),
                                   -profile_.max_lean, profile_.max_lean);
         lean_side = std::clamp(tuning_.lean * (acceleration.x * right.x + acceleration.z * right.z), -profile_.max_lean,
                                profile_.max_lean);
