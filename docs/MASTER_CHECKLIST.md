@@ -106,7 +106,7 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
   - [x] **02.17b** The motor: acceleration, braking, turn rate by speed, gaits, plant-and-pivot and agility profiles in data, with feel checks in `player.course` — `locomotion.motor`, `player.locomotion` and the course with the motor; 50 of 50 deliberate breaks caught; 90/90 each native profile and all five hosted checks; merged with #83.
   - [ ] **02.17c** Directional fluidity: continuous heading, mid-stride redirects, strafe and backward movement, a direction-change fixture — motor, player, `player.directions` and sandbox `--agility` / `--locomotion` / `--directions` on PR #84; **unmerged**.
   - [ ] **02.17d** Animation on the motor: stride matching, lean, starts, stops and pivots, with feet planted — not started.
-  - [ ] **02.17e** NPCs on the same controller with their own agility — not started.
+  - [ ] **02.17e** NPCs on the same controller with their own agility — `NpcCharacter` and `npc.locomotion` (player and NPC match tick for tick); 11 of 11 deliberate breaks caught; Debug 92/92; stacked PR, **unmerged**.
 
 ## 3. Combat slice
 

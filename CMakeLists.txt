@@ -410,6 +410,14 @@ if(BUILD_TESTING)
     lykoware_configure_target(lykoware_player_locomotion_test)
     add_test(NAME player.locomotion COMMAND lykoware_player_locomotion_test)
     set_tests_properties(player.locomotion PROPERTIES TIMEOUT 120)
+
+    # An NPC on the same motor and physics character as the player (ADR 0074, step 5).
+    add_executable(lykoware_npc_locomotion_test tests/npc_locomotion.cpp)
+    target_link_libraries(lykoware_npc_locomotion_test PRIVATE lykoware::engine)
+    target_include_directories(lykoware_npc_locomotion_test PRIVATE "${CMAKE_SOURCE_DIR}/samples/course")
+    lykoware_configure_target(lykoware_npc_locomotion_test)
+    add_test(NAME npc.locomotion COMMAND lykoware_npc_locomotion_test)
+    set_tests_properties(npc.locomotion PROPERTIES TIMEOUT 120)
     # Directional fluidity through the shared direction-change fixture (ADR 0074).
     add_executable(lykoware_player_directions_test tests/player_directions.cpp)
     target_link_libraries(lykoware_player_directions_test PRIVATE lykoware::engine)

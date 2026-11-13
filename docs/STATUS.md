@@ -1,5 +1,15 @@
 # Lykoware status
 
+## NPCs on the motor — 02.17e (PR 5 of 5, open, 13 November 2026)
+
+Branch `ccr-178f7225-atvbfx-npc`, stacked on PR #84. [ADR 0074](adr/0074-locomotion-feel.md).
+
+- **What:** `lykoware/npc.hpp`, `NpcCharacter`: a physics character moved by its own locomotion motor, fed a wanted velocity and an optional facing by the NPC's own logic. Same measured-movement rule and drawing between steps as the player. `seek(from, to, speed, arrive_radius)` gives a wanted velocity that slows to a stop at a target.
+- **Tests:** new `npc.locomotion`: heavy and sharp NPCs follow a route with corners and a reversal (sharp finishes sooner; pivots match the data; no velocity jumps); an NPC climbs onto the course's platform with its feet never sunk; a player and an NPC given the same requests match tick for tick at three agilities; walls; air; drawing between steps; lifetime; determinism; zero allocations.
+- **Deliberate breaks:** 11 of 11 caught (one first missed and closed with an airborne test).
+- **Local checks:** Debug 92/92; strict GCC warnings clean on the new files.
+- **Not yet:** an NPC in the sandbox.
+
 ## Directional fluidity — 02.17c (PR 3 of 5, open, 13 November 2026)
 
 Branch `ccr-178f7225-atvbfx-fluid`, based on `main` after #83. [ADR 0074](adr/0074-locomotion-feel.md).
