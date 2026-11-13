@@ -30,7 +30,7 @@ void expect(bool ok, const std::string& why)
 }
 
 constexpr float dt = 1.F / 60.F;
-constexpr float pop_bound = 6.F;     // degrees one joint may turn in one step (animation.stride's)
+constexpr float pop_margin = 2.F;    // degrees past the steady gait's own per-step turn (as animation.stride)
 constexpr float support_height = .02F; // the lower foot is at most this far off the ground
 
 float angle_between(const math::Quat& a, const math::Quat& b)
@@ -164,7 +164,20 @@ int main()
     expect(!selects(partial, 130, 150, LegClip::Pivot) && selects(partial, 180, 220, LegClip::Stop),
            "a missing pivot clip falls back while the stop clip still plays");
 
-    // 4. No pop, entering or leaving any clip, or falling back.
+    // 4. No pop, entering or leaving any clip, or falling back: no joint turns more in a step than
+    //    the gait itself does at a steady 3 m/s, plus a margin.
+    float steady = 0.F;
+    {
+        training_mannequin::Playback playback;
+        lykoware::animation::Pose previous;
+        for (int i = 0; i < 300; ++i) {
+            playback.advance_motor(plain, dt, motor_at({loco::Legs::Moving, 3.F}), 3.F, true, 0.F);
+            if (i > 60) { steady = std::max(steady, worst_turn(previous, playback.blended)); }
+            previous = playback.blended;
+        }
+    }
+    const float pop_bound = steady + pop_margin;
+    std::cout << "steady 3 m/s gait: " << steady << " deg per step\n";
     std::cout << "worst per-step joint turn: clips " << with.worst_pop << " deg, none " << without.worst_pop
               << " deg, no pivot " << partial.worst_pop << " deg\n";
     expect(with.worst_pop < pop_bound, "clips fade in and out without a pop");

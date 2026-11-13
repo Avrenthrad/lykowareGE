@@ -52,7 +52,7 @@ int main(){
         for(const char* bad:{R"("walk_clip_speed":0)",R"("walk_clip_speed":-1)",R"("run_clip_speed":"fast")",R"("run_clip_speed":null)",R"("walk_clip_speed":25)",
                 R"("walk_clip_speed":4,"run_clip_speed":2)",R"("walk_clip_speed":3,"run_clip_speed":3)"}){
             c::Profile target=plain;
-            expect(!c::decode_profile(std::string(R"({"version":1,"model":"z",)")+bad+"}","",target,error)&&target.model==plain.model,std::string("malformed clip speed refused: ")+bad);
+            expect(!c::decode_profile(std::string(R"({"version":1,"model":"z",)")+bad+"}","",target,error)&&target.model==plain.model,bad);
         }
         // The 64 KiB bound covers the nested object.
         expect(!c::decode_profile(std::string(R"({"version":1,"model":"x","locomotion":{"variants":{)")+std::string(70000,' ')+"}}}","",plain,error),"oversize locomotion profile refused");
