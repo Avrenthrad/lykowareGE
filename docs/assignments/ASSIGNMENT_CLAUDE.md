@@ -2,6 +2,21 @@
 
 You are Claude, working in `Avrenthrad/lykowareGE`. Joshua opens a fresh chat with you. This file is your queue. The shared map is [COORDINATION.md](COORDINATION.md). The roadmap is [docs/ROADMAP.md](../ROADMAP.md). The IDs are [docs/MASTER_CHECKLIST.md](../MASTER_CHECKLIST.md).
 
+## Rolling checklist
+
+Tick only after the PR is merged with all five CI checks green. One line of notes per item.
+
+- [ ] `02.17d` remainder (clips + imported speeds) — in progress, branch `ccr-df6f86f8-xesgcx-0217d`
+- [ ] `02.11b-runtime-scale` fixture (run: **Joshua runs this**)
+- [ ] `02.14` camera transitions
+- [ ] `07.03` lighting/shadows/materials/transparency/post (lettered slices)
+- [ ] `07.04` visibility, batching, GPU resources
+- [ ] `07.05` environment rendering
+- [ ] `06.10` pipeline warmup (world-scale half: **Joshua runs this**)
+- [ ] `02.12b` → `02.12c` → `02.12d` → `02.13` ragdolls — paused until `02.17d` merges
+- [ ] `06.08` — blocked on GPT `06.01`, `06.04`
+- [ ] `02.16` gates (perf run: **Joshua runs this**)
+
 ## How to use this file
 
 1. Read this file, the coordination page, the roadmap, and the top of [docs/STATUS.md](../STATUS.md).
