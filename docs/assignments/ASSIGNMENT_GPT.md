@@ -1,12 +1,12 @@
 # Assignment — GPT
 
-You are GPT (Codex), working in `Avrenthrad/lykowareGE`. Joshua opens a fresh chat with you. This file is your queue. The shared map is [COORDINATION.md](COORDINATION.md). The roadmap is [docs/ROADMAP.md](../ROADMAP.md). The IDs are [docs/MASTER_CHECKLIST.md](../MASTER_CHECKLIST.md).
+You are GPT (Codex), working in `Avrenthrad/lykowareGE`. Joshua opens a chat with you. Stay in it across steps. This file is your queue. The shared map is [COORDINATION.md](COORDINATION.md). The roadmap is [docs/ROADMAP.md](../ROADMAP.md). The IDs are [docs/MASTER_CHECKLIST.md](../MASTER_CHECKLIST.md).
 
 ## How to use this file
 
 1. Read this file, the coordination page, the roadmap, and the top of [docs/STATUS.md](../STATUS.md).
-2. The rolling checklist is the queue below. Keep it in this file. Tick a box here only when that step is merged-ready: the branch builds, the new tests pass, and CI is green on Windows Debug, Windows Release, and the three Linux presets.
-3. One checklist ID per branch and pull request. Joshua merges. You never merge, and you never push to `main`.
+2. The rolling checklist is the queue below. Keep it in this file. Tick a box here after the checkpoint squash-merge, and only when that step was merged-ready: the branch builds, the new tests pass, and CI is green on Windows Debug, Windows Release, and the three Linux presets. A red or pending PR is noted, not ticked.
+3. One checklist ID per branch and pull request. Stay in this chat across steps. Checkpoint and self-merge only as the Working rules say. Never merge another assistant's PR. Never force-push `main`.
 4. A step marked **Joshua runs this** is not yours to tick.
 5. While a step is waiting on Joshua, Claude, or Grok, take the next ID that is not blocked. Do not idle, and do not tick the waiting step.
 6. When an ID's done-condition is met, tick it on the master checklist in that same PR.
@@ -61,7 +61,8 @@ Scene commands are yours. A gameplay PR may add a command only by calling an API
 ## Working rules
 
 - One branch and one PR per ID. Small PRs.
-- Joshua merges every PR. You never merge.
+- Stay in this chat across steps. Do not checkpoint after every step. Checkpoint only when context is long (about 3–5 PRs) or you are losing track. Do not checkpoint before one PR is open, unless you are near the context limit.
+- At each checkpoint, before "Checkpoint saved — start a new chat", squash-merge your own open PRs into `main` only when all five CI checks are green and the PR touches only your assigned items. Leave a red or pending PR open and note it. After the merge, tick the item and leave its one-line note. Never merge another assistant's PR. Never force-push `main`. If the merge conflicts, rebase on `main`, re-run CI, and merge only once green.
 - Keep CI green. Add tests with each change, including one deliberate failure of the new behavior.
 - Update the master checklist when an ID completes, in that PR. Do not tick hardware or Phase 6 acceptance from a Linux-only run.
 - No new third-party dependency or paid service without Joshua's approval. The repo stays on GitHub. No network stack, sockets, or replication under `07.14` unless Joshua commits co-op to the release. ADR 0021 says single-player first, co-op-ready through commands.
