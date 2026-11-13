@@ -45,6 +45,15 @@ int main(){
         expect(!c::decode_profile(R"({"version":1,"model":"x","locomotion":{"agility":0.5,"agility":0.6}})","",plain,error)&&error=="Character profile locomotion: Duplicate locomotion profile key","duplicate key inside locomotion is refused with its own message");
         expect(!c::decode_profile(R"({"version":1,"model":"x","bones":{"pelvis":"a","pelvis":"b"}})","",plain,error)&&error=="Duplicate character bone key","a duplicate bone key keeps its message");
         expect(!c::decode_profile(R"({"version":1,"model":"x","locomotion":{},"locomotion":{}})","",plain,error)&&error=="Duplicate character profile key","a duplicate locomotion key at top level is refused");
+        // Authored clip speeds (ADR 0074): optional, positive, walk slower than run.
+        expect(c::decode_profile(R"({"version":1,"model":"x"})","",plain,error)&&!plain.walk_clip_speed&&!plain.run_clip_speed,"clip speeds default to absent");
+        expect(c::decode_profile(R"({"version":1,"model":"x","walk_clip_speed":1.4,"run_clip_speed":4.5})","",plain,error)&&plain.walk_clip_speed==1.4F&&plain.run_clip_speed==4.5F,"clip speeds are copied");
+        expect(c::decode_profile(R"({"version":1,"model":"x","run_clip_speed":3})","",plain,error)&&!plain.walk_clip_speed&&plain.run_clip_speed==3.F,"one clip speed may be given alone");
+        for(const char* bad:{R"("walk_clip_speed":0)",R"("walk_clip_speed":-1)",R"("run_clip_speed":"fast")",R"("run_clip_speed":null)",R"("walk_clip_speed":25)",
+                R"("walk_clip_speed":4,"run_clip_speed":2)",R"("walk_clip_speed":3,"run_clip_speed":3)"}){
+            c::Profile target=plain;
+            expect(!c::decode_profile(std::string(R"({"version":1,"model":"z",)")+bad+"}","",target,error)&&target.model==plain.model,bad);
+        }
         // The 64 KiB bound covers the nested object.
         expect(!c::decode_profile(std::string(R"({"version":1,"model":"x","locomotion":{"variants":{)")+std::string(70000,' ')+"}}}","",plain,error),"oversize locomotion profile refused");
     }

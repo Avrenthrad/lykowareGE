@@ -33,6 +33,9 @@ struct Asset {
     animation::Clip idle;
     animation::Clip walk;
     animation::Clip run, jump, fall, land;
+    // Optional start, stop and pivot clips, played from the motor's leg state (ADR 0074, "Starts,
+    // stops and pivots"). Not looped. An empty clip keeps today's gait blend for that state.
+    animation::Clip start, stop, pivot;
     std::shared_ptr<const animation::Graph> graph;
     std::vector<animation::Clip> graph_clips;
     // The ground speed (m/s) each locomotion clip was authored for: how fast the stance foot moves
@@ -232,6 +235,40 @@ inline Asset make()
     return asset;
 }
 
+// Which start/stop/pivot clip the motor's leg state selected this step.
+enum class LegClip { None, Start, Stop, Pivot };
+
+inline bool has_clip(const animation::Clip& clip) noexcept { return !clip.channels.empty(); }
+
+// Placeholder start, stop and pivot clips (ADR 0074 allows placeholder clips, not a placeholder
+// motor). Legs stay at rest, so both feet stay on the ground; the torso and arms carry the motion.
+// make() does not add them: an asset without them keeps the gait blend.
+inline void add_placeholder_leg_clips(Asset& asset)
+{
+    const auto clip = [](const char* name, float length, math::Vec3 torso_axis, float torso, float arms) {
+        animation::Clip result;
+        result.name = name;
+        const auto rotate = [&](std::uint16_t joint, math::Vec3 axis, float angle) {
+            animation::Channel channel;
+            channel.joint = joint;
+            channel.target = animation::Target::Rotation;
+            channel.times = {0.F, length * .5F, length};
+            for (const float f : {0.F, 1.F, .4F}) {
+                const auto q = math::from_axis_angle(axis, angle * f);
+                channel.values.push_back({q.x, q.y, q.z, q.w});
+            }
+            result.channels.push_back(std::move(channel));
+        };
+        rotate(1, torso_axis, torso);
+        rotate(3, {1.F, 0.F, 0.F}, arms);
+        rotate(4, {1.F, 0.F, 0.F}, arms);
+        return result;
+    };
+    asset.start = clip("start", .4F, {1.F, 0.F, 0.F}, -.18F, -.5F);
+    asset.stop = clip("stop", .5F, {1.F, 0.F, 0.F}, .14F, .35F);
+    asset.pivot = clip("pivot", .3F, {0.F, 1.F, 0.F}, .45F, .6F);
+}
+
 struct Playback {
     float idle_seconds = 0.F;
     float walk_seconds = 0.F;
@@ -253,6 +290,16 @@ struct Playback {
     std::array<std::uint64_t,2> plant_cycles{};
     bool ready = false;
     bool used_fallback = false;
+    // Start/stop/pivot clips: weight and time per clip (index LegClip - 1), the clip selected this
+    // step (None when the state has no clip, or the motor is not starting, stopping or pivoting),
+    // and the leg state seen last step. A start begins only on an observed Stopped -> Moving.
+    std::array<float, 3> leg_clip_weight{};
+    std::array<float, 3> leg_clip_seconds{};
+    LegClip leg_clip = LegClip::None;
+    bool have_last_legs = false;
+    lykoware::locomotion::Legs last_legs = lykoware::locomotion::Legs::Stopped;
+    animation::Pose leg_clip_pose;
+    animation::Pose leg_clip_mix;
     std::string transition_error;
 
     // A respawn/new asset starts observation afresh; buffers are rebound on next advance.
@@ -260,6 +307,7 @@ struct Playback {
     {
         idle_seconds = 0.F; walk_seconds = 0.F; walk_weight = 0.F; run_weight = 0.F; stride_phase = 0.F; was_on_ground_gait = true;
         selector = {}; ready = false; used_fallback = false; graph_player.reset(); planted={}; ++plant_cycles[0]; ++plant_cycles[1];
+        leg_clip_weight = {}; leg_clip_seconds = {}; leg_clip = LegClip::None; have_last_legs = false;
     }
 
     void advance_character(const Asset& asset, float seconds, const lykoware::physics::CharacterState& state)
@@ -278,6 +326,9 @@ struct Playback {
     //  - Gait: speed picks the walk/run weight (a continuous function of speed, smoothed, so a gait
     //    change never pops); sprint is the run at a higher rate.
     //  - Pivot: while the motor pivots the phase is held, so the planted foot stays planted.
+    //  - Starts, stops, pivots: when the asset has the clip, Stopped -> Moving plays `start`,
+    //    Braking plays `stop` (finishing once stopped) and Pivoting plays `pivot`, each faded in and
+    //    out over the gait blend's time so nothing pops. Without the clip the gait blend is unchanged.
     //  - Lean: the torso follows the motor's lean, bounded by the asset's limit.
     //  - Air and landing: as `advance`.
     // A character with a graph is driven by the graph at `actual_speed`, with the lean added.
@@ -339,7 +390,10 @@ struct Playback {
                 walk = target;
             }
             animation::blend(idle, walk, walk_weight, target);
+            apply_leg_clips(asset, seconds, motor, grounded, follow);
         } else {
+            leg_clip_weight = {};
+            leg_clip = LegClip::None;
             const animation::Clip* clip = state == locomotion::State::Jump ? &asset.jump
                 : state == locomotion::State::Fall ? &asset.fall : &asset.land;
             if (clip->name.empty() && clip->channels.empty()) { used_fallback = true; clip = &asset.idle; }
@@ -349,6 +403,8 @@ struct Playback {
         // Crossfade only into and out of the air; gaits blend by weight.
         const bool category_changed = changed && !(on_ground_gait && was_on_ground_gait);
         was_on_ground_gait = on_ground_gait;
+        last_legs = motor.legs;
+        have_last_legs = true;
         if (!ready) {
             if (!transition.reset(target, transition_error)) { throw std::invalid_argument(transition_error); }
             ready = true;
@@ -358,6 +414,52 @@ struct Playback {
         if (!transition.advance(target, category_changed ? 0.F : seconds, blended, transition_error)) { throw std::invalid_argument(transition_error); }
         apply_lean(asset, motor);
         animation::skinning_matrices(asset.skeleton, blended, matrices);
+    }
+
+    // Selects the start, stop or pivot clip from the motor's leg state and blends each present clip
+    // over `target` by its smoothed weight. A missing clip never gains weight, so the gait blend
+    // stays exactly as it was.
+    void apply_leg_clips(const Asset& asset, float seconds, const lykoware::locomotion::State& motor,
+                         bool grounded, float follow)
+    {
+        using lykoware::locomotion::Legs;
+        const std::array<const animation::Clip*, 3> clips{{&asset.start, &asset.stop, &asset.pivot}};
+        LegClip wanted = LegClip::None;
+        if (grounded) {
+            const auto still_playing = [&](LegClip kind) {
+                const auto i = static_cast<std::size_t>(kind) - 1;
+                return leg_clip == kind && leg_clip_seconds[i] < animation::duration(*clips[i]);
+            };
+            if (motor.legs == Legs::Pivoting) {
+                wanted = LegClip::Pivot;
+            } else if (motor.legs == Legs::Braking || (motor.legs == Legs::Stopped && still_playing(LegClip::Stop))) {
+                wanted = LegClip::Stop;
+            } else if (motor.legs == Legs::Moving
+                       && ((have_last_legs && last_legs == Legs::Stopped) || still_playing(LegClip::Start))) {
+                wanted = LegClip::Start;
+            }
+        }
+        if (wanted != LegClip::None && !has_clip(*clips[static_cast<std::size_t>(wanted) - 1])) {
+            wanted = LegClip::None; // fall back to the gait blend
+        }
+        if (wanted != leg_clip && wanted != LegClip::None) {
+            const auto i = static_cast<std::size_t>(wanted) - 1;
+            // Restart only a clip that has faded out; one still showing carries on, so it cannot jump.
+            if (leg_clip_weight[i] < .01F) { leg_clip_seconds[i] = 0.F; }
+        }
+        leg_clip = wanted;
+        for (std::size_t i = 0; i < clips.size(); ++i) {
+            const bool on = static_cast<std::size_t>(leg_clip) == i + 1;
+            if (on) { leg_clip_seconds[i] += seconds; }
+            leg_clip_weight[i] += ((on ? 1.F : 0.F) - leg_clip_weight[i]) * follow;
+            if (!on && leg_clip_weight[i] < 1e-4F) { leg_clip_weight[i] = 0.F; }
+            if (leg_clip_weight[i] <= 0.F || !has_clip(*clips[i])) { continue; }
+            leg_clip_pose = target;
+            animation::sample(*clips[i], std::min(leg_clip_seconds[i], animation::duration(*clips[i])), false, leg_clip_pose);
+            leg_clip_mix.resize(target.size());
+            animation::blend(target, leg_clip_pose, leg_clip_weight[i], leg_clip_mix);
+            target.swap(leg_clip_mix);
+        }
     }
 
     // Tilts the torso by the motor's lean: forward is positive when speeding up (the top moves toward

@@ -52,7 +52,7 @@ bool decode_profile(std::string_view text,const std::filesystem::path& directory
         if(!j.is_object()||!j.contains("version")||!j["version"].is_number_integer()||j["version"]!=1
             ||!j.contains("model")||!j["model"].is_string()){return fail(error,"Character profile requires version 1 and model string");}
         const std::set<std::string> allowed{"version","model","idle_clip","walk_clip","run_clip","jump_clip","fall_clip","land_clip",
-            "animation_graph","motion_authority","turn_degrees_per_second","height","yaw_degrees","capsule_height","capsule_radius","eye_height","bones","foot_ik","foot_clearance","foot_align_normals","foot_max_slope_degrees","foot_pelvis","foot_max_pelvis_drop","foot_locking","foot_max_plant_distance","foot_heading_lock","foot_max_heading_degrees","foot_pelvis_single_support","foot_balance_shift","foot_max_balance_shift","locomotion"};
+            "animation_graph","motion_authority","turn_degrees_per_second","height","yaw_degrees","capsule_height","capsule_radius","eye_height","bones","foot_ik","foot_clearance","foot_align_normals","foot_max_slope_degrees","foot_pelvis","foot_max_pelvis_drop","foot_locking","foot_max_plant_distance","foot_heading_lock","foot_max_heading_degrees","foot_pelvis_single_support","foot_balance_shift","foot_max_balance_shift","locomotion","walk_clip_speed","run_clip_speed"};
         for(const auto& item:j.items()){if(!allowed.contains(item.key())){return fail(error,"Unknown character profile key: "+item.key());}}
         if(j.contains("motion_authority")&&(!j["motion_authority"].is_string()||j["motion_authority"]!=motion_authority)){
             return fail(error,"Only controller motion authority is currently supported; root tracks are visual-only");
@@ -82,6 +82,10 @@ bool decode_profile(std::string_view text,const std::filesystem::path& directory
         number("height",result.height,.1,10);number("yaw_degrees",result.yaw_degrees,-180,180);
         number("capsule_height",result.capsule_height,.1,10);number("capsule_radius",result.capsule_radius,.0001,5);
         number("eye_height",result.eye_height,.0001,10);number("turn_degrees_per_second",result.turn_degrees_per_second,0,3600);
+        number("walk_clip_speed",result.walk_clip_speed,.05,20);number("run_clip_speed",result.run_clip_speed,.05,20);
+        if(result.walk_clip_speed&&result.run_clip_speed&&!(*result.walk_clip_speed<*result.run_clip_speed)){
+            return fail(error,"walk_clip_speed must be slower than run_clip_speed");
+        }
         if(j.contains("bones")){
             const auto& bones=j["bones"];if(!bones.is_object()||bones.size()!=role_names.size()){return fail(error,"Profile bones requires seven leg roles");}
             RoleNames names;
