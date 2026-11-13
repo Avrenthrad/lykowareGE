@@ -3,6 +3,7 @@
 // frame rate, and sharp and heavy characters differing as their data says.
 
 #include <lykoware/clock.hpp>
+#include <lykoware/input.hpp>
 #include <lykoware/locomotion.hpp>
 #include <lykoware/physics.hpp>
 #include <lykoware/player.hpp>
@@ -368,6 +369,35 @@ void test_facing_and_refusals()
     step(scene, push(1), 120);
     check(std::abs(scene.player->facing() + pi / 2.F) < 1e-3F && scene.moved.x > 4.9F,
           "it ends facing and moving where the camera looks");
+
+    // Aiming: the body faces where the camera looks and strafes to its right.
+    Scene aimer = make(.5F);
+    PlayerIntent aim = push(0, 1);
+    aim.aim = true;
+    step(aimer, aim, 120);
+    const auto* motor = aimer.player->locomotion();
+    check(std::abs(aimer.player->facing()) < 1e-4F && motor->facing_held && std::abs(motor->travel + pi / 2.F) < 1e-3F &&
+              std::abs(horizontal_speed(aimer) - 5.F * .9F) < .02F && aimer.moved.x > 4.4F,
+          "aiming, the body faces the camera's way and strafes right at the strafe speed");
+    // Without a profile aiming changes nothing: it turns to face its travel as before.
+    Scene legacy = make(std::nullopt);
+    step(legacy, aim, 60);
+    check(std::abs(legacy.player->facing() + pi / 2.F) < 1e-4F, "without a profile aiming is ignored");
+
+    // The aim input: the right mouse button, or the left trigger past half.
+    lykoware::InputState input;
+    const lykoware::PlayerInputConfig input_config;
+    check(!lykoware::read_player_intent(input, input_config, tick, true).aim, "no input does not aim");
+    input.mouse.buttons[static_cast<std::size_t>(lykoware::MouseButton::Right)].down = true;
+    check(lykoware::read_player_intent(input, input_config, tick, true).aim, "the right mouse button aims");
+    input = {};
+    input.gamepad.axes[static_cast<std::size_t>(lykoware::GamepadAxis::LeftTrigger)] = .6F;
+    check(lykoware::read_player_intent(input, input_config, tick, true).aim, "the left trigger past half aims");
+    input.gamepad.axes[static_cast<std::size_t>(lykoware::GamepadAxis::LeftTrigger)] = .4F;
+    check(!lykoware::read_player_intent(input, input_config, tick, true).aim, "a light touch of the trigger does not");
+    input = {};
+    input.keys[static_cast<std::size_t>(lykoware::Key::LeftCtrl)].down = true;
+    check(lykoware::read_player_intent(input, input_config, tick, true).walk, "Ctrl walks");
 
     // An unusable profile creates nothing.
     std::string error;

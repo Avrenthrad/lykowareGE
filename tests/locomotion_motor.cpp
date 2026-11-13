@@ -611,6 +611,76 @@ void test_variants_and_agility()
           "resolve gives a variant's limits by name");
 }
 
+void test_facing_and_strafe()
+{
+    auto motor = make(.5F);
+    const auto& profile = motor.profile();
+    const auto facing_request = [](Vec3 velocity, float yaw_degrees) {
+        loco::Request request = want(velocity);
+        request.facing = yaw_degrees * degrees;
+        return request;
+    };
+    // Aiming north (yaw 0) and pushing every way round the circle: the speed kept is 1 forward,
+    // strafe_scale sideways, backward_scale back, and changes smoothly in between.
+    float previous = -1, worst_jump = 0;
+    for (int angle = 0; angle <= 360; angle += 5) {
+        motor.reset();
+        settle(motor, facing_request(toward(static_cast<float>(angle), 5), 0), 300);
+        const float rel = std::abs(wrap(static_cast<float>(angle) * degrees));
+        const float along = std::cos(rel);
+        const float expected = 5.F * (along >= 0 ? profile.strafe_scale + (1 - profile.strafe_scale) * along
+                                                 : profile.strafe_scale + (profile.backward_scale - profile.strafe_scale) * -along);
+        check(std::abs(motor.state().speed - expected) < 1e-3F, "aiming, a push at " + std::to_string(angle) + " degrees keeps " +
+                                                                    std::to_string(expected) + " m/s: " + std::to_string(motor.state().speed));
+        check(std::abs(motor.state().facing) < 1e-4F && motor.state().facing_held, "the body keeps facing where it aims");
+        check(std::abs(wrap(motor.state().travel - static_cast<float>(angle) * degrees)) < 1e-3F,
+              "the travel angle is the push relative to the facing: " + std::to_string(motor.state().travel / degrees));
+        if (previous >= 0) {
+            worst_jump = std::max(worst_jump, std::abs(motor.state().speed - previous));
+        }
+        previous = motor.state().speed;
+    }
+    check(worst_jump < 5.F * (1 - profile.backward_scale) * .1F, "the scale changes smoothly with the angle: " + std::to_string(worst_jump));
+    check(std::abs(profile.strafe_scale - .9F) < 1e-6F && std::abs(profile.backward_scale - .75F) < 1e-6F, "default scales");
+
+    // Turning to a wanted facing goes at the facing rate, while moving another way.
+    motor.reset();
+    settle(motor, want(toward(0, 3)), 120);
+    float before = motor.state().facing, fastest = 0;
+    const int steps = until(motor, facing_request(toward(0, 3), 120), 600, [&](const loco::State& state) {
+        fastest = std::max(fastest, std::abs(wrap(state.facing - before)));
+        before = state.facing;
+        return std::abs(wrap(state.facing - 120.F * degrees)) < 1e-4F;
+    });
+    check(std::abs(fastest - motor.tuning().facing_rate * degrees * tick) < 1e-4F && steps > 3 &&
+              std::abs(wrap(motor.state().heading)) < 1e-4F,
+          "the body turns to the wanted facing at its rate and the heading is untouched: " + std::to_string(steps) + " steps");
+    // Releasing the facing turns the body back to its travel.
+    settle(motor, want(toward(0, 3)), 120);
+    check(!motor.state().facing_held && std::abs(wrap(motor.state().facing)) < 1e-4F && std::abs(motor.state().travel) < 1e-4F,
+          "without a wanted facing the body turns back to its travel");
+    // A wanted facing that is not a number is refused like any bad request.
+    const loco::State kept = motor.state();
+    auto bad = facing_request(toward(0, 3), 0);
+    bad.facing = std::nanf("");
+    motor.step(bad, tick);
+    check(same(kept, motor.state()), "a non-number facing changes nothing");
+    // Standing still and aiming: the body turns, nothing moves.
+    motor.reset();
+    settle(motor, facing_request({}, -70), 120);
+    check(motor.state().speed == 0.F && std::abs(wrap(motor.state().facing + 70.F * degrees)) < 1e-4F && motor.state().travel == 0.F,
+          "standing and aiming turns the body on the spot");
+
+    // Lean is in the body's frame: strafing right and speeding up leans the body to its right.
+    motor.reset();
+    float side = 0;
+    for (int i = 0; i < 10; ++i) {
+        side = std::max(side, motor.step(facing_request(toward(-90, 5), 0), tick).lean_side);
+    }
+    check(side > .03F && std::abs(motor.state().lean_forward) < 1e-4F, "speeding up to the right while facing ahead leans right: " +
+                                                                           std::to_string(side));
+}
+
 void test_repeats_and_refusals()
 {
     // The same requests give the same states, bit for bit, on separate motors.
@@ -668,13 +738,13 @@ void test_data()
         "gaits":{"walk":1.4,"jog":3.0,"run":4.8,"sprint":6.5},"gait_margin":0.2,
         "heavy":{"acceleration":5,"braking":8},"sharp":{"turn_rate_sprint":300},
         "overrides":{"facing_rate":500},
-        "air_control":1.5,"max_lean":0.2,"lean_seconds":0.1,
+        "air_control":1.5,"max_lean":0.2,"lean_seconds":0.1,"strafe_scale":0.8,"backward_scale":0.6,
         "variants":{"combat":{"agility":0.9,"overrides":{"pivot_angle":60}},"sneak":{}}})";
     check(loco::decode_profile(text, profile, error), "a full profile decodes: " + error);
     check(profile.base.agility == .3F && profile.gait_speeds[0] == 1.4F && profile.gait_speeds[3] == 6.5F && profile.gait_margin == .2F &&
               profile.heavy.acceleration == 5.F && profile.heavy.braking == 8.F && profile.heavy.pivot_braking == 12.F &&
               profile.sharp.turn_rate_sprint == 300.F && profile.base.overrides[7] == 500.F && profile.air_control == 1.5F &&
-              profile.max_lean == .2F && profile.lean_seconds == .1F,
+              profile.max_lean == .2F && profile.lean_seconds == .1F && profile.strafe_scale == .8F && profile.backward_scale == .6F,
           "decoded values are the ones written, and the rest keep their defaults");
     check(profile.variants.size() == 2 && profile.variants[0].name == "combat" && profile.variants[0].agility == .9F &&
               profile.variants[0].overrides[5] == 60.F && profile.variants[1].name == "sneak" && profile.variants[1].agility == .3F,
@@ -708,6 +778,9 @@ void test_data()
     refused(R"({"version":1,"overrides":{"lean":2}})", "an override out of range");
     refused(R"({"version":1,"max_lean":3})", "a lean bound above 1 radian");
     refused(R"({"version":1,"gait_margin":0.6})", "a gait margin above 0.45");
+    refused(R"({"version":1,"strafe_scale":0})", "a strafe scale of 0");
+    refused(R"({"version":1,"backward_scale":1.5})", "a backward scale above 1");
+    refused(R"({"version":1,"strafe_scale":"slow"})", "a strafe scale that is not a number");
     refused(R"({"version":1,"variants":{"default":{}}})", "a variant named like the base");
     refused(R"({"version":1,"variants":{"":{}}})", "a variant with no name");
     refused(R"({"version":1,"variants":{"combat":{"agility":-1}}})", "a variant agility below 0");
@@ -745,6 +818,7 @@ int main()
     test_actual_velocity();
     test_facing_and_lean();
     test_variants_and_agility();
+    test_facing_and_strafe();
     test_repeats_and_refusals();
     test_data();
     if (failures != 0) {

@@ -96,6 +96,8 @@ PlayerIntent read_player_intent(const InputState& input, const PlayerInputConfig
     intent.jump = input.keys[static_cast<std::size_t>(Key::Space)].pressed || pressed(input, GamepadButton::South);
     intent.run = held(input, Key::LeftShift) || held(input, Key::RightShift) || held(input, GamepadButton::LeftStick);
     intent.walk = held(input, Key::LeftCtrl) || held(input, Key::RightCtrl);
+    intent.aim = input.mouse.buttons[static_cast<std::size_t>(MouseButton::Right)].down ||
+                 axis(input, GamepadAxis::LeftTrigger) > 0.5F;
     return intent;
 }
 
@@ -188,6 +190,7 @@ void PlayerCharacter::steer(const PlayerIntent& intent)
     intent_.forward = move.y;
     intent_.run = intent.run;
     intent_.walk = intent.walk;
+    intent_.aim = intent.aim;
     if (intent.jump) {
         // Kept for a short time, so a press just before landing still jumps.
         jump_wait_ = config_.jump_buffer;
@@ -219,6 +222,9 @@ void PlayerCharacter::before_step(float seconds)
         request.velocity = (camera_.forward() * intent_.forward + camera_.right() * intent_.right) * motor_->gait_speed(top);
         request.grounded = grounded;
         request.actual_velocity = moved;
+        if (intent_.aim) {
+            request.facing = camera_.yaw();
+        }
         const locomotion::State& driven = motor_->step(request, seconds);
         velocity = driven.velocity;
         target_facing_ = driven.facing;

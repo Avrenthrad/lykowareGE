@@ -79,6 +79,10 @@ struct Profile {
     std::vector<Variant> variants;
     // How fast the horizontal velocity may be steered in the air, m/s^2.
     float air_control = 2.F;
+    // With a wanted facing (strafing, aiming): the fraction of the wanted speed kept when moving
+    // straight sideways, and straight backward. In between, it changes smoothly with the angle.
+    float strafe_scale = 0.9F;
+    float backward_scale = 0.75F;
     // The most the body leans, radians, and how quickly lean follows acceleration, seconds.
     float max_lean = 0.25F;
     float lean_seconds = 0.15F;
@@ -99,6 +103,7 @@ struct Profile {
 //    "gaits":{"walk":1.6,"jog":3.2,"run":5.0,"sprint":7.0}, "gait_margin":0.15,
 //    "heavy":{...Tuning...}, "sharp":{...Tuning...}, "overrides":{...Tuning...},
 //    "air_control":2.0, "max_lean":0.25, "lean_seconds":0.15,
+//    "strafe_scale":0.9, "backward_scale":0.75,
 //    "variants":{"combat":{"agility":0.85,"overrides":{...}}}}
 [[nodiscard]] bool decode_profile(std::string_view json, Profile& out, std::string& error);
 
@@ -113,6 +118,11 @@ struct Request {
     // is slower than the motor believed (a wall, a slope), the motor continues from it instead
     // of building up speed against the obstacle.
     std::optional<math::Vec3> actual_velocity;
+    // The way the body should face, as a yaw in radians (aiming, strafing, a locked-on target).
+    // Without one the body turns to face the way it travels. With one it turns to face this at
+    // its facing rate and keeps facing it while it moves any way: sideways and backward speeds
+    // are scaled by strafe_scale and backward_scale.
+    std::optional<float> facing;
 };
 
 struct State {
@@ -124,10 +134,16 @@ struct State {
     float facing = 0.F;
     Gait gait = Gait::Idle;
     Legs legs = Legs::Stopped;
-    // Lean in radians: forward is positive when speeding up; side is positive leaning to the
-    // character's right. Each within the profile's max_lean.
+    // Lean in radians, in the body's own frame (the way it faces): forward is positive when
+    // speeding up; side is positive leaning to the body's right. Each within the profile's max_lean.
     float lean_forward = 0.F;
     float lean_side = 0.F;
+    // The way the character travels relative to the way the body faces, in radians: 0 forward,
+    // pi/2 to the body's left, -pi/2 to its right, +-pi backward. Continuous: animation blends
+    // directions by it rather than picking one of eight.
+    float travel = 0.F;
+    // Whether the latest request held a wanted facing.
+    bool facing_held = false;
     // Counts pivots begun, so a caller can act once on each.
     std::uint64_t pivots = 0;
 };
