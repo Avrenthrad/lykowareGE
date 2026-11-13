@@ -615,6 +615,7 @@ public:
     void reset_animation()
     {
         playback_.reset();
+        last_feet_.reset();
         if (foot_) { foot_->reset(); }
     }
 
@@ -634,7 +635,23 @@ public:
         const auto state = player.state();
         const float speed = state.ground == lykoware::physics::GroundState::OnGround
             ? std::hypot(state.velocity.x, state.velocity.z) : 0.F;
-        playback_.advance_character(asset_, seconds, state);
+        if (const auto* motor = player.locomotion()) {
+            // Stride matching wants the speed the feet really covered, not the speed asked for. The
+            // drawn feet are that: what the viewer sees move between two frames. A jump of position
+            // (respawn, teleport), a stopped clock or a first frame has no meaningful speed, so the
+            // physics state's horizontal velocity stands in.
+            float actual = std::hypot(state.velocity.x, state.velocity.z);
+            if (last_feet_ && seconds > 1e-4F) {
+                const float drawn_speed = static_cast<float>(std::hypot(feet.x - last_feet_->x, feet.z - last_feet_->z)) / seconds;
+                if (drawn_speed < 30.F) { actual = drawn_speed; }
+            }
+            last_feet_ = feet;
+            const bool grounded = state.ground == lykoware::physics::GroundState::OnGround;
+            playback_.advance_motor(asset_, seconds, *motor, grounded ? actual : 0.F, grounded, state.velocity.y);
+        } else {
+            last_feet_.reset();
+            playback_.advance_character(asset_, seconds, state);
+        }
         ++motion_frames_[static_cast<std::size_t>(playback_.selector.state())];
         if (playback_.used_fallback) { ++motion_fallback_frames_; }
         std::span<const lykoware::animation::JointPose> final_pose=playback_.blended;
@@ -713,6 +730,7 @@ private:
         return hash;
     }
     lykoware::animation::Pose corrected_;
+    std::optional<lykoware::math::DVec3> last_feet_;
     std::vector<lykoware::math::Mat4> socket_poses_;
     std::string socket_error_;
     std::uint64_t foot_applied_frames_=0;

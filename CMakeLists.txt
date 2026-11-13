@@ -531,6 +531,14 @@ if(BUILD_TESTING)
     add_test(NAME animation.locomotion COMMAND lykoware_locomotion_test)
     set_tests_properties(animation.locomotion PROPERTIES TIMEOUT 120)
 
+    # Stride matching: the gait follows the motor and the speed physics achieved, with no foot slide (ADR 0074).
+    add_executable(lykoware_animation_stride_test tests/animation_stride.cpp)
+    target_link_libraries(lykoware_animation_stride_test PRIVATE lykoware::engine)
+    target_include_directories(lykoware_animation_stride_test PRIVATE "${CMAKE_SOURCE_DIR}/samples/course")
+    lykoware_configure_target(lykoware_animation_stride_test)
+    add_test(NAME animation.stride COMMAND lykoware_animation_stride_test "${CMAKE_SOURCE_DIR}/samples/sandbox/main.cpp")
+    set_tests_properties(animation.stride PROPERTIES TIMEOUT 120)
+
     add_executable(lykoware_mannequin_test tests/mannequin.cpp)
     target_link_libraries(lykoware_mannequin_test PRIVATE lykoware::engine)
     target_include_directories(lykoware_mannequin_test PRIVATE "${CMAKE_SOURCE_DIR}/samples/course")
