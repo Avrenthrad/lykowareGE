@@ -16,7 +16,7 @@ Owner-requested living checklist, saved 6 November 2026. Permanent entry point: 
 
 **Animation stack integrated.** #71, #72 and #73 were reviewed, re-verified together (82/82 in each local Linux profile) and merged at the owner's request on 10 November 2026 as `35ad909`, `58e170e` and `6cabcf3`; the [project checkpoint](PROJECT_CHECKPOINT.md) has the details. The selected [15-item batch](NEXT_15_BATCH.md) is **15/15 integrated**. Hardware, owner-feel, performance and public-release gates stay open, and partial parent items stay unchecked.
 
-**Locomotion feel, 13 November 2026.** #84, #85 and #86 merged with all five hosted checks green. 02.17c and 02.17e are ticked below. 02.17d is partial: stride matching, lean, gait blend, pivot hold and the profile `locomotion` key are merged; authored start, stop and pivot clips, and imported authored speeds, are still open. Ragdoll parts 02.12b–d stay paused until that remainder is merged, or until Joshua reorders. Remaining engine work is split in [docs/assignments](assignments/COORDINATION.md).
+**Locomotion feel, 13 November 2026.** #84, #85 and #86 merged with all five hosted checks green. 02.17c and 02.17e are ticked below. 02.17d: stride matching, lean, gait blend, pivot hold and the profile `locomotion` key merged with #86; start/stop/pivot clips and imported clip speeds with #89. The remainder merged with #89, so 02.17 is ticked; owner feel stays under 02.16. Ragdoll parts 02.12b–d may start. Remaining engine work is split in [docs/assignments](assignments/COORDINATION.md).
 
 ## Earlier ten-step batch (historical)
 
@@ -100,14 +100,14 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
   - [ ] **02.12c** Build a ragdoll from a skeleton (one body per bone, joints with limits) and read a pose back from it — not started.
   - [ ] **02.12d** Blend between animation and physics, in the sample and replay — not started.
 - [ ] **02.13** Add stumble, recovery and active ragdoll.
-- [ ] **02.14** Refine first/third-person camera transitions.
+- [x] **02.14** Refine first/third-person camera transitions. Evidence: #96 (89dc40e), ADR 0075, `follow_camera` test.
 - [ ] **02.15** Validate character feel on Windows hardware.
 - [ ] **02.16** Complete character correctness and performance gates.
-- [ ] **02.17** Locomotion feel for players and NPCs (owner request, 12 November 2026; ADR 0074). Added after 02.16 was numbered; done before 02.12b–d by the owner's order.
+- [x] **02.17** Locomotion feel for players and NPCs (owner request, 12 November 2026; ADR 0074). Added after 02.16 was numbered; done before 02.12b–d by the owner's order.
   - [x] **02.17a** ADR: quality bar, sharpness versus weight, directional fluidity, agility profiles, the animation–physics contract and the legal line — ADR 0074 (Proposed); merged with #82.
   - [x] **02.17b** The motor: acceleration, braking, turn rate by speed, gaits, plant-and-pivot and agility profiles in data, with feel checks in `player.course` — `locomotion.motor`, `player.locomotion` and the course with the motor; 50 of 50 deliberate breaks caught; 90/90 each native profile and all five hosted checks; merged with #83.
   - [x] **02.17c** Directional fluidity: continuous heading, mid-stride redirects, strafe and backward movement, a direction-change fixture — `Request::facing`, `strafe_scale` / `backward_scale`, `State::travel`, `player.directions`, sandbox `--agility` / `--locomotion` / `--directions`; merged with #84 (`5cdca44`); all five hosted checks passed on run 43338816385.
-  - [ ] **02.17d** Animation on the motor: stride matching, lean, starts, stops and pivots, with feet planted. **Partial:** stride matching (stance slide under 0.12 m/s at 1.6–7 m/s), gait blend, pivot hold, lean and the profile `locomotion` key merged with #86 (`bb30510`); all five hosted checks passed on run 43339478172. Still open: authored start, stop and pivot clips, and imported characters' authored speeds.
+  - [x] **02.17d** Animation on the motor: stride matching, lean, starts, stops and pivots, with feet planted. Stride matching (stance slide under 0.12 m/s at 1.6–7 m/s), gait blend, pivot hold, lean and the profile `locomotion` key merged with #86 (`bb30510`). Start, stop and pivot clips from the leg state (fallback blend when absent; placeholder clips in `animation.leg_clips`) and profile `walk_clip_speed`/`run_clip_speed` reported by `lyko inspect-character` merged with #89 (`7e67a06`); all five hosted checks green.
   - [x] **02.17e** NPCs on the same controller with their own agility — `NpcCharacter` and `npc.locomotion` (player and NPC match tick for tick); 11 of 11 deliberate breaks caught; merged with #85 (`fab58b0`); all five hosted checks passed on run 43339040099. A sandbox NPC was not part of this item.
 
 ## 3. Combat slice
