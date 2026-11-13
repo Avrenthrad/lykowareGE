@@ -19,7 +19,7 @@ struct CrowdConfig {
     std::uint64_t seed;
 };
 
-// GPT-owned ADR 0078: one simultaneous waypoint reservation tick, deterministic
+// GPT-owned ADR 0080: one simultaneous waypoint reservation tick, deterministic
 // for the same grid/agents/config/tick in one build. Caller owns all bytes; no
 // physics/ECS access. Single simulation thread. False + error leaves agents
 // unchanged on invalid input; allocation exceptions also leave them unchanged.

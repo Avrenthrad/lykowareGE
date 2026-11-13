@@ -1,4 +1,4 @@
-# ADR 0078: Deterministic planar crowd reservations
+# ADR 0080: Deterministic planar crowd reservations
 
 Status: Accepted foundation for 05.04. Owner: GPT.
 
