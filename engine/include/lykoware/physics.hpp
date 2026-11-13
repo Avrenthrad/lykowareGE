@@ -81,6 +81,9 @@ struct BodyDesc {
     Vec3 angular_velocity;
     float friction = 0.5F;
     float restitution = 0.F;
+    // Mass in kilograms (ADR 0078). 0 means "from the shape" at 1000 kg/m^3; above 0 it replaces
+    // that and the inertia is scaled to match. Dynamic bodies only.
+    float mass = 0.F;
 };
 
 struct BodyState {
@@ -227,8 +230,8 @@ public:
 
     // Creates a body and adds it to the simulation. Fails (nullopt, error filled) for a shape
     // with a non-positive size, an invalid height field or a height field that is not static,
-    // a non-finite position or velocity, a zero rotation, or when max_bodies are alive. The
-    // rotation is normalised.
+    // a non-finite position or velocity, a zero rotation, a negative or non-finite mass, a mass
+    // on a body that is not dynamic, or when max_bodies are alive. The rotation is normalised.
     [[nodiscard]] std::optional<BodyId> create_body(const BodyDesc& desc, std::string& error);
     // Removes and destroys a body. False if the handle is not valid.
     bool destroy_body(BodyId body);
@@ -238,6 +241,16 @@ public:
     [[nodiscard]] std::optional<BodyState> state(BodyId body) const;
     // Sets velocities, waking the body. False if the handle is not valid or the body is static.
     bool set_velocity(BodyId body, Vec3 linear, Vec3 angular);
+    // Mass in kilograms of a dynamic body (ADR 0078); nullopt if the handle is not valid or the
+    // body is static or kinematic.
+    [[nodiscard]] std::optional<float> mass(BodyId body) const;
+    // Moves a body toward a pose by setting its velocities (ADR 0078): a kinematic body, or a
+    // dynamic one that nothing touches, ends the next step(seconds) at `position` and `rotation`.
+    // Contacts and joints still act on a dynamic body, so it may stop short, and speed is capped
+    // (500 m/s, about 47 rad/s), so a far pose takes several steps. Call it every step to follow
+    // a moving pose. Wakes the body. False, changing nothing, for an invalid handle, a
+    // static body, a non-finite position, a zero or non-finite rotation, or seconds not > 0.
+    bool drive_to_pose(BodyId body, DVec3 position, Quat rotation, float seconds);
 
     // Joints (ADR 0073). Creates a joint between two different live bodies of this world, at
     // least one of them dynamic. Fails (nullopt, error filled) for an invalid, destroyed or

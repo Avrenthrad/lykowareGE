@@ -607,6 +607,14 @@ std::optional<BodyId> World::create_body(const BodyDesc& desc, std::string& erro
         error = "a height field must be static";
         return std::nullopt;
     }
+    if (!std::isfinite(desc.mass) || desc.mass < 0.F) {
+        error = "mass must be finite and not negative";
+        return std::nullopt;
+    }
+    if (desc.mass > 0.F && desc.motion != MotionType::Dynamic) {
+        error = "only a dynamic body takes a mass";
+        return std::nullopt;
+    }
     JPH::ShapeSettings* shape = make_shape_settings(desc.shape, error);
     if (shape == nullptr) {
         return std::nullopt;
@@ -625,6 +633,11 @@ std::optional<BodyId> World::create_body(const BodyDesc& desc, std::string& erro
     // Settings own the shape before reserve can throw. Keep a single intrusive reference.
     const std::uint32_t index = impl.bodies.reserve();
     settings.mUserData = index;
+    // ADR 0078: mass 0 leaves the settings exactly as before, so old worlds keep their hashes.
+    if (desc.mass > 0.F) {
+        settings.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
+        settings.mMassPropertiesOverride.mMass = desc.mass;
+    }
     if (!is_static) {
         settings.mLinearVelocity = to_jolt(desc.linear_velocity);
         settings.mAngularVelocity = to_jolt(desc.angular_velocity);
@@ -696,6 +709,52 @@ bool World::set_velocity(BodyId body, Vec3 linear, Vec3 angular)
     }
     interface.SetLinearAndAngularVelocity(*jolt, to_jolt(linear), to_jolt(angular));
     interface.ActivateBody(*jolt);
+    return true;
+}
+
+std::optional<float> World::mass(BodyId body) const
+{
+    const JPH::BodyID* jolt = impl_->bodies.find(body.index, body.generation, body.owner);
+    if (jolt == nullptr) {
+        return std::nullopt;
+    }
+    const JPH::BodyLockRead lock{impl_->system.GetBodyLockInterface(), *jolt};
+    if (!lock.Succeeded() || !lock.GetBody().IsDynamic()) {
+        return std::nullopt;
+    }
+    return 1.F / lock.GetBody().GetMotionProperties()->GetInverseMass();
+}
+
+bool World::drive_to_pose(BodyId body, DVec3 position, Quat rotation, float seconds)
+{
+    const JPH::BodyID* jolt = impl_->bodies.find(body.index, body.generation, body.owner);
+    if (jolt == nullptr || !finite(position) || !std::isfinite(seconds) || seconds <= 0.F) {
+        return false;
+    }
+    const JPH::Quat target = to_jolt(rotation);
+    if (target.IsNaN() || target.LengthSq() < 1e-12F) {
+        return false;
+    }
+    {
+        const JPH::BodyLockWrite lock{impl_->system.GetBodyLockInterface(), *jolt};
+        if (!lock.Succeeded() || lock.GetBody().IsStatic()) {
+            return false;
+        }
+        JPH::Body& moved = lock.GetBody();
+        // The velocities that carry the body to the pose in one step, as Jolt does for kinematic
+        // bodies. A dynamic body then gets gravity and damping in that step, so undo them first:
+        // Jolt applies v = (v + g * dt) * (1 - damping * dt) before it moves the body.
+        moved.MoveKinematic(to_jolt_position(position), target.Normalized(), seconds);
+        if (moved.IsDynamic()) {
+            JPH::MotionProperties& motion = *moved.GetMotionProperties();
+            const float keep_linear = std::max(1e-3F, 1.F - motion.GetLinearDamping() * seconds);
+            const float keep_angular = std::max(1e-3F, 1.F - motion.GetAngularDamping() * seconds);
+            const JPH::Vec3 gravity = impl_->system.GetGravity() * motion.GetGravityFactor();
+            motion.SetLinearVelocityClamped(motion.GetLinearVelocity() / keep_linear - gravity * seconds);
+            motion.SetAngularVelocityClamped(motion.GetAngularVelocity() / keep_angular);
+        }
+    }
+    impl_->system.GetBodyInterface().ActivateBody(*jolt);
     return true;
 }
 
