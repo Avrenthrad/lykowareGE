@@ -315,6 +315,13 @@ if(BUILD_TESTING)
     lykoware_configure_target(lykoware_physics_joints_test)
     add_test(NAME physics.joints COMMAND lykoware_physics_joints_test)
     set_tests_properties(physics.joints PROPERTIES TIMEOUT 60)
+
+    # Body mass and moving a body to a pose (ADR 0078).
+    add_executable(lykoware_physics_body_pose_test tests/physics_body_pose.cpp)
+    target_link_libraries(lykoware_physics_body_pose_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_physics_body_pose_test)
+    add_test(NAME physics.body_pose COMMAND lykoware_physics_body_pose_test)
+    set_tests_properties(physics.body_pose PROPERTIES TIMEOUT 60)
     set_tests_properties(physics.world PROPERTIES TIMEOUT 120)
 
     # The audio mixer and WAV reader (ADR 0032). Links only the engine; no audio device.

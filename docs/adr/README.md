@@ -92,3 +92,4 @@ Use [the template](TEMPLATE.md). Record context, options, decision/status, contr
 - [0075: First- and third-person camera transitions](0075-camera-person-transitions.md) — Proposed; `transition_speed` eases set_distance changes along the line of view; walls still pull in at once; 0 keeps ADR 0044.
 
 - [0077: Bounded jobs with owner fences](0077-owned-job-queue.md) — Explicit worker/pending limits, cancellation, joined shutdown and failure counters (07.09).
+- [0078: Body mass, and moving a body to a pose](0078-body-mass-and-pose.md) — Proposed; `BodyDesc::mass` in kg (0 = shape at 1000 kg/m³), `World::mass`, `World::drive_to_pose` by velocities with gravity and damping undone; old hashes unchanged (02.12b).
