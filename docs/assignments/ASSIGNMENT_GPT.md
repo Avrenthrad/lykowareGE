@@ -80,7 +80,7 @@ Scene commands are yours. A gameplay PR may add a command only by calling an API
 ADR 0021: the simulation is deterministic and driven by per-tick commands so 2–4 player co-op can be added later. No MMO, no persistent servers, no paid servers. Networking is not committed.
 
 - [ ] A test that two command streams, concatenated, replay to the same state as one stream with the same commands. Done when: the test fails if a system reads the wall clock or an unseeded random source for a gameplay result it covers.
-  - In progress: `gpt/07.14-coop-command-boundary`; concatenation and mutated-stream tests added; all five hosted checks pending. Scope: existing scene box commands only.
+  - [PR #88](https://github.com/Avrenthrad/lykowareGE/pull/88), `gpt/07.14-coop-command-boundary`; concatenation and mutated-stream tests added; all five hosted checks pending. Scope: existing scene box commands only.
 - [ ] A short note in the PR of what is deliberately absent (sockets, replication, matchmaking). Done when: the note cites ADR 0021 and adds no dependency.
 - [ ] Standard close. Done when: `07.14` is ticked with the words that networking was not implemented because it is not committed.
 
