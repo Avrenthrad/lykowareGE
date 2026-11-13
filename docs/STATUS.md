@@ -1,5 +1,15 @@
 # Lykoware status
 
+## Locomotion PRs #84–#86 merged (13 November 2026)
+
+The three sections below were written while the PRs were open. They merged the same day, each with all five hosted checks green:
+
+- #84 directional fluidity (02.17c), `5cdca44`, run 43338816385.
+- #85 NPCs on the motor (02.17e), `fab58b0`, run 43339040099.
+- #86 stride-matched animation and profile locomotion (02.17d, partial), `bb30510`, run 43339478172. Authored start, stop and pivot clips, and imported authored speeds, are still open.
+
+Ragdoll parts 02.12b–d stay paused until that 02.17d remainder is merged, or until Joshua reorders. Remaining engine work is assigned in [docs/assignments](assignments/COORDINATION.md).
+
 ## Animation on the motor, and locomotion in character profiles — 02.17d (PR 4 of 5, open, 13 November 2026)
 
 Branch `ccr-178f7225-atvbfx-anim`, stacked on PR #85. [ADR 0074](adr/0074-locomotion-feel.md).

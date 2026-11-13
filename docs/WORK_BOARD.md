@@ -1,5 +1,9 @@
 # Shared work board
 
+## Locomotion PRs #84–#86 merged (13 November 2026)
+
+The three sections below were written while the PRs were open. They merged the same day. 02.17c and 02.17e are done. 02.17d still needs authored start, stop and pivot clips and imported authored speeds. Ragdoll parts 02.12b–d stay paused until that remainder lands, or until Joshua reorders. The active split of remaining engine work is [docs/assignments](assignments/COORDINATION.md).
+
 ## Animation on the motor, and locomotion in character profiles — 02.17d (PR 4 of 5, open, 13 November 2026)
 
 Branch `ccr-178f7225-atvbfx-anim`, stacked on PR #85. [ADR 0074](adr/0074-locomotion-feel.md).

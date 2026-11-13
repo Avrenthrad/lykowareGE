@@ -16,6 +16,8 @@ Owner-requested living checklist, saved 6 November 2026. Permanent entry point: 
 
 **Animation stack integrated.** #71, #72 and #73 were reviewed, re-verified together (82/82 in each local Linux profile) and merged at the owner's request on 10 November 2026 as `35ad909`, `58e170e` and `6cabcf3`; the [project checkpoint](PROJECT_CHECKPOINT.md) has the details. The selected [15-item batch](NEXT_15_BATCH.md) is **15/15 integrated**. Hardware, owner-feel, performance and public-release gates stay open, and partial parent items stay unchecked.
 
+**Locomotion feel, 13 November 2026.** #84, #85 and #86 merged with all five hosted checks green. 02.17c and 02.17e are ticked below. 02.17d is partial: stride matching, lean, gait blend, pivot hold and the profile `locomotion` key are merged; authored start, stop and pivot clips, and imported authored speeds, are still open. Ragdoll parts 02.12b–d stay paused until that remainder is merged, or until Joshua reorders. Remaining engine work is split in [docs/assignments](assignments/COORDINATION.md).
+
 ## Earlier ten-step batch (historical)
 
 **[Stationary terrain alignment — ten checked local steps](FOOT_ALIGNMENT_BATCH.md)**, draft #64. Source `2cc97b5` passed 68/68 each Linux Debug, ASan/UBSan and clang-tidy 18, no skips, plus synchronization-validation CLI. This does not complete the broad foot-IK milestone or its Windows/merge/hardware gates. Next: reusable runtime chains/scratch, then foot orientation/stance/body constraints and broader terrain tests.
@@ -104,9 +106,9 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
 - [ ] **02.17** Locomotion feel for players and NPCs (owner request, 12 November 2026; ADR 0074). Added after 02.16 was numbered; done before 02.12b–d by the owner's order.
   - [x] **02.17a** ADR: quality bar, sharpness versus weight, directional fluidity, agility profiles, the animation–physics contract and the legal line — ADR 0074 (Proposed); merged with #82.
   - [x] **02.17b** The motor: acceleration, braking, turn rate by speed, gaits, plant-and-pivot and agility profiles in data, with feel checks in `player.course` — `locomotion.motor`, `player.locomotion` and the course with the motor; 50 of 50 deliberate breaks caught; 90/90 each native profile and all five hosted checks; merged with #83.
-  - [ ] **02.17c** Directional fluidity: continuous heading, mid-stride redirects, strafe and backward movement, a direction-change fixture — motor, player, `player.directions` and sandbox `--agility` / `--locomotion` / `--directions` on PR #84; **unmerged**.
-  - [ ] **02.17d** Animation on the motor: stride matching, lean, starts, stops and pivots, with feet planted — stride matching (stance slide under 0.12 m/s at 1.6–7 m/s), gait blend, pivot hold, lean, profile `locomotion` key; authored start/stop/pivot clips still open; stacked PR, **unmerged**.
-  - [ ] **02.17e** NPCs on the same controller with their own agility — `NpcCharacter` and `npc.locomotion` (player and NPC match tick for tick); 11 of 11 deliberate breaks caught; Debug 92/92; stacked PR, **unmerged**.
+  - [x] **02.17c** Directional fluidity: continuous heading, mid-stride redirects, strafe and backward movement, a direction-change fixture — `Request::facing`, `strafe_scale` / `backward_scale`, `State::travel`, `player.directions`, sandbox `--agility` / `--locomotion` / `--directions`; merged with #84 (`5cdca44`); all five hosted checks passed on run 43338816385.
+  - [ ] **02.17d** Animation on the motor: stride matching, lean, starts, stops and pivots, with feet planted. **Partial:** stride matching (stance slide under 0.12 m/s at 1.6–7 m/s), gait blend, pivot hold, lean and the profile `locomotion` key merged with #86 (`bb30510`); all five hosted checks passed on run 43339478172. Still open: authored start, stop and pivot clips, and imported characters' authored speeds.
+  - [x] **02.17e** NPCs on the same controller with their own agility — `NpcCharacter` and `npc.locomotion` (player and NPC match tick for tick); 11 of 11 deliberate breaks caught; merged with #85 (`fab58b0`); all five hosted checks passed on run 43339040099. A sandbox NPC was not part of this item.
 
 ## 3. Combat slice
 
