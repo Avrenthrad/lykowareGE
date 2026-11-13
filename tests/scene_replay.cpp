@@ -2,6 +2,8 @@
 #include <lykoware/clock.hpp>
 #include <lykoware/transform.hpp>
 
+#include <chrono>
+#include <cstddef>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
@@ -9,6 +11,7 @@
 #include <limits>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace {
@@ -59,6 +62,33 @@ std::vector<std::uint64_t> replay(const scene::Description& description, const s
     }
     require(next == commands.size(), "all recorded commands were executed");
     return hashes;
+}
+
+// ADR 0021/0031: transport-free concatenation preserves authored tick/sequence order.
+void concatenated_streams(const scene::Description& description, const std::vector<scene::Command>& commands)
+{
+    require(commands.size() >= 2, "co-op fixture needs two nonempty streams");
+    const auto split = commands.begin() + static_cast<std::ptrdiff_t>(commands.size() / 2);
+    const std::vector<scene::Command> first(commands.begin(), split);
+    const std::vector<scene::Command> second(split, commands.end());
+    std::vector<scene::Command> joined;
+    std::string error;
+    for (const auto* stream : {&first, &second}) {
+        std::vector<scene::Command> decoded;
+        require(scene::decode_commands(scene::encode_commands(*stream), decoded, error),
+                "independent command stream round trip");
+        joined.insert(joined.end(), decoded.begin(), decoded.end());
+    }
+    require(scene::encode_commands(joined) == scene::encode_commands(commands),
+            "concatenation preserves every command and its order");
+    const auto reference = replay(description, commands, 60, false, false);
+    // Change real elapsed time independently of fixed simulation time. Repeated fresh
+    // worlds also exercise accidental unseeded randomness in the covered box simulation.
+    for (int rate : {30, 60, 144}) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(11));
+        require(replay(description, joined, rate, true, false) == reference,
+                "concatenated streams must match every tick despite wall time and frame rate");
+    }
 }
 
 void malformed_and_ordering(const scene::Description& description, const std::vector<scene::Command>& commands)
@@ -115,12 +145,24 @@ void malformed_and_ordering(const scene::Description& description, const std::ve
 
 int main(int argc, char** argv)
 {
-    require(argc == 3, "expected scene and commands paths");
+    require(argc == 3 || argc == 4, "expected scene and commands paths, optional mutation probe");
     std::string error;
     scene::Description description;
     std::vector<scene::Command> commands;
     require(scene::decode(read(argv[1]), description, error), "scene operation failed");
     require(scene::decode_commands(read(argv[2]), commands, error), "scene operation failed");
+    if (argc == 4) {
+        require(std::string(argv[3]) == "--mutate-stream", "unknown replay test mode");
+        auto changed = commands;
+        require(!changed.empty(), "mutation fixture needs a command");
+        auto* velocity = std::get_if<scene::SetVelocity>(&changed.front().action);
+        require(velocity != nullptr, "mutation fixture starts with velocity");
+        velocity->linear.x += 5.0F;
+        // CTest WILL_FAIL: a deliberately broken stream must fail the equality oracle.
+        return replay(description, changed, 60, false, false)
+                    == replay(description, commands, 60, false, false) ? EXIT_SUCCESS : EXIT_FAILURE;
+    }
+    concatenated_streams(description, commands);
     const auto canonical = scene::encode(description);
     scene::Description copy;
     require(scene::decode(canonical, copy, error) && scene::encode(copy) == canonical, "canonical scene round trip");
