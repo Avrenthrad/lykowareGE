@@ -59,6 +59,10 @@ For scale, a 60 Hz frame is 16.67 ms. In Release, 1024 colliding boxes use about
 
 The table and timings above are for single precision. With double-precision positions ([ADR 0022](adr/0022-double-precision-positions.md)), Release is about 10–15% slower with many contacts: 1024 boxes mean 0.81–0.83 ms, worst 4.1–5.6 ms; 4096 boxes mean 10.9–11.3 ms. 256 boxes are unchanged.
 
+### Foot IK and palettes at crowd scale (02.11b-runtime-scale)
+
+`lykoware_ik_runtime_scale [--characters N] [--frames F] [--csv PATH]` poses three rigs (mannequin 12 joints, humanoid 31, dense 249) through the prepared two-bone solver (ADR 0061), two legs per character per frame, and rebuilds each character's retained skinning palette. CSV columns: `rig,joints,characters,frames,solves,allocations,mean_ns_per_solve,worst_frame_ms,mean_palette_ns`. CI (`animation.ik_runtime_scale`, 32 characters × 60 frames) fails on a foot off target by more than 0.5 mm (FK check) or on any heap allocation in the measured frames; it does not judge time. Target-PC command for the harness: `lykoware_ik_runtime_scale --characters 500 --frames 600 --csv ik_scale.csv` from the Release build. The owner runs it on the RTX 4070 PC and accepts the numbers.
+
 ### ECS iteration
 
 `lykoware_ecs_benchmark ENTITIES FRAMES LIMIT_MS` runs a movement system (position += velocity × dt) over ENTITIES entities each frame and fails if the mean frame time is over the limit or the result is wrong. CTest runs `perf.ecs_iterate_100k`: 100,000 entities, 300 frames, 250 ms limit. That limit is slack for Debug and sanitizer builds, not a frame budget.
