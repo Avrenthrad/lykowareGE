@@ -2,6 +2,8 @@
 
 Engine first. Phases 0–6 define the engine core milestone; "finished" means their agreed exit tests pass, not that the engine will never change. Track E begins after Phase 6. Track C begins after E2. Phases 8–10 and relevant editor tools may then develop together.
 
+Remaining engine work, excluding Track E and Track C, is split across three assistants in [docs/assignments](assignments/COORDINATION.md). The editor repo and the content suite are out of that split.
+
 This roadmap supersedes the original module ordering. [CHECKLIST.md](../CHECKLIST.md) retains verified history. Phase 0/1 acceptance remains open; core runtime and early Phase 2 character slices are implemented in the consolidation stack. See STATUS for exact commits and platform evidence. Numeric budgets below reference [PERFORMANCE.md](PERFORMANCE.md) and remain proposals until hardware/profiles are agreed.
 
 ## Phase 0 — Foundation and evidence

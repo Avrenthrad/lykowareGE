@@ -20,6 +20,7 @@ Every tool/content operation must be reachable through CLI and scripting, with d
 - **[Project checkpoint — integrated animation stack and open gates](docs/PROJECT_CHECKPOINT.md)**
 
 - **[Master completion checklist — keep updated as we build](docs/MASTER_CHECKLIST.md)**
+- **[Engine work split across Claude, GPT and Grok](docs/assignments/COORDINATION.md)**
 
 - [Status: implemented, current, next, known issues](docs/STATUS.md)
 - [Owner vision and remaining questions](docs/ENGINE_VISION.md)
