@@ -13,7 +13,7 @@ Tick only after the PR is merged with all five CI checks green. One line of note
 - [ ] `07.04` visibility, batching, GPU resources
 - [ ] `07.05` environment rendering
 - [ ] `06.10` pipeline warmup (world-scale half: **Joshua runs this**)
-- [ ] `02.12b` → `02.12c` → `02.12d` → `02.13` ragdolls — unpaused (02.17d merged); next
+- [ ] `02.12b` → `02.12c` → `02.12d` → `02.13` ragdolls — 02.12b merged #99 (`1e65373`); 02.12c next
 - [ ] `06.08` — blocked on GPT `06.01`, `06.04`
 - [ ] `02.16` gates (perf run: **Joshua runs this**)
 
@@ -119,9 +119,11 @@ Prepared chains and scratch are merged (#67). This ID is the target-PC and crowd
 
 Blocked on task 1 unless Joshua reorders. ADR first. Worlds without the new calls keep their hash (ADR 0073).
 
-- [ ] ADR: mass or density on a body, and a call that moves a dynamic body to a pose. Done when: the ADR states units, failure, threading (one thread, as `World` today), and that old hashes are unchanged.
-- [ ] Implement it on `physics::World` with no Jolt type in the header. Done when: a test shows a posed body reach the pose, a bad mass refused, and `physics.joints` still passing.
-- [ ] Standard close. Done when: `02.12b` is ticked. `02.12` stays open.
+- [x] ADR: mass or density on a body, and a call that moves a dynamic body to a pose. Done when: the ADR states units, failure, threading (one thread, as `World` today), and that old hashes are unchanged.
+- [x] Implement it on `physics::World` with no Jolt type in the header. Done when: a test shows a posed body reach the pose, a bad mass refused, and `physics.joints` still passing.
+- [x] Standard close. Done when: `02.12b` is ticked. `02.12` stays open.
+
+Merged in #99 (`1e65373`): `BodyDesc::mass`, `World::mass`, `World::drive_to_pose`, ADR 0078; test `physics.body_pose`.
 
 ### 4. `02.12c` — ragdoll from a skeleton, pose read back
 
