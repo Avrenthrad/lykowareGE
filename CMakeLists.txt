@@ -54,6 +54,9 @@ if(BUILD_TESTING)
         "${CMAKE_SOURCE_DIR}/tests/assets_cook.py" "${CMAKE_SOURCE_DIR}/tools/assets/cook.py"
         "$<TARGET_FILE:lykoware_assets_test>")
     set_tests_properties(assets.cook_load PROPERTIES TIMEOUT 60)
+    add_test(NAME assets.incremental COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_SOURCE_DIR}/tests/assets_incremental.py" "${CMAKE_SOURCE_DIR}/tools/assets/cook.py")
+    set_tests_properties(assets.incremental PROPERTIES TIMEOUT 60)
 
     add_executable(lykoware_clock_test tests/clock.cpp)
     target_link_libraries(lykoware_clock_test PRIVATE lykoware::engine)
