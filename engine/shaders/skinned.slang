@@ -12,11 +12,11 @@ struct Constants
     float4 clip1;
     float4 clip2;
     float4 clip3;
-    // The model rotation, by column, for normals (w unused).
+    // The model rotation, by column, for normals; w is the light's direction (x, y, z).
     float4 normal0;
     float4 normal1;
     float4 normal2;
-    // Base colour (rgb; a unused), multiplied by the texture.
+    // Base colour (rgb), multiplied by the texture; a is the ambient share.
     float4 colour;
 };
 
@@ -98,13 +98,14 @@ VertexOutput vertexMain(VertexInput input)
     return output;
 }
 
-// One directional light from above and slightly in front, plus ambient:
-// colour * texture * (0.25 + 0.75 * max(0, n . light)).
+// One directional light plus ambient (ADR 0082): colour * texture * (ambient + (1 - ambient) *
+// max(0, n . light)). The light's direction rides in the normal columns' w, the ambient in colour.a.
 [shader("fragment")]
 float4 fragmentMain(VertexOutput input) : SV_Target
 {
-    const float3 light = normalize(float3(0.4, 1.0, 0.3));
+    const float3 light = normalize(float3(constants.normal0.w, constants.normal1.w, constants.normal2.w));
+    const float ambient = constants.colour.a;
     const float diffuse = max(dot(normalize(input.normal), light), 0.0);
     const float3 albedo = constants.colour.rgb * baseColour.Sample(input.uv).rgb;
-    return float4(albedo * (0.25 + 0.75 * diffuse), 1.0);
+    return float4(albedo * (ambient + (1.0 - ambient) * diffuse), 1.0);
 }

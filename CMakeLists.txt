@@ -192,6 +192,13 @@ if(BUILD_TESTING)
         COMMAND lykoware_render_scene_test "${lit_vert_spv}" "${lit_frag_spv}" "${CMAKE_CURRENT_BINARY_DIR}/render-scene")
     set_tests_properties(render.scene PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
 
+    add_executable(lykoware_render_lighting_test tests/render_lighting.cpp)
+    target_link_libraries(lykoware_render_lighting_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_render_lighting_test)
+    add_dependencies(lykoware_render_lighting_test lykoware_test_shaders)
+    add_test(NAME render.lighting COMMAND lykoware_render_lighting_test "${lit_vert_spv}" "${lit_frag_spv}")
+    set_tests_properties(render.lighting PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
+
     # Sampled textures in the RHI (ADR 0037): exact texels, sRGB, mipmaps, wrapping, misuse.
     add_executable(lykoware_rhi_texture_test tests/rhi_texture.cpp)
     target_link_libraries(lykoware_rhi_texture_test PRIVATE lykoware::engine)
@@ -289,7 +296,7 @@ if(BUILD_TESTING)
         # reports; leaks in Lykoware code are still caught (ADR 0015 records the
         # deliberate-leak check).
         set_property(TEST rhi.instance rhi.instance.no_driver rhi.device rhi.render_target rhi.swapchain
-                          sandbox.vulkan_window sandbox.gpu_trace sandbox.play sandbox.imported_player rhi.pipeline rhi.mesh rhi.texture render.scene
+                          sandbox.vulkan_window sandbox.gpu_trace sandbox.play sandbox.imported_player rhi.pipeline rhi.mesh rhi.texture render.scene render.lighting
                           render.model render.skinning render.gpu_skinning render.texture lifecycle.restart_vulkan
             APPEND PROPERTY ENVIRONMENT "VK_LOADER_DISABLE_DYNAMIC_LIBRARY_UNLOADING=1")
     endif()

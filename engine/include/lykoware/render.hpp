@@ -102,6 +102,16 @@ struct Camera {
     float near = 0.1F;
 };
 
+// The scene's one directional light and its ambient term (ADR 0082). Each surface gets
+// colour * texture * (ambient + (1 - ambient) * max(0, n . direction)). The defaults are the
+// first renderer's fixed light, so a renderer that is never given lighting draws as before.
+struct Lighting {
+    // Towards the light, in world space; any finite non-zero length (normalised in the shader).
+    math::Vec3 direction{0.4F, 1.F, 0.3F};
+    // The share of the colour a surface keeps facing away from the light, 0..1.
+    float ambient = 0.25F;
+};
+
 // Draws ECS scenes. One renderer per colour format.
 //
 // Ownership: create() returns the sole owner of its pipeline, mesh buffers and textures. Copy
@@ -158,6 +168,11 @@ public:
     // (InvalidArgument) or when the driver refuses it.
     [[nodiscard]] std::optional<TextureId> add_texture(const RgbaImage& image, const TextureSettings& settings,
                                                        rhi::RhiError& error);
+
+    // Lighting for every draw() from now on. False, error InvalidArgument and the lighting
+    // unchanged, for a direction not finite or of zero length, or an ambient outside 0..1.
+    [[nodiscard]] bool set_lighting(const Lighting& lighting, rhi::RhiError& error);
+    [[nodiscard]] const Lighting& lighting() const;
 
     // Entities drawn by the last draw() (a mesh of several parts counts once).
     [[nodiscard]] std::size_t last_draw_count() const;

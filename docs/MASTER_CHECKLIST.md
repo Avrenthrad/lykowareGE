@@ -169,6 +169,11 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
 - [ ] **07.01** Add asset identifiers, dependency tracking and cooked packages.
 - [ ] **07.02** Add import diagnostics and incremental rebuilds.
 - [ ] **07.03** Complete flagship lighting, shadows, materials, transparency and post-processing.
+  - [x] **07.03a** A stated directional light and ambient, set per renderer. Evidence: ADR 0082, `Renderer::set_lighting`, `render.lighting` (five lights within 2/255 of the formula; defaults byte-identical to the first renderer).
+  - [ ] **07.03b** Shadows from the directional light.
+  - [ ] **07.03c** Materials beyond base colour (roughness, metalness, normal maps).
+  - [ ] **07.03d** Transparent surfaces, sorted and blended.
+  - [ ] **07.03e** A post-processing pass (tone mapping first).
 - [ ] **07.04** Add visibility, batching and GPU resource management.
 - [ ] **07.05** Add required terrain, foliage, water and environmental rendering.
 - [ ] **07.06** Add UI, text, fonts, localisation and accessibility foundations.
