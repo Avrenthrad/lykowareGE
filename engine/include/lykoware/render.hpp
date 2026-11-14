@@ -178,6 +178,20 @@ struct TransparencyShaders {
     std::span<const std::uint32_t> fragment;
 };
 
+// Tone mapping after the scene (ADR 0087): the scene is drawn into a 16-bit float target, then
+// each channel c becomes e c / (1 + e c) with e the exposure (Reinhard), into the final image.
+inline constexpr float post_max_exposure = 64.F;
+struct PostProcess {
+    // Multiplies the scene's linear colour before tone mapping, above 0 .. post_max_exposure.
+    float exposure = 1.F;
+};
+
+// SPIR-V for post-processing: engine/shaders/post.slang vertexMain and fragmentMain.
+struct PostShaders {
+    std::span<const std::uint32_t> vertex;
+    std::span<const std::uint32_t> fragment;
+};
+
 // Draws ECS scenes. One renderer per colour format.
 //
 // Ownership: create() returns the sole owner of its pipeline, mesh buffers and textures. Copy
@@ -287,6 +301,23 @@ public:
     [[nodiscard]] bool transparency_enabled() const;
     // Parts drawn blended by the last draw(); 0 when transparency is off.
     [[nodiscard]] std::size_t last_transparent_draw_count() const;
+
+    // Every draw() from now on renders the scene into a 16-bit float target and tone-maps it into
+    // the final image (ADR 0087). Values above 1 survive until the tone map, so a bright surface
+    // and a brighter one stay apart. Calling it again replaces the shaders and settings. The
+    // scene pipelines are built again for the float target from the SPIR-V they were made with,
+    // here and whenever shadows, materials or transparency are enabled later. False and error
+    // filled for the cases below; post-processing is then unchanged, except that a failure to
+    // build the float pipelines leaves it off: a renderer made with the skinned vertex shader
+    // (InvalidArgument; a later slice), an exposure not finite, at or below 0 or above
+    // post_max_exposure (InvalidArgument), shaders that do not load or link (as Renderer::create),
+    // or a device that cannot render to and sample 16-bit float colour (NoSuitableDevice, at the
+    // first draw).
+    [[nodiscard]] bool enable_post(const PostShaders& shaders, const PostProcess& post, rhi::RhiError& error);
+    // Back to drawing straight into the final image, exactly as before enable_post.
+    void disable_post();
+    // The settings while post-processing is on, nullopt when off.
+    [[nodiscard]] std::optional<PostProcess> post() const;
 
     // Entities drawn by the last draw() (a mesh of several parts counts once).
     [[nodiscard]] std::size_t last_draw_count() const;

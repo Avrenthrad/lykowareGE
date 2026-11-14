@@ -1,6 +1,7 @@
 #include "common.hpp"
 
 #include <lykoware/rhi/shadow_map.hpp>
+#include <lykoware/rhi/hdr_target.hpp>
 #include <lykoware/rhi/texture.hpp>
 
 #include <cmath>
@@ -163,10 +164,14 @@ bool prepare_mesh_draws(const GraphicsPipeline& pass_pipeline, ColorFormat targe
                         which + "push constants must be exactly " + std::to_string(pipeline.push_constant_bytes())
                             + " bytes for this pipeline");
         }
-        if (pipeline.texture() && mesh.texture == nullptr) {
+        if (mesh.texture != nullptr && mesh.source != nullptr) {
+            return fail(error, RhiFailure::InvalidArgument, which + "the mesh names both a texture and an HDR source");
+        }
+        const bool names_texture = mesh.texture != nullptr || mesh.source != nullptr;
+        if (pipeline.texture() && !names_texture) {
             return fail(error, RhiFailure::InvalidArgument, which + "the pipeline reads a texture but the mesh names none");
         }
-        if (!pipeline.texture() && mesh.texture != nullptr) {
+        if (!pipeline.texture() && names_texture) {
             return fail(error, RhiFailure::InvalidArgument, which + "the mesh names a texture but the pipeline reads none");
         }
         if (pipeline.shadow() != (mesh.shadow != nullptr)) {
@@ -201,7 +206,8 @@ bool prepare_mesh_draws(const GraphicsPipeline& pass_pipeline, ColorFormat targe
                          static_cast<VkBuffer>(mesh.indices->native_handle()), static_cast<std::uint32_t>(count),
                          mesh.push_constants.data(), static_cast<std::uint32_t>(mesh.push_constants.size()),
                          mesh.texture != nullptr ? static_cast<VkDescriptorSet>(mesh.texture->native_descriptor_set())
-                                                 : VK_NULL_HANDLE,
+                         : mesh.source != nullptr ? static_cast<VkDescriptorSet>(mesh.source->native_descriptor_set())
+                                                  : VK_NULL_HANDLE,
                          mesh.first_index, skinned, mesh.skin_matrices});
         if (mesh.shadow != nullptr) {
             draws.back().shadow = static_cast<VkDescriptorSet>(mesh.shadow->native_descriptor_set());
@@ -272,7 +278,9 @@ void record_mesh_pass(VkCommandBuffer commands, VkImageView colour_view, VkImage
     rendering.pColorAttachments = colour_view != VK_NULL_HANDLE ? &colour : nullptr;
     rendering.pDepthAttachment = depth_view != VK_NULL_HANDLE ? &depth : nullptr;
     vkCmdBeginRendering(commands, &rendering);
-    vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+    if (pipeline != VK_NULL_HANDLE) { // null: a clear with no draws (an HdrTarget's first clear)
+        vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+    }
     VkViewport viewport{};
     viewport.width = static_cast<float>(extent.width);
     viewport.height = static_cast<float>(extent.height);
