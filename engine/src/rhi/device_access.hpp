@@ -27,6 +27,8 @@ struct DeviceAccess {
     [[nodiscard]] static VkDeviceSize uniform_alignment(const Device& device);
     // VkPhysicalDeviceLimits::maxImageDimension2D.
     [[nodiscard]] static std::uint32_t max_image_dimension(const Device& device);
+    // VkPhysicalDeviceLimits::maxPushConstantsSize (at least push_constant_max_bytes).
+    [[nodiscard]] static std::uint32_t max_push_constant_bytes(const Device& device);
 
     // Records commands with `record` into the device's one-shot command
     // buffer, submits them to the graphics queue and waits for completion.

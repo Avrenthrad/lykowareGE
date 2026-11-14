@@ -28,6 +28,23 @@ struct Constants {
 };
 static_assert(sizeof(Constants) == rhi::push_constant_max_bytes);
 
+// Matches engine/shaders/material.slang (ADR 0085): the lit block, then the camera-relative model
+// (rotation * scale by column, w the translation) for the view direction, and the material
+// factors: roughness, metalness, normal scale, and 1 for a part without a material.
+struct MaterialConstants {
+    Constants lit;
+    math::Vec4 model[3];
+    math::Vec4 material;
+};
+static_assert(sizeof(MaterialConstants) == 192);
+static_assert(sizeof(MaterialConstants) <= rhi::push_constant_material_max_bytes);
+
+bool valid_factors(const Material& material)
+{
+    const auto in = [](float value, float high) { return std::isfinite(value) && value >= 0.F && value <= high; };
+    return in(material.roughness, 1.F) && in(material.metalness, 1.F) && in(material.normal_scale, 2.F);
+}
+
 struct Vertex {
     math::Vec3 position;
     math::Vec3 normal;
@@ -87,6 +104,9 @@ struct Drawn {
     std::uint32_t first_index = 0;
     std::uint32_t index_count = 0;
     std::span<const math::Mat4> skin{};
+    // Material draws only: set 2 and set 3.
+    const rhi::Texture* normal_map = nullptr;
+    const rhi::Texture* metal_roughness = nullptr;
 };
 
 // The inverse of math::perspective(vertical_fov, aspect, near), given f = 1 / tan(fov / 2) and
@@ -158,6 +178,44 @@ struct Renderer::Impl {
     std::vector<const GpuMesh*> caster_meshes;
     rhi::ShadowBlock shadow_block;
     std::size_t casters_drawn = 0;
+    // Materials (ADR 0085): null while off. `flat` is the 1x1 linear normal map for parts
+    // without one; the white texture stands in for a missing metal-roughness texture.
+    std::unique_ptr<rhi::GraphicsPipeline> material_pipeline;
+    std::unique_ptr<rhi::GraphicsPipeline> material_shadowed_pipeline;
+    std::unique_ptr<rhi::Texture> flat;
+    // On between enable_materials and disable_materials; the pipelines stay alive after a
+    // disable, since a swapchain frame may still be drawing with them.
+    bool materials_on = false;
+    std::vector<MaterialConstants> material_constants;
+    std::size_t materials_drawn = 0;
+
+    // The texture an id names, `fallback` for none, or null for an id this renderer did not make.
+    const rhi::Texture* texture_or(TextureId id, const rhi::Texture* fallback) const
+    {
+        if (id == TextureId{}) {
+            return fallback;
+        }
+        if (id.value == 0 || id.owner != owner || id.value > textures.size()) {
+            return nullptr;
+        }
+        return textures[id.value - 1].get();
+    }
+
+    // Empty when the material can be drawn, else why not.
+    std::string material_problem(const Material& material) const
+    {
+        if (!valid_factors(material)) {
+            return "material roughness and metalness must be 0..1 and normal_scale 0..2, all finite";
+        }
+        const rhi::Texture* normal = texture_or(material.normal_map, flat.get());
+        if (normal == nullptr || texture_or(material.metal_roughness, white.get()) == nullptr) {
+            return "a material names a texture this renderer did not make";
+        }
+        if (normal->format() != rhi::TextureFormat::Rgba8Unorm) {
+            return "a normal map must be linear (Rgba8Unorm), not sRGB";
+        }
+        return {};
+    }
 
     const rhi::Texture* texture_for(const MeshRenderer& renderer) const
     {
@@ -183,6 +241,9 @@ struct Renderer::Impl {
 
     const rhi::GraphicsPipeline& active_pipeline() const
     {
+        if (materials_on) {
+            return shadow_settings ? *material_shadowed_pipeline : *material_pipeline;
+        }
         return shadow_settings ? *receiver_pipeline : *pipeline;
     }
 
@@ -206,9 +267,11 @@ struct Renderer::Impl {
         bool valid = true;
         error = {};
         constants.clear();
+        material_constants.clear();
         drawn.clear();
         draws.clear();
         entities_drawn = 0;
+        materials_drawn = 0;
         const math::Mat4 view =
             math::look_at({0.F, 0.F, 0.F}, math::relative_to(camera.target, camera.eye), camera.up);
         const math::Mat4 projection = math::perspective(camera.vertical_fov, aspect, camera.near);
@@ -267,18 +330,49 @@ struct Renderer::Impl {
             }
             for (const MeshPart& part : gpu->parts) {
                 c.colour = {mesh.colour.x * part.colour.x, mesh.colour.y * part.colour.y, mesh.colour.z * part.colour.z, lighting.ambient};
-                constants.push_back(c);
                 const rhi::Texture* part_texture =
                     part.texture == TextureId{} ? texture : textures[part.texture.value - 1].get();
-                drawn.push_back({gpu, part_texture, part.first_index, part.index_count, skin});
+                if (!materials_on) {
+                    constants.push_back(c);
+                    drawn.push_back({gpu, part_texture, part.first_index, part.index_count, skin});
+                    continue;
+                }
+                MaterialConstants m;
+                m.lit = c;
+                for (int column = 0; column < 3; ++column) {
+                    m.model[column] = {model.m[column][0], model.m[column][1], model.m[column][2], model.m[3][column]};
+                }
+                const std::optional<Material>& chosen = part.material ? part.material : mesh.material;
+                Drawn d{gpu, part_texture, part.first_index, part.index_count, skin, flat.get(), white.get()};
+                if (chosen) {
+                    if (const std::string problem = material_problem(*chosen); !problem.empty()) {
+                        error = {rhi::RhiFailure::InvalidArgument, problem};
+                        valid = false;
+                        return;
+                    }
+                    // No normal map: a scale of 0 keeps the surface's own normal exactly.
+                    const float scale = chosen->normal_map == TextureId{} ? 0.F : chosen->normal_scale;
+                    m.material = {chosen->roughness, chosen->metalness, scale, 0.F};
+                    d.normal_map = texture_or(chosen->normal_map, flat.get());
+                    d.metal_roughness = texture_or(chosen->metal_roughness, white.get());
+                    ++materials_drawn;
+                } else {
+                    m.material = {1.F, 0.F, 0.F, 1.F};
+                }
+                material_constants.push_back(m);
+                drawn.push_back(d);
             }
             ++entities_drawn;
         });
         // Push-constant spans point into `constants`, so build them after it stops growing.
-        for (std::size_t i = 0; i < constants.size(); ++i) {
+        for (std::size_t i = 0; i < drawn.size(); ++i) {
+            const auto bytes = materials_on ? std::as_bytes(std::span(&material_constants[i], 1))
+                                                 : std::as_bytes(std::span(&constants[i], 1));
             draws.push_back({drawn[i].mesh->vertices.get(), drawn[i].mesh->indices.get(), drawn[i].index_count,
-                             std::as_bytes(std::span(&constants[i], 1)), drawn[i].texture, drawn[i].first_index, drawn[i].skin});
+                             bytes, drawn[i].texture, drawn[i].first_index, drawn[i].skin});
             draws.back().shadow = shadow_settings ? shadow_map.get() : nullptr;
+            draws.back().normal_map = drawn[i].normal_map;
+            draws.back().metal_roughness = drawn[i].metal_roughness;
         }
         // Casters draw every index of their mesh (all parts at once), from the light.
         for (std::size_t i = 0; i < caster_constants.size(); ++i) {
@@ -351,6 +445,15 @@ std::unique_ptr<Renderer> Renderer::create(const rhi::Device& device, rhi::Color
     if (!impl->white) {
         return nullptr;
     }
+    // The flat normal map (ADR 0085). Its texel is not exactly (0, 0, 1) after unpacking, so a part
+    // without a normal map also gets a normal scale of 0; this texture only fills set 2.
+    rhi::TextureDesc flat = white;
+    flat.format = rhi::TextureFormat::Rgba8Unorm;
+    const std::byte up[4] = {std::byte{128}, std::byte{128}, std::byte{255}, std::byte{255}};
+    impl->flat = rhi::Texture::create(device, flat, up, error);
+    if (!impl->flat) {
+        return nullptr;
+    }
     return std::unique_ptr<Renderer>(new Renderer(std::move(impl)));
 }
 
@@ -401,6 +504,12 @@ std::optional<MeshId> Renderer::add_mesh(const MeshData& mesh, std::span<const M
             error = {rhi::RhiFailure::InvalidArgument, "a mesh part names a texture this renderer did not make"};
             return std::nullopt;
         }
+        if (part.material) {
+            if (const std::string problem = impl_->material_problem(*part.material); !problem.empty()) {
+                error = {rhi::RhiFailure::InvalidArgument, problem};
+                return std::nullopt;
+            }
+        }
     }
     const std::size_t stride = impl_->skinning ? sizeof(SkinVertex) : sizeof(Vertex);
     if (mesh.positions.size() > rhi::buffer_max_bytes / stride) {
@@ -448,6 +557,10 @@ std::optional<MeshId> Renderer::add_skinned_mesh(
             || (!(part.texture == TextureId{}) && (part.texture.value == 0 || part.texture.owner != impl_->owner
                                                    || part.texture.value > impl_->textures.size()))) {
             error = {rhi::RhiFailure::InvalidArgument, "invalid skinned mesh part or foreign texture"};
+            return std::nullopt;
+        }
+        if (part.material && !impl_->material_problem(*part.material).empty()) {
+            error = {rhi::RhiFailure::InvalidArgument, impl_->material_problem(*part.material)};
             return std::nullopt;
         }
     }
@@ -603,6 +716,61 @@ std::optional<Shadows> Renderer::shadows() const
 std::size_t Renderer::last_shadow_caster_count() const
 {
     return impl_->casters_drawn;
+}
+
+bool Renderer::enable_materials(const MaterialShaders& shaders, rhi::RhiError& error)
+{
+    error = {};
+    if (impl_->skinning) {
+        error = {rhi::RhiFailure::InvalidArgument, "materials on a skinned renderer are a later slice"};
+        return false;
+    }
+    const rhi::Device& device = *impl_->device;
+    std::unique_ptr<rhi::GraphicsPipeline> made[2];
+    const std::span<const std::uint32_t> code[2][2] = {{shaders.vertex, shaders.fragment},
+                                                       {shaders.shadowed_vertex, shaders.shadowed_fragment}};
+    for (int index = 0; index < 2; ++index) {
+        const auto vertex = rhi::Shader::load(device, code[index][0], rhi::ShaderStage::Vertex, error);
+        const auto fragment = vertex ? rhi::Shader::load(device, code[index][1], rhi::ShaderStage::Fragment, error) : nullptr;
+        if (!vertex || !fragment) {
+            return false;
+        }
+        rhi::GraphicsPipelineDesc desc;
+        desc.vertex = vertex.get();
+        desc.fragment = fragment.get();
+        desc.color_format = impl_->pipeline->color_format();
+        desc.vertex_layout = rhi::VertexLayout::PositionNormalUv;
+        desc.depth = true;
+        desc.cull_back_faces = true;
+        desc.push_constant_bytes = sizeof(MaterialConstants);
+        desc.texture = true;
+        desc.shadow = index == 1;
+        desc.material = true;
+        made[index] = rhi::GraphicsPipeline::create(device, desc, error);
+        if (!made[index]) {
+            return false;
+        }
+    }
+    impl_->material_pipeline = std::move(made[0]);
+    impl_->material_shadowed_pipeline = std::move(made[1]);
+    impl_->materials_on = true;
+    return true;
+}
+
+void Renderer::disable_materials()
+{
+    impl_->materials_on = false;
+    impl_->materials_drawn = 0;
+}
+
+bool Renderer::materials_enabled() const
+{
+    return impl_->materials_on;
+}
+
+std::size_t Renderer::last_material_draw_count() const
+{
+    return impl_->materials_drawn;
 }
 
 }
