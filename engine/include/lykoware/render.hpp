@@ -106,6 +106,10 @@ struct MeshRenderer {
     // Roughness, metalness and a normal map (ADR 0085). Unset: lit as base colour alone. Drawn
     // as a material only while the renderer has material shaders; otherwise as unset.
     std::optional<Material> material{};
+    // How much of what lies behind the surface it hides, 0 (none) .. 1 (opaque) (ADR 0086). Below
+    // 1, and only while the renderer has transparency shaders (Renderer::enable_transparency), the
+    // entity is drawn blended after every opaque one, far to near. Otherwise it is drawn opaque.
+    float opacity = 1.F;
 };
 
 // Per-instance drawing pose for an uploaded skinned mesh (ADR 0052). Plain CPU matrices;
@@ -165,6 +169,13 @@ struct MaterialShaders {
     std::span<const std::uint32_t> fragment;
     std::span<const std::uint32_t> shadowed_vertex;
     std::span<const std::uint32_t> shadowed_fragment;
+};
+
+// SPIR-V for transparent surfaces (ADR 0086): engine/shaders/transparent.slang vertexMain and
+// fragmentMain.
+struct TransparencyShaders {
+    std::span<const std::uint32_t> vertex;
+    std::span<const std::uint32_t> fragment;
 };
 
 // Draws ECS scenes. One renderer per colour format.
@@ -258,6 +269,24 @@ public:
     [[nodiscard]] bool materials_enabled() const;
     // Parts drawn with a Material by the last draw(); 0 when materials are off.
     [[nodiscard]] std::size_t last_material_draw_count() const;
+
+    // Every draw() from now on blends entities whose MeshRenderer::opacity is below 1 (ADR 0086):
+    // opaque entities first in ECS order, then transparent ones sorted far to near by the
+    // distance from the camera to their Transform's position (ties keep ECS order), each part
+    // lit as the lit shader would and blended over what is behind it. A transparent entity
+    // tests depth and does not write it, casts no shadow, receives none and draws without its
+    // Material. Calling it again replaces the shaders. False, error filled and transparency
+    // unchanged, for: a renderer made with the skinned vertex shader (InvalidArgument; a later
+    // slice), shaders that do not load or link (as Renderer::create), or a device with fewer
+    // than 144 bytes of push constants (NoSuitableDevice).
+    //
+    // While on, draw() fails with InvalidArgument for an opacity outside 0..1 or not finite.
+    [[nodiscard]] bool enable_transparency(const TransparencyShaders& shaders, rhi::RhiError& error);
+    // Back to drawing every entity opaque, exactly as before enable_transparency.
+    void disable_transparency();
+    [[nodiscard]] bool transparency_enabled() const;
+    // Parts drawn blended by the last draw(); 0 when transparency is off.
+    [[nodiscard]] std::size_t last_transparent_draw_count() const;
 
     // Entities drawn by the last draw() (a mesh of several parts counts once).
     [[nodiscard]] std::size_t last_draw_count() const;

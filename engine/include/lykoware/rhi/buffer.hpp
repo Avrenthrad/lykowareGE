@@ -63,6 +63,7 @@ private:
 // constants hold for this mesh.
 class Texture;
 class ShadowMap;
+class GraphicsPipeline;
 
 struct MeshDraw {
     const Buffer* vertices = nullptr;
@@ -87,6 +88,11 @@ struct MeshDraw {
     // both null otherwise (ADR 0085): set 2 and set 3.
     const Texture* normal_map = nullptr;
     const Texture* metal_roughness = nullptr;
+    // Draws this mesh with another pipeline than the pass's (ADR 0086), so opaque and
+    // transparent surfaces share one pass. Null: the pass's pipeline. It must target the same
+    // colour format and use depth exactly when the pass's pipeline does, and is not depth-only;
+    // every other rule above is checked against it.
+    const GraphicsPipeline* pipeline = nullptr;
 };
 
 }

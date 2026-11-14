@@ -108,27 +108,39 @@ void record_draw_pass(VkCommandBuffer commands, VkImageView view, VkExtent2D ext
     vkCmdEndRendering(commands);
 }
 
-bool prepare_mesh_draws(const GraphicsPipeline& pipeline, ColorFormat target_format, bool target_has_depth,
+bool prepare_mesh_draws(const GraphicsPipeline& pass_pipeline, ColorFormat target_format, bool target_has_depth,
                         std::span<const MeshDraw> meshes, std::vector<PreparedDraw>& draws, RhiError& error)
 {
     draws.clear();
-    if (pipeline.color_format() != target_format) {
+    if (pass_pipeline.color_format() != target_format) {
         return fail(error, RhiFailure::InvalidArgument, "the pipeline targets a different colour format");
     }
-    if (pipeline.vertex_layout() == VertexLayout::None) {
+    if (pass_pipeline.vertex_layout() == VertexLayout::None) {
         return fail(error, RhiFailure::InvalidArgument,
                     "drawing meshes needs a pipeline with a mesh vertex layout (PositionNormal or PositionNormalUv)");
     }
-    const bool skinned = pipeline.vertex_layout() == VertexLayout::SkinnedPositionNormalUv;
-    const std::size_t stride = skinned ? skinned_position_normal_uv_stride
-        : (pipeline.vertex_layout() == VertexLayout::PositionNormalUv ? position_normal_uv_stride : position_normal_stride);
-    if (pipeline.depth() && !target_has_depth) {
+    if (pass_pipeline.depth() && !target_has_depth) {
         return fail(error, RhiFailure::InvalidArgument, "the pipeline uses depth but the target has none");
     }
     draws.reserve(meshes.size());
     for (std::size_t index = 0; index < meshes.size(); ++index) {
         const MeshDraw& mesh = meshes[index];
         const std::string which = "mesh " + std::to_string(index) + ": ";
+        // A draw's own pipeline (ADR 0086) must fit the pass the first pipeline began.
+        const GraphicsPipeline& pipeline = mesh.pipeline != nullptr ? *mesh.pipeline : pass_pipeline;
+        if (mesh.pipeline != nullptr
+            && (pipeline.color_format() != target_format || pipeline.depth() != pass_pipeline.depth()
+                || pipeline.depth_only() != pass_pipeline.depth_only())) {
+            return fail(error, RhiFailure::InvalidArgument,
+                        which + "its pipeline must match the pass's colour format, depth and depth-only use");
+        }
+        if (pipeline.vertex_layout() == VertexLayout::None) {
+            return fail(error, RhiFailure::InvalidArgument, which + "its pipeline has no mesh vertex layout");
+        }
+        const bool skinned = pipeline.vertex_layout() == VertexLayout::SkinnedPositionNormalUv;
+        const std::size_t stride = skinned ? skinned_position_normal_uv_stride
+            : (pipeline.vertex_layout() == VertexLayout::PositionNormalUv ? position_normal_uv_stride
+                                                                           : position_normal_stride);
         if (mesh.vertices == nullptr || mesh.vertices->usage() != BufferUsage::Vertex) {
             return fail(error, RhiFailure::InvalidArgument, which + "needs a vertex buffer");
         }
@@ -198,6 +210,10 @@ bool prepare_mesh_draws(const GraphicsPipeline& pipeline, ColorFormat target_for
             draws.back().material[0] = static_cast<VkDescriptorSet>(mesh.normal_map->native_descriptor_set());
             draws.back().material[1] = static_cast<VkDescriptorSet>(mesh.metal_roughness->native_descriptor_set());
         }
+        if (mesh.pipeline != nullptr) {
+            draws.back().pipeline = static_cast<VkPipeline>(mesh.pipeline->native_handle());
+            draws.back().layout = static_cast<VkPipelineLayout>(mesh.pipeline->native_layout());
+        }
     }
     return true;
 }
@@ -227,9 +243,10 @@ void depth_barrier(VkCommandBuffer commands, VkImage image)
 }
 
 void record_mesh_pass(VkCommandBuffer commands, VkImageView colour_view, VkImageView depth_view, VkExtent2D extent,
-                      const float (&rgba)[4], VkPipeline pipeline, VkPipelineLayout layout,
+                      const float (&rgba)[4], VkPipeline pipeline, VkPipelineLayout pass_layout,
                       const PreparedDraw* draws, std::size_t draw_count)
 {
+    VkPipelineLayout layout = pass_layout;
     VkRenderingAttachmentInfo colour{};
     colour.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
     colour.imageView = colour_view;
@@ -267,8 +284,21 @@ void record_mesh_pass(VkCommandBuffer commands, VkImageView colour_view, VkImage
     VkDescriptorSet bound = VK_NULL_HANDLE;
     VkDescriptorSet bound_shadow = VK_NULL_HANDLE;
     VkDescriptorSet bound_material[2] = {VK_NULL_HANDLE, VK_NULL_HANDLE};
+    VkPipeline bound_pipeline = pipeline;
     for (std::size_t index = 0; index < draw_count; ++index) {
         const PreparedDraw& draw = draws[index];
+        // A draw may name its own pipeline (ADR 0086); switching forgets the bound sets, since
+        // the new layout may not be compatible with the old one.
+        const VkPipeline wanted = draw.pipeline != VK_NULL_HANDLE ? draw.pipeline : pipeline;
+        layout = draw.pipeline != VK_NULL_HANDLE ? draw.layout : pass_layout;
+        if (wanted != bound_pipeline) {
+            vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, wanted);
+            bound_pipeline = wanted;
+            bound = VK_NULL_HANDLE;
+            bound_shadow = VK_NULL_HANDLE;
+            bound_material[0] = VK_NULL_HANDLE;
+            bound_material[1] = VK_NULL_HANDLE;
+        }
         if (draw.texture != VK_NULL_HANDLE && draw.texture != bound) {
             vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &draw.texture, 0, nullptr);
             bound = draw.texture;
