@@ -141,8 +141,8 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
 - [ ] **05.01** Add selection and RTS camera controls.
 - [ ] **05.02** Add unit orders and command queues.
 - [ ] **05.03** Add group movement and formations.
-- [ ] **05.04** Scale navigation and avoidance.
-  - GPT: ADR 0081 seeded conservative reservations; 256 agents × 32 ticks, repeated bitwise equality, swept separation and deliberate overlap rejection pass locally. Five hosted checks/merge pending; timing budget remains open under `01.11` and `05.09` (**Joshua runs this**).
+- [x] **05.04** Scale navigation and avoidance.
+  - GPT: ADR 0081 seeded conservative reservations; 256 agents × 32 ticks, repeated bitwise equality, swept separation and deliberate overlap rejection pass locally. Merged #98 as `d29be31`; all five hosted checks passed on `38e307c`. Local ASan/UBSan also pass; timing budget remains open under `01.11` and `05.09` (**Joshua runs this**).
 - [ ] **05.05** Add faction affiliation and hostility.
 - [ ] **05.06** Add tactical AI and battle objectives.
 - [ ] **05.07** Add simulation, animation and rendering detail levels.

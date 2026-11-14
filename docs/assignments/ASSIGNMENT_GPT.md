@@ -2,18 +2,17 @@
 
 You are GPT (Codex), working in `Avrenthrad/lykowareGE`. Joshua opens a chat with you. Stay in it across steps. This file is your queue. The shared map is [COORDINATION.md](COORDINATION.md). The roadmap is [docs/ROADMAP.md](../ROADMAP.md). The IDs are [docs/MASTER_CHECKLIST.md](../MASTER_CHECKLIST.md).
 
-## Rolling checklist — 13 November 2026
+## Rolling checklist — 14 November 2026
 
-- [x] `07.14`: #88 merged; networking is not committed and was not implemented.
-- [x] `07.13`: [PR #90](https://github.com/Avrenthrad/lykowareGE/pull/90) squash-merged as `0d1aa5f`; all five hosted checks passed on `5551616`.
-- [x] `07.08`: [PR #94](https://github.com/Avrenthrad/lykowareGE/pull/94) squash-merged as `f3aa5ec`; all five hosted checks passed on `0c5e205`.
-- [x] `07.09`: [PR #95](https://github.com/Avrenthrad/lykowareGE/pull/95) squash-merged as `9218589`; all five hosted checks passed on rebased head `94609c3`. Local lifetime, deliberate failure and ASan/UBSan checks passed.
-- [ ] `05.04`: [PR #98](https://github.com/Avrenthrad/lykowareGE/pull/98), `gpt/05.04-crowd-reservations`; 256-agent reservations and repeatability/overlap tests pass locally. ADR 0081; rebased on current main, fresh five-job CI pending. Budget remains open under `01.11`/`05.09`.
-- [ ] `07.01`: [PR #100](https://github.com/Avrenthrad/lykowareGE/pull/100), `gpt/07.01-cooked-assets`; stable IDs, dependency fingerprints and source-free package load tests pass locally. ADR 0079. Five hosted checks pending.
-- [ ] `07.02`: [PR #101](https://github.com/Avrenthrad/lykowareGE/pull/101), `gpt/07.02-incremental-cook`, stacked on #100; unchanged-output and diagnostic tests pass; deliberate forced rewrite fails. Five hosted checks pending.
-- Checkpoint: all three PRs remain open and unticked while CI runs. Merge #100 before retargeting #101 to main; resolve conflicts by rebase and require fresh CI. Merge only GPT PRs with five green checks. No other assistant's PR was merged.
-- Next unblocked: `07.07`; inspect #98/#100/#101 before overlapping work.
-- Hardware gates: **Joshua runs this**. `06.12` and later wave remain blocked.
+Completed: `07.14` (#88; networking not implemented), `07.13` (#90), `07.08` (#94), `07.09` (#95); merged after five green hosted checks.
+
+- [x] `05.04`: #98 squash-merged as `d29be31`; all five hosted checks passed on `38e307c`. ADR 0081, 256-agent fixture/repeatability and deliberate overlap checks pass; local ASan/UBSan also pass. Budget stays open under `01.11`/`05.09`.
+- [ ] `07.01`: #100, ADR 0082; cook/load and stale dependency tests pass, including local ASan/UBSan. Pending CI; reconcile with checkpoint main before merging.
+- [ ] `07.02`: #101 stacked on #100; incremental diagnostics and cook/load tests pass. Pending CI; merge #100 first, then retarget/rebase #101 to main and require five fresh green checks.
+- [ ] `07.07`: #106, ADR 0083; bounded PCM ring streaming and nearest-voice admission. New streaming plus existing mixer/spatial tests and local ASan/UBSan pass; reversed-priority and retained-buffer mutations fail. Pending CI; reconcile with checkpoint main before merging.
+- [ ] Next unblocked: `07.06` UI foundations, then `06.01` regions. No UI or region implementation started.
+- Hardware gates: **Joshua runs this** (including audio listening/refill scheduling); `06.12` and later wave remain blocked.
+- Checkpoint: #98 merged; #100/#101/#106 remain open and unticked while checks run. Only GPT PRs with five green checks may merge. Rebase conflicts and require fresh CI. No other assistant's PR was merged.
 
 ## How to use this file
 
@@ -119,8 +118,8 @@ Grok's combat can ship without this, using `seek`. Your API is what they switch 
 
 `07.08` is merged (#94), so this is unblocked. This is the crowd half of the battle slice. The rest of section 5 is Grok's.
 
-- [ ] Avoidance for many agents on the nav API, with a fixed seed. Done when: a test with overlapping goals does not let agents occupy the same point, and the result repeats bit for bit in one build.
-- [ ] A count toward the proposed 256 agents (roadmap Phase 5). The timing budget is not agreed until Joshua's `01.11`. Done when: the test runs the count and records time, and the checklist note says the budget tick waits on `01.11` and `05.09` (Grok). Tick `05.04` when avoidance and the count fixture pass, and state that the budget number is still open under those IDs.
+- [x] Avoidance for many agents on the nav API, with a fixed seed. Done when: a test with overlapping goals does not let agents occupy the same point, and the result repeats bit for bit in one build.
+- [x] A count toward the proposed 256 agents (roadmap Phase 5). The timing budget is not agreed until Joshua's `01.11`. Done when: the test runs the count and records time, and the checklist note says the budget tick waits on `01.11` and `05.09` (Grok). Tick `05.04` when avoidance and the count fixture pass, and state that the budget number is still open under those IDs.
 
 ### 5. `07.09` — jobs, threading, scheduling, budgets
 
