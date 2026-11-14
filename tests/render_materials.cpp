@@ -178,7 +178,7 @@ lykoware::Image draw_checked(rhi::Device& device, render::Renderer& renderer, co
     return image;
 }
 
-bool same(const lykoware::Image& a, const lykoware::Image& b, int tolerance)
+bool same(const lykoware::Image& a, const lykoware::Image& b, std::uint8_t tolerance)
 {
     return a.width() == width && b.width() == width && lykoware::compare_images(a, b, tolerance).matches;
 }
