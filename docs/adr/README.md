@@ -100,6 +100,8 @@ Use [the template](TEMPLATE.md). Record context, options, decision/status, contr
 
 - [0082: Stable asset IDs and cooked packages](0082-cooked-asset-packages.md) — Dependency fingerprints and source-free runtime byte packages.
 
+- [0083: Bounded PCM streaming and nearest voice admission](0083-audio-stream-priority.md) — Caller-pumped disk ring and deterministic distance-based spatial voice admission (07.07).
+
 - [0084: A directional light's shadow map](0084-directional-shadow-map.md) — Proposed; `rhi::ShadowMap` (D32 map, 80-byte block, one set), depth-only casters, receivers read set 1; camera clip to light clip in one per-frame matrix; off by default, unchanged image when off; skinned shadows later (07.03b).
 
 - [0085: Metal-roughness materials and normal maps](0085-metal-roughness-materials.md) — Proposed; opt-in material pipeline (192-byte push block, sets 2–3 normal and metal-roughness maps), GGX/Smith/Schlick, derivative tangent frame; parts without a material draw exactly as lit; off is unchanged (07.03c).

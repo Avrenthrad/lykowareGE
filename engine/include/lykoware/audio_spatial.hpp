@@ -70,7 +70,7 @@ public:
     // Starts the entity's AudioSource where its Transform is. gain_scale (0..16) multiplies
     // AudioSource::gain, e.g. for how hard an impact was; the product must stay within 16.
     // Fails (nullopt, error filled) when the entity has no Transform or AudioSource, the falloff
-    // or gain is out of range, or the mixer refuses the voice.
+    // or gain is out of range, or no farther prioritized mixer voice can be replaced.
     std::optional<VoiceId> play(const ecs::World& world, ecs::Entity entity, const Listener& listener, Mixer& mixer,
                                 std::string& error, float gain_scale = 1.F);
 

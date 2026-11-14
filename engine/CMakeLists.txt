@@ -10,6 +10,7 @@ add_library(lykoware_engine STATIC
     src/character_asset.cpp
     src/assets.cpp
     src/audio.cpp
+    src/audio_stream.cpp
     src/audio_output.cpp
     src/ik.cpp
     src/animation.cpp
