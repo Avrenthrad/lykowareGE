@@ -272,6 +272,14 @@ if(BUILD_TESTING)
         "${material_vert_spv}" "${material_frag_spv}" "${material_shadowed_vert_spv}" "${material_shadowed_frag_spv}"
         "${shadow_vert_spv}" "${lit_shadowed_vert_spv}" "${lit_shadowed_frag_spv}" "${skinned_vert_spv}")
     set_tests_properties(render.post PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
+    # 07.04: culling, batching and freeing GPU resources (ADR 0088).
+    add_executable(lykoware_render_visibility_test tests/render_visibility.cpp)
+    target_link_libraries(lykoware_render_visibility_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_render_visibility_test)
+    add_dependencies(lykoware_render_visibility_test lykoware_test_shaders)
+    add_test(NAME render.visibility COMMAND lykoware_render_visibility_test "${lit_vert_spv}" "${lit_frag_spv}"
+        "${shadow_vert_spv}" "${lit_shadowed_vert_spv}" "${lit_shadowed_frag_spv}")
+    set_tests_properties(render.visibility PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
 
     # Sampled textures in the RHI (ADR 0037): exact texels, sRGB, mipmaps, wrapping, misuse.
     add_executable(lykoware_rhi_texture_test tests/rhi_texture.cpp)
