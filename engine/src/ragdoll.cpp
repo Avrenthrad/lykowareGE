@@ -363,4 +363,110 @@ void Ragdoll::destroy(physics::World& world)
     joints_.clear();
 }
 
+std::optional<ActiveRagdoll> ActiveRagdoll::create(const std::optional<ActiveProfile>& profile, std::string& error)
+{
+    if (!profile) {
+        error = "active ragdoll: the profile does not ask for one";
+        return std::nullopt;
+    }
+    const ActiveProfile& p = *profile;
+    for (const float v : {p.strength, p.stumble_angle, p.stumble_offset, p.fall_angle, p.fall_offset, p.recovered_angle,
+                          p.recovered_offset, p.recovered_seconds, p.lie_seconds, p.rise_seconds}) {
+        if (!std::isfinite(v) || v < 0.F) {
+            error = "active ragdoll: every value must be finite and not negative";
+            return std::nullopt;
+        }
+    }
+    if (p.strength <= 0.F || p.strength > 1.F) {
+        error = "active ragdoll: strength must be in (0, 1]";
+        return std::nullopt;
+    }
+    if (!(p.recovered_angle < p.stumble_angle && p.stumble_angle < p.fall_angle)
+        || !(p.recovered_offset < p.stumble_offset && p.stumble_offset < p.fall_offset)) {
+        error = "active ragdoll: needs recovered < stumble < fall, for angles and for offsets";
+        return std::nullopt;
+    }
+    ActiveRagdoll made;
+    made.profile_ = p;
+    made.weight_ = 1.F - p.strength;
+    error.clear();
+    return made;
+}
+
+bool ActiveRagdoll::tick(physics::World& world, Ragdoll& doll, const animation::Pose& animated, float seconds)
+{
+    if (!std::isfinite(seconds) || seconds <= 0.F) {
+        return false;
+    }
+    animation::Pose held;
+    if (!doll.read_pose(world, animated, held)) {
+        return false;
+    }
+    float angle = 0.F;
+    double offset = 0.0;
+    for (std::size_t j = 0; j < held.size(); ++j) {
+        const Quat d = math::conjugate(animated[j].rotation) * held[j].rotation;
+        const float s = std::min(1.F, math::length(Vec3{d.x, d.y, d.z}));
+        angle = std::max(angle, 2.F * std::asin(s));
+        if (!doll.parents_[j]) {
+            const DVec3 moved = sub(widen(held[j].translation), widen(animated[j].translation));
+            offset = std::max(offset, length(moved) * doll.placement().scale);
+        }
+    }
+    const ActiveProfile& p = profile_;
+    const float motors = 1.F - p.strength;
+    ActiveState next = state_;
+    float timer = timer_;
+    float weight = motors;
+    const bool fell = angle > p.fall_angle || offset > p.fall_offset;
+    const bool settled = angle <= p.recovered_angle && offset <= p.recovered_offset;
+    switch (state_) {
+    case ActiveState::Animated:
+    case ActiveState::Stumbling:
+        if (fell) {
+            next = ActiveState::Fallen;
+            timer = 0.F;
+            weight = 1.F;
+        } else if (state_ == ActiveState::Animated) {
+            if (angle > p.stumble_angle || offset > p.stumble_offset) {
+                next = ActiveState::Stumbling;
+                timer = 0.F;
+            }
+        } else {
+            timer = settled ? timer + seconds : 0.F;
+            if (timer >= p.recovered_seconds) {
+                next = ActiveState::Animated;
+                timer = 0.F;
+            }
+        }
+        break;
+    case ActiveState::Fallen:
+        timer += seconds;
+        weight = 1.F;
+        if (timer >= p.lie_seconds) {
+            next = ActiveState::Rising;
+            timer = 0.F;
+        }
+        break;
+    case ActiveState::Rising:
+        timer += seconds;
+        if (timer >= p.rise_seconds) {
+            next = ActiveState::Stumbling;
+            timer = 0.F;
+        } else {
+            weight = 1.F - (timer / p.rise_seconds) * p.strength;
+        }
+        break;
+    }
+    if (!doll.follow(world, animated, weight, seconds)) {
+        return false;
+    }
+    state_ = next;
+    timer_ = timer;
+    weight_ = weight;
+    angle_ = angle;
+    offset_ = static_cast<float>(offset);
+    return true;
+}
+
 } // namespace lykoware::ragdoll

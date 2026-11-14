@@ -99,7 +99,7 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
   - [x] **02.12b** Body mass, and moving a body to a pose. Evidence: #99 (`1e65373`), ADR 0078, `physics.body_pose`.
   - [x] **02.12c** Build a ragdoll from a skeleton (one body per bone, joints with limits) and read a pose back from it. Evidence: #102 (`e81568b`), ADR 0079, `physics.ragdoll`.
   - [x] **02.12d** Blend between animation and physics, in the sample and replay. Evidence: #104 (`588f8c1`), ADR 0080, `physics.ragdoll_blend` (30/60/144 Hz).
-- [ ] **02.13** Add stumble, recovery and active ragdoll.
+- [x] **02.13** Add stumble, recovery and active ragdoll. Evidence: ADR 0081, `ragdoll::ActiveRagdoll`, `physics.ragdoll_active` (stumble and fall both leave and return; fixed seed 213).
 - [x] **02.14** Refine first/third-person camera transitions. Evidence: #96 (89dc40e), ADR 0075, `follow_camera` test.
 - [ ] **02.15** Validate character feel on Windows hardware.
 - [ ] **02.16** Complete character correctness and performance gates.
