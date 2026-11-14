@@ -7,6 +7,7 @@
 #include <lykoware/rhi/device.hpp>
 #include <lykoware/rhi/pipeline.hpp>
 #include <lykoware/rhi/render_target.hpp>
+#include <lykoware/rhi/shadow_map.hpp>
 #include <lykoware/rhi/swapchain.hpp>
 #include <lykoware/rhi/texture.hpp>
 #include <lykoware/transform.hpp>
@@ -59,6 +60,25 @@ struct TextureSettings {
     bool mipmaps = true;
 };
 
+// A surface beyond its base colour (ADR 0085): metal-roughness shading with an optional normal
+// map, drawn only by a renderer given material shaders (Renderer::enable_materials). The
+// factors multiply the textures, as in glTF.
+struct Material {
+    // Microfacet roughness, 0 (mirror) .. 1 (fully rough). Multiplies metal_roughness's green.
+    float roughness = 1.F;
+    // 0 (dielectric) .. 1 (metal). Multiplies metal_roughness's blue.
+    float metalness = 0.F;
+    // How far the normal map tilts the surface, 0 (flat) .. 2.
+    float normal_scale = 1.F;
+    // A tangent-space normal map in a linear format (rhi::TextureFormat::Rgba8Unorm): x right and
+    // y up in the image, z out of the surface. None: the surface's own normal.
+    TextureId normal_map{};
+    // Linear: green roughness, blue metalness. None: the factors alone.
+    TextureId metal_roughness{};
+
+    friend bool operator==(const Material&, const Material&) = default;
+};
+
 // One part of an added mesh with its own material (ADR 0038): the triangles from first_index
 // for index_count indices. Its colour multiplies MeshRenderer::colour; its texture, when set,
 // takes the place of MeshRenderer::texture.
@@ -67,6 +87,8 @@ struct MeshPart {
     std::uint32_t index_count = 0;
     math::Vec3 colour{1.F, 1.F, 1.F};
     TextureId texture{};
+    // When set, takes the place of MeshRenderer::material for this part (ADR 0085).
+    std::optional<Material> material{};
 };
 
 // ECS component: draw the entity's Transform with a built-in mesh, or with an added mesh.
@@ -81,6 +103,9 @@ struct MeshRenderer {
     // Multiplies `colour`, read at the mesh's texture coordinates. An id this renderer did not
     // make is not drawn.
     TextureId texture{};
+    // Roughness, metalness and a normal map (ADR 0085). Unset: lit as base colour alone. Drawn
+    // as a material only while the renderer has material shaders; otherwise as unset.
+    std::optional<Material> material{};
 };
 
 // Per-instance drawing pose for an uploaded skinned mesh (ADR 0052). Plain CPU matrices;
@@ -100,6 +125,46 @@ struct Camera {
     math::Vec3 up{0.F, 1.F, 0.F};
     float vertical_fov = 1.0471976F; // 60 degrees
     float near = 0.1F;
+};
+
+// The scene's one directional light and its ambient term (ADR 0082). Each surface gets
+// colour * texture * (ambient + (1 - ambient) * max(0, n . direction)). The defaults are the
+// first renderer's fixed light, so a renderer that is never given lighting draws as before.
+struct Lighting {
+    // Towards the light, in world space; any finite non-zero length (normalised in the shader).
+    math::Vec3 direction{0.4F, 1.F, 0.3F};
+    // The share of the colour a surface keeps facing away from the light, 0..1.
+    float ambient = 0.25F;
+};
+
+// A shadow from the scene's light (ADR 0084): one orthographic map along Lighting::direction,
+// a square centred on the camera's target. Off unless Renderer::enable_shadows is called.
+struct Shadows {
+    // The map's side in texels (rhi::shadow_map_min_size..rhi::shadow_map_max_size).
+    std::uint32_t resolution = 2048;
+    // Half the side of the square the map covers, metres. Outside it surfaces are lit.
+    float half_extent = 16.F;
+    // The map's reach along the light, metres, centred on the target. Casters beyond it cast nothing.
+    float depth_range = 64.F;
+    // Depth bias along the light, metres, against a surface shadowing itself (0..depth_range).
+    float bias = 0.05F;
+};
+
+// SPIR-V for shadows: engine/shaders/shadow.slang vertexMain (the caster), and lit.slang
+// vertexShadowed and fragmentShadowed (the receiver).
+struct ShadowShaders {
+    std::span<const std::uint32_t> caster_vertex;
+    std::span<const std::uint32_t> receiver_vertex;
+    std::span<const std::uint32_t> receiver_fragment;
+};
+
+// SPIR-V for materials (ADR 0085): engine/shaders/material.slang vertexMain and fragmentMain,
+// and vertexShadowed and fragmentShadowed for when shadows are on as well.
+struct MaterialShaders {
+    std::span<const std::uint32_t> vertex;
+    std::span<const std::uint32_t> fragment;
+    std::span<const std::uint32_t> shadowed_vertex;
+    std::span<const std::uint32_t> shadowed_fragment;
 };
 
 // Draws ECS scenes. One renderer per colour format.
@@ -139,8 +204,9 @@ public:
     // or when the driver refuses the buffers.
     [[nodiscard]] std::optional<MeshId> add_mesh(const MeshData& mesh, rhi::RhiError& error);
     // The same, drawn as parts with their own materials (a glTF model's primitives, say). Each
-    // part needs a non-zero, whole-triangle range inside the mesh's indices, and a texture id
-    // this renderer made (or none); otherwise InvalidArgument.
+    // part needs a non-zero, whole-triangle range inside the mesh's indices, a texture id
+    // this renderer made (or none), and a valid material if it has one (see enable_materials);
+    // otherwise InvalidArgument.
     [[nodiscard]] std::optional<MeshId> add_mesh(const MeshData& mesh, std::span<const MeshPart> parts, rhi::RhiError& error);
 
     // Upload once, draw with SkinPose. Requires create()'s optional skinned vertex shader.
@@ -158,6 +224,40 @@ public:
     // (InvalidArgument) or when the driver refuses it.
     [[nodiscard]] std::optional<TextureId> add_texture(const RgbaImage& image, const TextureSettings& settings,
                                                        rhi::RhiError& error);
+
+    // Lighting for every draw() from now on. False, error InvalidArgument and the lighting
+    // unchanged, for a direction not finite or of zero length, or an ambient outside 0..1.
+    [[nodiscard]] bool set_lighting(const Lighting& lighting, rhi::RhiError& error);
+    [[nodiscard]] const Lighting& lighting() const;
+
+    // Every draw() from now on also casts and receives the light's shadow (ADR 0084). Calling it
+    // again replaces the settings and shaders. False, error filled and shadows unchanged, for:
+    // a renderer made with the skinned vertex shader (skinned shadows are a later slice), or a
+    // resolution, extent, range or bias outside its range or not finite (InvalidArgument);
+    // shaders that do not load or link (as Renderer::create).
+    [[nodiscard]] bool enable_shadows(const ShadowShaders& shaders, const Shadows& shadows, rhi::RhiError& error);
+    // Back to the unshadowed path, which draws exactly as if shadows were never enabled.
+    void disable_shadows();
+    // The settings while shadows are on, nullopt when off.
+    [[nodiscard]] std::optional<Shadows> shadows() const;
+    // Casters drawn into the shadow map by the last draw(); 0 when shadows are off.
+    [[nodiscard]] std::size_t last_shadow_caster_count() const;
+
+    // Every draw() from now on shades materials (ADR 0085): parts with a Material get
+    // metal-roughness shading and their normal map; parts without one draw as the lit shader
+    // would. Calling it again replaces the shaders. False, error filled and materials unchanged,
+    // for: a renderer made with the skinned vertex shader (InvalidArgument; skinned materials
+    // are a later slice), shaders that do not load or link (as Renderer::create), or a device
+    // with fewer than 192 bytes of push constants (NoSuitableDevice).
+    //
+    // While on, draw() fails with InvalidArgument for a Material with a factor outside its range
+    // or not finite, a texture id this renderer did not make, or an sRGB normal map.
+    [[nodiscard]] bool enable_materials(const MaterialShaders& shaders, rhi::RhiError& error);
+    // Back to drawing every part with its base colour alone, exactly as before enable_materials.
+    void disable_materials();
+    [[nodiscard]] bool materials_enabled() const;
+    // Parts drawn with a Material by the last draw(); 0 when materials are off.
+    [[nodiscard]] std::size_t last_material_draw_count() const;
 
     // Entities drawn by the last draw() (a mesh of several parts counts once).
     [[nodiscard]] std::size_t last_draw_count() const;

@@ -99,7 +99,7 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
   - [x] **02.12b** Body mass, and moving a body to a pose. Evidence: #99 (`1e65373`), ADR 0078, `physics.body_pose`.
   - [x] **02.12c** Build a ragdoll from a skeleton (one body per bone, joints with limits) and read a pose back from it. Evidence: #102 (`e81568b`), ADR 0079, `physics.ragdoll`.
   - [x] **02.12d** Blend between animation and physics, in the sample and replay. Evidence: #104 (`588f8c1`), ADR 0080, `physics.ragdoll_blend` (30/60/144 Hz).
-- [ ] **02.13** Add stumble, recovery and active ragdoll.
+- [x] **02.13** Add stumble, recovery and active ragdoll. Evidence: ADR 0081, `ragdoll::ActiveRagdoll`, `physics.ragdoll_active` (stumble and fall both leave and return; fixed seed 213).
 - [x] **02.14** Refine first/third-person camera transitions. Evidence: #96 (89dc40e), ADR 0075, `follow_camera` test.
 - [ ] **02.15** Validate character feel on Windows hardware.
 - [ ] **02.16** Complete character correctness and performance gates.
@@ -141,7 +141,8 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
 - [ ] **05.01** Add selection and RTS camera controls.
 - [ ] **05.02** Add unit orders and command queues.
 - [ ] **05.03** Add group movement and formations.
-- [ ] **05.04** Scale navigation and avoidance.
+- [x] **05.04** Scale navigation and avoidance.
+  - GPT: ADR 0081 seeded conservative reservations; 256 agents × 32 ticks, repeated bitwise equality, swept separation and deliberate overlap rejection pass locally. Merged #98 as `d29be31`; all five hosted checks passed on `38e307c`. Local ASan/UBSan also pass; timing budget remains open under `01.11` and `05.09` (**Joshua runs this**).
 - [ ] **05.05** Add faction affiliation and hostility.
 - [ ] **05.06** Add tactical AI and battle objectives.
 - [ ] **05.07** Add simulation, animation and rendering detail levels.
@@ -167,8 +168,14 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
 ## 7. Shared runtime systems — alongside the slices
 
 - [ ] **07.01** Add asset identifiers, dependency tracking and cooked packages.
+  - GPT: ADR 0082 stable IDs/edges, standalone cook CLI and source-free C++ byte-package loader; deterministic cook, stale/missing dependency and atomic failure tests pass locally. Hosted CI/merge pending.
 - [ ] **07.02** Add import diagnostics and incremental rebuilds.
 - [ ] **07.03** Complete flagship lighting, shadows, materials, transparency and post-processing.
+  - [x] **07.03a** A stated directional light and ambient, set per renderer. Evidence: ADR 0082, `Renderer::set_lighting`, `render.lighting` (five lights within 2/255 of the formula; defaults byte-identical to the first renderer).
+  - [x] **07.03b** Shadows from the directional light. Evidence: ADR 0084, `rhi::ShadowMap`, `Renderer::enable_shadows`, `render.shadows` (ground under a cube keeps only ambient within 2/255, open ground and cube top fully lit, a slanted light moves the shadow, off is byte-identical). Skinned shadows are a later slice.
+  - [x] **07.03c** Materials beyond base colour (roughness, metalness, normal maps). Evidence: ADR 0085, `Renderer::enable_materials`, `render.materials` (four materials within 3/255 of the formula on two faces; smooth vs rough highlight, metal tint, normal maps tilted in x and y, metal-roughness texture; plain parts within 1/255 of lit; off and disabled byte-identical; shadows received). Skinned materials are a later slice.
+  - [ ] **07.03d** Transparent surfaces, sorted and blended.
+  - [ ] **07.03e** A post-processing pass (tone mapping first).
 - [ ] **07.04** Add visibility, batching and GPU resource management.
 - [ ] **07.05** Add required terrain, foliage, water and environmental rendering.
 - [ ] **07.06** Add UI, text, fonts, localisation and accessibility foundations.

@@ -47,6 +47,14 @@ if(BUILD_TESTING)
 
     # The simulation clock (ADR 0017): exact tick counts, frame-rate
     # independence and limits, all from fixed frame times.
+    add_executable(lykoware_assets_test tests/assets.cpp)
+    target_link_libraries(lykoware_assets_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_assets_test)
+    add_test(NAME assets.cook_load COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_SOURCE_DIR}/tests/assets_cook.py" "${CMAKE_SOURCE_DIR}/tools/assets/cook.py"
+        "$<TARGET_FILE:lykoware_assets_test>")
+    set_tests_properties(assets.cook_load PROPERTIES TIMEOUT 60)
+
     add_executable(lykoware_clock_test tests/clock.cpp)
     target_link_libraries(lykoware_clock_test PRIVATE lykoware::engine)
     lykoware_configure_target(lykoware_clock_test)
@@ -129,6 +137,22 @@ if(BUILD_TESTING)
         ENTRY vertexMain STAGE vertex NAME lit.vert)
     lykoware_compile_shader(lit_frag_spv SOURCE engine/shaders/lit.slang
         ENTRY fragmentMain STAGE fragment NAME lit.frag)
+    # Shadows (ADR 0084): the caster and the receiving entry points.
+    lykoware_compile_shader(shadow_vert_spv SOURCE engine/shaders/shadow.slang
+        ENTRY vertexMain STAGE vertex NAME shadow.vert)
+    lykoware_compile_shader(lit_shadowed_vert_spv SOURCE engine/shaders/lit.slang
+        ENTRY vertexShadowed STAGE vertex NAME lit_shadowed.vert)
+    lykoware_compile_shader(lit_shadowed_frag_spv SOURCE engine/shaders/lit.slang
+        ENTRY fragmentShadowed STAGE fragment NAME lit_shadowed.frag)
+    # Materials (ADR 0085): metal-roughness with a normal map, with and without a shadow.
+    lykoware_compile_shader(material_vert_spv SOURCE engine/shaders/material.slang
+        ENTRY vertexMain STAGE vertex NAME material.vert)
+    lykoware_compile_shader(material_frag_spv SOURCE engine/shaders/material.slang
+        ENTRY fragmentMain STAGE fragment NAME material.frag)
+    lykoware_compile_shader(material_shadowed_vert_spv SOURCE engine/shaders/material.slang
+        ENTRY vertexShadowed STAGE vertex NAME material_shadowed.vert)
+    lykoware_compile_shader(material_shadowed_frag_spv SOURCE engine/shaders/material.slang
+        ENTRY fragmentShadowed STAGE fragment NAME material_shadowed.frag)
     # rhi.mesh's untextured lit shader and rhi.texture's unlit textured shader (ADR 0037).
     lykoware_compile_shader(mesh_vert_spv SOURCE tests/shaders/mesh.slang
         ENTRY vertexMain STAGE vertex NAME mesh.vert)
@@ -141,7 +165,9 @@ if(BUILD_TESTING)
     lykoware_compile_shader(skinned_vert_spv SOURCE engine/shaders/skinned.slang
         ENTRY vertexMain STAGE vertex NAME skinned.vert)
     add_custom_target(lykoware_test_shaders ALL DEPENDS "${skinned_vert_spv}" "${triangle_vert_spv}" "${triangle_frag_spv}"
-        "${lit_vert_spv}" "${lit_frag_spv}" "${mesh_vert_spv}" "${mesh_frag_spv}"
+        "${lit_vert_spv}" "${lit_frag_spv}" "${shadow_vert_spv}" "${lit_shadowed_vert_spv}" "${lit_shadowed_frag_spv}"
+        "${material_vert_spv}" "${material_frag_spv}" "${material_shadowed_vert_spv}" "${material_shadowed_frag_spv}"
+        "${mesh_vert_spv}" "${mesh_frag_spv}"
         "${textured_vert_spv}" "${textured_frag_spv}")
 
     # The interactive path: present, resize, and the test triangle drawn
@@ -191,6 +217,30 @@ if(BUILD_TESTING)
     add_test(NAME render.scene
         COMMAND lykoware_render_scene_test "${lit_vert_spv}" "${lit_frag_spv}" "${CMAKE_CURRENT_BINARY_DIR}/render-scene")
     set_tests_properties(render.scene PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
+
+    add_executable(lykoware_render_lighting_test tests/render_lighting.cpp)
+    target_link_libraries(lykoware_render_lighting_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_render_lighting_test)
+    add_dependencies(lykoware_render_lighting_test lykoware_test_shaders)
+    add_test(NAME render.lighting COMMAND lykoware_render_lighting_test "${lit_vert_spv}" "${lit_frag_spv}")
+    set_tests_properties(render.lighting PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
+    # 07.03b: a directional light's shadow map, cast and received (ADR 0084).
+    add_executable(lykoware_render_shadows_test tests/render_shadows.cpp)
+    target_link_libraries(lykoware_render_shadows_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_render_shadows_test)
+    add_dependencies(lykoware_render_shadows_test lykoware_test_shaders)
+    add_test(NAME render.shadows COMMAND lykoware_render_shadows_test "${lit_vert_spv}" "${lit_frag_spv}"
+        "${shadow_vert_spv}" "${lit_shadowed_vert_spv}" "${lit_shadowed_frag_spv}" "${skinned_vert_spv}")
+    set_tests_properties(render.shadows PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
+    # 07.03c: metal-roughness materials and normal maps (ADR 0085).
+    add_executable(lykoware_render_materials_test tests/render_materials.cpp)
+    target_link_libraries(lykoware_render_materials_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_render_materials_test)
+    add_dependencies(lykoware_render_materials_test lykoware_test_shaders)
+    add_test(NAME render.materials COMMAND lykoware_render_materials_test "${lit_vert_spv}" "${lit_frag_spv}"
+        "${material_vert_spv}" "${material_frag_spv}" "${material_shadowed_vert_spv}" "${material_shadowed_frag_spv}"
+        "${shadow_vert_spv}" "${lit_shadowed_vert_spv}" "${lit_shadowed_frag_spv}" "${skinned_vert_spv}")
+    set_tests_properties(render.materials PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
 
     # Sampled textures in the RHI (ADR 0037): exact texels, sRGB, mipmaps, wrapping, misuse.
     add_executable(lykoware_rhi_texture_test tests/rhi_texture.cpp)
@@ -289,7 +339,7 @@ if(BUILD_TESTING)
         # reports; leaks in Lykoware code are still caught (ADR 0015 records the
         # deliberate-leak check).
         set_property(TEST rhi.instance rhi.instance.no_driver rhi.device rhi.render_target rhi.swapchain
-                          sandbox.vulkan_window sandbox.gpu_trace sandbox.play sandbox.imported_player rhi.pipeline rhi.mesh rhi.texture render.scene
+                          sandbox.vulkan_window sandbox.gpu_trace sandbox.play sandbox.imported_player rhi.pipeline rhi.mesh rhi.texture render.scene render.lighting render.shadows render.materials
                           render.model render.skinning render.gpu_skinning render.texture lifecycle.restart_vulkan
             APPEND PROPERTY ENVIRONMENT "VK_LOADER_DISABLE_DYNAMIC_LIBRARY_UNLOADING=1")
     endif()
@@ -338,6 +388,13 @@ if(BUILD_TESTING)
     lykoware_configure_target(lykoware_ragdoll_blend_test)
     add_test(NAME physics.ragdoll_blend COMMAND lykoware_ragdoll_blend_test)
     set_tests_properties(physics.ragdoll_blend PROPERTIES TIMEOUT 120)
+
+    add_executable(lykoware_ragdoll_active_test tests/ragdoll_active.cpp)
+    target_link_libraries(lykoware_ragdoll_active_test PRIVATE lykoware::engine)
+    target_include_directories(lykoware_ragdoll_active_test PRIVATE "${CMAKE_SOURCE_DIR}/samples/course")
+    lykoware_configure_target(lykoware_ragdoll_active_test)
+    add_test(NAME physics.ragdoll_active COMMAND lykoware_ragdoll_active_test)
+    set_tests_properties(physics.ragdoll_active PROPERTIES TIMEOUT 120)
     set_tests_properties(physics.world PROPERTIES TIMEOUT 120)
 
     add_executable(lykoware_audio_stream_test tests/audio_stream.cpp)
@@ -653,6 +710,14 @@ if(BUILD_TESTING)
         "${CMAKE_SOURCE_DIR}/samples/scenes/falling-crates.commands.json"
         "${CMAKE_SOURCE_DIR}/samples/scenes/falling-crates.lua" --omit-command-tick)
     set_tests_properties(scene.script_omitted_tick PROPERTIES TIMEOUT 120 WILL_FAIL TRUE)
+
+    add_executable(lykoware_navigation_crowd_test tests/navigation_crowd.cpp)
+    target_link_libraries(lykoware_navigation_crowd_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_navigation_crowd_test)
+    add_test(NAME navigation.crowd COMMAND lykoware_navigation_crowd_test)
+    add_test(NAME navigation.crowd_overlap COMMAND lykoware_navigation_crowd_test --overlap)
+    set_tests_properties(navigation.crowd PROPERTIES TIMEOUT 120)
+    set_tests_properties(navigation.crowd_overlap PROPERTIES TIMEOUT 120 WILL_FAIL TRUE)
 
     add_executable(lykoware_navigation_test tests/navigation.cpp)
     target_link_libraries(lykoware_navigation_test PRIVATE lykoware::engine)

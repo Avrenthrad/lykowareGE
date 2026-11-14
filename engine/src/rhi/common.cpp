@@ -1,5 +1,6 @@
 #include "common.hpp"
 
+#include <lykoware/rhi/shadow_map.hpp>
 #include <lykoware/rhi/texture.hpp>
 
 #include <cmath>
@@ -156,6 +157,19 @@ bool prepare_mesh_draws(const GraphicsPipeline& pipeline, ColorFormat target_for
         if (!pipeline.texture() && mesh.texture != nullptr) {
             return fail(error, RhiFailure::InvalidArgument, which + "the mesh names a texture but the pipeline reads none");
         }
+        if (pipeline.shadow() != (mesh.shadow != nullptr)) {
+            return fail(error, RhiFailure::InvalidArgument,
+                        which + (pipeline.shadow() ? "the pipeline receives a shadow but the mesh names no shadow map"
+                                                   : "the mesh names a shadow map but the pipeline receives none"));
+        }
+        const bool names_material = mesh.normal_map != nullptr || mesh.metal_roughness != nullptr;
+        if (pipeline.material() && (mesh.normal_map == nullptr || mesh.metal_roughness == nullptr)) {
+            return fail(error, RhiFailure::InvalidArgument,
+                        which + "the pipeline shades a material but the mesh names no normal map or metal-roughness texture");
+        }
+        if (!pipeline.material() && names_material) {
+            return fail(error, RhiFailure::InvalidArgument, which + "the mesh names material textures but the pipeline reads none");
+        }
         if ((!skinned && !mesh.skin_matrices.empty()) || mesh.skin_matrices.size() > skin_palette_max_joints) {
             return fail(error, RhiFailure::InvalidArgument, which + "invalid skin palette for this pipeline");
         }
@@ -177,6 +191,13 @@ bool prepare_mesh_draws(const GraphicsPipeline& pipeline, ColorFormat target_for
                          mesh.texture != nullptr ? static_cast<VkDescriptorSet>(mesh.texture->native_descriptor_set())
                                                  : VK_NULL_HANDLE,
                          mesh.first_index, skinned, mesh.skin_matrices});
+        if (mesh.shadow != nullptr) {
+            draws.back().shadow = static_cast<VkDescriptorSet>(mesh.shadow->native_descriptor_set());
+        }
+        if (names_material) {
+            draws.back().material[0] = static_cast<VkDescriptorSet>(mesh.normal_map->native_descriptor_set());
+            draws.back().material[1] = static_cast<VkDescriptorSet>(mesh.metal_roughness->native_descriptor_set());
+        }
     }
     return true;
 }
@@ -223,14 +244,15 @@ void record_mesh_pass(VkCommandBuffer commands, VkImageView colour_view, VkImage
     depth.imageView = depth_view;
     depth.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
     depth.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depth.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    // A depth-only pass (a shadow map, ADR 0084) keeps its depth; a colour pass does not.
+    depth.storeOp = colour_view == VK_NULL_HANDLE ? VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_DONT_CARE;
     depth.clearValue.depthStencil.depth = 0.0F; // reversed depth: 0 is infinitely far
     VkRenderingInfo rendering{};
     rendering.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
     rendering.renderArea.extent = extent;
     rendering.layerCount = 1;
-    rendering.colorAttachmentCount = 1;
-    rendering.pColorAttachments = &colour;
+    rendering.colorAttachmentCount = colour_view != VK_NULL_HANDLE ? 1U : 0U;
+    rendering.pColorAttachments = colour_view != VK_NULL_HANDLE ? &colour : nullptr;
     rendering.pDepthAttachment = depth_view != VK_NULL_HANDLE ? &depth : nullptr;
     vkCmdBeginRendering(commands, &rendering);
     vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
@@ -243,11 +265,23 @@ void record_mesh_pass(VkCommandBuffer commands, VkImageView colour_view, VkImage
     scissor.extent = extent;
     vkCmdSetScissor(commands, 0, 1, &scissor);
     VkDescriptorSet bound = VK_NULL_HANDLE;
+    VkDescriptorSet bound_shadow = VK_NULL_HANDLE;
+    VkDescriptorSet bound_material[2] = {VK_NULL_HANDLE, VK_NULL_HANDLE};
     for (std::size_t index = 0; index < draw_count; ++index) {
         const PreparedDraw& draw = draws[index];
         if (draw.texture != VK_NULL_HANDLE && draw.texture != bound) {
             vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &draw.texture, 0, nullptr);
             bound = draw.texture;
+        }
+        if (draw.shadow != VK_NULL_HANDLE && draw.shadow != bound_shadow) {
+            vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 1, 1, &draw.shadow, 0, nullptr);
+            bound_shadow = draw.shadow;
+        }
+        if (draw.material[0] != VK_NULL_HANDLE
+            && (draw.material[0] != bound_material[0] || draw.material[1] != bound_material[1])) {
+            vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 2, 2, draw.material, 0, nullptr);
+            bound_material[0] = draw.material[0];
+            bound_material[1] = draw.material[1];
         }
         if (draw.skin != VK_NULL_HANDLE) {
             vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 1, 1, &draw.skin,

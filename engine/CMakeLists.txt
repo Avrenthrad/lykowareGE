@@ -8,6 +8,7 @@ add_library(lykoware_engine STATIC
     src/animation_graph.cpp
     src/retarget.cpp
     src/character_asset.cpp
+    src/assets.cpp
     src/audio.cpp
     src/audio_stream.cpp
     src/audio_output.cpp
@@ -15,6 +16,7 @@ add_library(lykoware_engine STATIC
     src/animation.cpp
     src/skinning.cpp
     src/audio_spatial.cpp
+    src/navigation_crowd.cpp
     src/navigation.cpp
     src/jobs.cpp
     src/clock.cpp
@@ -48,6 +50,7 @@ add_library(lykoware_engine STATIC
     src/rhi/device.cpp
     src/rhi/render_target.cpp
     src/rhi/swapchain.cpp
+    src/rhi/shadow_map.cpp
     src/rhi/texture.cpp
     src/rhi/pipeline.cpp)
 add_library(lykoware::engine ALIAS lykoware_engine)

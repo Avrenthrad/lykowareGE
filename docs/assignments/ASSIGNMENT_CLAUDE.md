@@ -9,11 +9,11 @@ Tick only after the PR is merged with all five CI checks green. One line of note
 - [x] `02.17d` remainder (clips + imported speeds) — #89 merged `7e67a06`; `02.17` parent ticked.
 - [ ] `02.11b-runtime-scale` — fixture merged #92 `74009df`; waiting: **Joshua runs this** (`lykoware_ik_runtime_scale --characters 500 --frames 600 --csv ik_scale.csv`, Release).
 - [x] `02.14` camera transitions — merged #96 (89dc40e)
-- [ ] `07.03` lighting/shadows/materials/transparency/post (lettered slices)
+- [ ] `07.03` lighting/shadows/materials/transparency/post — split a–e; `07.03a` #108 (`21ce75a`), `07.03b` #110 (`3e41fa6`), `07.03c` materials #111; `07.03d` transparency next (needs a multi-pipeline pass in the RHI)
 - [ ] `07.04` visibility, batching, GPU resources
 - [ ] `07.05` environment rendering
 - [ ] `06.10` pipeline warmup (world-scale half: **Joshua runs this**)
-- [ ] `02.12b` → `02.12c` → `02.12d` → `02.13` ragdolls — 02.12b #99 (`1e65373`), 02.12c #102 (`e81568b`), 02.12d #104 (`588f8c1`) merged; `02.12` ticked; `02.13` next
+- [x] `02.12b` → `02.12c` → `02.12d` → `02.13` ragdolls — 02.12b #99, 02.12c #102, 02.12d #104; `02.13` merged #107 (`84a2925`)
 - [ ] `06.08` — blocked on GPT `06.01`, `06.04`
 - [ ] `02.16` gates (perf run: **Joshua runs this**)
 
@@ -149,9 +149,11 @@ Merged in #104 (`588f8c1`): `Ragdoll::follow` and `blended_pose`, ADR 0080; samp
 
 Unblocked: `02.12d` merged. Motors are this ID, not `02.12` (ADR 0073).
 
-- [ ] ADR: a stumble, a recovery, and motors that drive the ragdoll toward the animated pose. Done when: the ADR states the fixed-seed fixture, what "recovered" means in numbers, and that the feature is off when the profile does not ask for it.
-- [ ] Implement the fixture: a fall, a stumble, and a return to the animated pose. Done when: the test fails if the body never leaves the animated pose, and fails if it never returns.
-- [ ] Standard close. Done when: `02.13` is ticked.
+- [x] ADR: a stumble, a recovery, and motors that drive the ragdoll toward the animated pose. Done when: the ADR states the fixed-seed fixture, what "recovered" means in numbers, and that the feature is off when the profile does not ask for it.
+- [x] Implement the fixture: a fall, a stumble, and a return to the animated pose. Done when: the test fails if the body never leaves the animated pose, and fails if it never returns.
+- [x] Standard close. Done when: `02.13` is ticked.
+
+Merged in #107 (`84a2925`): `ragdoll::ActiveRagdoll`, ADR 0081; test `physics.ragdoll_active` (stumble and fall both leave and return, fixed seed 213).
 
 ### 7. `02.14` — first- and third-person camera transitions
 
@@ -166,9 +168,11 @@ Merged in #96 (89dc40e): `FollowCameraConfig::transition_speed`, ADR 0075; test 
 
 The current renderer is a lit first path (ADRs 0002, 0025, 0026). This ID is the flagship set, built in slices. Each slice is still one PR under this ID only if it is the whole ID; if you need more than one PR, split the checklist into lettered children in the same PR that introduces them, and do not delete `07.03`.
 
-- [ ] ADR for the first slice you can test headlessly (a stated light, a shadow, a transparent surface, or a post pass). Done when: the ADR names ownership of GPU resources and what a missing shader does.
-- [ ] Implement that slice and a golden or numeric image check. Done when: the check fails if the feature is removed, and a software GPU skip stays a skip rather than a pass.
+- [x] ADR for the first slice you can test headlessly (a stated light, a shadow, a transparent surface, or a post pass). Done when: the ADR names ownership of GPU resources and what a missing shader does.
+- [x] Implement that slice and a golden or numeric image check. Done when: the check fails if the feature is removed, and a software GPU skip stays a skip rather than a pass.
 - [ ] Repeat until the ID's list is covered, each under its own child ID if you split it. Done when: `07.03` is ticked only after every named part has a test.
+
+`07.03a` merged in #108 (`21ce75a`): `Renderer::set_lighting`, ADR 0082, test `render.lighting`. `07.03b` merged in #110 (`3e41fa6`): `rhi::ShadowMap`, ADR 0084, test `render.shadows`; skinned shadows deferred. `07.03c` in #111: `Renderer::enable_materials`, ADR 0085, test `render.materials`. Children `07.03d` transparency and `07.03e` post remain; both need more than one pipeline in a pass.
 
 ### 9. `07.04` — visibility, batching, GPU resources
 

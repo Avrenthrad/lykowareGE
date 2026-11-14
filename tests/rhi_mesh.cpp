@@ -151,10 +151,12 @@ Constants constants_for(const Camera& camera, math::DVec3 position, math::Quat r
     Constants constants;
     constants.clip = projection * view * model;
     const math::Mat4 normal = math::rotation(rotation);
+    // The lit shader's light rides in the normal columns' w and its ambient in colour.a (ADR 0082).
+    const float light[3] = {0.4F, 1.F, 0.3F};
     for (int column = 0; column < 3; ++column) {
-        constants.normal[column] = {normal.m[column][0], normal.m[column][1], normal.m[column][2], 0.F};
+        constants.normal[column] = {normal.m[column][0], normal.m[column][1], normal.m[column][2], light[column]};
     }
-    constants.colour = {colour.x, colour.y, colour.z, 1.F};
+    constants.colour = {colour.x, colour.y, colour.z, 0.25F};
     return constants;
 }
 

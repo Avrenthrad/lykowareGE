@@ -62,6 +62,7 @@ private:
 // a buffer of 32-bit triangle indices, and the bytes the pipeline's push
 // constants hold for this mesh.
 class Texture;
+class ShadowMap;
 
 struct MeshDraw {
     const Buffer* vertices = nullptr;
@@ -79,6 +80,13 @@ struct MeshDraw {
     // Empty uses the identity palette. Other pipelines require empty. The caller retains no
     // GPU lifetime obligation for this span after draw returns.
     std::span<const math::Mat4> skin_matrices{};
+    // Required when the pipeline receives a shadow (GraphicsPipelineDesc::shadow), and must be
+    // null otherwise (ADR 0084).
+    const ShadowMap* shadow = nullptr;
+    // Both required when the pipeline shades a material (GraphicsPipelineDesc::material), and
+    // both null otherwise (ADR 0085): set 2 and set 3.
+    const Texture* normal_map = nullptr;
+    const Texture* metal_roughness = nullptr;
 };
 
 }

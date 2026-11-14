@@ -55,6 +55,9 @@ struct PreparedDraw {
     std::span<const math::Mat4> skin_matrices{};
     VkDescriptorSet skin = VK_NULL_HANDLE;
     std::uint32_t skin_offset = 0;
+    VkDescriptorSet shadow = VK_NULL_HANDLE;
+    // A material pipeline's sets 2 and 3: the normal map and the metal-roughness texture.
+    VkDescriptorSet material[2] = {VK_NULL_HANDLE, VK_NULL_HANDLE};
 };
 
 // Checks `meshes` against the pipeline and the target being drawn to (the

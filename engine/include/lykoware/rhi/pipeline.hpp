@@ -105,6 +105,9 @@ inline constexpr std::size_t skin_palette_max_draws = 4096;
 
 // Largest push-constant block, the size every Vulkan device guarantees.
 inline constexpr std::uint32_t push_constant_max_bytes = 128;
+// Largest block a material pipeline may ask for (ADR 0085). Every desktop GPU of the Vulkan
+// Roadmap 2022 profile has 256; a device with less refuses the pipeline (NoSuitableDevice).
+inline constexpr std::uint32_t push_constant_material_max_bytes = 256;
 
 struct GraphicsPipelineDesc {
     const Shader* vertex = nullptr;
@@ -126,6 +129,20 @@ struct GraphicsPipelineDesc {
     // The fragment shader reads one texture: a combined image sampler at set 0,
     // binding 0 (ADR 0037). Every mesh drawn then names its Texture.
     bool texture = false;
+    // A shadow caster (ADR 0084): depth only, drawn into a ShadowMap. No fragment shader and
+    // no colour attachment; needs depth, a mesh layout without skinning, and no texture or
+    // shadow. color_format is ignored.
+    bool depth_only = false;
+    // Receives a shadow (ADR 0084): set 1 is a ShadowMap's set (binding 0 its depth, binding 1
+    // its uniform block), and every mesh drawn names that ShadowMap. Needs `texture`, and a
+    // layout without skinning (the skinned set 1 is the palette).
+    bool shadow = false;
+    // Shades a material (ADR 0085): set 2 is a normal map's Texture set and set 3 a
+    // metal-roughness Texture set (the same layout as set 0), and every mesh drawn names both.
+    // Set 1 is the ShadowMap layout whether or not `shadow` is set, so the shadowed and
+    // unshadowed material shaders share set numbers. Needs `texture` and no skinning; allows
+    // push_constant_bytes up to push_constant_material_max_bytes when the device has them.
+    bool material = false;
 };
 
 // A graphics pipeline for dynamic rendering: one colour attachment, triangle
@@ -160,6 +177,9 @@ public:
     [[nodiscard]] bool depth() const;
     [[nodiscard]] std::uint32_t push_constant_bytes() const;
     [[nodiscard]] bool texture() const;
+    [[nodiscard]] bool depth_only() const;
+    [[nodiscard]] bool shadow() const;
+    [[nodiscard]] bool material() const;
     // VkPipeline as an opaque pointer for other RHI code.
     [[nodiscard]] void* native_handle() const;
     // VkPipelineLayout as an opaque pointer for other RHI code.
