@@ -126,6 +126,14 @@ struct GraphicsPipelineDesc {
     // The fragment shader reads one texture: a combined image sampler at set 0,
     // binding 0 (ADR 0037). Every mesh drawn then names its Texture.
     bool texture = false;
+    // A shadow caster (ADR 0084): depth only, drawn into a ShadowMap. No fragment shader and
+    // no colour attachment; needs depth, a mesh layout without skinning, and no texture or
+    // shadow. color_format is ignored.
+    bool depth_only = false;
+    // Receives a shadow (ADR 0084): set 1 is a ShadowMap's set (binding 0 its depth, binding 1
+    // its uniform block), and every mesh drawn names that ShadowMap. Needs `texture`, and a
+    // layout without skinning (the skinned set 1 is the palette).
+    bool shadow = false;
 };
 
 // A graphics pipeline for dynamic rendering: one colour attachment, triangle
@@ -160,6 +168,8 @@ public:
     [[nodiscard]] bool depth() const;
     [[nodiscard]] std::uint32_t push_constant_bytes() const;
     [[nodiscard]] bool texture() const;
+    [[nodiscard]] bool depth_only() const;
+    [[nodiscard]] bool shadow() const;
     // VkPipeline as an opaque pointer for other RHI code.
     [[nodiscard]] void* native_handle() const;
     // VkPipelineLayout as an opaque pointer for other RHI code.

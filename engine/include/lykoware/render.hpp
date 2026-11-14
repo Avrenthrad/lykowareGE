@@ -7,6 +7,7 @@
 #include <lykoware/rhi/device.hpp>
 #include <lykoware/rhi/pipeline.hpp>
 #include <lykoware/rhi/render_target.hpp>
+#include <lykoware/rhi/shadow_map.hpp>
 #include <lykoware/rhi/swapchain.hpp>
 #include <lykoware/rhi/texture.hpp>
 #include <lykoware/transform.hpp>
@@ -112,6 +113,27 @@ struct Lighting {
     float ambient = 0.25F;
 };
 
+// A shadow from the scene's light (ADR 0084): one orthographic map along Lighting::direction,
+// a square centred on the camera's target. Off unless Renderer::enable_shadows is called.
+struct Shadows {
+    // The map's side in texels (rhi::shadow_map_min_size..rhi::shadow_map_max_size).
+    std::uint32_t resolution = 2048;
+    // Half the side of the square the map covers, metres. Outside it surfaces are lit.
+    float half_extent = 16.F;
+    // The map's reach along the light, metres, centred on the target. Casters beyond it cast nothing.
+    float depth_range = 64.F;
+    // Depth bias along the light, metres, against a surface shadowing itself (0..depth_range).
+    float bias = 0.05F;
+};
+
+// SPIR-V for shadows: engine/shaders/shadow.slang vertexMain (the caster), and lit.slang
+// vertexShadowed and fragmentShadowed (the receiver).
+struct ShadowShaders {
+    std::span<const std::uint32_t> caster_vertex;
+    std::span<const std::uint32_t> receiver_vertex;
+    std::span<const std::uint32_t> receiver_fragment;
+};
+
 // Draws ECS scenes. One renderer per colour format.
 //
 // Ownership: create() returns the sole owner of its pipeline, mesh buffers and textures. Copy
@@ -173,6 +195,19 @@ public:
     // unchanged, for a direction not finite or of zero length, or an ambient outside 0..1.
     [[nodiscard]] bool set_lighting(const Lighting& lighting, rhi::RhiError& error);
     [[nodiscard]] const Lighting& lighting() const;
+
+    // Every draw() from now on also casts and receives the light's shadow (ADR 0084). Calling it
+    // again replaces the settings and shaders. False, error filled and shadows unchanged, for:
+    // a renderer made with the skinned vertex shader (skinned shadows are a later slice), or a
+    // resolution, extent, range or bias outside its range or not finite (InvalidArgument);
+    // shaders that do not load or link (as Renderer::create).
+    [[nodiscard]] bool enable_shadows(const ShadowShaders& shaders, const Shadows& shadows, rhi::RhiError& error);
+    // Back to the unshadowed path, which draws exactly as if shadows were never enabled.
+    void disable_shadows();
+    // The settings while shadows are on, nullopt when off.
+    [[nodiscard]] std::optional<Shadows> shadows() const;
+    // Casters drawn into the shadow map by the last draw(); 0 when shadows are off.
+    [[nodiscard]] std::size_t last_shadow_caster_count() const;
 
     // Entities drawn by the last draw() (a mesh of several parts counts once).
     [[nodiscard]] std::size_t last_draw_count() const;
