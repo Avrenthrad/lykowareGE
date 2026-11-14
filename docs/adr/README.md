@@ -97,3 +97,5 @@ Use [the template](TEMPLATE.md). Record context, options, decision/status, contr
 - [0080: Blending animation and physics on a ragdoll](0080-ragdoll-blend.md) — Proposed; weight 0 animated, 1 physics, between pulls bodies `1 - weight` toward the animation by velocities and draws the blend; the caller owns the weight, replay records it per tick (02.12d).
 
 - [0081: Deterministic planar crowd reservations](0081-crowd-reservations.md) — Seeded waypoint reservations and a 256-agent count fixture; hardware budget remains open.
+
+- [0082: Stable asset IDs and cooked packages](0082-cooked-asset-packages.md) — Dependency fingerprints and source-free runtime byte packages.

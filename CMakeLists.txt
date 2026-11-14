@@ -47,6 +47,14 @@ if(BUILD_TESTING)
 
     # The simulation clock (ADR 0017): exact tick counts, frame-rate
     # independence and limits, all from fixed frame times.
+    add_executable(lykoware_assets_test tests/assets.cpp)
+    target_link_libraries(lykoware_assets_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_assets_test)
+    add_test(NAME assets.cook_load COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_SOURCE_DIR}/tests/assets_cook.py" "${CMAKE_SOURCE_DIR}/tools/assets/cook.py"
+        "$<TARGET_FILE:lykoware_assets_test>")
+    set_tests_properties(assets.cook_load PROPERTIES TIMEOUT 60)
+
     add_executable(lykoware_clock_test tests/clock.cpp)
     target_link_libraries(lykoware_clock_test PRIVATE lykoware::engine)
     lykoware_configure_target(lykoware_clock_test)
