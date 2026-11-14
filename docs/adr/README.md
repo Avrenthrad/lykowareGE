@@ -95,3 +95,5 @@ Use [the template](TEMPLATE.md). Record context, options, decision/status, contr
 - [0078: Body mass, and moving a body to a pose](0078-body-mass-and-pose.md) — Proposed; `BodyDesc::mass` in kg (0 = shape at 1000 kg/m³), `World::mass`, `World::drive_to_pose` by velocities with gravity and damping undone; old hashes unchanged (02.12b).
 - [0079: Ragdoll from a skeleton, pose read back](0079-ragdoll-from-skeleton.md) — Proposed; `ragdoll::Ragdoll`: one capsule per named bone segment, joints with limits to the nearest ancestor bone, one root bone; bodies are the world's; pose read back, bodiless joints keep the animated pose (02.12c).
 - [0080: Blending animation and physics on a ragdoll](0080-ragdoll-blend.md) — Proposed; weight 0 animated, 1 physics, between pulls bodies `1 - weight` toward the animation by velocities and draws the blend; the caller owns the weight, replay records it per tick (02.12d).
+
+- [0081: Deterministic planar crowd reservations](0081-crowd-reservations.md) — Seeded waypoint reservations and a 256-agent count fixture; hardware budget remains open.
