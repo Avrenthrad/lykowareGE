@@ -58,6 +58,9 @@ struct PreparedDraw {
     VkDescriptorSet shadow = VK_NULL_HANDLE;
     // A material pipeline's sets 2 and 3: the normal map and the metal-roughness texture.
     VkDescriptorSet material[2] = {VK_NULL_HANDLE, VK_NULL_HANDLE};
+    // MeshDraw::pipeline (ADR 0086), or null for the pass's pipeline.
+    VkPipeline pipeline = VK_NULL_HANDLE;
+    VkPipelineLayout layout = VK_NULL_HANDLE;
 };
 
 // Checks `meshes` against the pipeline and the target being drawn to (the
@@ -75,7 +78,7 @@ void depth_barrier(VkCommandBuffer commands, VkImage image);
 // bind `pipeline` and draw each mesh with its push constants. Both views
 // must already be in their attachment layouts.
 void record_mesh_pass(VkCommandBuffer commands, VkImageView colour_view, VkImageView depth_view, VkExtent2D extent,
-                      const float (&rgba)[4], VkPipeline pipeline, VkPipelineLayout layout,
+                      const float (&rgba)[4], VkPipeline pipeline, VkPipelineLayout pass_layout,
                       const PreparedDraw* draws, std::size_t draw_count);
 
 // GPU timestamps (ADR 0039). Writes timestamp query `query` of `pool`: the start of the work

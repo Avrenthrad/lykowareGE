@@ -39,6 +39,14 @@ struct MaterialConstants {
 static_assert(sizeof(MaterialConstants) == 192);
 static_assert(sizeof(MaterialConstants) <= rhi::push_constant_material_max_bytes);
 
+// Matches engine/shaders/transparent.slang (ADR 0086): the lit block, then x the opacity.
+struct TransparentConstants {
+    Constants lit;
+    math::Vec4 surface;
+};
+static_assert(sizeof(TransparentConstants) == 144);
+static_assert(sizeof(TransparentConstants) <= rhi::push_constant_material_max_bytes);
+
 bool valid_factors(const Material& material)
 {
     const auto in = [](float value, float high) { return std::isfinite(value) && value >= 0.F && value <= high; };
@@ -188,6 +196,14 @@ struct Renderer::Impl {
     bool materials_on = false;
     std::vector<MaterialConstants> material_constants;
     std::size_t materials_drawn = 0;
+    // Transparency (ADR 0086): the pipeline stays alive after a disable, as materials' do.
+    std::unique_ptr<rhi::GraphicsPipeline> transparent_pipeline;
+    bool transparency_on = false;
+    std::vector<TransparentConstants> transparent_constants;
+    // Each transparent part and the distance from the camera to its entity, in ECS order.
+    std::vector<std::pair<Drawn, double>> transparent_parts;
+    std::vector<std::size_t> transparent_order;
+    std::size_t transparent_drawn = 0;
 
     // The texture an id names, `fallback` for none, or null for an id this renderer did not make.
     const rhi::Texture* texture_or(TextureId id, const rhi::Texture* fallback) const
@@ -268,6 +284,9 @@ struct Renderer::Impl {
         error = {};
         constants.clear();
         material_constants.clear();
+        transparent_constants.clear();
+        transparent_parts.clear();
+        transparent_drawn = 0;
         drawn.clear();
         draws.clear();
         entities_drawn = 0;
@@ -306,9 +325,16 @@ struct Renderer::Impl {
                     skin = pose->matrices;
                 }
             }
+            if (transparency_on && !(std::isfinite(mesh.opacity) && mesh.opacity >= 0.F && mesh.opacity <= 1.F)) {
+                error = {rhi::RhiFailure::InvalidArgument, "MeshRenderer::opacity must be finite and 0..1"};
+                valid = false;
+                return;
+            }
+            // Below 1 while transparency is on: blended after the opaque draws, and no caster.
+            const bool transparent = transparency_on && mesh.opacity < 1.F;
             const math::Mat4 model =
                 math::trs(math::relative_to(transform.position, camera.eye), transform.rotation, mesh.scale);
-            if (shadow_settings) {
+            if (shadow_settings && !transparent) {
                 caster_constants.push_back(light_projection * model);
                 caster_meshes.push_back(gpu);
             }
@@ -332,6 +358,15 @@ struct Renderer::Impl {
                 c.colour = {mesh.colour.x * part.colour.x, mesh.colour.y * part.colour.y, mesh.colour.z * part.colour.z, lighting.ambient};
                 const rhi::Texture* part_texture =
                     part.texture == TextureId{} ? texture : textures[part.texture.value - 1].get();
+                if (transparent) {
+                    const double dx = transform.position.x - camera.eye.x;
+                    const double dy = transform.position.y - camera.eye.y;
+                    const double dz = transform.position.z - camera.eye.z;
+                    transparent_constants.push_back({c, {mesh.opacity, 0.F, 0.F, 0.F}});
+                    transparent_parts.push_back({Drawn{gpu, part_texture, part.first_index, part.index_count, skin},
+                                                 std::sqrt(dx * dx + dy * dy + dz * dz)});
+                    continue;
+                }
                 if (!materials_on) {
                     constants.push_back(c);
                     drawn.push_back({gpu, part_texture, part.first_index, part.index_count, skin});
@@ -374,6 +409,22 @@ struct Renderer::Impl {
             draws.back().normal_map = drawn[i].normal_map;
             draws.back().metal_roughness = drawn[i].metal_roughness;
         }
+        // Transparent parts last, far to near; a stable sort keeps ECS and part order on ties.
+        transparent_order.resize(transparent_parts.size());
+        for (std::size_t i = 0; i < transparent_order.size(); ++i) {
+            transparent_order[i] = i;
+        }
+        std::stable_sort(transparent_order.begin(), transparent_order.end(), [&](std::size_t a, std::size_t b) {
+            return transparent_parts[a].second > transparent_parts[b].second;
+        });
+        for (const std::size_t i : transparent_order) {
+            const Drawn& part = transparent_parts[i].first;
+            draws.push_back({part.mesh->vertices.get(), part.mesh->indices.get(), part.index_count,
+                             std::as_bytes(std::span(&transparent_constants[i], 1)), part.texture, part.first_index,
+                             part.skin});
+            draws.back().pipeline = transparent_pipeline.get();
+        }
+        transparent_drawn = transparent_parts.size();
         // Casters draw every index of their mesh (all parts at once), from the light.
         for (std::size_t i = 0; i < caster_constants.size(); ++i) {
             rhi::MeshDraw caster;
@@ -761,6 +812,55 @@ void Renderer::disable_materials()
 {
     impl_->materials_on = false;
     impl_->materials_drawn = 0;
+}
+
+bool Renderer::enable_transparency(const TransparencyShaders& shaders, rhi::RhiError& error)
+{
+    error = {};
+    if (impl_->skinning) {
+        error = {rhi::RhiFailure::InvalidArgument, "transparency on a skinned renderer is a later slice"};
+        return false;
+    }
+    const rhi::Device& device = *impl_->device;
+    const auto vertex = rhi::Shader::load(device, shaders.vertex, rhi::ShaderStage::Vertex, error);
+    const auto fragment = vertex ? rhi::Shader::load(device, shaders.fragment, rhi::ShaderStage::Fragment, error) : nullptr;
+    if (!vertex || !fragment) {
+        return false;
+    }
+    rhi::GraphicsPipelineDesc desc;
+    desc.vertex = vertex.get();
+    desc.fragment = fragment.get();
+    desc.color_format = impl_->pipeline->color_format();
+    desc.vertex_layout = rhi::VertexLayout::PositionNormalUv;
+    desc.depth = true;
+    desc.depth_write = false;
+    desc.cull_back_faces = true;
+    desc.push_constant_bytes = sizeof(TransparentConstants);
+    desc.texture = true;
+    desc.blend = rhi::BlendMode::Alpha;
+    auto made = rhi::GraphicsPipeline::create(device, desc, error);
+    if (!made) {
+        return false;
+    }
+    impl_->transparent_pipeline = std::move(made);
+    impl_->transparency_on = true;
+    return true;
+}
+
+void Renderer::disable_transparency()
+{
+    impl_->transparency_on = false;
+    impl_->transparent_drawn = 0;
+}
+
+bool Renderer::transparency_enabled() const
+{
+    return impl_->transparency_on;
+}
+
+std::size_t Renderer::last_transparent_draw_count() const
+{
+    return impl_->transparent_drawn;
 }
 
 bool Renderer::materials_enabled() const

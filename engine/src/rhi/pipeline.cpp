@@ -154,6 +154,8 @@ struct GraphicsPipeline::Impl {
     bool depth_only = false;
     bool shadow = false;
     bool material = false;
+    BlendMode blend = BlendMode::None;
+    bool depth_write = true;
 };
 
 GraphicsPipeline::GraphicsPipeline(std::unique_ptr<Impl> impl)
@@ -200,7 +202,12 @@ std::unique_ptr<GraphicsPipeline> GraphicsPipeline::create(
         fail(error, RhiFailure::InvalidArgument, "a material pipeline needs the texture set and no skinning");
         return nullptr;
     }
-    const std::uint32_t push_limit = desc.material ? push_constant_material_max_bytes : push_constant_max_bytes;
+    if (desc.blend != BlendMode::None && desc.depth_only) {
+        fail(error, RhiFailure::InvalidArgument, "a depth-only pipeline has no colour to blend");
+        return nullptr;
+    }
+    const bool wide_push = desc.material || desc.blend != BlendMode::None;
+    const std::uint32_t push_limit = wide_push ? push_constant_material_max_bytes : push_constant_max_bytes;
     if (desc.push_constant_bytes > push_limit || desc.push_constant_bytes % 4 != 0) {
         fail(error, RhiFailure::InvalidArgument,
              "push_constant_bytes must be a multiple of 4 from 0 to " + std::to_string(push_limit));
@@ -223,6 +230,8 @@ std::unique_ptr<GraphicsPipeline> GraphicsPipeline::create(
     impl->depth_only = desc.depth_only;
     impl->shadow = desc.shadow;
     impl->material = desc.material;
+    impl->blend = desc.blend;
+    impl->depth_write = desc.depth && desc.depth_write;
     const VkDevice vk_device = DeviceAccess::device(device);
 
     VkPushConstantRange push_range{};
@@ -317,6 +326,15 @@ std::unique_ptr<GraphicsPipeline> GraphicsPipeline::create(
     VkPipelineColorBlendAttachmentState blend_attachment{};
     blend_attachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT
         | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    if (desc.blend == BlendMode::Alpha) {
+        blend_attachment.blendEnable = VK_TRUE;
+        blend_attachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+        blend_attachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+        blend_attachment.colorBlendOp = VK_BLEND_OP_ADD;
+        blend_attachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+        blend_attachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+        blend_attachment.alphaBlendOp = VK_BLEND_OP_ADD;
+    }
     VkPipelineColorBlendStateCreateInfo blend{};
     blend.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     blend.attachmentCount = desc.depth_only ? 0U : 1U;
@@ -330,7 +348,7 @@ std::unique_ptr<GraphicsPipeline> GraphicsPipeline::create(
     VkPipelineDepthStencilStateCreateInfo depth{};
     depth.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     depth.depthTestEnable = desc.depth ? VK_TRUE : VK_FALSE;
-    depth.depthWriteEnable = desc.depth ? VK_TRUE : VK_FALSE;
+    depth.depthWriteEnable = desc.depth && desc.depth_write ? VK_TRUE : VK_FALSE;
     depth.depthCompareOp = VK_COMPARE_OP_GREATER; // reversed depth: nearer is larger
 
     const VkFormat format = detail::vk_format(desc.color_format);
@@ -401,6 +419,16 @@ bool GraphicsPipeline::shadow() const
 bool GraphicsPipeline::material() const
 {
     return impl_->material;
+}
+
+BlendMode GraphicsPipeline::blend() const
+{
+    return impl_->blend;
+}
+
+bool GraphicsPipeline::depth_write() const
+{
+    return impl_->depth_write;
 }
 
 void* GraphicsPipeline::native_handle() const

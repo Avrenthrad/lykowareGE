@@ -109,6 +109,14 @@ inline constexpr std::uint32_t push_constant_max_bytes = 128;
 // Roadmap 2022 profile has 256; a device with less refuses the pipeline (NoSuitableDevice).
 inline constexpr std::uint32_t push_constant_material_max_bytes = 256;
 
+// How a pipeline's colour output meets what the target already holds (ADR 0086).
+enum class BlendMode {
+    // The fragment replaces the target's colour.
+    None,
+    // Straight alpha: colour = src * src.a + dst * (1 - src.a); alpha = src.a + dst.a * (1 - src.a).
+    Alpha,
+};
+
 struct GraphicsPipelineDesc {
     const Shader* vertex = nullptr;
     const Shader* fragment = nullptr;
@@ -143,12 +151,18 @@ struct GraphicsPipelineDesc {
     // unshadowed material shaders share set numbers. Needs `texture` and no skinning; allows
     // push_constant_bytes up to push_constant_material_max_bytes when the device has them.
     bool material = false;
+    // How the colour output is combined with the target (ADR 0086). A blended pipeline may ask
+    // for push_constant_bytes up to push_constant_material_max_bytes, as a material one may.
+    // Not with depth_only.
+    BlendMode blend = BlendMode::None;
+    // With `depth`, whether the pipeline writes depth as well as testing it. A transparent
+    // surface tests and does not write, so what lies behind it still draws (ADR 0086).
+    bool depth_write = true;
 };
 
 // A graphics pipeline for dynamic rendering: one colour attachment, triangle
-// lists, no blending, dynamic viewport and scissor; vertex input, depth,
-// culling, push constants and an optional texture as the desc says. Later
-// RHI changes add blending.
+// lists, dynamic viewport and scissor; vertex input, depth, culling, blending,
+// push constants and an optional texture as the desc says.
 //
 // Ownership: create() returns the sole owner of the pipeline and its
 // (empty) pipeline layout. Copy and move are not provided.
@@ -180,6 +194,8 @@ public:
     [[nodiscard]] bool depth_only() const;
     [[nodiscard]] bool shadow() const;
     [[nodiscard]] bool material() const;
+    [[nodiscard]] BlendMode blend() const;
+    [[nodiscard]] bool depth_write() const;
     // VkPipeline as an opaque pointer for other RHI code.
     [[nodiscard]] void* native_handle() const;
     // VkPipelineLayout as an opaque pointer for other RHI code.
