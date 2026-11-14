@@ -370,7 +370,7 @@ std::optional<ActiveRagdoll> ActiveRagdoll::create(const std::optional<ActivePro
         return std::nullopt;
     }
     const ActiveProfile& p = *profile;
-    for (const float v : {p.strength, p.stumble_angle, p.fall_angle, p.fall_offset, p.recovered_angle,
+    for (const float v : {p.strength, p.stumble_angle, p.stumble_offset, p.fall_angle, p.fall_offset, p.recovered_angle,
                           p.recovered_offset, p.recovered_seconds, p.lie_seconds, p.rise_seconds}) {
         if (!std::isfinite(v) || v < 0.F) {
             error = "active ragdoll: every value must be finite and not negative";
@@ -381,9 +381,9 @@ std::optional<ActiveRagdoll> ActiveRagdoll::create(const std::optional<ActivePro
         error = "active ragdoll: strength must be in (0, 1]";
         return std::nullopt;
     }
-    if (!(p.stumble_angle < p.fall_angle) || !(p.recovered_angle < p.stumble_angle)
-        || !(p.recovered_offset < p.fall_offset)) {
-        error = "active ragdoll: needs recovered_angle < stumble_angle < fall_angle and recovered_offset < fall_offset";
+    if (!(p.recovered_angle < p.stumble_angle && p.stumble_angle < p.fall_angle)
+        || !(p.recovered_offset < p.stumble_offset && p.stumble_offset < p.fall_offset)) {
+        error = "active ragdoll: needs recovered < stumble < fall, for angles and for offsets";
         return std::nullopt;
     }
     ActiveRagdoll made;
@@ -428,7 +428,7 @@ bool ActiveRagdoll::tick(physics::World& world, Ragdoll& doll, const animation::
             timer = 0.F;
             weight = 1.F;
         } else if (state_ == ActiveState::Animated) {
-            if (angle > p.stumble_angle) {
+            if (angle > p.stumble_angle || offset > p.stumble_offset) {
                 next = ActiveState::Stumbling;
                 timer = 0.F;
             }

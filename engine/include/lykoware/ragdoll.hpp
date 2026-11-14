@@ -44,7 +44,8 @@ struct Bone {
 // radians; offsets are how far the root bone's joint is from its animated place, in world metres.
 struct ActiveProfile {
     float strength = .5F;          // the motors' pull per tick, in (0, 1]: follow() at weight 1 - strength
-    float stumble_angle = .15F;    // past this the character stumbles; motors stay on
+    float stumble_angle = .15F;    // past this, or past stumble_offset, it stumbles; motors stay on
+    float stumble_offset = .15F;
     float fall_angle = .8F;        // past this, or past fall_offset, it falls: motors off
     float fall_offset = .5F;
     float recovered_angle = .08F;  // within this and recovered_offset ...
@@ -131,8 +132,8 @@ private:
 };
 
 enum class ActiveState : std::uint8_t {
-    Animated,  // motors on, within stumble_angle
-    Stumbling, // motors on, knocked past stumble_angle; back to Animated once recovered
+    Animated,  // motors on, within stumble_angle and stumble_offset
+    Stumbling, // motors on, knocked past stumble_angle or stumble_offset; back to Animated once recovered
     Fallen,    // motors off for lie_seconds
     Rising,    // motors ramp back on over rise_seconds, then Stumbling until recovered
 };
@@ -144,8 +145,8 @@ class ActiveRagdoll {
 public:
     // Fails (nullopt, error filled) when the profile is absent (the feature is off), or for a
     // strength outside (0, 1], a value not finite, a negative angle, offset or time, a stumble
-    // angle not below the fall angle, or a recovered angle or offset not below the stumble angle
-    // or fall offset.
+    // angle or offset not below the fall angle or offset, or a recovered angle or offset not below
+    // the stumble angle or offset.
     [[nodiscard]] static std::optional<ActiveRagdoll> create(const std::optional<ActiveProfile>& profile,
                                                              std::string& error);
 

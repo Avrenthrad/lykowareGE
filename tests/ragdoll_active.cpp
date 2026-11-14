@@ -57,9 +57,10 @@ struct Trace {
     std::uint64_t hash = 0;
 };
 
-// Stands the mannequin for run_ticks with motors on, and shoves every body at `speed` (m/s,
+// Stands the mannequin for run_ticks with motors on, and shoves every body (or only torso and
+// head) at `speed` (m/s,
 // horizontal, seeded direction) for shove_ticks, after the motors' follow and before the step.
-Trace run(float speed, const ragdoll::ActiveProfile& profile)
+Trace run(float speed, const ragdoll::ActiveProfile& profile, bool upper_only = false)
 {
     Trace trace;
     std::string error;
@@ -92,7 +93,10 @@ Trace run(float speed, const ragdoll::ActiveProfile& profile)
             return trace;
         }
         if (tick >= shove_tick && tick < shove_tick + shove_ticks) {
-            for (const auto body : doll->bodies()) {
+            const auto& bodies = doll->bodies();
+            // Bodies 1 and 2 are torso and head (ragdoll_blend::mannequin_bones).
+            for (std::size_t b = upper_only ? 1 : 0; b < (upper_only ? 3 : bodies.size()); ++b) {
+                const auto body = bodies[b];
                 const auto state = world->state(body);
                 world->set_velocity(body, state->linear_velocity + push, state->angular_velocity);
             }
@@ -152,7 +156,8 @@ void test_refusals()
     refused([](auto& p) { p.rise_seconds = -1.F; }, "a negative time is refused");
     refused([](auto& p) { p.stumble_angle = p.fall_angle; }, "stumble angle not below fall angle is refused");
     refused([](auto& p) { p.recovered_angle = p.stumble_angle; }, "recovered angle not below stumble angle is refused");
-    refused([](auto& p) { p.recovered_offset = p.fall_offset; }, "recovered offset not below fall offset is refused");
+    refused([](auto& p) { p.stumble_offset = p.fall_offset; }, "stumble offset not below fall offset is refused");
+    refused([](auto& p) { p.recovered_offset = p.stumble_offset; }, "recovered offset not below stumble offset is refused");
     check(ragdoll::ActiveRagdoll::create(test_profile(), error).has_value(), "the test profile is accepted");
 }
 
@@ -213,17 +218,19 @@ void test_fixture()
     print("stumble", stumble);
     check(stumble.made, "stumble run made");
     check(left_pose(stumble) && stumble.stumbled && !stumble.fell, "a 2 m/s shove is a stumble, not a fall");
-    check(stumble.worst_angle > profile.stumble_angle, "the stumble leaves the animated pose");
+    check(stumble.worst_angle > profile.stumble_angle || stumble.worst_offset > profile.stumble_offset,
+          "the stumble leaves the animated pose");
     check(came_back(stumble, profile), "the stumble recovers to the animated pose");
     check(stumble.returned && *stumble.returned < shove_tick + 3 * hz, "the stumble recovers within 3 s");
 
-    const Trace fall = run(8.F, profile);
+    const Trace fall = run(4.F, profile, true);
     print("fall", fall);
     check(fall.made, "fall run made");
-    check(fall.fell && fall.rose, "an 8 m/s shove is a fall, then a rise");
+    check(fall.worst_angle > profile.fall_angle, "the fall bends the body past fall_angle");
+    check(fall.fell && fall.rose, "a 4 m/s shove to the torso and head is a fall, then a rise");
     check(came_back(fall, profile), "the fall recovers to the animated pose");
 
-    const Trace again = run(8.F, profile);
+    const Trace again = run(4.F, profile, true);
     check(again.hash == fall.hash && again.returned == fall.returned, "the fixed-seed fixture repeats exactly");
 
     // Deliberate breaks: the checks above must catch a body that never leaves and one that never returns.
