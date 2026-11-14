@@ -136,7 +136,49 @@ struct GpuMesh {
     std::unique_ptr<rhi::Buffer> indices;
     std::vector<MeshPart> parts;
     std::size_t joint_count = 0;
+    // A sphere holding every vertex, in the mesh's own space (ADR 0088).
+    math::Vec3 centre{};
+    float radius = 0.F;
+    // The mesh's batching key: 0 for the cube, else its MeshId::value.
+    std::uint32_t key = 0;
 };
+
+// The bounding sphere around an axis-aligned box of the positions.
+void bound(std::span<const math::Vec3> positions, GpuMesh& mesh)
+{
+    if (positions.empty()) {
+        return;
+    }
+    math::Vec3 low = positions[0];
+    math::Vec3 high = positions[0];
+    for (const math::Vec3& p : positions) {
+        low = {std::min(low.x, p.x), std::min(low.y, p.y), std::min(low.z, p.z)};
+        high = {std::max(high.x, p.x), std::max(high.y, p.y), std::max(high.z, p.z)};
+    }
+    mesh.centre = {(low.x + high.x) * 0.5F, (low.y + high.y) * 0.5F, (low.z + high.z) * 0.5F};
+    float squared = 0.F;
+    for (const math::Vec3& p : positions) {
+        const float dx = p.x - mesh.centre.x;
+        const float dy = p.y - mesh.centre.y;
+        const float dz = p.z - mesh.centre.z;
+        squared = std::max(squared, dx * dx + dy * dy + dz * dz);
+    }
+    // A hair larger, so float rounding never culls a vertex that is on screen.
+    mesh.radius = std::sqrt(squared) * 1.0001F;
+}
+
+// True when a view-space sphere lies wholly outside the view: behind the near plane, or past one
+// of the four sides (the view looks along -z; tan_x and tan_y are the half-angles' tangents).
+bool outside_view(math::Vec4 centre, float radius, float tan_x, float tan_y, float near)
+{
+    if (centre.z - radius > -near) {
+        return true;
+    }
+    const float scale_x = 1.F / std::sqrt(1.F + tan_x * tan_x);
+    const float scale_y = 1.F / std::sqrt(1.F + tan_y * tan_y);
+    return (centre.x + centre.z * tan_x) * scale_x > radius || (-centre.x + centre.z * tan_x) * scale_x > radius
+        || (centre.y + centre.z * tan_y) * scale_y > radius || (-centre.y + centre.z * tan_y) * scale_y > radius;
+}
 
 // One draw: a part of a mesh with the texture it uses.
 struct Drawn {
@@ -148,6 +190,8 @@ struct Drawn {
     // Material draws only: set 2 and set 3.
     const rhi::Texture* normal_map = nullptr;
     const rhi::Texture* metal_roughness = nullptr;
+    // Batching order (ADR 0088): mesh, base texture, normal map, metal-roughness, by id.
+    std::array<std::uint32_t, 4> key{};
 };
 
 // The inverse of math::perspective(vertical_fov, aspect, near), given f = 1 / tan(fov / 2) and
@@ -208,6 +252,10 @@ struct Renderer::Impl {
     std::vector<Drawn> drawn;
     std::vector<rhi::MeshDraw> draws;
     std::size_t entities_drawn = 0;
+    // Culling and batching (ADR 0088).
+    Visibility visibility;
+    DrawStats stats;
+    std::vector<std::size_t> opaque_order;
     Lighting lighting;
     // Shadows (ADR 0084): all null while off.
     std::optional<Shadows> shadow_settings;
@@ -346,10 +394,17 @@ struct Renderer::Impl {
         if (renderer.mesh == MeshId{}) {
             return &cube;
         }
-        if (renderer.mesh.value == 0 || renderer.mesh.owner != owner || renderer.mesh.value > meshes.size()) {
-            return nullptr;
-        }
-        return &meshes[renderer.mesh.value - 1];
+        return mesh_or_null(renderer.mesh);
+    }
+
+    // True for an added mesh this renderer made and has not freed.
+    bool live_mesh(MeshId id) const
+    {
+        return id.value != 0 && id.owner == owner && id.value <= meshes.size() && meshes[id.value - 1].vertices;
+    }
+    const GpuMesh* mesh_or_null(MeshId id) const
+    {
+        return live_mesh(id) ? &meshes[id.value - 1] : nullptr;
     }
 
     const rhi::GraphicsPipeline& active_pipeline() const
@@ -394,9 +449,12 @@ struct Renderer::Impl {
         draws.clear();
         entities_drawn = 0;
         materials_drawn = 0;
+        stats = {};
         const math::Mat4 view =
             math::look_at({0.F, 0.F, 0.F}, math::relative_to(camera.target, camera.eye), camera.up);
         const math::Mat4 projection = math::perspective(camera.vertical_fov, aspect, camera.near);
+        const float tan_y = std::tan(camera.vertical_fov * 0.5F);
+        const float tan_x = tan_y * aspect;
         const math::Mat4 view_projection = projection * view;
         caster_constants.clear();
         caster_draws.clear();
@@ -441,6 +499,15 @@ struct Renderer::Impl {
                 caster_constants.push_back(light_projection * model);
                 caster_meshes.push_back(gpu);
             }
+            if (visibility.cull && gpu->joint_count == 0) {
+                const math::Vec4 centre =
+                    view * (model * math::Vec4{gpu->centre.x, gpu->centre.y, gpu->centre.z, 1.F});
+                const float largest = std::max({std::abs(mesh.scale.x), std::abs(mesh.scale.y), std::abs(mesh.scale.z)});
+                if (outside_view(centre, gpu->radius * largest, tan_x, tan_y, camera.near)) {
+                    ++stats.culled;
+                    return;
+                }
+            }
             Constants c;
             c.clip = view_projection * model;
             // Normals go through the inverse transpose of rotation * scale, which is rotation *
@@ -470,9 +537,11 @@ struct Renderer::Impl {
                                                  std::sqrt(dx * dx + dy * dy + dz * dz)});
                     continue;
                 }
+                const std::uint32_t texture_key = part.texture == TextureId{} ? mesh.texture.value : part.texture.value;
                 if (!materials_on) {
                     constants.push_back(c);
                     drawn.push_back({gpu, part_texture, part.first_index, part.index_count, skin});
+                    drawn.back().key = {gpu->key, texture_key, 0, 0};
                     continue;
                 }
                 MaterialConstants m;
@@ -482,7 +551,10 @@ struct Renderer::Impl {
                 }
                 const std::optional<Material>& chosen = part.material ? part.material : mesh.material;
                 Drawn d{gpu, part_texture, part.first_index, part.index_count, skin, flat.get(), white.get()};
+                d.key = {gpu->key, texture_key, 0, 0};
                 if (chosen) {
+                    d.key[2] = chosen->normal_map.value;
+                    d.key[3] = chosen->metal_roughness.value;
                     if (const std::string problem = material_problem(*chosen); !problem.empty()) {
                         error = {rhi::RhiFailure::InvalidArgument, problem};
                         valid = false;
@@ -502,8 +574,18 @@ struct Renderer::Impl {
             }
             ++entities_drawn;
         });
+        // Batching (ADR 0088): opaque parts grouped by key; a stable sort keeps ECS and part order
+        // inside a group, so the order is the same on every run.
+        opaque_order.resize(drawn.size());
+        for (std::size_t i = 0; i < opaque_order.size(); ++i) {
+            opaque_order[i] = i;
+        }
+        if (visibility.batch) {
+            std::stable_sort(opaque_order.begin(), opaque_order.end(),
+                             [&](std::size_t a, std::size_t b) { return drawn[a].key < drawn[b].key; });
+        }
         // Push-constant spans point into `constants`, so build them after it stops growing.
-        for (std::size_t i = 0; i < drawn.size(); ++i) {
+        for (const std::size_t i : opaque_order) {
             const auto bytes = materials_on ? std::as_bytes(std::span(&material_constants[i], 1))
                                                  : std::as_bytes(std::span(&constants[i], 1));
             draws.push_back({drawn[i].mesh->vertices.get(), drawn[i].mesh->indices.get(), drawn[i].index_count,
@@ -528,6 +610,18 @@ struct Renderer::Impl {
             draws.back().pipeline = post_settings ? hdr_transparent.get() : transparent_pipeline.get();
         }
         transparent_drawn = transparent_parts.size();
+        stats.entities = entities_drawn;
+        stats.draws = draws.size();
+        for (std::size_t i = 0; i < draws.size(); ++i) {
+            const rhi::MeshDraw& d = draws[i];
+            const bool joins = i > 0 && d.skin_matrices.empty() && draws[i - 1].skin_matrices.empty()
+                && d.vertices == draws[i - 1].vertices && d.indices == draws[i - 1].indices
+                && d.texture == draws[i - 1].texture && d.normal_map == draws[i - 1].normal_map
+                && d.metal_roughness == draws[i - 1].metal_roughness && d.pipeline == draws[i - 1].pipeline;
+            if (!joins) {
+                ++stats.batches;
+            }
+        }
         // Casters draw every index of their mesh (all parts at once), from the light.
         for (std::size_t i = 0; i < caster_constants.size(); ++i) {
             rhi::MeshDraw caster;
@@ -591,6 +685,7 @@ std::unique_ptr<Renderer> Renderer::create(const rhi::Device& device, rhi::Color
     }
     if (!uploaded) { return nullptr; }
     impl->cube.parts.push_back({0, static_cast<std::uint32_t>(indices.size())});
+    impl->cube.radius = std::sqrt(0.75F) * 1.0001F; // half the cube's diagonal
     rhi::TextureDesc white;
     white.width = 1;
     white.height = 1;
@@ -666,8 +761,7 @@ std::optional<MeshId> Renderer::add_mesh(const MeshData& mesh, std::span<const M
             error = {rhi::RhiFailure::InvalidArgument, "a mesh part must be whole triangles inside the mesh's indices"};
             return std::nullopt;
         }
-        if (!(part.texture == TextureId{})
-            && (part.texture.value == 0 || part.texture.owner != impl_->owner || part.texture.value > impl_->textures.size())) {
+        if (impl_->texture_or(part.texture, impl_->white.get()) == nullptr) {
             error = {rhi::RhiFailure::InvalidArgument, "a mesh part names a texture this renderer did not make"};
             return std::nullopt;
         }
@@ -699,6 +793,8 @@ std::optional<MeshId> Renderer::add_mesh(const MeshData& mesh, std::span<const M
     }
     if (!uploaded) { return std::nullopt; }
     gpu.parts.assign(parts.begin(), parts.end());
+    bound(mesh.positions, gpu);
+    gpu.key = static_cast<std::uint32_t>(impl_->meshes.size() + 1);
     impl_->meshes.push_back(std::move(gpu));
     return MeshId{static_cast<std::uint32_t>(impl_->meshes.size()), impl_->owner};
 }
@@ -721,8 +817,7 @@ std::optional<MeshId> Renderer::add_skinned_mesh(
     for (const auto& part : parts) {
         const std::size_t end = static_cast<std::size_t>(part.first_index) + part.index_count;
         if (part.index_count == 0 || part.index_count % 3 != 0 || end > mesh.indices.size()
-            || (!(part.texture == TextureId{}) && (part.texture.value == 0 || part.texture.owner != impl_->owner
-                                                   || part.texture.value > impl_->textures.size()))) {
+            || impl_->texture_or(part.texture, impl_->white.get()) == nullptr) {
             error = {rhi::RhiFailure::InvalidArgument, "invalid skinned mesh part or foreign texture"};
             return std::nullopt;
         }
@@ -762,6 +857,8 @@ std::optional<MeshId> Renderer::add_skinned_mesh(
     if (!upload(*impl_->device, std::span<const SkinVertex>(vertices), mesh.indices, gpu, error)) { return std::nullopt; }
     gpu.parts.assign(parts.begin(), parts.end());
     gpu.joint_count = joint_count;
+    bound(mesh.positions, gpu);
+    gpu.key = static_cast<std::uint32_t>(impl_->meshes.size() + 1);
     impl_->meshes.push_back(std::move(gpu));
     return MeshId{static_cast<std::uint32_t>(impl_->meshes.size()), impl_->owner};
 }
@@ -787,6 +884,78 @@ std::optional<TextureId> Renderer::add_texture(const RgbaImage& image, const Tex
 std::size_t Renderer::last_draw_count() const
 {
     return impl_->entities_drawn;
+}
+
+void Renderer::set_visibility(const Visibility& visibility)
+{
+    impl_->visibility = visibility;
+}
+
+const Visibility& Renderer::visibility() const
+{
+    return impl_->visibility;
+}
+
+const DrawStats& Renderer::last_draw_stats() const
+{
+    return impl_->stats;
+}
+
+bool Renderer::remove_mesh(MeshId id, rhi::RhiError& error)
+{
+    error = {};
+    if (!impl_->live_mesh(id)) {
+        error = {rhi::RhiFailure::InvalidArgument, "remove_mesh: a mesh this renderer did not make, or already freed"};
+        return false;
+    }
+    if (!impl_->device->wait_idle(error)) {
+        return false;
+    }
+    GpuMesh& gpu = impl_->meshes[id.value - 1];
+    gpu.vertices.reset();
+    gpu.indices.reset();
+    gpu.parts.clear();
+    return true;
+}
+
+bool Renderer::remove_texture(TextureId id, rhi::RhiError& error)
+{
+    error = {};
+    if (id == TextureId{} || impl_->texture_or(id, nullptr) == nullptr) {
+        error = {rhi::RhiFailure::InvalidArgument, "remove_texture: a texture this renderer did not make, or already freed"};
+        return false;
+    }
+    for (const GpuMesh& gpu : impl_->meshes) {
+        for (const MeshPart& part : gpu.parts) {
+            if (part.texture == id
+                || (part.material && (part.material->normal_map == id || part.material->metal_roughness == id))) {
+                error = {rhi::RhiFailure::InvalidArgument, "remove_texture: a live mesh part still names this texture"};
+                return false;
+            }
+        }
+    }
+    if (!impl_->device->wait_idle(error)) {
+        return false;
+    }
+    impl_->textures[id.value - 1].reset();
+    return true;
+}
+
+GpuResources Renderer::gpu_resources() const
+{
+    GpuResources resources;
+    for (const GpuMesh& gpu : impl_->meshes) {
+        if (gpu.vertices) {
+            ++resources.meshes;
+            resources.mesh_bytes += gpu.vertices->size_bytes() + gpu.indices->size_bytes();
+        }
+    }
+    for (const auto& texture : impl_->textures) {
+        if (texture) {
+            ++resources.textures;
+        }
+    }
+    return resources;
 }
 
 bool Renderer::set_lighting(const Lighting& lighting, rhi::RhiError& error)

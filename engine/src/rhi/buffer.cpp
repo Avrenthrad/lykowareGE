@@ -7,6 +7,7 @@
 
 #include <vk_mem_alloc.h>
 
+#include <atomic>
 #include <cstring>
 #include <string>
 #include <utility>
@@ -16,6 +17,16 @@ namespace lykoware::rhi {
 using detail::DeviceAccess;
 using detail::driver_failure;
 using detail::fail;
+
+namespace {
+// Every Buffer alive in the process (ADR 0088).
+std::atomic<std::size_t> g_live_buffers{0};
+}
+
+std::size_t live_buffer_count() noexcept
+{
+    return g_live_buffers.load(std::memory_order_relaxed);
+}
 
 struct Buffer::Impl {
     ~Impl()
@@ -36,9 +47,13 @@ struct Buffer::Impl {
 Buffer::Buffer(std::unique_ptr<Impl> impl)
     : impl_{std::move(impl)}
 {
+    g_live_buffers.fetch_add(1, std::memory_order_relaxed);
 }
 
-Buffer::~Buffer() = default;
+Buffer::~Buffer()
+{
+    g_live_buffers.fetch_sub(1, std::memory_order_relaxed);
+}
 
 std::unique_ptr<Buffer> Buffer::create(
     const Device& device, BufferUsage usage, std::span<const std::byte> data, RhiError& error)
