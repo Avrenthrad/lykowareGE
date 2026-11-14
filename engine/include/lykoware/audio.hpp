@@ -18,6 +18,8 @@
 
 namespace lykoware::audio {
 
+class PcmStream;
+
 // The mixer's output: frames per second and interleaved channels (left, right).
 inline constexpr std::uint32_t output_rate = 48000;
 inline constexpr std::uint32_t output_channels = 2;
@@ -102,6 +104,15 @@ public:
     // not finite, or when max_voices voices are already playing.
     [[nodiscard]] std::optional<VoiceId> play(std::shared_ptr<const Sound> sound, const PlayParams& params,
                                               std::string& error);
+    // ADR 0083: when full, a strictly nearer arrival replaces the farthest
+    // prioritized voice; legacy play/streams are protected. Distances are metres.
+    [[nodiscard]] std::optional<VoiceId> play_nearest(std::shared_ptr<const Sound> sound,
+        const PlayParams& params, double distance, std::string& error);
+    bool set_distance(VoiceId voice, double distance);
+    // Stereo 48 kHz PCM16LE, caller-pumped bounded buffer. No loop or pitch change.
+    // Stream must be unclaimed and not finished; one voice claims it for life.
+    [[nodiscard]] std::optional<VoiceId> play_stream(std::shared_ptr<PcmStream> stream,
+        const PlayParams& params, std::string& error);
     bool stop(VoiceId voice);
     [[nodiscard]] bool playing(VoiceId voice) const;
     // Changes ramp over ramp_frames. False for an invalid handle or an out-of-range value.
@@ -136,6 +147,8 @@ private:
 
     struct Voice {
         std::shared_ptr<const Sound> sound;
+        std::shared_ptr<PcmStream> stream;
+        double distance = -1.0; // negative: protected from priority stealing
         // Position in the sound's frames, 32.32 fixed point, and the step per output frame.
         std::uint64_t position = 0;
         std::uint64_t step = 0;

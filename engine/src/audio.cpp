@@ -1,4 +1,7 @@
 #include <lykoware/audio.hpp>
+#include <lykoware/audio_stream.hpp>
+
+#include <array>
 
 #include "world_identity.hpp"
 
@@ -278,6 +281,8 @@ std::optional<VoiceId> Mixer::play(std::shared_ptr<const Sound> sound, const Pla
     }
     Voice& voice = voices_[index];
     voice.sound = std::move(sound);
+    voice.stream.reset();
+    voice.distance = -1.0;
     voice.position = 0;
     // Source frames per output frame in 32.32 fixed point, rounded once here so playback
     // positions are exact integers from then on.
@@ -297,6 +302,68 @@ std::optional<VoiceId> Mixer::play(std::shared_ptr<const Sound> sound, const Pla
     return VoiceId{index, voice.generation, owner_};
 }
 
+std::optional<VoiceId> Mixer::play_nearest(std::shared_ptr<const Sound> sound,
+    const PlayParams& params, double distance, std::string& error)
+{
+    if (!sound || !std::isfinite(distance) || distance < 0.0
+        || !finite_in(params.gain, 0.F, 16.F) || !finite_in(params.pan, -1.F, 1.F)
+        || !finite_in(params.pitch, 0.125F, 8.F)) {
+        error = "invalid prioritized voice parameters or distance";
+        return std::nullopt;
+    }
+    auto result = play(sound, params, error);
+    if (!result) {
+        std::optional<VoiceId> victim;
+        double farthest = distance;
+        for (std::size_t i = 0; i < voices_.size(); ++i) {
+            const Voice& candidate = voices_[i];
+            if (candidate.active && !candidate.stream && candidate.distance > farthest
+                && candidate.generation != std::numeric_limits<std::uint32_t>::max()) {
+                farthest = candidate.distance;
+                victim = VoiceId{static_cast<std::uint32_t>(i), candidate.generation, owner_};
+            }
+        }
+        if (!victim) {
+            return std::nullopt;
+        }
+        stop(*victim);
+        result = play(std::move(sound), params, error);
+    }
+    if (result) {
+        voices_[result->index].distance = distance;
+        error.clear();
+    }
+    return result;
+}
+
+bool Mixer::set_distance(VoiceId voice, double distance)
+{
+    Voice* found = find(voice);
+    if (!found || !std::isfinite(distance) || distance < 0.0) {
+        return false;
+    }
+    found->distance = distance;
+    return true;
+}
+
+std::optional<VoiceId> Mixer::play_stream(std::shared_ptr<PcmStream> stream,
+    const PlayParams& params, std::string& error)
+{
+    if (!stream || stream->claimed_ || stream->finished() || params.loop || params.pitch != 1.F) {
+        error = "stream must be live, unclaimed, nonlooping and pitch 1";
+        return std::nullopt;
+    }
+    // Small immutable metadata carrier; render reads actual samples only from the ring.
+    const std::array<float, 2> silence{};
+    auto metadata = Sound::create(silence, 2, output_rate, error);
+    auto result = play(std::move(metadata), params, error);
+    if (result) {
+        stream->claimed_ = true;
+        voices_[result->index].stream = std::move(stream);
+    }
+    return result;
+}
+
 bool Mixer::stop(VoiceId voice)
 {
     Voice* found = find(voice);
@@ -305,6 +372,10 @@ bool Mixer::stop(VoiceId voice)
     }
     found->active = false;
     found->sound.reset();
+    if (found->stream) {
+        found->stream->cancel();
+        found->stream.reset();
+    }
     return true;
 }
 
@@ -369,6 +440,24 @@ bool Mixer::render(std::span<float> out)
     // order however the output is split into calls.
     for (Voice& voice : voices_) {
         if (!voice.active) {
+            continue;
+        }
+        if (voice.stream) {
+            for (std::size_t frame = 0; frame < frames; ++frame) {
+                if (voice.stream->finished()) {
+                    voice.active = false;
+                    voice.stream.reset();
+                    voice.sound.reset();
+                    break;
+                }
+                std::array<float, 2> sample{};
+                if (voice.stream->take(sample)) {
+                    out[frame * 2] += sample[0] * voice.left.now;
+                    out[frame * 2 + 1] += sample[1] * voice.right.now;
+                }
+                voice.left.advance();
+                voice.right.advance();
+            }
             continue;
         }
         const Sound& sound = *voice.sound;

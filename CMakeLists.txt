@@ -340,6 +340,12 @@ if(BUILD_TESTING)
     set_tests_properties(physics.ragdoll_blend PROPERTIES TIMEOUT 120)
     set_tests_properties(physics.world PROPERTIES TIMEOUT 120)
 
+    add_executable(lykoware_audio_stream_test tests/audio_stream.cpp)
+    target_link_libraries(lykoware_audio_stream_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_audio_stream_test)
+    add_test(NAME audio.streaming COMMAND lykoware_audio_stream_test "${CMAKE_BINARY_DIR}/test-output/audio-stream")
+    set_tests_properties(audio.streaming PROPERTIES TIMEOUT 60)
+
     # The audio mixer and WAV reader (ADR 0032). Links only the engine; no audio device.
     add_executable(lykoware_audio_test tests/audio.cpp)
     target_link_libraries(lykoware_audio_test PRIVATE lykoware::engine)

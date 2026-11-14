@@ -173,6 +173,7 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
 - [ ] **07.05** Add required terrain, foliage, water and environmental rendering.
 - [ ] **07.06** Add UI, text, fonts, localisation and accessibility foundations.
 - [ ] **07.07** Complete audio mixing, spatialisation, streaming and prioritisation.
+  - GPT #106: ADR 0083 bounded PCM16LE ring streaming, cancellation and nearest-distance voice admission. Tests/hosted CI/merge pending; target-PC listening/scheduling: **Joshua runs this**.
 - [x] **07.08** Generate navigation and update it dynamically.
   - [PR #94](https://github.com/Avrenthrad/lykowareGE/pull/94) squash-merged as `f3aa5ec`; all five hosted checks passed on `0c5e205`. ADR 0076: deterministic planar routes, radius clearance and solid updates; route and deliberate wrong-shortcut tests.
 - [x] **07.09** Complete jobs, threading, scheduling and resource budgets.

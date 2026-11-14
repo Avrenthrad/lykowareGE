@@ -64,7 +64,9 @@ std::optional<VoiceId> SpatialAudio::play(const ecs::World& world, ecs::Entity e
         return std::nullopt;
     }
     const Placement placement = place(transform->position, listener, source->falloff);
-    const auto voice = mixer.play(source->sound, {gain * placement.gain, placement.pan, source->pitch, source->loop}, error);
+    const auto voice = mixer.play_nearest(source->sound, {gain * placement.gain, placement.pan, source->pitch, source->loop},
+        std::hypot(transform->position.x - listener.position.x, transform->position.y - listener.position.y,
+                   transform->position.z - listener.position.z), error);
     if (!voice) {
         return std::nullopt;
     }
@@ -89,6 +91,8 @@ void SpatialAudio::update(const ecs::World& world, const Listener& listener, Mix
             tracked.last_position = transform->position;
         }
         const Placement placement = place(tracked.last_position, listener, tracked.falloff);
+        mixer.set_distance(tracked.voice, std::hypot(tracked.last_position.x - listener.position.x,
+            tracked.last_position.y - listener.position.y, tracked.last_position.z - listener.position.z));
         mixer.set_gain(tracked.voice, tracked.gain * placement.gain);
         mixer.set_pan(tracked.voice, placement.pan);
         voices_[kept++] = tracked;

@@ -12,7 +12,8 @@ You are GPT (Codex), working in `Avrenthrad/lykowareGE`. Joshua opens a chat wit
 - [ ] `07.01`: [PR #100](https://github.com/Avrenthrad/lykowareGE/pull/100), `gpt/07.01-cooked-assets`; stable IDs, dependency fingerprints and source-free package load tests pass locally. ADR 0079. Five hosted checks pending.
 - [ ] `07.02`: [PR #101](https://github.com/Avrenthrad/lykowareGE/pull/101), `gpt/07.02-incremental-cook`, stacked on #100; unchanged-output and diagnostic tests pass; deliberate forced rewrite fails. Five hosted checks pending.
 - Checkpoint: all three PRs remain open and unticked while CI runs. Merge #100 before retargeting #101 to main; resolve conflicts by rebase and require fresh CI. Merge only GPT PRs with five green checks. No other assistant's PR was merged.
-- Next unblocked: `07.07`; inspect #98/#100/#101 before overlapping work.
+- [ ] `07.07`: #106, ADR 0083; bounded caller-pumped PCM stream and nearest-voice admission. Headless streaming/priority tests in progress; five hosted jobs required.
+- Next unblocked: `07.06` UI foundations, then `06.01` regions.
 - Hardware gates: **Joshua runs this**. `06.12` and later wave remain blocked.
 
 ## How to use this file

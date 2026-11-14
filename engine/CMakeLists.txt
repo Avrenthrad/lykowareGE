@@ -9,6 +9,7 @@ add_library(lykoware_engine STATIC
     src/retarget.cpp
     src/character_asset.cpp
     src/audio.cpp
+    src/audio_stream.cpp
     src/audio_output.cpp
     src/ik.cpp
     src/animation.cpp
