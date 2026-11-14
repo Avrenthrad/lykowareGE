@@ -115,6 +115,7 @@ struct Renderer::Impl {
     std::vector<Drawn> drawn;
     std::vector<rhi::MeshDraw> draws;
     std::size_t entities_drawn = 0;
+    Lighting lighting;
 
     const rhi::Texture* texture_for(const MeshRenderer& renderer) const
     {
@@ -181,10 +182,13 @@ struct Renderer::Impl {
                                       mesh.scale.z != 0.F ? 1.F / mesh.scale.z : 0.F};
             for (int column = 0; column < 3; ++column) {
                 const float s = inverse[column];
-                c.normal[column] = {rotation.m[column][0] * s, rotation.m[column][1] * s, rotation.m[column][2] * s, 0.F};
+                // w carries the light's direction (ADR 0082); the vertex shader reads xyz only.
+                const float towards[3] = {lighting.direction.x, lighting.direction.y, lighting.direction.z};
+                c.normal[column] = {rotation.m[column][0] * s, rotation.m[column][1] * s, rotation.m[column][2] * s,
+                                    towards[column]};
             }
             for (const MeshPart& part : gpu->parts) {
-                c.colour = {mesh.colour.x * part.colour.x, mesh.colour.y * part.colour.y, mesh.colour.z * part.colour.z, 1.F};
+                c.colour = {mesh.colour.x * part.colour.x, mesh.colour.y * part.colour.y, mesh.colour.z * part.colour.z, lighting.ambient};
                 constants.push_back(c);
                 const rhi::Texture* part_texture =
                     part.texture == TextureId{} ? texture : textures[part.texture.value - 1].get();
@@ -414,5 +418,20 @@ std::size_t Renderer::last_draw_count() const
 {
     return impl_->entities_drawn;
 }
+
+bool Renderer::set_lighting(const Lighting& lighting, rhi::RhiError& error)
+{
+    const math::Vec3 d = lighting.direction;
+    const bool finite = std::isfinite(d.x) && std::isfinite(d.y) && std::isfinite(d.z) && std::isfinite(lighting.ambient);
+    if (!finite || (d.x == 0.F && d.y == 0.F && d.z == 0.F) || lighting.ambient < 0.F || lighting.ambient > 1.F) {
+        error = {rhi::RhiFailure::InvalidArgument, "Lighting needs a finite non-zero direction and an ambient in 0..1"};
+        return false;
+    }
+    impl_->lighting = lighting;
+    error = {};
+    return true;
+}
+
+const Lighting& Renderer::lighting() const { return impl_->lighting; }
 
 }
