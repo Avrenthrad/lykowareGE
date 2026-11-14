@@ -39,9 +39,27 @@ struct Bone {
     math::Vec3 hinge_axis{1.F, 0.F, 0.F};
 };
 
+// Active ragdoll (ADR 0081): motors that pull the bodies toward the animated pose, with a stumble,
+// a fall and a recovery. Angles are the worst joint of read_pose() against the animated pose, in
+// radians; offsets are how far the root bone's joint is from its animated place, in world metres.
+struct ActiveProfile {
+    float strength = .5F;          // the motors' pull per tick, in (0, 1]: follow() at weight 1 - strength
+    float stumble_angle = .15F;    // past this the character stumbles; motors stay on
+    float fall_angle = .8F;        // past this, or past fall_offset, it falls: motors off
+    float fall_offset = .5F;
+    float recovered_angle = .08F;  // within this and recovered_offset ...
+    float recovered_offset = .05F;
+    float recovered_seconds = .25F; // ... for this long, it has recovered
+    float lie_seconds = 1.F;       // a fallen character lies limp this long
+    float rise_seconds = 1.F;      // then the motors come back on over this long
+};
+
 struct Desc {
     std::vector<Bone> bones;
     float friction = 0.5F;
+    // Absent: no active ragdoll; ActiveRagdoll::create refuses. Ragdoll::create ignores it, so
+    // the world is the same with or without it.
+    std::optional<ActiveProfile> active;
 };
 
 // A ragdoll's bodies and joints, which live in the world it was made in.
@@ -93,6 +111,8 @@ public:
     [[nodiscard]] const std::vector<physics::JointId>& joints() const { return joints_; }
 
 private:
+    friend class ActiveRagdoll;
+
     struct Link {
         std::uint16_t joint = 0;
         // The joint's frame in its body's frame, in world units.
@@ -108,6 +128,50 @@ private:
     std::vector<physics::JointId> joints_;
     std::vector<Link> links_;
     std::vector<int> body_of_joint_; // index into bodies_ per skeleton joint, or -1
+};
+
+enum class ActiveState : std::uint8_t {
+    Animated,  // motors on, within stumble_angle
+    Stumbling, // motors on, knocked past stumble_angle; back to Animated once recovered
+    Fallen,    // motors off for lie_seconds
+    Rising,    // motors ramp back on over rise_seconds, then Stumbling until recovered
+};
+
+// The stumble and recovery state of one ragdoll (ADR 0081). The caller owns it and calls tick()
+// once per simulation tick instead of Ragdoll::follow. It stores no world or ragdoll; the same
+// inputs give the same states and weights on every machine.
+class ActiveRagdoll {
+public:
+    // Fails (nullopt, error filled) when the profile is absent (the feature is off), or for a
+    // strength outside (0, 1], a value not finite, a negative angle, offset or time, a stumble
+    // angle not below the fall angle, or a recovered angle or offset not below the stumble angle
+    // or fall offset.
+    [[nodiscard]] static std::optional<ActiveRagdoll> create(const std::optional<ActiveProfile>& profile,
+                                                             std::string& error);
+
+    // Measures how far the bodies are from `animated`, moves the state, and calls doll.follow()
+    // at weight(). False, changing nothing, for seconds not finite and > 0, or when the ragdoll
+    // refuses (wrong pose size, destroyed, a body gone).
+    bool tick(physics::World& world, Ragdoll& doll, const animation::Pose& animated, float seconds);
+
+    [[nodiscard]] ActiveState state() const { return state_; }
+    // The blend weight of the last tick: 1 - strength with motors on, 1 when fallen, between while
+    // rising. Pass it to Ragdoll::blended_pose for the drawn pose.
+    [[nodiscard]] float weight() const { return weight_; }
+    // The last tick's measurement, before its follow().
+    [[nodiscard]] float angle() const { return angle_; }
+    [[nodiscard]] float offset() const { return offset_; }
+    [[nodiscard]] const ActiveProfile& profile() const { return profile_; }
+
+private:
+    ActiveRagdoll() = default;
+
+    ActiveProfile profile_;
+    ActiveState state_ = ActiveState::Animated;
+    float weight_ = 0.F;
+    float angle_ = 0.F;
+    float offset_ = 0.F;
+    float timer_ = 0.F; // seconds in Fallen or Rising, or within the recovered bounds
 };
 
 } // namespace lykoware::ragdoll
