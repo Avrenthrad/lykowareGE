@@ -153,6 +153,7 @@ struct GraphicsPipeline::Impl {
     bool texture = false;
     bool depth_only = false;
     bool shadow = false;
+    bool material = false;
 };
 
 GraphicsPipeline::GraphicsPipeline(std::unique_ptr<Impl> impl)
@@ -195,9 +196,20 @@ std::unique_ptr<GraphicsPipeline> GraphicsPipeline::create(
         }
     }
 
-    if (desc.push_constant_bytes > push_constant_max_bytes || desc.push_constant_bytes % 4 != 0) {
+    if (desc.material && (!desc.texture || skinned || desc.depth_only)) {
+        fail(error, RhiFailure::InvalidArgument, "a material pipeline needs the texture set and no skinning");
+        return nullptr;
+    }
+    const std::uint32_t push_limit = desc.material ? push_constant_material_max_bytes : push_constant_max_bytes;
+    if (desc.push_constant_bytes > push_limit || desc.push_constant_bytes % 4 != 0) {
         fail(error, RhiFailure::InvalidArgument,
-             "push_constant_bytes must be a multiple of 4 from 0 to " + std::to_string(push_constant_max_bytes));
+             "push_constant_bytes must be a multiple of 4 from 0 to " + std::to_string(push_limit));
+        return nullptr;
+    }
+    if (desc.push_constant_bytes > DeviceAccess::max_push_constant_bytes(device)) {
+        fail(error, RhiFailure::NoSuitableDevice,
+             "the device allows only " + std::to_string(DeviceAccess::max_push_constant_bytes(device))
+                 + " bytes of push constants");
         return nullptr;
     }
 
@@ -210,6 +222,7 @@ std::unique_ptr<GraphicsPipeline> GraphicsPipeline::create(
     impl->texture = desc.texture;
     impl->depth_only = desc.depth_only;
     impl->shadow = desc.shadow;
+    impl->material = desc.material;
     const VkDevice vk_device = DeviceAccess::device(device);
 
     VkPushConstantRange push_range{};
@@ -228,10 +241,12 @@ std::unique_ptr<GraphicsPipeline> GraphicsPipeline::create(
         return nullptr;
     }
     const VkDescriptorSetLayout set_layouts[] = {DeviceAccess::texture_set_layout(device),
-                                                 desc.shadow ? DeviceAccess::shadow_set_layout(device)
-                                                             : DeviceAccess::skin_set_layout(device)};
+                                                 desc.shadow || desc.material ? DeviceAccess::shadow_set_layout(device)
+                                                                              : DeviceAccess::skin_set_layout(device),
+                                                 DeviceAccess::texture_set_layout(device),
+                                                 DeviceAccess::texture_set_layout(device)};
     if (desc.texture) {
-        layout_info.setLayoutCount = skinned || desc.shadow ? 2U : 1U;
+        layout_info.setLayoutCount = desc.material ? 4U : (skinned || desc.shadow ? 2U : 1U);
         layout_info.pSetLayouts = set_layouts;
     }
     VkResult result = vkCreatePipelineLayout(vk_device, &layout_info, nullptr, &impl->layout);
@@ -381,6 +396,11 @@ bool GraphicsPipeline::depth_only() const
 bool GraphicsPipeline::shadow() const
 {
     return impl_->shadow;
+}
+
+bool GraphicsPipeline::material() const
+{
+    return impl_->material;
 }
 
 void* GraphicsPipeline::native_handle() const

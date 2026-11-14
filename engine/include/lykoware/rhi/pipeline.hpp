@@ -105,6 +105,9 @@ inline constexpr std::size_t skin_palette_max_draws = 4096;
 
 // Largest push-constant block, the size every Vulkan device guarantees.
 inline constexpr std::uint32_t push_constant_max_bytes = 128;
+// Largest block a material pipeline may ask for (ADR 0085). Every desktop GPU of the Vulkan
+// Roadmap 2022 profile has 256; a device with less refuses the pipeline (NoSuitableDevice).
+inline constexpr std::uint32_t push_constant_material_max_bytes = 256;
 
 struct GraphicsPipelineDesc {
     const Shader* vertex = nullptr;
@@ -134,6 +137,12 @@ struct GraphicsPipelineDesc {
     // its uniform block), and every mesh drawn names that ShadowMap. Needs `texture`, and a
     // layout without skinning (the skinned set 1 is the palette).
     bool shadow = false;
+    // Shades a material (ADR 0085): set 2 is a normal map's Texture set and set 3 a
+    // metal-roughness Texture set (the same layout as set 0), and every mesh drawn names both.
+    // Set 1 is the ShadowMap layout whether or not `shadow` is set, so the shadowed and
+    // unshadowed material shaders share set numbers. Needs `texture` and no skinning; allows
+    // push_constant_bytes up to push_constant_material_max_bytes when the device has them.
+    bool material = false;
 };
 
 // A graphics pipeline for dynamic rendering: one colour attachment, triangle
@@ -170,6 +179,7 @@ public:
     [[nodiscard]] bool texture() const;
     [[nodiscard]] bool depth_only() const;
     [[nodiscard]] bool shadow() const;
+    [[nodiscard]] bool material() const;
     // VkPipeline as an opaque pointer for other RHI code.
     [[nodiscard]] void* native_handle() const;
     // VkPipelineLayout as an opaque pointer for other RHI code.

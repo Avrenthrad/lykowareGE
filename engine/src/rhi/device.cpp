@@ -280,6 +280,7 @@ struct Device::Impl {
     VkDescriptorSetLayout shadow_layout = VK_NULL_HANDLE;
     VkDeviceSize uniform_alignment = 1;
     std::uint32_t max_image_dimension = 0;
+    std::uint32_t max_push_constant_bytes = 0;
     // GPU timestamps (ADR 0039): the graphics queue's valid bits (0 means none), nanoseconds
     // per tick, and two queries for timing one-shot submissions.
     std::uint32_t timestamp_bits = 0;
@@ -473,6 +474,7 @@ std::unique_ptr<Device> Device::create(const Instance& instance, const DeviceCon
     VkPhysicalDeviceProperties properties{};
     vkGetPhysicalDeviceProperties(impl->physical, &properties);
     impl->max_image_dimension = properties.limits.maxImageDimension2D;
+    impl->max_push_constant_bytes = properties.limits.maxPushConstantsSize;
     impl->uniform_alignment = properties.limits.minUniformBufferOffsetAlignment;
 
     // GPU timestamps, when the graphics queue writes them (ADR 0039).
@@ -594,6 +596,11 @@ VkDeviceSize DeviceAccess::uniform_alignment(const Device& device)
 std::uint32_t DeviceAccess::max_image_dimension(const Device& device)
 {
     return device.impl_->max_image_dimension;
+}
+
+std::uint32_t DeviceAccess::max_push_constant_bytes(const Device& device)
+{
+    return device.impl_->max_push_constant_bytes;
 }
 
 bool DeviceAccess::submit_and_wait(const Device& device, const std::function<void(VkCommandBuffer)>& record,

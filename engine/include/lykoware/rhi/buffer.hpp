@@ -83,6 +83,10 @@ struct MeshDraw {
     // Required when the pipeline receives a shadow (GraphicsPipelineDesc::shadow), and must be
     // null otherwise (ADR 0084).
     const ShadowMap* shadow = nullptr;
+    // Both required when the pipeline shades a material (GraphicsPipelineDesc::material), and
+    // both null otherwise (ADR 0085): set 2 and set 3.
+    const Texture* normal_map = nullptr;
+    const Texture* metal_roughness = nullptr;
 };
 
 }
