@@ -172,7 +172,7 @@ The current renderer is a lit first path (ADRs 0002, 0025, 0026). This ID is the
 - [x] Implement that slice and a golden or numeric image check. Done when: the check fails if the feature is removed, and a software GPU skip stays a skip rather than a pass.
 - [ ] Repeat until the ID's list is covered, each under its own child ID if you split it. Done when: `07.03` is ticked only after every named part has a test.
 
-`07.03a` merged in #108 (`21ce75a`): `Renderer::set_lighting`, ADR 0082, test `render.lighting`. `07.03b` merged in #110 (`3e41fa6`): `rhi::ShadowMap`, ADR 0084, test `render.shadows`. `07.03c` in #111: `Renderer::enable_materials`, ADR 0085, test `render.materials`. Children `07.03d` transparency and `07.03e` post remain; both need more than one pipeline in a pass.
+`07.03a` merged in #108 (`21ce75a`): `Renderer::set_lighting`, ADR 0082, test `render.lighting`. `07.03b` merged in #110 (`3e41fa6`): `rhi::ShadowMap`, ADR 0084, test `render.shadows`; skinned shadows deferred. `07.03c` in #111: `Renderer::enable_materials`, ADR 0085, test `render.materials`. Children `07.03d` transparency and `07.03e` post remain; both need more than one pipeline in a pass.
 
 ### 9. `07.04` — visibility, batching, GPU resources
 
