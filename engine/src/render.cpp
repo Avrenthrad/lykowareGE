@@ -1,6 +1,7 @@
 #include <lykoware/render.hpp>
 
 #include <lykoware/rhi/buffer.hpp>
+#include <lykoware/rhi/shadow_map.hpp>
 #include <lykoware/rhi/texture.hpp>
 
 #include "world_identity.hpp"
@@ -9,6 +10,7 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -87,6 +89,36 @@ struct Drawn {
     std::span<const math::Mat4> skin{};
 };
 
+// The inverse of math::perspective(vertical_fov, aspect, near), given f = 1 / tan(fov / 2) and
+// a = f / aspect: that maps (x, y, z, w) to (a x, -f y, near w, -z).
+math::Mat4 inverse_perspective(float a, float f, float near)
+{
+    math::Mat4 r;
+    r.m[0][0] = 1.F / a;
+    r.m[1][1] = -1.F / f;
+    r.m[2][2] = 0.F;
+    r.m[2][3] = 1.F / near;
+    r.m[3][2] = -1.F;
+    r.m[3][3] = 0.F;
+    return r;
+}
+
+// The shadow's view and projection (ADR 0084), camera-relative: an orthographic square of
+// half side `half_extent` around `focus`, looking along -towards, `depth_range` deep and centred
+// on the focus. Reversed depth as everywhere: 1 at the near plane (towards the light), 0 at the far.
+math::Mat4 light_view_projection(math::Vec3 focus, math::Vec3 towards, float half_extent, float depth_range)
+{
+    const math::Vec3 l = math::normalize(towards);
+    const math::Vec3 up = std::abs(l.y) > 0.99F ? math::Vec3{0.F, 0.F, 1.F} : math::Vec3{0.F, 1.F, 0.F};
+    const math::Mat4 view = math::look_at(focus + l * (depth_range * 0.5F), focus, up);
+    math::Mat4 projection;
+    projection.m[0][0] = 1.F / half_extent;
+    projection.m[1][1] = -1.F / half_extent;
+    projection.m[2][2] = 1.F / depth_range;
+    projection.m[3][2] = 1.F;
+    return projection * view;
+}
+
 template <typename T>
 bool upload(const rhi::Device& device, std::span<const T> vertices, std::span<const std::uint32_t> indices,
             GpuMesh& mesh, rhi::RhiError& error)
@@ -116,6 +148,16 @@ struct Renderer::Impl {
     std::vector<rhi::MeshDraw> draws;
     std::size_t entities_drawn = 0;
     Lighting lighting;
+    // Shadows (ADR 0084): all null while off.
+    std::optional<Shadows> shadow_settings;
+    std::unique_ptr<rhi::GraphicsPipeline> caster_pipeline;
+    std::unique_ptr<rhi::GraphicsPipeline> receiver_pipeline;
+    std::unique_ptr<rhi::ShadowMap> shadow_map;
+    std::vector<math::Mat4> caster_constants;
+    std::vector<rhi::MeshDraw> caster_draws;
+    std::vector<const GpuMesh*> caster_meshes;
+    rhi::ShadowBlock shadow_block;
+    std::size_t casters_drawn = 0;
 
     const rhi::Texture* texture_for(const MeshRenderer& renderer) const
     {
@@ -139,6 +181,25 @@ struct Renderer::Impl {
         return &meshes[renderer.mesh.value - 1];
     }
 
+    const rhi::GraphicsPipeline& active_pipeline() const
+    {
+        return shadow_settings ? *receiver_pipeline : *pipeline;
+    }
+
+    // Draws the shadow map for the draws prepare() built; nothing while shadows are off.
+    bool cast_shadows(rhi::RhiError& error)
+    {
+        casters_drawn = 0;
+        if (!shadow_settings) {
+            return true;
+        }
+        if (!shadow_map->render(*caster_pipeline, caster_draws, shadow_block, error)) {
+            return false;
+        }
+        casters_drawn = shadow_map->last_caster_count();
+        return true;
+    }
+
     // Builds one draw per entity with Transform and MeshRenderer, relative to the camera.
     bool prepare(const ecs::World& entities, const Camera& camera, float aspect, rhi::RhiError& error)
     {
@@ -152,6 +213,19 @@ struct Renderer::Impl {
             math::look_at({0.F, 0.F, 0.F}, math::relative_to(camera.target, camera.eye), camera.up);
         const math::Mat4 projection = math::perspective(camera.vertical_fov, aspect, camera.near);
         const math::Mat4 view_projection = projection * view;
+        caster_constants.clear();
+        caster_draws.clear();
+        math::Mat4 light_projection;
+        if (shadow_settings) {
+            const Shadows& settings = *shadow_settings;
+            light_projection = light_view_projection(math::relative_to(camera.target, camera.eye), lighting.direction,
+                                                     settings.half_extent, settings.depth_range);
+            const float f = 1.F / std::tan(camera.vertical_fov * 0.5F);
+            shadow_block.clip_to_light =
+                light_projection * math::rigid_inverse(view) * inverse_perspective(f / aspect, f, camera.near);
+            shadow_block.params = {settings.bias / settings.depth_range,
+                                   1.F / static_cast<float>(settings.resolution), 0.F, 0.F};
+        }
         entities.each<Transform, MeshRenderer>([&](ecs::Entity entity, const Transform& transform, const MeshRenderer& mesh) {
             const GpuMesh* gpu = mesh_for(mesh);
             const rhi::Texture* texture = texture_for(mesh);
@@ -171,6 +245,10 @@ struct Renderer::Impl {
             }
             const math::Mat4 model =
                 math::trs(math::relative_to(transform.position, camera.eye), transform.rotation, mesh.scale);
+            if (shadow_settings) {
+                caster_constants.push_back(light_projection * model);
+                caster_meshes.push_back(gpu);
+            }
             Constants c;
             c.clip = view_projection * model;
             // Normals go through the inverse transpose of rotation * scale, which is rotation *
@@ -200,7 +278,17 @@ struct Renderer::Impl {
         for (std::size_t i = 0; i < constants.size(); ++i) {
             draws.push_back({drawn[i].mesh->vertices.get(), drawn[i].mesh->indices.get(), drawn[i].index_count,
                              std::as_bytes(std::span(&constants[i], 1)), drawn[i].texture, drawn[i].first_index, drawn[i].skin});
+            draws.back().shadow = shadow_settings ? shadow_map.get() : nullptr;
         }
+        // Casters draw every index of their mesh (all parts at once), from the light.
+        for (std::size_t i = 0; i < caster_constants.size(); ++i) {
+            rhi::MeshDraw caster;
+            caster.vertices = caster_meshes[i]->vertices.get();
+            caster.indices = caster_meshes[i]->indices.get();
+            caster.push_constants = std::as_bytes(std::span(&caster_constants[i], 1));
+            caster_draws.push_back(caster);
+        }
+        caster_meshes.clear();
         return valid;
     }
 };
@@ -270,7 +358,8 @@ bool Renderer::draw(const ecs::World& entities, const Camera& camera, rhi::Rende
                     const rhi::ClearColor& clear, rhi::RhiError& error)
 {
     if (!impl_->prepare(entities, camera, static_cast<float>(target.width()) / static_cast<float>(target.height()), error)) { return false; }
-    return target.draw_meshes(clear, *impl_->pipeline, impl_->draws, error);
+    if (!impl_->cast_shadows(error)) { return false; }
+    return target.draw_meshes(clear, impl_->active_pipeline(), impl_->draws, error);
 }
 
 bool Renderer::draw(const ecs::World& entities, const Camera& camera, rhi::Swapchain& swapchain,
@@ -280,7 +369,8 @@ bool Renderer::draw(const ecs::World& entities, const Camera& camera, rhi::Swapc
         ? static_cast<float>(swapchain.width()) / static_cast<float>(swapchain.height())
         : 1.F;
     if (!impl_->prepare(entities, camera, aspect, error)) { return false; }
-    return swapchain.render_meshes(clear, *impl_->pipeline, impl_->draws, error);
+    if (!impl_->cast_shadows(error)) { return false; }
+    return swapchain.render_meshes(clear, impl_->active_pipeline(), impl_->draws, error);
 }
 
 std::optional<MeshId> Renderer::add_mesh(const MeshData& mesh, rhi::RhiError& error)
@@ -433,5 +523,86 @@ bool Renderer::set_lighting(const Lighting& lighting, rhi::RhiError& error)
 }
 
 const Lighting& Renderer::lighting() const { return impl_->lighting; }
+
+bool Renderer::enable_shadows(const ShadowShaders& shaders, const Shadows& shadows, rhi::RhiError& error)
+{
+    error = {};
+    if (impl_->skinning) {
+        error = {rhi::RhiFailure::InvalidArgument, "shadows are not yet drawn by a skinned renderer"};
+        return false;
+    }
+    const bool finite = std::isfinite(shadows.half_extent) && std::isfinite(shadows.depth_range)
+        && std::isfinite(shadows.bias);
+    if (!finite || shadows.half_extent <= 0.F || shadows.depth_range <= 0.F || shadows.bias < 0.F
+        || shadows.bias >= shadows.depth_range) {
+        error = {rhi::RhiFailure::InvalidArgument,
+                 "Shadows needs a positive extent and range, and a bias of 0 up to the range"};
+        return false;
+    }
+    const rhi::Device& device = *impl_->device;
+    auto map = rhi::ShadowMap::create(device, shadows.resolution, error);
+    if (!map) {
+        return false;
+    }
+    const auto caster_vertex = rhi::Shader::load(device, shaders.caster_vertex, rhi::ShaderStage::Vertex, error);
+    if (!caster_vertex) {
+        return false;
+    }
+    const auto receiver_vertex = rhi::Shader::load(device, shaders.receiver_vertex, rhi::ShaderStage::Vertex, error);
+    if (!receiver_vertex) {
+        return false;
+    }
+    const auto receiver_fragment =
+        rhi::Shader::load(device, shaders.receiver_fragment, rhi::ShaderStage::Fragment, error);
+    if (!receiver_fragment) {
+        return false;
+    }
+    rhi::GraphicsPipelineDesc caster;
+    caster.vertex = caster_vertex.get();
+    caster.color_format = impl_->pipeline->color_format();
+    caster.vertex_layout = rhi::VertexLayout::PositionNormalUv;
+    caster.depth = true;
+    caster.depth_only = true;
+    caster.push_constant_bytes = sizeof(math::Mat4);
+    auto caster_pipeline = rhi::GraphicsPipeline::create(device, caster, error);
+    if (!caster_pipeline) {
+        return false;
+    }
+    rhi::GraphicsPipelineDesc receiver;
+    receiver.vertex = receiver_vertex.get();
+    receiver.fragment = receiver_fragment.get();
+    receiver.color_format = impl_->pipeline->color_format();
+    receiver.vertex_layout = rhi::VertexLayout::PositionNormalUv;
+    receiver.depth = true;
+    receiver.cull_back_faces = true;
+    receiver.push_constant_bytes = rhi::push_constant_max_bytes;
+    receiver.texture = true;
+    receiver.shadow = true;
+    auto receiver_pipeline = rhi::GraphicsPipeline::create(device, receiver, error);
+    if (!receiver_pipeline) {
+        return false;
+    }
+    impl_->shadow_map = std::move(map);
+    impl_->caster_pipeline = std::move(caster_pipeline);
+    impl_->receiver_pipeline = std::move(receiver_pipeline);
+    impl_->shadow_settings = shadows;
+    return true;
+}
+
+void Renderer::disable_shadows()
+{
+    impl_->shadow_settings.reset();
+    impl_->casters_drawn = 0;
+}
+
+std::optional<Shadows> Renderer::shadows() const
+{
+    return impl_->shadow_settings;
+}
+
+std::size_t Renderer::last_shadow_caster_count() const
+{
+    return impl_->casters_drawn;
+}
 
 }

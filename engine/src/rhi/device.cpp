@@ -247,6 +247,9 @@ struct Device::Impl {
             if (skin_layout != VK_NULL_HANDLE) {
                 vkDestroyDescriptorSetLayout(device, skin_layout, nullptr);
             }
+            if (shadow_layout != VK_NULL_HANDLE) {
+                vkDestroyDescriptorSetLayout(device, shadow_layout, nullptr);
+            }
             if (texture_layout != VK_NULL_HANDLE) {
                 vkDestroyDescriptorSetLayout(device, texture_layout, nullptr);
             }
@@ -274,6 +277,7 @@ struct Device::Impl {
     VkFence fence = VK_NULL_HANDLE;
     VkDescriptorSetLayout texture_layout = VK_NULL_HANDLE;
     VkDescriptorSetLayout skin_layout = VK_NULL_HANDLE;
+    VkDescriptorSetLayout shadow_layout = VK_NULL_HANDLE;
     VkDeviceSize uniform_alignment = 1;
     std::uint32_t max_image_dimension = 0;
     // GPU timestamps (ADR 0039): the graphics queue's valid bits (0 means none), nanoseconds
@@ -447,6 +451,25 @@ std::unique_ptr<Device> Device::create(const Instance& instance, const DeviceCon
         fail(error, RhiFailure::DriverError, driver_failure("skin descriptor layout", result));
         return nullptr;
     }
+    // A shadow map's set (ADR 0084): its depth image for the fragment stage, and the
+    // camera-clip-to-light matrix for the vertex stage.
+    VkDescriptorSetLayoutBinding shadow_bindings[2]{};
+    shadow_bindings[0].binding = 0;
+    shadow_bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    shadow_bindings[0].descriptorCount = 1;
+    shadow_bindings[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    shadow_bindings[1].binding = 1;
+    shadow_bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    shadow_bindings[1].descriptorCount = 1;
+    shadow_bindings[1].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+    layout_info.bindingCount = 2;
+    layout_info.pBindings = shadow_bindings;
+    result = vkCreateDescriptorSetLayout(impl->device, &layout_info, nullptr, &impl->shadow_layout);
+    if (result != VK_SUCCESS) {
+        impl->shadow_layout = VK_NULL_HANDLE;
+        fail(error, RhiFailure::DriverError, driver_failure("shadow descriptor layout", result));
+        return nullptr;
+    }
     VkPhysicalDeviceProperties properties{};
     vkGetPhysicalDeviceProperties(impl->physical, &properties);
     impl->max_image_dimension = properties.limits.maxImageDimension2D;
@@ -556,6 +579,11 @@ VkDescriptorSetLayout DeviceAccess::texture_set_layout(const Device& device)
 VkDescriptorSetLayout DeviceAccess::skin_set_layout(const Device& device)
 {
     return device.impl_->skin_layout;
+}
+
+VkDescriptorSetLayout DeviceAccess::shadow_set_layout(const Device& device)
+{
+    return device.impl_->shadow_layout;
 }
 
 VkDeviceSize DeviceAccess::uniform_alignment(const Device& device)

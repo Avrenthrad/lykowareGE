@@ -99,3 +99,5 @@ Use [the template](TEMPLATE.md). Record context, options, decision/status, contr
 - [0081: Deterministic planar crowd reservations](0081-crowd-reservations.md) — Seeded waypoint reservations and a 256-agent count fixture; hardware budget remains open.
 
 - [0082: Stable asset IDs and cooked packages](0082-cooked-asset-packages.md) — Dependency fingerprints and source-free runtime byte packages.
+
+- [0084: A directional light's shadow map](0084-directional-shadow-map.md) — Proposed; `rhi::ShadowMap` (D32 map, 80-byte block, one set), depth-only casters, receivers read set 1; camera clip to light clip in one per-frame matrix; off by default, unchanged image when off; skinned shadows later (07.03b).

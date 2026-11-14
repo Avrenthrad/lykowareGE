@@ -137,6 +137,13 @@ if(BUILD_TESTING)
         ENTRY vertexMain STAGE vertex NAME lit.vert)
     lykoware_compile_shader(lit_frag_spv SOURCE engine/shaders/lit.slang
         ENTRY fragmentMain STAGE fragment NAME lit.frag)
+    # Shadows (ADR 0084): the caster and the receiving entry points.
+    lykoware_compile_shader(shadow_vert_spv SOURCE engine/shaders/shadow.slang
+        ENTRY vertexMain STAGE vertex NAME shadow.vert)
+    lykoware_compile_shader(lit_shadowed_vert_spv SOURCE engine/shaders/lit.slang
+        ENTRY vertexShadowed STAGE vertex NAME lit_shadowed.vert)
+    lykoware_compile_shader(lit_shadowed_frag_spv SOURCE engine/shaders/lit.slang
+        ENTRY fragmentShadowed STAGE fragment NAME lit_shadowed.frag)
     # rhi.mesh's untextured lit shader and rhi.texture's unlit textured shader (ADR 0037).
     lykoware_compile_shader(mesh_vert_spv SOURCE tests/shaders/mesh.slang
         ENTRY vertexMain STAGE vertex NAME mesh.vert)
@@ -149,7 +156,8 @@ if(BUILD_TESTING)
     lykoware_compile_shader(skinned_vert_spv SOURCE engine/shaders/skinned.slang
         ENTRY vertexMain STAGE vertex NAME skinned.vert)
     add_custom_target(lykoware_test_shaders ALL DEPENDS "${skinned_vert_spv}" "${triangle_vert_spv}" "${triangle_frag_spv}"
-        "${lit_vert_spv}" "${lit_frag_spv}" "${mesh_vert_spv}" "${mesh_frag_spv}"
+        "${lit_vert_spv}" "${lit_frag_spv}" "${shadow_vert_spv}" "${lit_shadowed_vert_spv}" "${lit_shadowed_frag_spv}"
+        "${mesh_vert_spv}" "${mesh_frag_spv}"
         "${textured_vert_spv}" "${textured_frag_spv}")
 
     # The interactive path: present, resize, and the test triangle drawn
@@ -206,6 +214,14 @@ if(BUILD_TESTING)
     add_dependencies(lykoware_render_lighting_test lykoware_test_shaders)
     add_test(NAME render.lighting COMMAND lykoware_render_lighting_test "${lit_vert_spv}" "${lit_frag_spv}")
     set_tests_properties(render.lighting PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
+    # 07.03b: a directional light's shadow map, cast and received (ADR 0084).
+    add_executable(lykoware_render_shadows_test tests/render_shadows.cpp)
+    target_link_libraries(lykoware_render_shadows_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_render_shadows_test)
+    add_dependencies(lykoware_render_shadows_test lykoware_test_shaders)
+    add_test(NAME render.shadows COMMAND lykoware_render_shadows_test "${lit_vert_spv}" "${lit_frag_spv}"
+        "${shadow_vert_spv}" "${lit_shadowed_vert_spv}" "${lit_shadowed_frag_spv}" "${skinned_vert_spv}")
+    set_tests_properties(render.shadows PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
 
     # Sampled textures in the RHI (ADR 0037): exact texels, sRGB, mipmaps, wrapping, misuse.
     add_executable(lykoware_rhi_texture_test tests/rhi_texture.cpp)
@@ -304,7 +320,7 @@ if(BUILD_TESTING)
         # reports; leaks in Lykoware code are still caught (ADR 0015 records the
         # deliberate-leak check).
         set_property(TEST rhi.instance rhi.instance.no_driver rhi.device rhi.render_target rhi.swapchain
-                          sandbox.vulkan_window sandbox.gpu_trace sandbox.play sandbox.imported_player rhi.pipeline rhi.mesh rhi.texture render.scene render.lighting
+                          sandbox.vulkan_window sandbox.gpu_trace sandbox.play sandbox.imported_player rhi.pipeline rhi.mesh rhi.texture render.scene render.lighting render.shadows
                           render.model render.skinning render.gpu_skinning render.texture lifecycle.restart_vulkan
             APPEND PROPERTY ENVIRONMENT "VK_LOADER_DISABLE_DYNAMIC_LIBRARY_UNLOADING=1")
     endif()

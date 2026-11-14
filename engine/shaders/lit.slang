@@ -61,3 +61,81 @@ float4 fragmentMain(VertexOutput input) : SV_Target
     const float3 albedo = constants.colour.rgb * baseColour.Sample(input.uv).rgb;
     return float4(albedo * (ambient + (1.0 - ambient) * diffuse), 1.0);
 }
+
+// --- Receiving a shadow (ADR 0084) ------------------------------------------------------
+// The same light, with the diffuse share scaled by how much of the surface the light's shadow
+// map sees. Set 1 is an rhi::ShadowMap's set; these entry points are a separate pipeline, so
+// vertexMain and fragmentMain above are unchanged.
+
+struct ShadowBlock
+{
+    // Camera clip space to the light's clip space, by column.
+    float4 toLight0;
+    float4 toLight1;
+    float4 toLight2;
+    float4 toLight3;
+    // x: depth bias in light depth units; y: one texel in map coordinates.
+    float4 params;
+};
+
+[[vk::binding(0, 1)]] Sampler2D<float> shadowMap;
+[[vk::binding(1, 1)]] ConstantBuffer<ShadowBlock> shadow;
+
+struct ShadowedOutput
+{
+    float4 position : SV_Position;
+    float3 normal : NORMAL;
+    float2 uv : TEXCOORD0;
+    float4 light : TEXCOORD1;
+};
+
+[shader("vertex")]
+ShadowedOutput vertexShadowed(VertexInput input)
+{
+    const VertexOutput lit = vertexMain(input);
+    ShadowedOutput output;
+    output.position = lit.position;
+    output.normal = lit.normal;
+    output.uv = lit.uv;
+    // Linear in the clip position, so interpolation keeps it exact.
+    output.light = shadow.toLight0 * lit.position.x + shadow.toLight1 * lit.position.y
+        + shadow.toLight2 * lit.position.z + shadow.toLight3 * lit.position.w;
+    return output;
+}
+
+// The share of the light reaching this point, 0..1: nine taps around it (3 x 3 texels). Outside
+// the map, behind the light or past its far plane, the point is lit.
+float lightReaching(float4 light)
+{
+    if (light.w <= 0.0)
+    {
+        return 1.0;
+    }
+    const float3 p = light.xyz / light.w;
+    const float2 uv = p.xy * 0.5 + 0.5;
+    if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0 || p.z <= 0.0 || p.z > 1.0)
+    {
+        return 1.0;
+    }
+    float reaching = 0.0;
+    for (int y = -1; y <= 1; ++y)
+    {
+        for (int x = -1; x <= 1; ++x)
+        {
+            // Reversed depth: an occluder nearer the light is larger.
+            const float occluder = shadowMap.SampleLevel(uv + float2(float(x), float(y)) * shadow.params.y, 0.0);
+            reaching += occluder > p.z + shadow.params.x ? 0.0 : 1.0;
+        }
+    }
+    return reaching / 9.0;
+}
+
+[shader("fragment")]
+float4 fragmentShadowed(ShadowedOutput input) : SV_Target
+{
+    const float3 light = normalize(float3(constants.normal0.w, constants.normal1.w, constants.normal2.w));
+    const float ambient = constants.colour.a;
+    const float diffuse = max(dot(normalize(input.normal), light), 0.0) * lightReaching(input.light);
+    const float3 albedo = constants.colour.rgb * baseColour.Sample(input.uv).rgb;
+    return float4(albedo * (ambient + (1.0 - ambient) * diffuse), 1.0);
+}

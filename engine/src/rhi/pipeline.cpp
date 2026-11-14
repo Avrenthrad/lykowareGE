@@ -151,6 +151,8 @@ struct GraphicsPipeline::Impl {
     bool depth = false;
     std::uint32_t push_constant_bytes = 0;
     bool texture = false;
+    bool depth_only = false;
+    bool shadow = false;
 };
 
 GraphicsPipeline::GraphicsPipeline(std::unique_ptr<Impl> impl)
@@ -164,8 +166,23 @@ std::unique_ptr<GraphicsPipeline> GraphicsPipeline::create(
     const Device& device, const GraphicsPipelineDesc& desc, RhiError& error)
 {
     error = {};
+    const bool skinned = desc.vertex_layout == VertexLayout::SkinnedPositionNormalUv;
+    if (desc.depth_only
+        && (desc.fragment != nullptr || !desc.depth || desc.texture || desc.shadow || skinned
+            || desc.vertex_layout == VertexLayout::None)) {
+        fail(error, RhiFailure::InvalidArgument,
+             "a depth-only pipeline takes no fragment shader, texture or shadow, needs depth and an unskinned mesh layout");
+        return nullptr;
+    }
+    if (desc.shadow && (!desc.texture || skinned)) {
+        fail(error, RhiFailure::InvalidArgument, "a shadow-receiving pipeline needs the texture set and no skinning");
+        return nullptr;
+    }
     for (const auto& [shader, expected] : {std::pair{desc.vertex, ShaderStage::Vertex},
                                            std::pair{desc.fragment, ShaderStage::Fragment}}) {
+        if (shader == nullptr && expected == ShaderStage::Fragment && desc.depth_only) {
+            continue;
+        }
         if (shader == nullptr) {
             fail(error, RhiFailure::InvalidArgument, std::string{"a "} + stage_name(expected) + " shader is required");
             return nullptr;
@@ -191,6 +208,8 @@ std::unique_ptr<GraphicsPipeline> GraphicsPipeline::create(
     impl->depth = desc.depth;
     impl->push_constant_bytes = desc.push_constant_bytes;
     impl->texture = desc.texture;
+    impl->depth_only = desc.depth_only;
+    impl->shadow = desc.shadow;
     const VkDevice vk_device = DeviceAccess::device(device);
 
     VkPushConstantRange push_range{};
@@ -204,14 +223,15 @@ std::unique_ptr<GraphicsPipeline> GraphicsPipeline::create(
         layout_info.pPushConstantRanges = &push_range;
     }
     // A texture is set 0, with the layout every rhi::Texture's descriptor set shares.
-    const bool skinned = desc.vertex_layout == VertexLayout::SkinnedPositionNormalUv;
     if (skinned && !desc.texture) {
         fail(error, RhiFailure::InvalidArgument, "skinned pipelines require the texture layout at set 0");
         return nullptr;
     }
-    const VkDescriptorSetLayout set_layouts[] = {DeviceAccess::texture_set_layout(device), DeviceAccess::skin_set_layout(device)};
+    const VkDescriptorSetLayout set_layouts[] = {DeviceAccess::texture_set_layout(device),
+                                                 desc.shadow ? DeviceAccess::shadow_set_layout(device)
+                                                             : DeviceAccess::skin_set_layout(device)};
     if (desc.texture) {
-        layout_info.setLayoutCount = skinned ? 2U : 1U;
+        layout_info.setLayoutCount = skinned || desc.shadow ? 2U : 1U;
         layout_info.pSetLayouts = set_layouts;
     }
     VkResult result = vkCreatePipelineLayout(vk_device, &layout_info, nullptr, &impl->layout);
@@ -223,7 +243,8 @@ std::unique_ptr<GraphicsPipeline> GraphicsPipeline::create(
 
     VkPipelineShaderStageCreateInfo stages[2]{};
     const Shader* shaders[2] = {desc.vertex, desc.fragment};
-    for (int index = 0; index < 2; ++index) {
+    const std::uint32_t stage_count = desc.depth_only ? 1U : 2U;
+    for (std::uint32_t index = 0; index < stage_count; ++index) {
         stages[index].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
         stages[index].stage = vk_stage(shaders[index]->stage());
         stages[index].module = static_cast<VkShaderModule>(shaders[index]->native_handle());
@@ -283,7 +304,7 @@ std::unique_ptr<GraphicsPipeline> GraphicsPipeline::create(
         | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
     VkPipelineColorBlendStateCreateInfo blend{};
     blend.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    blend.attachmentCount = 1;
+    blend.attachmentCount = desc.depth_only ? 0U : 1U;
     blend.pAttachments = &blend_attachment;
     const VkDynamicState dynamic_states[] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
     VkPipelineDynamicStateCreateInfo dynamic{};
@@ -300,14 +321,14 @@ std::unique_ptr<GraphicsPipeline> GraphicsPipeline::create(
     const VkFormat format = detail::vk_format(desc.color_format);
     VkPipelineRenderingCreateInfo rendering{};
     rendering.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
-    rendering.colorAttachmentCount = 1;
-    rendering.pColorAttachmentFormats = &format;
+    rendering.colorAttachmentCount = desc.depth_only ? 0U : 1U;
+    rendering.pColorAttachmentFormats = desc.depth_only ? nullptr : &format;
     rendering.depthAttachmentFormat = desc.depth ? detail::depth_format : VK_FORMAT_UNDEFINED;
 
     VkGraphicsPipelineCreateInfo info{};
     info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     info.pNext = &rendering;
-    info.stageCount = 2;
+    info.stageCount = stage_count;
     info.pStages = stages;
     info.pVertexInputState = &vertex_input;
     info.pInputAssemblyState = &assembly;
@@ -350,6 +371,16 @@ std::uint32_t GraphicsPipeline::push_constant_bytes() const
 bool GraphicsPipeline::texture() const
 {
     return impl_->texture;
+}
+
+bool GraphicsPipeline::depth_only() const
+{
+    return impl_->depth_only;
+}
+
+bool GraphicsPipeline::shadow() const
+{
+    return impl_->shadow;
 }
 
 void* GraphicsPipeline::native_handle() const

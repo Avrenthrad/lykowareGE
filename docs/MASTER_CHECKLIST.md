@@ -172,7 +172,7 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
 - [ ] **07.02** Add import diagnostics and incremental rebuilds.
 - [ ] **07.03** Complete flagship lighting, shadows, materials, transparency and post-processing.
   - [x] **07.03a** A stated directional light and ambient, set per renderer. Evidence: ADR 0082, `Renderer::set_lighting`, `render.lighting` (five lights within 2/255 of the formula; defaults byte-identical to the first renderer).
-  - [ ] **07.03b** Shadows from the directional light.
+  - [x] **07.03b** Shadows from the directional light. Evidence: ADR 0084, `rhi::ShadowMap`, `Renderer::enable_shadows`, `render.shadows` (ground under a cube keeps only ambient within 2/255, open ground and cube top fully lit, a slanted light moves the shadow, off is byte-identical). Skinned shadows are a later slice.
   - [ ] **07.03c** Materials beyond base colour (roughness, metalness, normal maps).
   - [ ] **07.03d** Transparent surfaces, sorted and blended.
   - [ ] **07.03e** A post-processing pass (tone mapping first).

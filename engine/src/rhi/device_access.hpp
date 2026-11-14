@@ -23,6 +23,7 @@ struct DeviceAccess {
     // binding 0, read by the fragment stage (ADR 0037). Owned by the Device.
     [[nodiscard]] static VkDescriptorSetLayout texture_set_layout(const Device& device);
     [[nodiscard]] static VkDescriptorSetLayout skin_set_layout(const Device& device);
+    [[nodiscard]] static VkDescriptorSetLayout shadow_set_layout(const Device& device);
     [[nodiscard]] static VkDeviceSize uniform_alignment(const Device& device);
     // VkPhysicalDeviceLimits::maxImageDimension2D.
     [[nodiscard]] static std::uint32_t max_image_dimension(const Device& device);

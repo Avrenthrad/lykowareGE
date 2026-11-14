@@ -49,6 +49,7 @@ add_library(lykoware_engine STATIC
     src/rhi/device.cpp
     src/rhi/render_target.cpp
     src/rhi/swapchain.cpp
+    src/rhi/shadow_map.cpp
     src/rhi/texture.cpp
     src/rhi/pipeline.cpp)
 add_library(lykoware::engine ALIAS lykoware_engine)

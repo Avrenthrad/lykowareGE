@@ -55,6 +55,7 @@ struct PreparedDraw {
     std::span<const math::Mat4> skin_matrices{};
     VkDescriptorSet skin = VK_NULL_HANDLE;
     std::uint32_t skin_offset = 0;
+    VkDescriptorSet shadow = VK_NULL_HANDLE;
 };
 
 // Checks `meshes` against the pipeline and the target being drawn to (the
