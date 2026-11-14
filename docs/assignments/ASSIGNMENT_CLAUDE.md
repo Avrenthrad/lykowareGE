@@ -9,8 +9,8 @@ Tick only after the PR is merged with all five CI checks green. One line of note
 - [x] `02.17d` remainder (clips + imported speeds) — #89 merged `7e67a06`; `02.17` parent ticked.
 - [ ] `02.11b-runtime-scale` — fixture merged #92 `74009df`; waiting: **Joshua runs this** (`lykoware_ik_runtime_scale --characters 500 --frames 600 --csv ik_scale.csv`, Release).
 - [x] `02.14` camera transitions — merged #96 (89dc40e)
-- [ ] `07.03` lighting/shadows/materials/transparency/post — split a–e; `07.03a` #108 (`21ce75a`), `07.03b` #110 (`3e41fa6`), `07.03c` materials #111; `07.03d` transparency next (needs a multi-pipeline pass in the RHI)
-- [ ] `07.04` visibility, batching, GPU resources
+- [x] `07.03` lighting/shadows/materials/transparency/post — a–e merged: #108 (`21ce75a`), #110 (`3e41fa6`), #111 (`6a7dd49`), #113 (`b335826`), #114 (`55626e1`)
+- [ ] `07.04` visibility, batching, GPU resources — next
 - [ ] `07.05` environment rendering
 - [ ] `06.10` pipeline warmup (world-scale half: **Joshua runs this**)
 - [x] `02.12b` → `02.12c` → `02.12d` → `02.13` ragdolls — 02.12b #99, 02.12c #102, 02.12d #104; `02.13` merged #107 (`84a2925`)
@@ -170,9 +170,9 @@ The current renderer is a lit first path (ADRs 0002, 0025, 0026). This ID is the
 
 - [x] ADR for the first slice you can test headlessly (a stated light, a shadow, a transparent surface, or a post pass). Done when: the ADR names ownership of GPU resources and what a missing shader does.
 - [x] Implement that slice and a golden or numeric image check. Done when: the check fails if the feature is removed, and a software GPU skip stays a skip rather than a pass.
-- [ ] Repeat until the ID's list is covered, each under its own child ID if you split it. Done when: `07.03` is ticked only after every named part has a test.
+- [x] Repeat until the ID's list is covered, each under its own child ID if you split it. Done when: `07.03` is ticked only after every named part has a test.
 
-`07.03a` merged in #108 (`21ce75a`): `Renderer::set_lighting`, ADR 0082, test `render.lighting`. `07.03b` merged in #110 (`3e41fa6`): `rhi::ShadowMap`, ADR 0084, test `render.shadows`; skinned shadows deferred. `07.03c` in #111: `Renderer::enable_materials`, ADR 0085, test `render.materials`. Children `07.03d` transparency and `07.03e` post remain; both need more than one pipeline in a pass.
+`07.03a` merged in #108 (`21ce75a`): `Renderer::set_lighting`, ADR 0082, test `render.lighting`. `07.03b` merged in #110 (`3e41fa6`): `rhi::ShadowMap`, ADR 0084, test `render.shadows`; skinned shadows deferred. `07.03c` merged in #111 (`6a7dd49`): `Renderer::enable_materials`, ADR 0085, test `render.materials`. `07.03d` merged in #113 (`b335826`): `MeshDraw::pipeline`, `Renderer::enable_transparency`, ADR 0086, test `render.transparency`. `07.03e` merged in #114 (`55626e1`): `rhi::HdrTarget`, `Renderer::enable_post`, ADR 0087, test `render.post`. `07.03` ticked.
 
 ### 9. `07.04` — visibility, batching, GPU resources
 
