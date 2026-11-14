@@ -30,3 +30,12 @@ failures return false with a diagnostic and leave output unchanged. Allocation
 errors propagate. The cook sorts all entries and dependency maps, so unchanged
 input cooks byte-identically. This is a byte-package foundation, not a new mesh,
 shader or image importer; accepted importer ownership stays as assigned.
+
+07.02 extends the same cook CLI: identical canonical output is reported as
+`unchanged` and is not opened for writing. Changed content reports `rebuilt`.
+Optional `--report PATH` writes a JSON success report atomically; it cannot alias
+manifest, sources or package. Failures print JSON `{status, diagnostic}` to stdout
+and a concise diagnostic to stderr; no failure report file is written because
+path safety cannot be established for an invalid manifest. Missing source errors
+include asset ID and authored path. Incremental means no unchanged output rewrite;
+inputs are still read/validated, not a persistent timestamp-based importer cache.

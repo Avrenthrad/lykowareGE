@@ -18,11 +18,15 @@ def fingerprint(data):
 def build(manifest_path):
     manifest_path = Path(manifest_path).resolve()
     document = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(document, dict):
+        raise ValueError("manifest must be an object")
     if document.get("version") != 1 or not isinstance(document.get("assets"), list):
         raise ValueError("manifest requires version 1 and an assets array")
     root = manifest_path.parent
     assets = {}
     for entry in document["assets"]:
+        if not isinstance(entry, dict):
+            raise ValueError("each asset must be an object")
         asset_id = entry.get("id")
         if not isinstance(asset_id, str) or not asset_id or len(asset_id.encode("utf-8")) > 256:
             raise ValueError("asset ID must be a nonempty string of at most 256 UTF-8 bytes")
@@ -39,7 +43,10 @@ def build(manifest_path):
             raise ValueError(f"{asset_id}: dependencies must be ID strings")
         if len(set(dependencies)) != len(dependencies):
             raise ValueError(f"{asset_id}: duplicate dependency")
-        payload = path.read_bytes()
+        try:
+            payload = path.read_bytes()
+        except OSError as error:
+            raise ValueError(f"{asset_id}: cannot read source {source}: {error.strerror}") from error
         assets[asset_id] = {"id": asset_id, "data": payload.hex(), "hash": fingerprint(payload),
                             "dependencies": dependencies}
     visiting, done = set(), set()
@@ -85,7 +92,13 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("manifest", type=Path)
     parser.add_argument("output", type=Path)
+    parser.add_argument("--report", type=Path, help="write machine-readable import outcome JSON")
     args = parser.parse_args()
+    def report(status, diagnostic=""):
+        value = {"status": status, "diagnostic": diagnostic}
+        if args.report:
+            write_atomic(args.report, (json.dumps(value, sort_keys=True) + "\n").encode("utf-8"))
+        return value
     try:
         data = build(args.manifest)
         # The output must never overwrite a manifest or one of its source files.
@@ -94,11 +107,21 @@ def main():
         protected.update((args.manifest.parent / entry["source"]).resolve() for entry in document["assets"])
         if args.output.resolve() in protected:
             raise ValueError("output must not overwrite the manifest or an asset source")
+        if args.report and args.report.resolve() in protected | {args.output.resolve()}:
+            raise ValueError("report must not overwrite manifest, sources or package")
+        if args.output.exists() and args.output.read_bytes() == data:
+            report("unchanged")
+            print("unchanged: package not rewritten")
+            return 0
         write_atomic(args.output, data)
-        print(f"cooked {len(document['assets'])} assets")
+        report("rebuilt")
+        print(f"rebuilt {len(document['assets'])} assets")
         return 0
     except (OSError, ValueError, KeyError, TypeError, RecursionError) as error:
         print(f"cook failed: {error}", file=sys.stderr)
+        # On failure stdout is still machine-readable; do not write an optional
+        # report path whose separation from invalid input cannot be established.
+        print(json.dumps({"status": "failed", "diagnostic": str(error)}, sort_keys=True))
         return 1
 
 
