@@ -170,12 +170,12 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
 - [ ] **07.01** Add asset identifiers, dependency tracking and cooked packages.
   - GPT: ADR 0082 stable IDs/edges, standalone cook CLI and source-free C++ byte-package loader; deterministic cook, stale/missing dependency and atomic failure tests pass locally. Hosted CI/merge pending.
 - [ ] **07.02** Add import diagnostics and incremental rebuilds.
-- [ ] **07.03** Complete flagship lighting, shadows, materials, transparency and post-processing.
+- [x] **07.03** Complete flagship lighting, shadows, materials, transparency and post-processing. Evidence: children 07.03a–e, each with its own test.
   - [x] **07.03a** A stated directional light and ambient, set per renderer. Evidence: ADR 0082, `Renderer::set_lighting`, `render.lighting` (five lights within 2/255 of the formula; defaults byte-identical to the first renderer).
   - [x] **07.03b** Shadows from the directional light. Evidence: ADR 0084, `rhi::ShadowMap`, `Renderer::enable_shadows`, `render.shadows` (ground under a cube keeps only ambient within 2/255, open ground and cube top fully lit, a slanted light moves the shadow, off is byte-identical). Skinned shadows are a later slice.
   - [x] **07.03c** Materials beyond base colour (roughness, metalness, normal maps). Evidence: ADR 0085, `Renderer::enable_materials`, `render.materials` (four materials within 3/255 of the formula on two faces; smooth vs rough highlight, metal tint, normal maps tilted in x and y, metal-roughness texture; plain parts within 1/255 of lit; off and disabled byte-identical; shadows received). Skinned materials are a later slice.
   - [x] **07.03d** Transparent surfaces, sorted and blended. Evidence: ADR 0086, `MeshDraw::pipeline`, `BlendMode::Alpha`, `Renderer::enable_transparency`, `render.transparency` (two panes over a wall within 2/255 of a far-to-near CPU blend; near-first and far-first ECS order give the same image; off, opacity 1 and disabled byte-identical; opacity 0 and a pane behind the wall leave the wall exact; blends the same with materials and shadows on). Transparent shadows and materials are a later slice.
-  - [ ] **07.03e** A post-processing pass (tone mapping first).
+  - [x] **07.03e** A post-processing pass (tone mapping first). Evidence: ADR 0087, `rhi::HdrTarget`, `Renderer::enable_post`, `render.post` (linear 0.5, 2 and 4 within 2/255 of Reinhard at exposures 1 and 2, where 8-bit clips 2 and 4 alike; a pane enabled later blends in float first; off and disabled byte-identical). Skinned post-processing is a later slice.
 - [ ] **07.04** Add visibility, batching and GPU resource management.
 - [ ] **07.05** Add required terrain, foliage, water and environmental rendering.
 - [ ] **07.06** Add UI, text, fonts, localisation and accessibility foundations.

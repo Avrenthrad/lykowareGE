@@ -64,6 +64,7 @@ private:
 class Texture;
 class ShadowMap;
 class GraphicsPipeline;
+class HdrTarget;
 
 struct MeshDraw {
     const Buffer* vertices = nullptr;
@@ -71,8 +72,8 @@ struct MeshDraw {
     // Indices to draw from the start of the index buffer; 0 means all.
     std::uint32_t index_count = 0;
     std::span<const std::byte> push_constants;
-    // Required when the pipeline reads a texture (GraphicsPipelineDesc::texture), and must be
-    // null otherwise.
+    // Required when the pipeline reads a texture (GraphicsPipelineDesc::texture) unless `source`
+    // is set, and must be null otherwise.
     const Texture* texture = nullptr;
     // The first index drawn, so one index buffer can hold several parts (ADR 0038). With
     // index_count 0, the draw runs from here to the end of the buffer.
@@ -93,6 +94,9 @@ struct MeshDraw {
     // colour format and use depth exactly when the pass's pipeline does, and is not depth-only;
     // every other rule above is checked against it.
     const GraphicsPipeline* pipeline = nullptr;
+    // Reads an HdrTarget's colour at set 0 in place of `texture` (ADR 0087), for a post pass. A
+    // pipeline that reads a texture needs exactly one of the two.
+    const HdrTarget* source = nullptr;
 };
 
 }

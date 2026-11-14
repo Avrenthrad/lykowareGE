@@ -1,6 +1,7 @@
 #include <lykoware/render.hpp>
 
 #include <lykoware/rhi/buffer.hpp>
+#include <lykoware/rhi/hdr_target.hpp>
 #include <lykoware/rhi/shadow_map.hpp>
 #include <lykoware/rhi/texture.hpp>
 
@@ -46,6 +47,38 @@ struct TransparentConstants {
 };
 static_assert(sizeof(TransparentConstants) == 144);
 static_assert(sizeof(TransparentConstants) <= rhi::push_constant_material_max_bytes);
+
+// A pipeline's SPIR-V and description, kept so the renderer can build it again for another
+// colour format: the HDR target of the post pass (ADR 0087).
+struct Recipe {
+    std::vector<std::uint32_t> vertex;
+    std::vector<std::uint32_t> fragment;
+    rhi::GraphicsPipelineDesc desc;
+};
+
+Recipe recipe(std::span<const std::uint32_t> vertex, std::span<const std::uint32_t> fragment,
+              const rhi::GraphicsPipelineDesc& desc)
+{
+    Recipe made{{vertex.begin(), vertex.end()}, {fragment.begin(), fragment.end()}, desc};
+    made.desc.vertex = nullptr;
+    made.desc.fragment = nullptr;
+    return made;
+}
+
+std::unique_ptr<rhi::GraphicsPipeline> build(const rhi::Device& device, const Recipe& made, rhi::ColorFormat format,
+                                             rhi::RhiError& error)
+{
+    const auto vertex = rhi::Shader::load(device, made.vertex, rhi::ShaderStage::Vertex, error);
+    const auto fragment = vertex ? rhi::Shader::load(device, made.fragment, rhi::ShaderStage::Fragment, error) : nullptr;
+    if (!vertex || !fragment) {
+        return nullptr;
+    }
+    rhi::GraphicsPipelineDesc desc = made.desc;
+    desc.vertex = vertex.get();
+    desc.fragment = fragment.get();
+    desc.color_format = format;
+    return rhi::GraphicsPipeline::create(device, desc, error);
+}
 
 bool valid_factors(const Material& material)
 {
@@ -204,6 +237,70 @@ struct Renderer::Impl {
     std::vector<std::pair<Drawn, double>> transparent_parts;
     std::vector<std::size_t> transparent_order;
     std::size_t transparent_drawn = 0;
+    // Post-processing (ADR 0087). The recipes of every scene pipeline made so far; `version`
+    // changes whenever one is replaced, and the HDR copies are rebuilt when they are older.
+    Recipe lit_recipe;
+    Recipe receiver_recipe;
+    Recipe material_recipes[2];
+    Recipe transparent_recipe;
+    std::uint64_t recipes_version = 1;
+    std::uint64_t hdr_version = 0;
+    std::unique_ptr<rhi::GraphicsPipeline> hdr_lit;
+    std::unique_ptr<rhi::GraphicsPipeline> hdr_receiver;
+    std::unique_ptr<rhi::GraphicsPipeline> hdr_material[2];
+    std::unique_ptr<rhi::GraphicsPipeline> hdr_transparent;
+    std::unique_ptr<rhi::GraphicsPipeline> post_pipeline;
+    std::unique_ptr<rhi::HdrTarget> hdr_target;
+    GpuMesh fullscreen;
+    std::optional<PostProcess> post_settings;
+    math::Vec4 post_constants{};
+    rhi::MeshDraw post_draw;
+
+    // Builds the HDR copies of the scene pipelines when a recipe changed since the last build.
+    bool ensure_hdr(rhi::RhiError& error)
+    {
+        if (hdr_version == recipes_version) {
+            return true;
+        }
+        const auto copy = [&](const Recipe& made, std::unique_ptr<rhi::GraphicsPipeline>& into) {
+            into.reset();
+            if (made.vertex.empty()) {
+                return true;
+            }
+            into = build(*device, made, rhi::ColorFormat::Rgba16Float, error);
+            return into != nullptr;
+        };
+        if (!copy(lit_recipe, hdr_lit) || !copy(receiver_recipe, hdr_receiver)
+            || !copy(material_recipes[0], hdr_material[0]) || !copy(material_recipes[1], hdr_material[1])
+            || !copy(transparent_recipe, hdr_transparent)) {
+            return false;
+        }
+        hdr_version = recipes_version;
+        return true;
+    }
+
+    // Draws the prepared scene into the HDR target, sized to the final image, then fills
+    // `post_draw` for the tone-mapping pass.
+    bool render_hdr(std::uint32_t width, std::uint32_t height, const rhi::ClearColor& clear, rhi::RhiError& error)
+    {
+        if (!hdr_target || hdr_target->width() != width || hdr_target->height() != height) {
+            hdr_target.reset();
+            hdr_target = rhi::HdrTarget::create(*device, width, height, error);
+            if (!hdr_target) {
+                return false;
+            }
+        }
+        if (!hdr_target->render(clear, active_pipeline(), draws, error)) {
+            return false;
+        }
+        post_constants = {post_settings->exposure, 0.F, 0.F, 0.F};
+        post_draw = {};
+        post_draw.vertices = fullscreen.vertices.get();
+        post_draw.indices = fullscreen.indices.get();
+        post_draw.push_constants = std::as_bytes(std::span(&post_constants, 1));
+        post_draw.source = hdr_target.get();
+        return true;
+    }
 
     // The texture an id names, `fallback` for none, or null for an id this renderer did not make.
     const rhi::Texture* texture_or(TextureId id, const rhi::Texture* fallback) const
@@ -257,6 +354,12 @@ struct Renderer::Impl {
 
     const rhi::GraphicsPipeline& active_pipeline() const
     {
+        if (post_settings) {
+            if (materials_on) {
+                return shadow_settings ? *hdr_material[1] : *hdr_material[0];
+            }
+            return shadow_settings ? *hdr_receiver : *hdr_lit;
+        }
         if (materials_on) {
             return shadow_settings ? *material_shadowed_pipeline : *material_pipeline;
         }
@@ -422,7 +525,7 @@ struct Renderer::Impl {
             draws.push_back({part.mesh->vertices.get(), part.mesh->indices.get(), part.index_count,
                              std::as_bytes(std::span(&transparent_constants[i], 1)), part.texture, part.first_index,
                              part.skin});
-            draws.back().pipeline = transparent_pipeline.get();
+            draws.back().pipeline = post_settings ? hdr_transparent.get() : transparent_pipeline.get();
         }
         transparent_drawn = transparent_parts.size();
         // Casters draw every index of their mesh (all parts at once), from the light.
@@ -473,6 +576,7 @@ std::unique_ptr<Renderer> Renderer::create(const rhi::Device& device, rhi::Color
         if (!impl->pipeline) {
             return nullptr;
         }
+        impl->lit_recipe = recipe(impl->skinning ? skinned_vertex : lit_vertex, lit_fragment, desc);
     }
     std::vector<Vertex> vertices;
     std::vector<std::uint32_t> indices;
@@ -511,8 +615,14 @@ std::unique_ptr<Renderer> Renderer::create(const rhi::Device& device, rhi::Color
 bool Renderer::draw(const ecs::World& entities, const Camera& camera, rhi::RenderTarget& target,
                     const rhi::ClearColor& clear, rhi::RhiError& error)
 {
+    error = {};
+    if (impl_->post_settings && !impl_->ensure_hdr(error)) { return false; }
     if (!impl_->prepare(entities, camera, static_cast<float>(target.width()) / static_cast<float>(target.height()), error)) { return false; }
     if (!impl_->cast_shadows(error)) { return false; }
+    if (impl_->post_settings) {
+        return impl_->render_hdr(target.width(), target.height(), clear, error)
+            && target.draw_meshes(clear, *impl_->post_pipeline, std::span(&impl_->post_draw, 1), error);
+    }
     return target.draw_meshes(clear, impl_->active_pipeline(), impl_->draws, error);
 }
 
@@ -522,8 +632,14 @@ bool Renderer::draw(const ecs::World& entities, const Camera& camera, rhi::Swapc
     const float aspect = swapchain.width() > 0 && swapchain.height() > 0
         ? static_cast<float>(swapchain.width()) / static_cast<float>(swapchain.height())
         : 1.F;
+    error = {};
+    if (impl_->post_settings && !impl_->ensure_hdr(error)) { return false; }
     if (!impl_->prepare(entities, camera, aspect, error)) { return false; }
     if (!impl_->cast_shadows(error)) { return false; }
+    if (impl_->post_settings && swapchain.width() > 0 && swapchain.height() > 0) {
+        return impl_->render_hdr(swapchain.width(), swapchain.height(), clear, error)
+            && swapchain.render_meshes(clear, *impl_->post_pipeline, std::span(&impl_->post_draw, 1), error);
+    }
     return swapchain.render_meshes(clear, impl_->active_pipeline(), impl_->draws, error);
 }
 
@@ -749,6 +865,8 @@ bool Renderer::enable_shadows(const ShadowShaders& shaders, const Shadows& shado
     impl_->shadow_map = std::move(map);
     impl_->caster_pipeline = std::move(caster_pipeline);
     impl_->receiver_pipeline = std::move(receiver_pipeline);
+    impl_->receiver_recipe = recipe(shaders.receiver_vertex, shaders.receiver_fragment, receiver);
+    ++impl_->recipes_version;
     impl_->shadow_settings = shadows;
     return true;
 }
@@ -778,6 +896,7 @@ bool Renderer::enable_materials(const MaterialShaders& shaders, rhi::RhiError& e
     }
     const rhi::Device& device = *impl_->device;
     std::unique_ptr<rhi::GraphicsPipeline> made[2];
+    Recipe recipes[2];
     const std::span<const std::uint32_t> code[2][2] = {{shaders.vertex, shaders.fragment},
                                                        {shaders.shadowed_vertex, shaders.shadowed_fragment}};
     for (int index = 0; index < 2; ++index) {
@@ -801,7 +920,11 @@ bool Renderer::enable_materials(const MaterialShaders& shaders, rhi::RhiError& e
         if (!made[index]) {
             return false;
         }
+        recipes[index] = recipe(code[index][0], code[index][1], desc);
     }
+    impl_->material_recipes[0] = std::move(recipes[0]);
+    impl_->material_recipes[1] = std::move(recipes[1]);
+    ++impl_->recipes_version;
     impl_->material_pipeline = std::move(made[0]);
     impl_->material_shadowed_pipeline = std::move(made[1]);
     impl_->materials_on = true;
@@ -843,6 +966,8 @@ bool Renderer::enable_transparency(const TransparencyShaders& shaders, rhi::RhiE
         return false;
     }
     impl_->transparent_pipeline = std::move(made);
+    impl_->transparent_recipe = recipe(shaders.vertex, shaders.fragment, desc);
+    ++impl_->recipes_version;
     impl_->transparency_on = true;
     return true;
 }
@@ -861,6 +986,58 @@ bool Renderer::transparency_enabled() const
 std::size_t Renderer::last_transparent_draw_count() const
 {
     return impl_->transparent_drawn;
+}
+
+bool Renderer::enable_post(const PostShaders& shaders, const PostProcess& post, rhi::RhiError& error)
+{
+    error = {};
+    if (impl_->skinning) {
+        error = {rhi::RhiFailure::InvalidArgument, "post-processing on a skinned renderer is a later slice"};
+        return false;
+    }
+    if (!std::isfinite(post.exposure) || post.exposure <= 0.F || post.exposure > post_max_exposure) {
+        error = {rhi::RhiFailure::InvalidArgument, "exposure must be finite, above 0 and at most 64"};
+        return false;
+    }
+    const rhi::Device& device = *impl_->device;
+    rhi::GraphicsPipelineDesc desc;
+    desc.vertex_layout = rhi::VertexLayout::PositionNormalUv;
+    desc.push_constant_bytes = sizeof(math::Vec4);
+    desc.texture = true;
+    auto pipeline = build(device, recipe(shaders.vertex, shaders.fragment, desc), impl_->pipeline->color_format(), error);
+    if (!pipeline) {
+        return false;
+    }
+    if (!impl_->fullscreen.vertices) {
+        // One triangle past the screen's corners; the vertex shader passes positions through.
+        const Vertex corners[3] = {{{-1.F, -1.F, 0.F}, {0.F, 0.F, 1.F}, {0.F, 0.F}},
+                                   {{3.F, -1.F, 0.F}, {0.F, 0.F, 1.F}, {2.F, 0.F}},
+                                   {{-1.F, 3.F, 0.F}, {0.F, 0.F, 1.F}, {0.F, 2.F}}};
+        const std::uint32_t indices[3] = {0, 1, 2};
+        if (!upload(device, std::span<const Vertex>(corners), indices, impl_->fullscreen, error)) {
+            impl_->fullscreen = {};
+            return false;
+        }
+    }
+    if (!impl_->ensure_hdr(error)) {
+        // Some float pipelines may be gone: off, and rebuilt in full by the next enable.
+        impl_->post_settings.reset();
+        impl_->hdr_version = 0;
+        return false;
+    }
+    impl_->post_settings = post;
+    impl_->post_pipeline = std::move(pipeline);
+    return true;
+}
+
+void Renderer::disable_post()
+{
+    impl_->post_settings.reset();
+}
+
+std::optional<PostProcess> Renderer::post() const
+{
+    return impl_->post_settings;
 }
 
 bool Renderer::materials_enabled() const

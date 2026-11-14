@@ -37,7 +37,15 @@ const char* stage_name(ShaderStage stage) noexcept
 
 VkFormat detail::vk_format(ColorFormat format) noexcept
 {
-    return format == ColorFormat::Bgra8Unorm ? VK_FORMAT_B8G8R8A8_UNORM : VK_FORMAT_R8G8B8A8_UNORM;
+    switch (format) {
+    case ColorFormat::Bgra8Unorm:
+        return VK_FORMAT_B8G8R8A8_UNORM;
+    case ColorFormat::Rgba16Float:
+        return VK_FORMAT_R16G16B16A16_SFLOAT;
+    case ColorFormat::Rgba8Unorm:
+        break;
+    }
+    return VK_FORMAT_R8G8B8A8_UNORM;
 }
 
 struct Shader::Impl {

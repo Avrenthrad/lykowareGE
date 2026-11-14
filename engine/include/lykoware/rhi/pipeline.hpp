@@ -19,10 +19,11 @@ enum class ShaderStage {
 };
 
 // Colour formats a pipeline can render into. RenderTarget uses Rgba8Unorm;
-// a swapchain may use either.
+// a swapchain may use either 8-bit format; an HdrTarget uses Rgba16Float (ADR 0087).
 enum class ColorFormat {
     Rgba8Unorm,
     Bgra8Unorm,
+    Rgba16Float,
 };
 
 // SPIR-V entry point every shader module must export. Slang names a
