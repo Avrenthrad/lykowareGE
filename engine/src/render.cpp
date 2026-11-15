@@ -1397,6 +1397,17 @@ void Renderer::disable_post()
     impl_->post_settings.reset();
 }
 
+bool Renderer::warm_up(rhi::RhiError& error)
+{
+    error = {};
+    return !impl_->post_settings || impl_->ensure_hdr(error);
+}
+
+bool Renderer::needs_warm_up() const
+{
+    return impl_->post_settings && impl_->hdr_version != impl_->recipes_version;
+}
+
 std::optional<PostProcess> Renderer::post() const
 {
     return impl_->post_settings;

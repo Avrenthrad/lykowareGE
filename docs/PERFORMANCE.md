@@ -63,6 +63,10 @@ The table and timings above are for single precision. With double-precision posi
 
 `lykoware_ik_runtime_scale [--characters N] [--frames F] [--csv PATH]` poses three rigs (mannequin 12 joints, humanoid 31, dense 249) through the prepared two-bone solver (ADR 0061), two legs per character per frame, and rebuilds each character's retained skinning palette. CSV columns: `rig,joints,characters,frames,solves,allocations,mean_ns_per_solve,worst_frame_ms,mean_palette_ns`. CI (`animation.ik_runtime_scale`, 32 characters × 60 frames) fails on a foot off target by more than 0.5 mm (FK check) or on any heap allocation in the measured frames; it does not judge time. Target-PC command for the harness: `lykoware_ik_runtime_scale --characters 500 --frames 600 --csv ik_scale.csv` from the Release build. The owner runs it on the RTX 4070 PC and accepts the numbers.
 
+### Pipeline compilation in measured frames (06.10)
+
+`rhi::pipeline_compile_count()` is the number of graphics pipelines compiled in the process so far (ADR 0100). A driver compiles a pipeline's shaders when the pipeline is made, so a pipeline made inside a frame is a hitch. A fixture calls `Renderer::warm_up` after its last `enable_*`, reads the counter before the first measured frame and after the last, and reports the difference. Harness column: `pipeline_compiles` (unsigned integer, expected 0; any other value fails the run's hitch gate whatever the frame times say). CI (`render.warmup`) holds it at 0 across 60 frames of the current scene with post-processing, shadows and transparency on, and shows that without the warm-up the first frame compiles pipelines. The world-scale number is not measured: it needs streaming (`06.04`) and the owner's run on the target PC (`01.10`, `06.11`).
+
 ### ECS iteration
 
 `lykoware_ecs_benchmark ENTITIES FRAMES LIMIT_MS` runs a movement system (position += velocity × dt) over ENTITIES entities each frame and fails if the mean frame time is over the limit or the result is wrong. CTest runs `perf.ecs_iterate_100k`: 100,000 entities, 300 frames, 250 ms limit. That limit is slack for Debug and sanitizer builds, not a frame budget.
