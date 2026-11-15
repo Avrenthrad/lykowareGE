@@ -169,6 +169,7 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
   - GPT: ADR 0102, bounded little-endian save/world versions, region edit round-trip and future-version refusal; `save.versioned` passes locally. CI/merge pending.
 - [ ] **06.08** Render distant worlds with detail transitions.
 - [ ] **06.09** Test rapid travel, teleports and memory pressure.
+  - GPT: `streaming.travel_pressure` and real-physics `streaming.travel_physics`: 385 teleports/boundary crossings, explicit resident-payload limits, pin/oversize pressure and evicted collision checks. Local fake-backend/mutation pass; real fixture compiles; CI/merge pending.
 - [ ] **06.10** Eliminate avoidable shader/pipeline compilation hitches.
   - Current-scene half done: ADR 0100, `rhi::pipeline_compile_count`, `Renderer::warm_up`, `render.warmup` (0 pipelines compiled across 60 measured frames after the warm-up; more than 0 in the first frame without it). Still open: the world-scale hitch number, which needs streaming (`06.04`) and the owner's target-PC run (`01.10` / `06.11`, harness column `pipeline_compiles`). Not ticked until both halves are done.
 - [ ] **06.11** Measure throughput and frame pacing.
