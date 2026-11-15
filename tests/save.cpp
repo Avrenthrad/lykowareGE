@@ -31,7 +31,7 @@ int main()
         streaming::RegionData region{{{"terrain", {std::byte{1}}, {}}}};
         require(restored.apply({65, -65}, region, error) && region.assets[0].bytes[0] == std::byte{9}, "saved edit applied");
         auto future = *encoded;
-        future[4] = std::byte{3};
+        future[4] = static_cast<std::byte>(save::format_version + 1);
         require(!save::decode(future, limits, error) && !error.empty(), "future version refused");
         future = *encoded;
         future[8] = std::byte{2};
