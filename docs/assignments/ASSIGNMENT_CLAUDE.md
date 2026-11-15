@@ -11,7 +11,7 @@ Tick only after the PR is merged with all five CI checks green. One line of note
 - [x] `02.14` camera transitions — merged #96 (89dc40e)
 - [x] `07.03` lighting/shadows/materials/transparency/post — a–e merged: #108 (`21ce75a`), #110 (`3e41fa6`), #111 (`6a7dd49`), #113 (`b335826`), #114 (`55626e1`)
 - [x] `07.04` visibility, batching, GPU resources — merged #116 (`9a53c67`)
-- [ ] `07.05` environment rendering — next
+- [ ] `07.05` environment rendering — a–d merged: #122 (`4c6a3fb`), #123 (`0d23e07`), #125 (`bb736e4`), #127 (`24b679f`); `07.05e` distance fog next, then tick `07.05`
 - [ ] `06.10` pipeline warmup (world-scale half: **Joshua runs this**)
 - [x] `02.12b` → `02.12c` → `02.12d` → `02.13` ragdolls — 02.12b #99, 02.12c #102, 02.12d #104; `02.13` merged #107 (`84a2925`)
 - [ ] `06.08` — blocked on GPT `06.01`, `06.04`
@@ -188,9 +188,11 @@ Merged in #116 (`9a53c67`): `Renderer::set_visibility`, `last_draw_stats`, `remo
 
 Rendering only. Terrain collision stays on the physics API you already own. Streaming the chunks is GPT's `06.04`. Draw a chunk you are given; do not own the streamer.
 
-- [ ] ADR for one environment surface you can fixture (terrain shading, a foliage batch, or water). Done when: the ADR separates the draw from the physics collision and from GPT's future chunk stream.
-- [ ] Implement it with a headless check. Done when: removing the draw fails the check.
+- [x] ADR for one environment surface you can fixture (terrain shading, a foliage batch, or water). Done when: the ADR separates the draw from the physics collision and from GPT's future chunk stream.
+- [x] Implement it with a headless check. Done when: removing the draw fails the check.
 - [ ] Standard close, splitting lettered children the same way as `07.03` if one PR cannot cover every surface. Done when: `07.05` is ticked only after each surface you named has a test.
+
+`07.05a` terrain merged in #122 (`4c6a3fb`): `render::terrain_mesh`, ADR 0095, tests `render.terrain_mesh` and `render.terrain`. `07.05b` foliage merged in #123 (`0d23e07`): `render::scatter_foliage`, `render::foliage_batch`, ADR 0096, tests `render.foliage_mesh` and `render.foliage`. `07.05c` water merged in #125 (`bb736e4`): `Renderer::enable_water`, ADR 0097, test `render.water`. `07.05d` sky merged in #127 (`24b679f`): `Renderer::enable_sky`, ADR 0098, test `render.sky`. Open: `07.05e` distance fog (needs the distance in every scene shader; the lit push block is full). `07.05` stays unticked until it merges.
 
 ### 11. `06.10` — shader and pipeline hitches
 
