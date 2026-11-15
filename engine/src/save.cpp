@@ -11,6 +11,17 @@ bool valid(Limits limits)
 {
     return limits.file_bytes && limits.payload_bytes && limits.entries && limits.id_bytes;
 }
+std::uint32_t checksum(std::span<const std::byte> bytes)
+{
+    std::uint32_t crc = 0xffffffffU;
+    for (const auto byte : bytes) {
+        crc ^= std::to_integer<std::uint32_t>(byte);
+        for (unsigned bit = 0; bit < 8; ++bit) {
+            crc = (crc >> 1) ^ ((crc & 1U) ? 0xedb88320U : 0U);
+        }
+    }
+    return ~crc;
+}
 void number(std::vector<std::byte>& out, std::uint64_t value, unsigned width)
 {
     for (unsigned i = 0; i < width; ++i) {
@@ -37,12 +48,12 @@ std::optional<std::vector<std::byte>> encode(const streaming::RegionEdits& edits
     error.clear();
     if (!valid(limits) || edits.size() > limits.entries
         || edits.size() > std::numeric_limits<std::uint32_t>::max()
-        || edits.bytes() > limits.payload_bytes || limits.file_bytes < 16) {
+        || edits.bytes() > limits.payload_bytes || limits.file_bytes < 20) {
         error = "save limits exceeded or invalid";
         return {};
     }
     const auto entries = edits.snapshot();
-    std::size_t total = 16;
+    std::size_t total = 20;
     for (const auto& edit : entries) {
         if (edit.asset.size() > limits.id_bytes || edit.asset.size() > std::numeric_limits<std::uint32_t>::max()
             || limits.file_bytes - total < 20) { error = "save ID/file limit exceeded"; return {}; }
@@ -65,6 +76,7 @@ std::optional<std::vector<std::byte>> encode(const streaming::RegionEdits& edits
         number(out, edit.bytes.size(), 8);
         out.insert(out.end(), edit.bytes.begin(), edit.bytes.end());
     }
+    number(out, checksum(out), 4);
     return out;
 }
 std::optional<State> decode(std::span<const std::byte> bytes, Limits limits, std::string& error)
@@ -75,8 +87,16 @@ std::optional<State> decode(std::span<const std::byte> bytes, Limits limits, std
         || bytes[2] != std::byte{'K'} || bytes[3] != std::byte{'W'}) { return {}; }
     Reader in{bytes, 4};
     std::uint64_t version = 0, schema = 0, count = 0;
-    if (!in.number(version, 4) || version != format_version
-        || !in.number(schema, 4) || schema != world_version || !in.number(count, 4)
+    if (!in.number(version, 4) || (version != 2 && version != format_version)) { return {}; }
+    if (version == format_version) {
+        if (bytes.size() < 20) { return {}; }
+        Reader footer{bytes.last(4)};
+        std::uint64_t expected = 0;
+        if (!footer.number(expected, 4) || expected != checksum(bytes.first(bytes.size() - 4))) { return {}; }
+        bytes = bytes.first(bytes.size() - 4);
+        in.bytes = bytes;
+    }
+    if (!in.number(schema, 4) || schema != world_version || !in.number(count, 4)
         || count > limits.entries || count > (bytes.size() - in.offset) / 21) { return {}; }
     State state;
     std::set<std::tuple<std::int32_t, std::int32_t, std::string>> keys;
