@@ -156,6 +156,7 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
 - [x] **06.01** Define coordinates, regions and partitioning.
   - GPT: #120 squash-merged as `bdbc9f4` after all five hosted checks passed on `cefee0e` (run 43688718552); merge confirmed. ADR 0089 and `streaming.regions`: double positions, stable IDs, half-open boundaries, zero/subnormal/negative edges, 16 km and range rejection.
 - [ ] **06.02** Add asynchronous loading and cancellation.
+  - GPT: ADR 0090, owner-fenced jobs and explicit byte limits; `streaming.async_load` checks sync/async equality, cancellation, owner destruction and read/queue failures. CI/merge pending.
 - [ ] **06.03** Track asset dependencies, residency and eviction.
 - [ ] **06.04** Stream terrain and world chunks.
 - [ ] **06.05** Stream collision, navigation, audio and entities.
