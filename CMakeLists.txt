@@ -807,6 +807,11 @@ if(BUILD_TESTING)
     set_tests_properties(navigation.crowd PROPERTIES TIMEOUT 120)
     set_tests_properties(navigation.crowd_overlap PROPERTIES TIMEOUT 120 WILL_FAIL TRUE)
 
+    add_executable(lykoware_streaming_regions_test tests/streaming_regions.cpp)
+    target_link_libraries(lykoware_streaming_regions_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_streaming_regions_test)
+    add_test(NAME streaming.regions COMMAND lykoware_streaming_regions_test)
+
     add_executable(lykoware_navigation_test tests/navigation.cpp)
     target_link_libraries(lykoware_navigation_test PRIVATE lykoware::engine)
     lykoware_configure_target(lykoware_navigation_test)
