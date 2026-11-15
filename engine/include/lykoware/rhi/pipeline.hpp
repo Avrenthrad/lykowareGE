@@ -104,6 +104,12 @@ inline constexpr std::uint32_t skinned_position_normal_uv_stride = 56;
 inline constexpr std::size_t skin_palette_max_joints = 256;
 inline constexpr std::size_t skin_palette_max_draws = 4096;
 
+// Graphics pipelines compiled in this process so far (ADR 0100): each successful
+// GraphicsPipeline::create adds one, and it never falls. A driver compiles a pipeline's shaders
+// when the pipeline is made, which is the hitch: read this before and after a span of frames,
+// and a difference means a pipeline was compiled inside it. Safe to read from any thread.
+[[nodiscard]] std::uint64_t pipeline_compile_count() noexcept;
+
 // Largest push-constant block, the size every Vulkan device guarantees.
 inline constexpr std::uint32_t push_constant_max_bytes = 128;
 // Largest block a material pipeline may ask for (ADR 0085). Every desktop GPU of the Vulkan

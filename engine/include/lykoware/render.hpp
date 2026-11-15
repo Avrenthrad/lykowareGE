@@ -449,6 +449,18 @@ public:
     // Back to drawing straight into the final image, exactly as before enable_post. Fog, which
     // is part of the post pass, goes off with it.
     void disable_post();
+
+    // Compiles now every pipeline the next draw() would otherwise compile (ADR 0100), so the
+    // first frame after a change of features does not hitch. Today that is the float-target
+    // copies of the scene pipelines, which go stale whenever shadows, materials, transparency,
+    // water or the sky are enabled while post-processing is on. Call it after the last enable_*
+    // and before the frames that matter; rhi::pipeline_compile_count() then stays the same
+    // across draw(). True when nothing is left to compile, including when nothing was. False
+    // and error filled when a pipeline does not build (as enable_post); the next draw() fails
+    // the same way.
+    [[nodiscard]] bool warm_up(rhi::RhiError& error);
+    // True when the next draw() would compile a pipeline: warm_up() has work to do.
+    [[nodiscard]] bool needs_warm_up() const;
     // The settings while post-processing is on, nullopt when off.
     [[nodiscard]] std::optional<PostProcess> post() const;
 

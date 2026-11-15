@@ -344,6 +344,16 @@ if(BUILD_TESTING)
         "${fog_vert_spv}" "${fog_frag_spv}" "${post_vert_spv}" "${post_frag_spv}" "${sky_vert_spv}" "${sky_frag_spv}")
     set_tests_properties(render.fog PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
 
+    # 06.10: no pipeline compiles inside the measured frames after a warm-up (ADR 0100).
+    add_executable(lykoware_render_warmup_test tests/render_warmup.cpp)
+    target_link_libraries(lykoware_render_warmup_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_render_warmup_test)
+    add_dependencies(lykoware_render_warmup_test lykoware_test_shaders)
+    add_test(NAME render.warmup COMMAND lykoware_render_warmup_test "${lit_vert_spv}" "${lit_frag_spv}"
+        "${post_vert_spv}" "${post_frag_spv}" "${transparent_vert_spv}" "${transparent_frag_spv}"
+        "${shadow_vert_spv}" "${lit_shadowed_vert_spv}" "${lit_shadowed_frag_spv}")
+    set_tests_properties(render.warmup PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
+
     # Sampled textures in the RHI (ADR 0037): exact texels, sRGB, mipmaps, wrapping, misuse.
     add_executable(lykoware_rhi_texture_test tests/rhi_texture.cpp)
     target_link_libraries(lykoware_rhi_texture_test PRIVATE lykoware::engine)
@@ -441,7 +451,7 @@ if(BUILD_TESTING)
         # reports; leaks in Lykoware code are still caught (ADR 0015 records the
         # deliberate-leak check).
         set_property(TEST rhi.instance rhi.instance.no_driver rhi.device rhi.render_target rhi.swapchain
-                          sandbox.vulkan_window sandbox.gpu_trace sandbox.play sandbox.imported_player rhi.pipeline rhi.mesh rhi.texture render.scene render.lighting render.shadows render.materials render.transparency render.post render.visibility render.terrain render.foliage render.water render.sky render.fog
+                          sandbox.vulkan_window sandbox.gpu_trace sandbox.play sandbox.imported_player rhi.pipeline rhi.mesh rhi.texture render.scene render.lighting render.shadows render.materials render.transparency render.post render.visibility render.terrain render.foliage render.water render.sky render.fog render.warmup
                           render.model render.skinning render.gpu_skinning render.texture lifecycle.restart_vulkan
             APPEND PROPERTY ENVIRONMENT "VK_LOADER_DISABLE_DYNAMIC_LIBRARY_UNLOADING=1")
     endif()

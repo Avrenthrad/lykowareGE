@@ -6,6 +6,7 @@
 
 #include <volk.h>
 
+#include <atomic>
 #include <cstdint>
 #include <cstring>
 #include <fstream>
@@ -16,6 +17,9 @@
 
 namespace lykoware::rhi {
 namespace {
+
+// Pipelines compiled in this process (ADR 0100); only ever rises.
+std::atomic<std::uint64_t> g_pipelines_compiled{0};
 
 using detail::DeviceAccess;
 using detail::driver_failure;
@@ -395,7 +399,13 @@ std::unique_ptr<GraphicsPipeline> GraphicsPipeline::create(
         fail(error, RhiFailure::DriverError, driver_failure("vkCreateGraphicsPipelines", result));
         return nullptr;
     }
+    g_pipelines_compiled.fetch_add(1, std::memory_order_relaxed);
     return std::unique_ptr<GraphicsPipeline>(new GraphicsPipeline(std::move(impl)));
+}
+
+std::uint64_t pipeline_compile_count() noexcept
+{
+    return g_pipelines_compiled.load(std::memory_order_relaxed);
 }
 
 ColorFormat GraphicsPipeline::color_format() const
