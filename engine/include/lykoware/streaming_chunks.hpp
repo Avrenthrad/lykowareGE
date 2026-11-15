@@ -25,6 +25,11 @@ struct ChunkCollision {
     std::function<std::optional<physics::BodyId>(const physics::BodyDesc&, std::string&)> create;
     std::function<void(physics::BodyId)> destroy; // Must not throw.
 };
+struct ChunkLifecycle {
+    // Paired or both empty. activate must roll back its own changes on failure.
+    std::function<bool(Region, std::string&)> activate;
+    std::function<void(Region)> deactivate; // Must not throw; outside ECS iteration.
+};
 // Borrows world until streamer destruction; uses existing create/destroy only.
 [[nodiscard]] ChunkCollision physics_chunk_collision(physics::World& world);
 
@@ -36,7 +41,8 @@ struct ChunkCollision {
 // must honour ChunkCollision's no-throw destroy contract. Explicit cache limits.
 class ChunkStreamer {
 public:
-    ChunkStreamer(ChunkCollision collision, std::size_t byte_limit, std::size_t region_limit);
+    ChunkStreamer(ChunkCollision collision, std::size_t byte_limit, std::size_t region_limit,
+                  ChunkLifecycle lifecycle = {});
     ~ChunkStreamer();
     ChunkStreamer(const ChunkStreamer&) = delete;
     ChunkStreamer& operator=(const ChunkStreamer&) = delete;
@@ -53,6 +59,7 @@ private:
     };
     using Key = std::pair<std::int32_t, std::int32_t>;
     ChunkCollision collision_;
+    ChunkLifecycle lifecycle_;
     Residency residency_;
     std::map<Key, Record> records_;
 };

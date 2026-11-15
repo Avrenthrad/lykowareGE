@@ -16,15 +16,17 @@ struct PendingBodies {
     }
 };
 }
-ChunkStreamer::ChunkStreamer(ChunkCollision collision, std::size_t byte_limit, std::size_t region_limit)
-    : collision_(std::move(collision)), residency_(byte_limit, region_limit)
+ChunkStreamer::ChunkStreamer(ChunkCollision collision, std::size_t byte_limit, std::size_t region_limit,
+                             ChunkLifecycle lifecycle)
+    : collision_(std::move(collision)), lifecycle_(std::move(lifecycle)), residency_(byte_limit, region_limit)
 {
-    if (!collision_.create || !collision_.destroy) { throw std::invalid_argument("chunk collision callbacks required"); }
+    if (!collision_.create || !collision_.destroy
+        || static_cast<bool>(lifecycle_.activate) != static_cast<bool>(lifecycle_.deactivate)) { throw std::invalid_argument("chunk collision callbacks required"); }
 }
 ChunkStreamer::~ChunkStreamer()
 {
     for (const auto& [key, record] : records_) {
-        (void)key;
+        if (lifecycle_.deactivate) { lifecycle_.deactivate({key.first, key.second}); }
         for (const auto body : record.bodies) { collision_.destroy(body); }
     }
 }
@@ -68,12 +70,14 @@ bool ChunkStreamer::stream(Position point, ChunkDefinition chunk, std::string& e
     }
     records.emplace(Key{region->x, region->z}, Record{chunk.pose, std::move(chunk.coarse_asset),
                                                    std::move(chunk.fine_asset), pending.bodies});
+    if (lifecycle_.activate && !lifecycle_.activate(*region, error)) { return false; }
     // All potentially throwing allocations precede publication.
     residency_ = std::move(candidate);
     records_.swap(records);
     pending.bodies.clear();
     for (const auto& [key, record] : records) {
         if (!records_.contains(key)) {
+            if (lifecycle_.deactivate) { lifecycle_.deactivate({key.first, key.second}); }
             for (const auto body : record.bodies) { collision_.destroy(body); }
         }
     }
