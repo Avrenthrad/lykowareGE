@@ -39,6 +39,11 @@ if(BUILD_TESTING)
     lykoware_configure_target(lykoware_trace_test)
     add_test(NAME trace.api COMMAND lykoware_trace_test)
 
+    add_executable(lykoware_ui_test tests/ui.cpp)
+    target_link_libraries(lykoware_ui_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_ui_test)
+    add_test(NAME ui.foundation COMMAND lykoware_ui_test)
+
     add_executable(lykoware_jobs_test tests/jobs.cpp)
     target_link_libraries(lykoware_jobs_test PRIVATE lykoware::engine Threads::Threads)
     lykoware_configure_target(lykoware_jobs_test)

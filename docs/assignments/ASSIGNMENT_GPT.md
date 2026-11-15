@@ -2,17 +2,17 @@
 
 You are GPT (Codex), working in `Avrenthrad/lykowareGE`. Joshua opens a chat with you. Stay in it across steps. This file is your queue. The shared map is [COORDINATION.md](COORDINATION.md). The roadmap is [docs/ROADMAP.md](../ROADMAP.md). The IDs are [docs/MASTER_CHECKLIST.md](../MASTER_CHECKLIST.md).
 
-## Rolling checklist — 14 November 2026
+## Rolling checklist — 15 November 2026
 
-Completed: `07.14` (#88; networking not implemented), `07.13` (#90), `07.08` (#94), `07.09` (#95); merged after five green hosted checks.
+Completed: `07.14` (#88; networking not implemented), `07.13` (#90), `07.08` (#94), `07.09` (#95), `05.04` (#98).
 
-- [x] `05.04`: #98 squash-merged as `d29be31`; all five hosted checks passed on `38e307c`. ADR 0081, 256-agent fixture/repeatability and deliberate overlap checks pass; local ASan/UBSan also pass. Budget stays open under `01.11`/`05.09`.
-- [ ] `07.01`: #100, ADR 0082; cook/load and stale dependency tests pass, including local ASan/UBSan. Pending CI; reconcile with checkpoint main before merging.
-- [ ] `07.02`: #101 stacked on #100; incremental diagnostics and cook/load tests pass. Pending CI; merge #100 first, then retarget/rebase #101 to main and require five fresh green checks.
-- [ ] `07.07`: #106, ADR 0083; bounded PCM ring streaming and nearest-voice admission. New streaming plus existing mixer/spatial tests and local ASan/UBSan pass; reversed-priority and retained-buffer mutations fail. Pending CI; reconcile with checkpoint main before merging.
-- [ ] Next unblocked: `07.06` UI foundations, then `06.01` regions. No UI or region implementation started.
-- Hardware gates: **Joshua runs this** (including audio listening/refill scheduling); `06.12` and later wave remain blocked.
-- Checkpoint: #98 merged; #100/#101/#106 remain open and unticked while checks run. Only GPT PRs with five green checks may merge. Rebase conflicts and require fresh CI. No other assistant's PR was merged.
+- [x] `07.01`: #100 merged as `aa02bdd`; five green jobs on `0ebadcb` (run 43534368012).
+- [x] `07.02`: #101 merged as `08d478a`; five green jobs on `a4a5c96` (run 43534339443).
+- [x] `07.07`: #106 merged as `058ce91`; five green jobs on `7425538` (run 43561654051).
+- [ ] `07.06`: #118, ADR 0091; headless tree, caller-owned font atlas input, locale lookup, scale/reduced-motion. Strict build, ASan/UBSan (LSan unavailable under host ptrace) and deliberate reduced-motion mutation pass; CI/merge pending. No font dependency.
+- [ ] `06.01`: next, double region coordinates and boundary fixtures.
+- [ ] `06.02`: then cancellable background region loads using jobs.
+- Hardware gates: **Joshua runs this**, including audio listening/refill scheduling. `06.12` and later wave remain blocked.
 
 ## How to use this file
 
@@ -131,23 +131,23 @@ Grok's combat can ship without this, using `seek`. Your API is what they switch 
 
 ### 6. `07.01` — asset identifiers, dependencies, cooked packages
 
-- [ ] ADR: an asset ID, a dependency edge, and a cooked package the runtime can open without the source tree. Done when: the ADR says IDs are stable strings, what a missing dependency does, and that the cook is a CLI command.
-- [ ] Cook a small fixture and load it. Done when: changing a dependency without recooking fails the load, and an unchanged cook is byte-stable for the fixture.
-- [ ] Standard close. Done when: `07.01` is ticked.
+- [x] ADR: an asset ID, a dependency edge, and a cooked package the runtime can open without the source tree. Done when: the ADR says IDs are stable strings, what a missing dependency does, and that the cook is a CLI command.
+- [x] Cook a small fixture and load it. Done when: changing a dependency without recooking fails the load, and an unchanged cook is byte-stable for the fixture.
+- [x] Standard close. Done when: `07.01` is ticked.
 
 ### 7. `07.02` — import diagnostics and incremental rebuilds
 
 Uses `07.01`. The character inspect command stays Claude's. Your diagnostics are for the package graph.
 
-- [ ] A CLI report of why an import failed, and a rebuild that skips an unchanged input. Done when: a test feeds a bad input and sees the diagnostic, and a second run does not rewrite an unchanged package.
-- [ ] Standard close. Done when: `07.02` is ticked.
+- [x] A CLI report of why an import failed, and a rebuild that skips an unchanged input. Done when: a test feeds a bad input and sees the diagnostic, and a second run does not rewrite an unchanged package.
+- [x] Standard close. Done when: `07.02` is ticked.
 
 ### 8. `07.07` — audio mixing, spatialisation, streaming, prioritisation
 
 Mixer, output, and spatial audio exist (ADRs 0032–0034). This ID is what is still missing: streaming and prioritisation, and any gap those ADRs name as unfinished. Read them and list the gap in the PR before coding.
 
-- [ ] Prioritise voices when there are more than the mix can play, and stream a long clip without loading it all at once. Done when: a test shows a nearer voice kept over a farther one, and a stream that is cancelled releases its buffer.
-- [ ] Standard close. Done when: `07.07` is ticked. Grok's combat audio (`03.07`) may call the existing mixer before this; they switch to priorities when this merges.
+- [x] Prioritise voices when there are more than the mix can play, and stream a long clip without loading it all at once. Done when: a test shows a nearer voice kept over a farther one, and a stream that is cancelled releases its buffer.
+- [x] Standard close. Done when: `07.07` is ticked. Grok's combat audio (`03.07`) may call the existing mixer before this; they switch to priorities when this merges.
 
 ### 9. `07.06` — UI, text, fonts, localisation, accessibility foundations
 
