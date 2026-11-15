@@ -821,6 +821,12 @@ if(BUILD_TESTING)
     set_tests_properties(navigation.crowd PROPERTIES TIMEOUT 120)
     set_tests_properties(navigation.crowd_overlap PROPERTIES TIMEOUT 120 WILL_FAIL TRUE)
 
+    add_executable(lykoware_streaming_load_test tests/streaming_load.cpp)
+    target_link_libraries(lykoware_streaming_load_test PRIVATE lykoware::engine Threads::Threads)
+    lykoware_configure_target(lykoware_streaming_load_test)
+    add_test(NAME streaming.async_load COMMAND lykoware_streaming_load_test "${CMAKE_BINARY_DIR}/test-output/streaming-load")
+    set_tests_properties(streaming.async_load PROPERTIES TIMEOUT 30)
+
     add_executable(lykoware_streaming_regions_test tests/streaming_regions.cpp)
     target_link_libraries(lykoware_streaming_regions_test PRIVATE lykoware::engine)
     lykoware_configure_target(lykoware_streaming_regions_test)

@@ -1,8 +1,14 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
+#include <filesystem>
+#include <memory>
+#include <vector>
 #include <optional>
 #include <string>
+
+namespace lykoware::jobs { class Queue; }
 
 namespace lykoware::streaming {
 struct Position {
@@ -24,4 +30,37 @@ inline constexpr double region_size = 256;
 [[nodiscard]] std::optional<Region> region_at(Position point);
 [[nodiscard]] Bounds region_bounds(Region region);
 [[nodiscard]] std::string region_id(Region region);
+
+enum class LoadStatus { pending, loading, ready, failed, cancelled };
+struct LoadResult {
+    LoadStatus status = LoadStatus::pending;
+    std::vector<std::byte> bytes;
+    std::string error;
+};
+// Bounded synchronous read, no residency installation. Owns returned bytes.
+// Failure is a failed result with no bytes; allocation failures propagate.
+[[nodiscard]] LoadResult load_region_bytes(const std::filesystem::path& path, std::size_t byte_limit);
+
+// GPT-owned asynchronous region request (ADR 0090). Owns result and job fence;
+// the queue is borrowed only during start. One controlling thread; worker state
+// is synchronised internally. Snapshots own their bytes and survive cancellation.
+// cancel releases request-held bytes immediately and prevents late publication.
+// Destructor cancels and waits for active I/O; never destroy from its worker.
+// Queue refusal/I/O errors become failed results; allocation failures in start
+// propagate. Workers do not mutate ECS, physics or residency. Explicit byte limit.
+class RegionLoad {
+public:
+    [[nodiscard]] static std::unique_ptr<RegionLoad> start(jobs::Queue& queue, Region region,
+        const std::filesystem::path& path, std::size_t byte_limit);
+    ~RegionLoad();
+    RegionLoad(const RegionLoad&) = delete;
+    RegionLoad& operator=(const RegionLoad&) = delete;
+    [[nodiscard]] Region region() const;
+    [[nodiscard]] LoadResult snapshot() const;
+    void cancel();
+private:
+    explicit RegionLoad(Region region);
+    struct Impl;
+    std::unique_ptr<Impl> impl_;
+};
 }
