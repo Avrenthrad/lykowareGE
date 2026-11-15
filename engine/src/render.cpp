@@ -67,6 +67,14 @@ struct SkyConstants {
     math::Vec4 sun_colour;
 };
 static_assert(sizeof(SkyConstants) <= rhi::push_constant_max_bytes);
+
+// Matches engine/shaders/fog.slang (ADR 0099).
+struct FogConstants {
+    math::Vec4 settings;
+    math::Vec4 colour;
+    math::Vec4 lens;
+};
+static_assert(sizeof(FogConstants) <= rhi::push_constant_max_bytes);
 static_assert(sizeof(TransparentConstants) <= rhi::push_constant_material_max_bytes);
 
 // A pipeline's SPIR-V and description, kept so the renderer can build it again for another
@@ -340,6 +348,19 @@ struct Renderer::Impl {
     std::optional<PostProcess> post_settings;
     math::Vec4 post_constants{};
     rhi::MeshDraw post_draw;
+    // Distance fog (ADR 0099): a post pipeline that also reads the scene's depth. It stays alive
+    // after a disable, as the sky's does. `lens` is the last prepared camera's tan(fov_x / 2),
+    // tan(fov_y / 2) and near plane.
+    std::unique_ptr<rhi::GraphicsPipeline> fog_pipeline;
+    std::optional<Fog> fog_settings;
+    FogConstants fog_constants{};
+    math::Vec4 lens{};
+
+    // The pipeline of the pass that follows render_hdr.
+    const rhi::GraphicsPipeline& final_pipeline() const
+    {
+        return fog_settings ? *fog_pipeline : *post_pipeline;
+    }
 
     // One triangle past the screen's corners, for the post pass and the sky; made once.
     bool ensure_fullscreen(rhi::RhiError& error)
@@ -402,6 +423,13 @@ struct Renderer::Impl {
         post_draw.indices = fullscreen.indices.get();
         post_draw.push_constants = std::as_bytes(std::span(&post_constants, 1));
         post_draw.source = hdr_target.get();
+        if (fog_settings) {
+            const Fog& fog = *fog_settings;
+            fog_constants.settings = {post_settings->exposure, fog.start, fog.density, fog.max_opacity};
+            fog_constants.colour = {fog.colour.x, fog.colour.y, fog.colour.z, 0.F};
+            fog_constants.lens = lens;
+            post_draw.push_constants = std::as_bytes(std::span(&fog_constants, 1));
+        }
         return true;
     }
 
@@ -511,6 +539,7 @@ struct Renderer::Impl {
         const math::Mat4 projection = math::perspective(camera.vertical_fov, aspect, camera.near);
         const float tan_y = std::tan(camera.vertical_fov * 0.5F);
         const float tan_x = tan_y * aspect;
+        lens = {tan_x, tan_y, camera.near, 0.F};
         const math::Mat4 view_projection = projection * view;
         caster_constants.clear();
         caster_draws.clear();
@@ -821,7 +850,7 @@ bool Renderer::draw(const ecs::World& entities, const Camera& camera, rhi::Rende
     if (!impl_->cast_shadows(error)) { return false; }
     if (impl_->post_settings) {
         return impl_->render_hdr(target.width(), target.height(), clear, error)
-            && target.draw_meshes(clear, *impl_->post_pipeline, std::span(&impl_->post_draw, 1), error);
+            && target.draw_meshes(clear, impl_->final_pipeline(), std::span(&impl_->post_draw, 1), error);
     }
     return target.draw_meshes(clear, impl_->active_pipeline(), impl_->draws, error);
 }
@@ -838,7 +867,7 @@ bool Renderer::draw(const ecs::World& entities, const Camera& camera, rhi::Swapc
     if (!impl_->cast_shadows(error)) { return false; }
     if (impl_->post_settings && swapchain.width() > 0 && swapchain.height() > 0) {
         return impl_->render_hdr(swapchain.width(), swapchain.height(), clear, error)
-            && swapchain.render_meshes(clear, *impl_->post_pipeline, std::span(&impl_->post_draw, 1), error);
+            && swapchain.render_meshes(clear, impl_->final_pipeline(), std::span(&impl_->post_draw, 1), error);
     }
     return swapchain.render_meshes(clear, impl_->active_pipeline(), impl_->draws, error);
 }
@@ -1395,6 +1424,48 @@ bool Renderer::enable_post(const PostShaders& shaders, const PostProcess& post, 
 void Renderer::disable_post()
 {
     impl_->post_settings.reset();
+    impl_->fog_settings.reset();
+}
+
+bool Renderer::enable_fog(const FogShaders& shaders, const Fog& fog, rhi::RhiError& error)
+{
+    error = {};
+    if (!impl_->post_settings) {
+        error = {rhi::RhiFailure::InvalidArgument, "fog is part of the post pass: enable_post first"};
+        return false;
+    }
+    const auto in = [](float value, float high) { return std::isfinite(value) && value >= 0.F && value <= high; };
+    if (!in(fog.colour.x, std::numeric_limits<float>::max()) || !in(fog.colour.y, std::numeric_limits<float>::max())
+        || !in(fog.colour.z, std::numeric_limits<float>::max()) || !in(fog.density, fog_max_density)
+        || !in(fog.start, fog_max_start) || !in(fog.max_opacity, 1.F)) {
+        error = {rhi::RhiFailure::InvalidArgument,
+                 "fog colour must be finite and 0 or more, density 0..fog_max_density, start 0..fog_max_start "
+                 "and max_opacity 0..1"};
+        return false;
+    }
+    rhi::GraphicsPipelineDesc desc;
+    desc.vertex_layout = rhi::VertexLayout::PositionNormalUv;
+    desc.push_constant_bytes = sizeof(FogConstants);
+    desc.texture = true;
+    desc.scene_depth = true;
+    auto pipeline = build(*impl_->device, recipe(shaders.vertex, shaders.fragment, desc),
+                          impl_->pipeline->color_format(), error);
+    if (!pipeline) {
+        return false;
+    }
+    impl_->fog_pipeline = std::move(pipeline);
+    impl_->fog_settings = fog;
+    return true;
+}
+
+void Renderer::disable_fog()
+{
+    impl_->fog_settings.reset();
+}
+
+std::optional<Fog> Renderer::fog() const
+{
+    return impl_->fog_settings;
 }
 
 bool Renderer::warm_up(rhi::RhiError& error)

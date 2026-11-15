@@ -7,15 +7,15 @@ You are GPT (Codex), working in `Avrenthrad/lykowareGE`. Joshua opens a chat wit
 Completed: `07.14` (#88; networking not implemented), `07.13` (#90), `07.08` (#94), `07.09` (#95), `05.04` (#98), `07.01` (#100), `07.02` (#101), `07.07` (#106).
 
 - [x] `07.06`: #118 squash-merged as `691904c`; confirmed closed/merged after five green jobs on `b158e90` (run 43660951181). ADR 0091 UI foundations; hardware gates unaffected.
-- [ ] `06.01`: #120, ADR 0089; five old checks green, but assignment conflict required rebase onto checkpoint main; local boundary tests rerun, five fresh checks required.
-- [ ] `06.02`: #121, ADR 0090; old five checks green; rebase after #120 and require fresh checks.
-- [ ] `06.03`: #124, ADR 0092; dependencies, explicit limits, LRU/pin tests and deliberate mutation pass. Rebase after #121; CI/merge pending.
-- [ ] `06.04`: #126, ADR 0093; query/collision transaction tests pass; real physics fixture compiles locally. Rebase after #124; full integration and five checks pending.
-- [ ] `06.05`: #128, ADR 0094; subsystem lifetime/replay tests pass; real physics replay fixture compiles locally. Rebase after #126; full integration and five checks pending.
-- [ ] Next: `06.06` persist unloaded edits, then `06.07` save versioning. Implementations not started.
-- Local strict builds, ASan/UBSan and deliberate mutations pass. LSan unavailable under host ptrace. No new dependencies/services.
-- Hardware gates: **Joshua runs this**, including audio listening/refill scheduling. `06.12` and later wave remain blocked.
-- Checkpoint: only #118 merged this session; streaming stack remains unticked pending rebases/five fresh checks. Confirm each merge through GitHub and main ancestry. No other assistant's PR merged.
+- [x] `06.01`: #120 squash-merged as `bdbc9f4`; GitHub MERGED and main ancestry confirmed. Five green hosted checks on `cefee0e`; strict boundary test rerun locally.
+- [ ] `06.02`: #121 rebased onto merged #120; strict async/cancellation test passes on `f479304`. Five fresh hosted checks pending; merge this first.
+- [ ] `06.03`: #124 rebased onto #121 (`acadd66`); strict residency test passes. Fresh CI pending; rebase onto main after #121 merges.
+- [ ] `06.04`: #126 rebased onto #124 (`b458867`); strict chunk transactions pass. Fresh CI pending; rebase onto main after #124 merges.
+- [ ] `06.05`: #128 rebased onto #126 (`4ffc6f1`); strict subsystem replay passes. Fresh CI pending; rebase onto main after #126 merges.
+- [ ] `06.06`: #130 (`fa52fca`), ADR 0095; bounded asset-byte edit journal survives repeated chunk eviction/reload. Strict tests, ASan/UBSan and deliberate omitted-edit mutation pass. CI/parent merges pending.
+- [ ] Next implementation: `06.07` versioned saves, then `07.10` migration/recovery. Preserve one PR per item; resume merges in order #121 → #124 → #126 → #128 → #130.
+- Hardware gates: **Joshua runs this**, including audio listening/refill scheduling and streaming throughput. `06.12` and the later wave remain blocked.
+- Checkpoint: #120 merged; five remaining GPT PRs stay unticked while fresh CI is pending. Confirm every later squash-merge through GitHub and main ancestry. No other assistant's PR merged. No new dependencies/services.
 
 ## How to use this file
 
@@ -164,9 +164,9 @@ Headless. No editor. A UI tree the runtime can draw and that tests can query.
 
 World scale is 16 km or more, double precision (ADR 0021, ADR 0022).
 
-- [ ] ADR: region coordinates, how a point maps to a region, and the stable ID of a region. Done when: the ADR uses double positions and states what happens at a boundary.
-- [ ] Tests at the origin and past 8 km. Done when: the same point always maps to the same region, including on the boundary, which is defined one way.
-- [ ] Standard close. Done when: `06.01` is ticked. Claude needs this before `06.08`.
+- [x] ADR: region coordinates, how a point maps to a region, and the stable ID of a region. Done when: the ADR uses double positions and states what happens at a boundary.
+- [x] Tests at the origin and past 8 km. Done when: the same point always maps to the same region, including on the boundary, which is defined one way.
+- [x] Standard close. Done when: `06.01` is ticked. Claude needs this before `06.08`.
 
 ### 11. `06.02` — asynchronous loading and cancellation
 
