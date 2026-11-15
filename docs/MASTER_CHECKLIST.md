@@ -166,6 +166,7 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
 - [ ] **06.06** Persist changes in unloaded regions.
   - GPT: ADR 0095, `RegionEdits` retains asset-byte replacements independently of residency; repeated chunk eviction/reload and unedited authored fallback tested. CI/merge pending; disk saves follow under 06.07.
 - [ ] **06.07** Version world/save data.
+  - GPT: ADR 0102, bounded little-endian save/world versions, region edit round-trip and future-version refusal; `save.versioned` passes locally. CI/merge pending.
 - [ ] **06.08** Render distant worlds with detail transitions.
 - [ ] **06.09** Test rapid travel, teleports and memory pressure.
 - [ ] **06.10** Eliminate avoidable shader/pipeline compilation hitches.

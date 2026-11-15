@@ -21,6 +21,7 @@ add_library(lykoware_engine STATIC
     src/ui.cpp
     src/jobs.cpp
     src/clock.cpp
+    src/save.cpp
     src/streaming_edits.cpp
     src/streaming_systems.cpp
     src/streaming_chunks.cpp
