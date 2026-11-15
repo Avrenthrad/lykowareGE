@@ -28,6 +28,7 @@ add_library(lykoware_engine STATIC
     src/gltf.cpp
     src/image/image_decode.cpp
     src/mesh.cpp
+    src/terrain_mesh.cpp
     src/world_identity.cpp
     src/locomotion.cpp
     src/log.cpp
