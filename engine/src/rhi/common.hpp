@@ -76,10 +76,11 @@ void depth_barrier(VkCommandBuffer commands, VkImage image);
 // Records a dynamic-rendering pass: clear the colour view to rgba and, when
 // depth_view is not null, the depth view to 0 (reversed depth: far); then
 // bind `pipeline` and draw each mesh with its push constants. Both views
-// must already be in their attachment layouts.
+// must already be in their attachment layouts. A colour pass discards its depth unless
+// `keep_depth` (an HdrTarget, whose depth a post pass may read: ADR 0099).
 void record_mesh_pass(VkCommandBuffer commands, VkImageView colour_view, VkImageView depth_view, VkExtent2D extent,
                       const float (&rgba)[4], VkPipeline pipeline, VkPipelineLayout pass_layout,
-                      const PreparedDraw* draws, std::size_t draw_count);
+                      const PreparedDraw* draws, std::size_t draw_count, bool keep_depth = false);
 
 // GPU timestamps (ADR 0039). Writes timestamp query `query` of `pool`: the start of the work
 // recorded after it (top of pipe) or, with `end`, the moment all work recorded before it is done

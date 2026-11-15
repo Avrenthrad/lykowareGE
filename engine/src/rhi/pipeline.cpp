@@ -164,6 +164,7 @@ struct GraphicsPipeline::Impl {
     bool material = false;
     BlendMode blend = BlendMode::None;
     bool depth_write = true;
+    bool scene_depth = false;
 };
 
 GraphicsPipeline::GraphicsPipeline(std::unique_ptr<Impl> impl)
@@ -210,6 +211,11 @@ std::unique_ptr<GraphicsPipeline> GraphicsPipeline::create(
         fail(error, RhiFailure::InvalidArgument, "a material pipeline needs the texture set and no skinning");
         return nullptr;
     }
+    if (desc.scene_depth && (!desc.texture || desc.shadow || desc.material || skinned || desc.depth_only)) {
+        fail(error, RhiFailure::InvalidArgument,
+             "a scene-depth pipeline needs the texture set and no shadow, material, skinning or depth-only");
+        return nullptr;
+    }
     if (desc.blend != BlendMode::None && desc.depth_only) {
         fail(error, RhiFailure::InvalidArgument, "a depth-only pipeline has no colour to blend");
         return nullptr;
@@ -240,6 +246,7 @@ std::unique_ptr<GraphicsPipeline> GraphicsPipeline::create(
     impl->material = desc.material;
     impl->blend = desc.blend;
     impl->depth_write = desc.depth && desc.depth_write;
+    impl->scene_depth = desc.scene_depth;
     const VkDevice vk_device = DeviceAccess::device(device);
 
     VkPushConstantRange push_range{};
@@ -257,13 +264,15 @@ std::unique_ptr<GraphicsPipeline> GraphicsPipeline::create(
         fail(error, RhiFailure::InvalidArgument, "skinned pipelines require the texture layout at set 0");
         return nullptr;
     }
+    // Set 1: a shadow map's set, the scene's depth (ADR 0099, the texture layout), or the palette.
     const VkDescriptorSetLayout set_layouts[] = {DeviceAccess::texture_set_layout(device),
                                                  desc.shadow || desc.material ? DeviceAccess::shadow_set_layout(device)
+                                                 : desc.scene_depth           ? DeviceAccess::texture_set_layout(device)
                                                                               : DeviceAccess::skin_set_layout(device),
                                                  DeviceAccess::texture_set_layout(device),
                                                  DeviceAccess::texture_set_layout(device)};
     if (desc.texture) {
-        layout_info.setLayoutCount = desc.material ? 4U : (skinned || desc.shadow ? 2U : 1U);
+        layout_info.setLayoutCount = desc.material ? 4U : (skinned || desc.shadow || desc.scene_depth ? 2U : 1U);
         layout_info.pSetLayouts = set_layouts;
     }
     VkResult result = vkCreatePipelineLayout(vk_device, &layout_info, nullptr, &impl->layout);
@@ -417,6 +426,11 @@ bool GraphicsPipeline::texture() const
 bool GraphicsPipeline::depth_only() const
 {
     return impl_->depth_only;
+}
+
+bool GraphicsPipeline::scene_depth() const
+{
+    return impl_->scene_depth;
 }
 
 bool GraphicsPipeline::shadow() const

@@ -231,6 +231,32 @@ struct PostShaders {
     std::span<const std::uint32_t> fragment;
 };
 
+// Distance fog (ADR 0099), applied with the tone map, so it needs post-processing. A pixel
+// showing a surface d metres from the camera's eye becomes
+// mix(scene, colour, min(max_opacity, 1 - exp(-density * max(d - start, 0)))) in linear colour,
+// before exposure and tone mapping. A pixel where no surface wrote depth is unchanged: the sky,
+// the clear colour, and a transparent or water surface with nothing behind it. A transparent or
+// water surface over something takes the fog of what is behind it.
+inline constexpr float fog_max_density = 10.F;
+inline constexpr float fog_max_start = 1.0e6F;
+struct Fog {
+    // Linear colour, each channel finite and 0 or more. Outdoors, the sky's horizon colour.
+    math::Vec3 colour{0.75F, 0.82F, 0.9F};
+    // Per metre, 0 (no fog) .. fog_max_density. At 1 / density metres past `start` the fog
+    // covers 63% of the surface.
+    float density = 0.01F;
+    // Metres from the camera before any fog, 0 .. fog_max_start.
+    float start = 0.F;
+    // The most fog a surface takes, 0..1, so far terrain can keep some of its own colour.
+    float max_opacity = 1.F;
+};
+
+// SPIR-V for distance fog: engine/shaders/fog.slang vertexMain and fragmentMain.
+struct FogShaders {
+    std::span<const std::uint32_t> vertex;
+    std::span<const std::uint32_t> fragment;
+};
+
 // What draw() may skip and reorder (ADR 0088). Both off by default: a renderer never given
 // visibility settings draws every entity in ECS order, as before.
 struct Visibility {
@@ -420,10 +446,24 @@ public:
     // or a device that cannot render to and sample 16-bit float colour (NoSuitableDevice, at the
     // first draw).
     [[nodiscard]] bool enable_post(const PostShaders& shaders, const PostProcess& post, rhi::RhiError& error);
-    // Back to drawing straight into the final image, exactly as before enable_post.
+    // Back to drawing straight into the final image, exactly as before enable_post. Fog, which
+    // is part of the post pass, goes off with it.
     void disable_post();
     // The settings while post-processing is on, nullopt when off.
     [[nodiscard]] std::optional<PostProcess> post() const;
+
+    // Every draw() from now on fogs the scene by distance in the post pass (ADR 0099): see Fog.
+    // The scene's own draws and DrawStats are unchanged. Calling it again replaces the shaders
+    // and settings. False, error filled and the fog unchanged, for: post-processing off
+    // (InvalidArgument; enable_post first), a colour channel below 0 or not finite, a density
+    // outside 0..fog_max_density, a start outside 0..fog_max_start, a max_opacity outside 0..1,
+    // or any of them not finite (InvalidArgument), or shaders that do not load or link (as
+    // Renderer::create).
+    [[nodiscard]] bool enable_fog(const FogShaders& shaders, const Fog& fog, rhi::RhiError& error);
+    // Back to the tone map alone, exactly as before enable_fog.
+    void disable_fog();
+    // The settings while fog is on, nullopt when off.
+    [[nodiscard]] std::optional<Fog> fog() const;
 
     // Entities drawn by the last draw() (a mesh of several parts counts once).
     [[nodiscard]] std::size_t last_draw_count() const;

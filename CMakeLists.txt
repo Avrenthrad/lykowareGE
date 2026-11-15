@@ -172,6 +172,11 @@ if(BUILD_TESTING)
         ENTRY vertexMain STAGE vertex NAME sky.vert)
     lykoware_compile_shader(sky_frag_spv SOURCE engine/shaders/sky.slang
         ENTRY fragmentMain STAGE fragment NAME sky.frag)
+    # Distance fog (ADR 0099).
+    lykoware_compile_shader(fog_vert_spv SOURCE engine/shaders/fog.slang
+        ENTRY vertexMain STAGE vertex NAME fog.vert)
+    lykoware_compile_shader(fog_frag_spv SOURCE engine/shaders/fog.slang
+        ENTRY fragmentMain STAGE fragment NAME fog.frag)
     lykoware_compile_shader(post_vert_spv SOURCE engine/shaders/post.slang
         ENTRY vertexMain STAGE vertex NAME post.vert)
     lykoware_compile_shader(post_frag_spv SOURCE engine/shaders/post.slang
@@ -191,7 +196,7 @@ if(BUILD_TESTING)
         "${lit_vert_spv}" "${lit_frag_spv}" "${shadow_vert_spv}" "${lit_shadowed_vert_spv}" "${lit_shadowed_frag_spv}"
         "${material_vert_spv}" "${material_frag_spv}" "${material_shadowed_vert_spv}" "${material_shadowed_frag_spv}"
         "${transparent_vert_spv}" "${transparent_frag_spv}" "${post_vert_spv}" "${post_frag_spv}" "${water_vert_spv}" "${water_frag_spv}"
-        "${sky_vert_spv}" "${sky_frag_spv}"
+        "${sky_vert_spv}" "${sky_frag_spv}" "${fog_vert_spv}" "${fog_frag_spv}"
         "${mesh_vert_spv}" "${mesh_frag_spv}"
         "${textured_vert_spv}" "${textured_frag_spv}")
 
@@ -330,6 +335,15 @@ if(BUILD_TESTING)
         "${sky_vert_spv}" "${sky_frag_spv}" "${post_vert_spv}" "${post_frag_spv}" "${skinned_vert_spv}")
     set_tests_properties(render.sky PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
 
+    # Distance fog (ADR 0099): a wall at known distances against the stated formula.
+    add_executable(lykoware_render_fog_test tests/render_fog.cpp)
+    target_link_libraries(lykoware_render_fog_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_render_fog_test)
+    add_dependencies(lykoware_render_fog_test lykoware_test_shaders)
+    add_test(NAME render.fog COMMAND lykoware_render_fog_test "${lit_vert_spv}" "${lit_frag_spv}"
+        "${fog_vert_spv}" "${fog_frag_spv}" "${post_vert_spv}" "${post_frag_spv}" "${sky_vert_spv}" "${sky_frag_spv}")
+    set_tests_properties(render.fog PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
+
     # Sampled textures in the RHI (ADR 0037): exact texels, sRGB, mipmaps, wrapping, misuse.
     add_executable(lykoware_rhi_texture_test tests/rhi_texture.cpp)
     target_link_libraries(lykoware_rhi_texture_test PRIVATE lykoware::engine)
@@ -427,7 +441,7 @@ if(BUILD_TESTING)
         # reports; leaks in Lykoware code are still caught (ADR 0015 records the
         # deliberate-leak check).
         set_property(TEST rhi.instance rhi.instance.no_driver rhi.device rhi.render_target rhi.swapchain
-                          sandbox.vulkan_window sandbox.gpu_trace sandbox.play sandbox.imported_player rhi.pipeline rhi.mesh rhi.texture render.scene render.lighting render.shadows render.materials render.transparency render.post render.visibility render.terrain render.foliage render.water render.sky
+                          sandbox.vulkan_window sandbox.gpu_trace sandbox.play sandbox.imported_player rhi.pipeline rhi.mesh rhi.texture render.scene render.lighting render.shadows render.materials render.transparency render.post render.visibility render.terrain render.foliage render.water render.sky render.fog
                           render.model render.skinning render.gpu_skinning render.texture lifecycle.restart_vulkan
             APPEND PROPERTY ENVIRONMENT "VK_LOADER_DISABLE_DYNAMIC_LIBRARY_UNLOADING=1")
     endif()

@@ -10,14 +10,15 @@
 #include <span>
 
 // A high-dynamic-range colour target (ADR 0087): a 16-bit float RGBA image with a depth buffer,
-// drawn like a RenderTarget and then sampled by a post pass (MeshDraw::source).
+// drawn like a RenderTarget and then sampled by a post pass (MeshDraw::source). The depth is
+// kept after each render() and can be read by that pass too (ADR 0099).
 
 namespace lykoware::rhi {
 
 class Device;
 
-// Ownership: create() returns the sole owner of the colour and depth images, the sampler and the
-// descriptor set. Copy and move are not provided. Lifetime: destroy it before the Device, and
+// Ownership: create() returns the sole owner of the colour and depth images, the samplers and the
+// descriptor sets. Copy and move are not provided. Lifetime: destroy it before the Device, and
 // after any draw that names it has finished (render targets and the swapchain wait for their
 // frames). Threading: the Device's thread.
 //
@@ -26,7 +27,8 @@ class Device;
 class HdrTarget {
 public:
     // Extents outside 1..render_target_max_extent, or past the device's 2D limit, are
-    // InvalidArgument. A device that cannot render to and sample the format is NoSuitableDevice.
+    // InvalidArgument. A device that cannot render to and sample the colour format, or sample
+    // its depth format, is NoSuitableDevice.
     // Driver refusals are DriverError.
     [[nodiscard]] static std::unique_ptr<HdrTarget> create(const Device& device, std::uint32_t width,
                                                            std::uint32_t height, RhiError& error);
@@ -50,6 +52,11 @@ public:
 
     // Set 0 with the texture layout (one combined image sampler, linear, clamped).
     [[nodiscard]] void* native_descriptor_set() const;
+    // The depth of the last render(), with the same layout (one combined image sampler, nearest,
+    // clamped): reversed, so 1 is the near plane and 0 is where nothing was drawn. A surface
+    // that tests depth without writing it (GraphicsPipelineDesc::depth_write) leaves no depth.
+    // Before any render() it reads 0.
+    [[nodiscard]] void* native_depth_descriptor_set() const;
 
 private:
     struct Impl;

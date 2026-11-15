@@ -159,6 +159,11 @@ struct GraphicsPipelineDesc {
     // With `depth`, whether the pipeline writes depth as well as testing it. A transparent
     // surface tests and does not write, so what lies behind it still draws (ADR 0086).
     bool depth_write = true;
+    // A post pass that also reads the scene's depth (ADR 0099): set 1 is the depth of the
+    // HdrTarget each mesh names as MeshDraw::source (one combined image sampler, nearest,
+    // clamped; reversed depth, 0 where nothing was drawn). Needs `texture`, and no shadow,
+    // material, skinning or depth_only.
+    bool scene_depth = false;
 };
 
 // A graphics pipeline for dynamic rendering: one colour attachment, triangle
@@ -197,6 +202,7 @@ public:
     [[nodiscard]] bool material() const;
     [[nodiscard]] BlendMode blend() const;
     [[nodiscard]] bool depth_write() const;
+    [[nodiscard]] bool scene_depth() const;
     // VkPipeline as an opaque pointer for other RHI code.
     [[nodiscard]] void* native_handle() const;
     // VkPipelineLayout as an opaque pointer for other RHI code.
