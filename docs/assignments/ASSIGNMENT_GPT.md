@@ -4,15 +4,18 @@ You are GPT (Codex), working in `Avrenthrad/lykowareGE`. Joshua opens a chat wit
 
 ## Rolling checklist — 15 November 2026
 
-Completed: `07.14` (#88; networking not implemented), `07.13` (#90), `07.08` (#94), `07.09` (#95), `05.04` (#98).
+Completed: `07.14` (#88; networking not implemented), `07.13` (#90), `07.08` (#94), `07.09` (#95), `05.04` (#98), `07.01` (#100), `07.02` (#101), `07.07` (#106).
 
-- [x] `07.01`: #100 merged as `aa02bdd`; five green jobs on `0ebadcb` (run 43534368012).
-- [x] `07.02`: #101 merged as `08d478a`; five green jobs on `a4a5c96` (run 43534339443).
-- [x] `07.07`: #106 merged as `058ce91`; five green jobs on `7425538` (run 43561654051).
-- [ ] `07.06`: #118, ADR 0091; headless tree, caller-owned font atlas input, locale lookup, scale/reduced-motion. Strict build, ASan/UBSan (LSan unavailable under host ptrace) and deliberate reduced-motion mutation pass; CI/merge pending. No font dependency.
-- [ ] `06.01`: next, double region coordinates and boundary fixtures.
-- [ ] `06.02`: then cancellable background region loads using jobs.
+- [x] `07.06`: #118 squash-merged as `691904c`; confirmed closed/merged after five green jobs on `b158e90` (run 43660951181). ADR 0091 UI foundations; hardware gates unaffected.
+- [ ] `06.01`: #120, ADR 0089; five old checks green, but assignment conflict required rebase onto checkpoint main; local boundary tests rerun, five fresh checks required.
+- [ ] `06.02`: #121, ADR 0090; old five checks green; rebase after #120 and require fresh checks.
+- [ ] `06.03`: #124, ADR 0092; dependencies, explicit limits, LRU/pin tests and deliberate mutation pass. Rebase after #121; CI/merge pending.
+- [ ] `06.04`: #126, ADR 0093; query/collision transaction tests pass; real physics fixture compiles locally. Rebase after #124; full integration and five checks pending.
+- [ ] `06.05`: #128, ADR 0094; subsystem lifetime/replay tests pass; real physics replay fixture compiles locally. Rebase after #126; full integration and five checks pending.
+- [ ] Next: `06.06` persist unloaded edits, then `06.07` save versioning. Implementations not started.
+- Local strict builds, ASan/UBSan and deliberate mutations pass. LSan unavailable under host ptrace. No new dependencies/services.
 - Hardware gates: **Joshua runs this**, including audio listening/refill scheduling. `06.12` and later wave remain blocked.
+- Checkpoint: only #118 merged this session; streaming stack remains unticked pending rebases/five fresh checks. Confirm each merge through GitHub and main ancestry. No other assistant's PR merged.
 
 ## How to use this file
 
@@ -153,9 +156,9 @@ Mixer, output, and spatial audio exist (ADRs 0032–0034). This ID is what is st
 
 Headless. No editor. A UI tree the runtime can draw and that tests can query.
 
-- [ ] ADR: text layout, a font you are allowed to vendor only if Joshua approves the dependency, localisation lookup, and one accessibility hook (a text scale or a reduced-motion flag). Done when: the ADR names the failure when a string is missing. If a font dependency is required, stop and ask Joshua before adding it.
-- [ ] A fixture that lays out a string, swaps a locale, and reads the accessibility flag. Done when: a missing key is reported and does not crash.
-- [ ] Standard close. Done when: `07.06` is ticked.
+- [x] ADR: text layout, a font you are allowed to vendor only if Joshua approves the dependency, localisation lookup, and one accessibility hook (a text scale or a reduced-motion flag). Done when: the ADR names the failure when a string is missing. If a font dependency is required, stop and ask Joshua before adding it.
+- [x] A fixture that lays out a string, swaps a locale, and reads the accessibility flag. Done when: a missing key is reported and does not crash.
+- [x] Standard close. Done when: `07.06` is ticked.
 
 ### 10. `06.01` — coordinates, regions, partitioning
 
