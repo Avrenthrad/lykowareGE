@@ -153,6 +153,7 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
 ## 6. Seamless world streaming
 
 - [ ] **06.01** Define coordinates, regions and partitioning.
+  - GPT: ADR 0089, `streaming.hpp` pure double-position region query, stable IDs and half-open boundaries; `streaming.regions` covers zero/subnormal/negative edges, 16 km and range rejection. CI/merge pending.
 - [ ] **06.02** Add asynchronous loading and cancellation.
 - [ ] **06.03** Track asset dependencies, residency and eviction.
 - [ ] **06.04** Stream terrain and world chunks.

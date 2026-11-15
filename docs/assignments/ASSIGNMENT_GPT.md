@@ -7,7 +7,7 @@ You are GPT (Codex), working in `Avrenthrad/lykowareGE`. Joshua opens a chat wit
 Completed: `07.14` (#88; networking not implemented), `07.13` (#90), `07.08` (#94), `07.09` (#95), `05.04` (#98), `07.01` (#100), `07.02` (#101), `07.07` (#106).
 
 - [x] `07.06`: #118 squash-merged as `691904c`; confirmed closed/merged after five green jobs on `b158e90` (run 43660951181). ADR 0091 UI foundations; hardware gates unaffected.
-- [ ] `06.01`: #120, ADR 0089; five old checks green, but assignment conflict required rebase onto checkpoint main; local boundary tests rerun, five fresh checks required.
+- [ ] `06.01`: #120, ADR 0089; rebased onto current main; strict boundary tests and deliberate truncation mutation pass; five fresh checks pending.
 - [ ] `06.02`: #121, ADR 0090; old five checks green; rebase after #120 and require fresh checks.
 - [ ] `06.03`: #124, ADR 0092; dependencies, explicit limits, LRU/pin tests and deliberate mutation pass. Rebase after #121; CI/merge pending.
 - [ ] `06.04`: #126, ADR 0093; query/collision transaction tests pass; real physics fixture compiles locally. Rebase after #124; full integration and five checks pending.
