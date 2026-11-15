@@ -8,14 +8,17 @@ Completed: `07.14` (#88; networking not implemented), `07.13` (#90), `07.08` (#9
 
 - [x] `07.06`: #118 squash-merged as `691904c`; confirmed closed/merged after five green jobs on `b158e90` (run 43660951181). ADR 0091 UI foundations; hardware gates unaffected.
 - [x] `06.01`: #120 squash-merged as `bdbc9f4`; GitHub MERGED and main ancestry confirmed. Five green hosted checks on `cefee0e`; strict boundary test rerun locally.
-- [ ] `06.02`: #121 rebased onto merged #120; strict async/cancellation test passes on `f479304`. Five fresh hosted checks pending; merge this first.
-- [ ] `06.03`: #124 rebased onto #121 (`acadd66`); strict residency test passes. Fresh CI pending; rebase onto main after #121 merges.
-- [ ] `06.04`: #126 rebased onto #124 (`b458867`); strict chunk transactions pass. Fresh CI pending; rebase onto main after #124 merges.
-- [ ] `06.05`: #128 rebased onto #126 (`4ffc6f1`); strict subsystem replay passes. Fresh CI pending; rebase onto main after #126 merges.
-- [ ] `06.06`: #130 (`fa52fca`), ADR 0095; bounded asset-byte edit journal survives repeated chunk eviction/reload. Strict tests, ASan/UBSan and deliberate omitted-edit mutation pass. CI/parent merges pending.
-- [ ] Next implementation: `06.07` versioned saves, then `07.10` migration/recovery. Preserve one PR per item; resume merges in order #121 → #124 → #126 → #128 → #130.
-- Hardware gates: **Joshua runs this**, including audio listening/refill scheduling and streaming throughput. `06.12` and the later wave remain blocked.
-- Checkpoint: #120 merged; five remaining GPT PRs stay unticked while fresh CI is pending. Confirm every later squash-merge through GitHub and main ancestry. No other assistant's PR merged. No new dependencies/services.
+- [x] `06.02`: #121 squash-merged as `283e29c`; GitHub MERGED/main ancestry confirmed after five green checks on `bea3445` (run 43704394125).
+- [ ] `06.03`: #124, ADR 0092; strict residency test passes. Rebase onto checkpoint main; require five fresh checks before merge.
+- [ ] `06.04`: #126, ADR 0093; chunk query/transaction tests pass. Rebase after #124; require fresh CI and confirmed real-physics execution.
+- [ ] `06.05`: #128, ADR 0094; subsystem replay passes. Rebase after #126; require fresh CI and confirmed real-physics replay.
+- [ ] `06.06`: #130, ADR 0095; fixed test move-order analysis failure; unloaded-edit test passes. Rebase after #128; fresh CI/merge required.
+- [ ] `06.07`: #135, ADR 0102; bounded versioned save codec, round-trip/future refusal and deliberate version mutation pass; ASan/UBSan pass. Rebase after #130; fresh CI/merge required.
+- [ ] `07.10`: #136, ADR 0103; frozen v2 migration to CRC32-protected v3, corruption/truncation preserve last good file; mutation and ASan/UBSan pass. Rebase after #135; fresh CI/merge required.
+- [ ] `06.09`: #137 (branches directly from #128); 385 travel/pressure crossings and collision cleanup pass; mutation and ASan/UBSan pass. Real-physics fixture compiles; hosted execution/CI/merge required.
+- [ ] Next implementation: `06.11` headless throughput fixture/columns for Grok. PC run: **Joshua runs this**. `06.12` and later wave stay blocked.
+- Merge order: #124 → #126 → #128 → #130 → #135 → #136; #137 can follow #128. One PR per ID; tick only after confirmed merge.
+- Checkpoint: #121 merged this session; seven GPT PRs remain open pending rebases/fresh CI. No other assistant's PR merged. No new dependencies/services. Hardware gates remain **Joshua runs this**.
 
 ## How to use this file
 
@@ -172,8 +175,8 @@ World scale is 16 km or more, double precision (ADR 0021, ADR 0022).
 
 Uses your jobs (`07.09`) if that has merged. If it has not, a single background load with an explicit cancel is enough, and the PR says jobs will adopt it.
 
-- [ ] Load a region fixture off the main thread and cancel it. Done when: a cancel before completion leaves no resident asset, and a completed load is the same bytes as a sync load.
-- [ ] Standard close. Done when: `06.02` is ticked.
+- [x] Load a region fixture off the main thread and cancel it. Done when: a cancel before completion leaves no resident asset, and a completed load is the same bytes as a sync load.
+- [x] Standard close. Done when: `06.02` is ticked.
 
 ### 12. `06.03` — residency and eviction
 
