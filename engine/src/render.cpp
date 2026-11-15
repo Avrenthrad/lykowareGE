@@ -46,6 +46,15 @@ struct TransparentConstants {
     math::Vec4 surface;
 };
 static_assert(sizeof(TransparentConstants) == 144);
+
+// Matches engine/shaders/water.slang (ADR 0097): the transparent block with the reflection colour
+// in surface.yzw, then the camera-relative model (rotation * scale by column, w the translation).
+// Every blended part is stored as one of these; a transparent part's draw reads the first 144 bytes.
+struct WaterConstants {
+    TransparentConstants blended;
+    math::Vec4 model[3];
+};
+static_assert(sizeof(WaterConstants) == 192);
 static_assert(sizeof(TransparentConstants) <= rhi::push_constant_material_max_bytes);
 
 // A pipeline's SPIR-V and description, kept so the renderer can build it again for another
@@ -190,6 +199,8 @@ struct Drawn {
     // Material draws only: set 2 and set 3.
     const rhi::Texture* normal_map = nullptr;
     const rhi::Texture* metal_roughness = nullptr;
+    // A blended part drawn as water (ADR 0097).
+    bool water = false;
     // Batching order (ADR 0088): mesh, base texture, normal map, metal-roughness, by id.
     std::array<std::uint32_t, 4> key{};
 };
@@ -280,23 +291,30 @@ struct Renderer::Impl {
     // Transparency (ADR 0086): the pipeline stays alive after a disable, as materials' do.
     std::unique_ptr<rhi::GraphicsPipeline> transparent_pipeline;
     bool transparency_on = false;
-    std::vector<TransparentConstants> transparent_constants;
+    // Water (ADR 0097) is on; kept beside the flag above so the two share their padding.
+    bool water_on = false;
+    std::vector<WaterConstants> transparent_constants;
     // Each transparent part and the distance from the camera to its entity, in ECS order.
     std::vector<std::pair<Drawn, double>> transparent_parts;
     std::vector<std::size_t> transparent_order;
     std::size_t transparent_drawn = 0;
+    // Water (ADR 0097): the pipeline stays alive after a disable, as transparency's does.
+    std::unique_ptr<rhi::GraphicsPipeline> water_pipeline;
+    std::size_t water_drawn = 0;
     // Post-processing (ADR 0087). The recipes of every scene pipeline made so far; `version`
     // changes whenever one is replaced, and the HDR copies are rebuilt when they are older.
     Recipe lit_recipe;
     Recipe receiver_recipe;
     Recipe material_recipes[2];
     Recipe transparent_recipe;
+    Recipe water_recipe;
     std::uint64_t recipes_version = 1;
     std::uint64_t hdr_version = 0;
     std::unique_ptr<rhi::GraphicsPipeline> hdr_lit;
     std::unique_ptr<rhi::GraphicsPipeline> hdr_receiver;
     std::unique_ptr<rhi::GraphicsPipeline> hdr_material[2];
     std::unique_ptr<rhi::GraphicsPipeline> hdr_transparent;
+    std::unique_ptr<rhi::GraphicsPipeline> hdr_water;
     std::unique_ptr<rhi::GraphicsPipeline> post_pipeline;
     std::unique_ptr<rhi::HdrTarget> hdr_target;
     GpuMesh fullscreen;
@@ -320,7 +338,7 @@ struct Renderer::Impl {
         };
         if (!copy(lit_recipe, hdr_lit) || !copy(receiver_recipe, hdr_receiver)
             || !copy(material_recipes[0], hdr_material[0]) || !copy(material_recipes[1], hdr_material[1])
-            || !copy(transparent_recipe, hdr_transparent)) {
+            || !copy(transparent_recipe, hdr_transparent) || !copy(water_recipe, hdr_water)) {
             return false;
         }
         hdr_version = recipes_version;
@@ -443,6 +461,7 @@ struct Renderer::Impl {
         constants.clear();
         material_constants.clear();
         transparent_constants.clear();
+        water_drawn = 0;
         transparent_parts.clear();
         transparent_drawn = 0;
         drawn.clear();
@@ -491,8 +510,20 @@ struct Renderer::Impl {
                 valid = false;
                 return;
             }
-            // Below 1 while transparency is on: blended after the opaque draws, and no caster.
-            const bool transparent = transparency_on && mesh.opacity < 1.F;
+            const bool water = water_on && mesh.water.has_value();
+            if (water) {
+                const math::Vec3 mirrored = mesh.water->reflection;
+                if (!(std::isfinite(mesh.opacity) && mesh.opacity >= 0.F && mesh.opacity <= 1.F)
+                    || !(std::isfinite(mirrored.x) && std::isfinite(mirrored.y) && std::isfinite(mirrored.z)
+                         && mirrored.x >= 0.F && mirrored.y >= 0.F && mirrored.z >= 0.F)) {
+                    error = {rhi::RhiFailure::InvalidArgument,
+                             "a water surface needs an opacity of 0..1 and a finite reflection of 0 or more"};
+                    valid = false;
+                    return;
+                }
+            }
+            // Below 1 while transparency is on, or water: blended after the opaque draws, and no caster.
+            const bool transparent = water || (transparency_on && mesh.opacity < 1.F);
             const math::Mat4 model =
                 math::trs(math::relative_to(transform.position, camera.eye), transform.rotation, mesh.scale);
             if (shadow_settings && !transparent) {
@@ -532,9 +563,19 @@ struct Renderer::Impl {
                     const double dx = transform.position.x - camera.eye.x;
                     const double dy = transform.position.y - camera.eye.y;
                     const double dz = transform.position.z - camera.eye.z;
-                    transparent_constants.push_back({c, {mesh.opacity, 0.F, 0.F, 0.F}});
+                    WaterConstants blended{{c, {mesh.opacity, 0.F, 0.F, 0.F}}, {}};
+                    if (water) {
+                        blended.blended.surface = {mesh.opacity, mesh.water->reflection.x, mesh.water->reflection.y,
+                                                   mesh.water->reflection.z};
+                        for (int column = 0; column < 3; ++column) {
+                            blended.model[column] = {model.m[column][0], model.m[column][1], model.m[column][2],
+                                                     model.m[3][column]};
+                        }
+                    }
+                    transparent_constants.push_back(blended);
                     transparent_parts.push_back({Drawn{gpu, part_texture, part.first_index, part.index_count, skin},
                                                  std::sqrt(dx * dx + dy * dy + dz * dz)});
+                    transparent_parts.back().first.water = water;
                     continue;
                 }
                 const std::uint32_t texture_key = part.texture == TextureId{} ? mesh.texture.value : part.texture.value;
@@ -604,12 +645,18 @@ struct Renderer::Impl {
         });
         for (const std::size_t i : transparent_order) {
             const Drawn& part = transparent_parts[i].first;
+            const auto bytes = std::as_bytes(std::span(&transparent_constants[i], 1));
             draws.push_back({part.mesh->vertices.get(), part.mesh->indices.get(), part.index_count,
-                             std::as_bytes(std::span(&transparent_constants[i], 1)), part.texture, part.first_index,
-                             part.skin});
-            draws.back().pipeline = post_settings ? hdr_transparent.get() : transparent_pipeline.get();
+                             part.water ? bytes : bytes.first(sizeof(TransparentConstants)), part.texture,
+                             part.first_index, part.skin});
+            if (part.water) {
+                draws.back().pipeline = post_settings ? hdr_water.get() : water_pipeline.get();
+                ++water_drawn;
+            } else {
+                draws.back().pipeline = post_settings ? hdr_transparent.get() : transparent_pipeline.get();
+            }
         }
-        transparent_drawn = transparent_parts.size();
+        transparent_drawn = transparent_parts.size() - water_drawn;
         stats.entities = entities_drawn;
         stats.draws = draws.size();
         for (std::size_t i = 0; i < draws.size(); ++i) {
@@ -1155,6 +1202,57 @@ bool Renderer::transparency_enabled() const
 std::size_t Renderer::last_transparent_draw_count() const
 {
     return impl_->transparent_drawn;
+}
+
+bool Renderer::enable_water(const WaterShaders& shaders, rhi::RhiError& error)
+{
+    error = {};
+    if (impl_->skinning) {
+        error = {rhi::RhiFailure::InvalidArgument, "water on a skinned renderer is a later slice"};
+        return false;
+    }
+    const rhi::Device& device = *impl_->device;
+    const auto vertex = rhi::Shader::load(device, shaders.vertex, rhi::ShaderStage::Vertex, error);
+    const auto fragment = vertex ? rhi::Shader::load(device, shaders.fragment, rhi::ShaderStage::Fragment, error) : nullptr;
+    if (!vertex || !fragment) {
+        return false;
+    }
+    rhi::GraphicsPipelineDesc desc;
+    desc.vertex = vertex.get();
+    desc.fragment = fragment.get();
+    desc.color_format = impl_->pipeline->color_format();
+    desc.vertex_layout = rhi::VertexLayout::PositionNormalUv;
+    desc.depth = true;
+    desc.depth_write = false;
+    desc.cull_back_faces = true;
+    desc.push_constant_bytes = sizeof(WaterConstants);
+    desc.texture = true;
+    desc.blend = rhi::BlendMode::Alpha;
+    auto made = rhi::GraphicsPipeline::create(device, desc, error);
+    if (!made) {
+        return false;
+    }
+    impl_->water_pipeline = std::move(made);
+    impl_->water_recipe = recipe(shaders.vertex, shaders.fragment, desc);
+    ++impl_->recipes_version;
+    impl_->water_on = true;
+    return true;
+}
+
+void Renderer::disable_water()
+{
+    impl_->water_on = false;
+    impl_->water_drawn = 0;
+}
+
+bool Renderer::water_enabled() const
+{
+    return impl_->water_on;
+}
+
+std::size_t Renderer::last_water_draw_count() const
+{
+    return impl_->water_drawn;
 }
 
 bool Renderer::enable_post(const PostShaders& shaders, const PostProcess& post, rhi::RhiError& error)

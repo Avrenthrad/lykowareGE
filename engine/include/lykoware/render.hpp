@@ -79,6 +79,17 @@ struct Material {
     friend bool operator==(const Material&, const Material&) = default;
 };
 
+// A water surface (ADR 0097): a blended surface that mirrors more at glancing angles. Seen
+// head-on it shows the entity's colour at MeshRenderer::opacity; towards the horizon it turns to
+// `reflection` and hides what is under it. Drawn only by a renderer given water shaders
+// (Renderer::enable_water).
+struct Water {
+    // What the surface mirrors: the sky's colour, linear, each channel finite and 0 or more.
+    math::Vec3 reflection{0.45F, 0.6F, 0.8F};
+
+    friend bool operator==(const Water&, const Water&) = default;
+};
+
 // One part of an added mesh with its own material (ADR 0038): the triangles from first_index
 // for index_count indices. Its colour multiplies MeshRenderer::colour; its texture, when set,
 // takes the place of MeshRenderer::texture.
@@ -110,6 +121,9 @@ struct MeshRenderer {
     // 1, and only while the renderer has transparency shaders (Renderer::enable_transparency), the
     // entity is drawn blended after every opaque one, far to near. Otherwise it is drawn opaque.
     float opacity = 1.F;
+    // When set, and only while the renderer has water shaders (Renderer::enable_water), the entity
+    // is drawn as a water surface (ADR 0097) with `opacity` as its head-on opacity. Otherwise unset.
+    std::optional<Water> water{};
 };
 
 // Per-instance drawing pose for an uploaded skinned mesh (ADR 0052). Plain CPU matrices;
@@ -174,6 +188,12 @@ struct MaterialShaders {
 // SPIR-V for transparent surfaces (ADR 0086): engine/shaders/transparent.slang vertexMain and
 // fragmentMain.
 struct TransparencyShaders {
+    std::span<const std::uint32_t> vertex;
+    std::span<const std::uint32_t> fragment;
+};
+
+// SPIR-V for water surfaces (ADR 0097): engine/shaders/water.slang vertexMain and fragmentMain.
+struct WaterShaders {
     std::span<const std::uint32_t> vertex;
     std::span<const std::uint32_t> fragment;
 };
@@ -335,8 +355,26 @@ public:
     // Back to drawing every entity opaque, exactly as before enable_transparency.
     void disable_transparency();
     [[nodiscard]] bool transparency_enabled() const;
-    // Parts drawn blended by the last draw(); 0 when transparency is off.
+    // Parts drawn blended by the last draw(), water surfaces aside; 0 when transparency is off.
     [[nodiscard]] std::size_t last_transparent_draw_count() const;
+
+    // Every draw() from now on draws entities with MeshRenderer::water as water surfaces
+    // (ADR 0097), whatever their opacity and whether or not transparency is on. They are drawn
+    // with the transparent surfaces, after every opaque one and far to near among them, each part
+    // blended, testing depth without writing it. A water surface casts no shadow, receives none
+    // and draws without its Material. Calling it again replaces the shaders. False, error filled
+    // and water unchanged, for: a renderer made with the skinned vertex shader (InvalidArgument;
+    // a later slice), shaders that do not load or link (as Renderer::create), or a device with
+    // fewer than 192 bytes of push constants (NoSuitableDevice).
+    //
+    // While on, draw() fails with InvalidArgument for a water entity whose opacity is outside
+    // 0..1 or not finite, or whose reflection has a channel below 0 or not finite.
+    [[nodiscard]] bool enable_water(const WaterShaders& shaders, rhi::RhiError& error);
+    // Back to ignoring MeshRenderer::water, exactly as before enable_water.
+    void disable_water();
+    [[nodiscard]] bool water_enabled() const;
+    // Parts drawn as water by the last draw(); 0 when water is off.
+    [[nodiscard]] std::size_t last_water_draw_count() const;
 
     // Every draw() from now on renders the scene into a 16-bit float target and tone-maps it into
     // the final image (ADR 0087). Values above 1 survive until the tone map, so a bright surface
