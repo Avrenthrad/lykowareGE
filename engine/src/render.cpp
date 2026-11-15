@@ -55,6 +55,18 @@ struct WaterConstants {
     math::Vec4 model[3];
 };
 static_assert(sizeof(WaterConstants) == 192);
+
+// Matches engine/shaders/sky.slang (ADR 0098).
+struct SkyConstants {
+    math::Vec4 across;
+    math::Vec4 down;
+    math::Vec4 forward;
+    math::Vec4 horizon;
+    math::Vec4 zenith;
+    math::Vec4 sun;
+    math::Vec4 sun_colour;
+};
+static_assert(sizeof(SkyConstants) <= rhi::push_constant_max_bytes);
 static_assert(sizeof(TransparentConstants) <= rhi::push_constant_material_max_bytes);
 
 // A pipeline's SPIR-V and description, kept so the renderer can build it again for another
@@ -293,6 +305,9 @@ struct Renderer::Impl {
     bool transparency_on = false;
     // Water (ADR 0097) is on; kept beside the flag above so the two share their padding.
     bool water_on = false;
+    // The sky's settings and push block (ADR 0098); float-aligned, so they sit after the flags.
+    std::optional<Sky> sky_settings;
+    SkyConstants sky_constants{};
     std::vector<WaterConstants> transparent_constants;
     // Each transparent part and the distance from the camera to its entity, in ECS order.
     std::vector<std::pair<Drawn, double>> transparent_parts;
@@ -308,6 +323,7 @@ struct Renderer::Impl {
     Recipe material_recipes[2];
     Recipe transparent_recipe;
     Recipe water_recipe;
+    Recipe sky_recipe;
     std::uint64_t recipes_version = 1;
     std::uint64_t hdr_version = 0;
     std::unique_ptr<rhi::GraphicsPipeline> hdr_lit;
@@ -315,12 +331,32 @@ struct Renderer::Impl {
     std::unique_ptr<rhi::GraphicsPipeline> hdr_material[2];
     std::unique_ptr<rhi::GraphicsPipeline> hdr_transparent;
     std::unique_ptr<rhi::GraphicsPipeline> hdr_water;
+    std::unique_ptr<rhi::GraphicsPipeline> hdr_sky;
+    // The sky (ADR 0098): the pipeline stays alive after a disable, as transparency's does.
+    std::unique_ptr<rhi::GraphicsPipeline> sky_pipeline;
     std::unique_ptr<rhi::GraphicsPipeline> post_pipeline;
     std::unique_ptr<rhi::HdrTarget> hdr_target;
     GpuMesh fullscreen;
     std::optional<PostProcess> post_settings;
     math::Vec4 post_constants{};
     rhi::MeshDraw post_draw;
+
+    // One triangle past the screen's corners, for the post pass and the sky; made once.
+    bool ensure_fullscreen(rhi::RhiError& error)
+    {
+        if (fullscreen.vertices) {
+            return true;
+        }
+        const Vertex corners[3] = {{{-1.F, -1.F, 0.F}, {0.F, 0.F, 1.F}, {0.F, 0.F}},
+                                   {{3.F, -1.F, 0.F}, {0.F, 0.F, 1.F}, {2.F, 0.F}},
+                                   {{-1.F, 3.F, 0.F}, {0.F, 0.F, 1.F}, {0.F, 2.F}}};
+        const std::uint32_t indices[3] = {0, 1, 2};
+        if (!upload(*device, std::span<const Vertex>(corners), indices, fullscreen, error)) {
+            fullscreen = {};
+            return false;
+        }
+        return true;
+    }
 
     // Builds the HDR copies of the scene pipelines when a recipe changed since the last build.
     bool ensure_hdr(rhi::RhiError& error)
@@ -338,7 +374,8 @@ struct Renderer::Impl {
         };
         if (!copy(lit_recipe, hdr_lit) || !copy(receiver_recipe, hdr_receiver)
             || !copy(material_recipes[0], hdr_material[0]) || !copy(material_recipes[1], hdr_material[1])
-            || !copy(transparent_recipe, hdr_transparent) || !copy(water_recipe, hdr_water)) {
+            || !copy(transparent_recipe, hdr_transparent) || !copy(water_recipe, hdr_water)
+            || !copy(sky_recipe, hdr_sky)) {
             return false;
         }
         hdr_version = recipes_version;
@@ -625,6 +662,27 @@ struct Renderer::Impl {
             std::stable_sort(opaque_order.begin(), opaque_order.end(),
                              [&](std::size_t a, std::size_t b) { return drawn[a].key < drawn[b].key; });
         }
+        // The sky first (ADR 0098): it writes no depth, so everything else draws over it.
+        const std::size_t sky_draws = sky_settings ? 1 : 0;
+        if (sky_settings) {
+            // A pixel's view direction is forward + ndc.x * across + ndc.y * down: the rows of the
+            // view matrix are the camera's right, up and back; clip-space y points down.
+            const math::Vec3 sun = math::normalize(lighting.direction);
+            sky_constants.across = {view.m[0][0] * tan_x, view.m[1][0] * tan_x, view.m[2][0] * tan_x, 0.F};
+            sky_constants.down = {-view.m[0][1] * tan_y, -view.m[1][1] * tan_y, -view.m[2][1] * tan_y, 0.F};
+            sky_constants.forward = {-view.m[0][2], -view.m[1][2], -view.m[2][2], 0.F};
+            sky_constants.horizon = {sky_settings->horizon.x, sky_settings->horizon.y, sky_settings->horizon.z, 0.F};
+            sky_constants.zenith = {sky_settings->zenith.x, sky_settings->zenith.y, sky_settings->zenith.z, 0.F};
+            sky_constants.sun = {sun.x, sun.y, sun.z, sky_settings->sun_radius > 0.F ? std::cos(sky_settings->sun_radius) : 2.F};
+            sky_constants.sun_colour = {sky_settings->sun.x, sky_settings->sun.y, sky_settings->sun.z, 0.F};
+            rhi::MeshDraw backdrop;
+            backdrop.vertices = fullscreen.vertices.get();
+            backdrop.indices = fullscreen.indices.get();
+            backdrop.index_count = 3;
+            backdrop.push_constants = std::as_bytes(std::span(&sky_constants, 1));
+            backdrop.pipeline = post_settings ? hdr_sky.get() : sky_pipeline.get();
+            draws.push_back(backdrop);
+        }
         // Push-constant spans point into `constants`, so build them after it stops growing.
         for (const std::size_t i : opaque_order) {
             const auto bytes = materials_on ? std::as_bytes(std::span(&material_constants[i], 1))
@@ -658,10 +716,10 @@ struct Renderer::Impl {
         }
         transparent_drawn = transparent_parts.size() - water_drawn;
         stats.entities = entities_drawn;
-        stats.draws = draws.size();
-        for (std::size_t i = 0; i < draws.size(); ++i) {
+        stats.draws = draws.size() - sky_draws;
+        for (std::size_t i = sky_draws; i < draws.size(); ++i) {
             const rhi::MeshDraw& d = draws[i];
-            const bool joins = i > 0 && d.skin_matrices.empty() && draws[i - 1].skin_matrices.empty()
+            const bool joins = i > sky_draws && d.skin_matrices.empty() && draws[i - 1].skin_matrices.empty()
                 && d.vertices == draws[i - 1].vertices && d.indices == draws[i - 1].indices
                 && d.texture == draws[i - 1].texture && d.normal_map == draws[i - 1].normal_map
                 && d.metal_roughness == draws[i - 1].metal_roughness && d.pipeline == draws[i - 1].pipeline;
@@ -1255,6 +1313,51 @@ std::size_t Renderer::last_water_draw_count() const
     return impl_->water_drawn;
 }
 
+bool Renderer::enable_sky(const SkyShaders& shaders, const Sky& sky, rhi::RhiError& error)
+{
+    error = {};
+    if (impl_->skinning) {
+        error = {rhi::RhiFailure::InvalidArgument, "the sky on a skinned renderer is a later slice"};
+        return false;
+    }
+    const auto colour = [](math::Vec3 c) {
+        return std::isfinite(c.x) && std::isfinite(c.y) && std::isfinite(c.z) && c.x >= 0.F && c.y >= 0.F && c.z >= 0.F;
+    };
+    if (!colour(sky.horizon) || !colour(sky.zenith) || !colour(sky.sun) || !std::isfinite(sky.sun_radius)
+        || sky.sun_radius < 0.F || sky.sun_radius > sky_max_sun_radius) {
+        error = {rhi::RhiFailure::InvalidArgument,
+                 "sky colours must be finite and 0 or more, and sun_radius 0..sky_max_sun_radius"};
+        return false;
+    }
+    const rhi::Device& device = *impl_->device;
+    rhi::GraphicsPipelineDesc desc;
+    desc.vertex_layout = rhi::VertexLayout::PositionNormalUv;
+    desc.depth = true;
+    desc.depth_write = false;
+    desc.cull_back_faces = false;
+    desc.push_constant_bytes = sizeof(SkyConstants);
+    const Recipe made = recipe(shaders.vertex, shaders.fragment, desc);
+    auto pipeline = build(device, made, impl_->pipeline->color_format(), error);
+    if (!pipeline || !impl_->ensure_fullscreen(error)) {
+        return false;
+    }
+    impl_->sky_pipeline = std::move(pipeline);
+    impl_->sky_recipe = made;
+    ++impl_->recipes_version;
+    impl_->sky_settings = sky;
+    return true;
+}
+
+void Renderer::disable_sky()
+{
+    impl_->sky_settings.reset();
+}
+
+std::optional<Sky> Renderer::sky() const
+{
+    return impl_->sky_settings;
+}
+
 bool Renderer::enable_post(const PostShaders& shaders, const PostProcess& post, rhi::RhiError& error)
 {
     error = {};
@@ -1275,16 +1378,8 @@ bool Renderer::enable_post(const PostShaders& shaders, const PostProcess& post, 
     if (!pipeline) {
         return false;
     }
-    if (!impl_->fullscreen.vertices) {
-        // One triangle past the screen's corners; the vertex shader passes positions through.
-        const Vertex corners[3] = {{{-1.F, -1.F, 0.F}, {0.F, 0.F, 1.F}, {0.F, 0.F}},
-                                   {{3.F, -1.F, 0.F}, {0.F, 0.F, 1.F}, {2.F, 0.F}},
-                                   {{-1.F, 3.F, 0.F}, {0.F, 0.F, 1.F}, {0.F, 2.F}}};
-        const std::uint32_t indices[3] = {0, 1, 2};
-        if (!upload(device, std::span<const Vertex>(corners), indices, impl_->fullscreen, error)) {
-            impl_->fullscreen = {};
-            return false;
-        }
+    if (!impl_->ensure_fullscreen(error)) {
+        return false;
     }
     if (!impl_->ensure_hdr(error)) {
         // Some float pipelines may be gone: off, and rebuilt in full by the next enable.

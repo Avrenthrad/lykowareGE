@@ -198,6 +198,25 @@ struct WaterShaders {
     std::span<const std::uint32_t> fragment;
 };
 
+// The sky behind the scene (ADR 0098). A pixel whose view direction d (unit, world space) points
+// above the horizon shows mix(horizon, zenith, d.y); at or below it, horizon. Within sun_radius of
+// Lighting::direction it shows the sun's colour instead. Off unless Renderer::enable_sky is called.
+inline constexpr float sky_max_sun_radius = 0.5F;
+struct Sky {
+    // Linear colours, each channel finite and 0 or more. Above 1 is kept when post-processing is on.
+    math::Vec3 horizon{0.75F, 0.82F, 0.9F};
+    math::Vec3 zenith{0.25F, 0.45F, 0.8F};
+    math::Vec3 sun{1.F, 0.95F, 0.85F};
+    // The sun's angular radius in radians, 0 (no sun) .. sky_max_sun_radius.
+    float sun_radius = 0.02F;
+};
+
+// SPIR-V for the sky: engine/shaders/sky.slang vertexMain and fragmentMain.
+struct SkyShaders {
+    std::span<const std::uint32_t> vertex;
+    std::span<const std::uint32_t> fragment;
+};
+
 // Tone mapping after the scene (ADR 0087): the scene is drawn into a 16-bit float target, then
 // each channel c becomes e c / (1 + e c) with e the exposure (Reinhard), into the final image.
 inline constexpr float post_max_exposure = 64.F;
@@ -375,6 +394,19 @@ public:
     [[nodiscard]] bool water_enabled() const;
     // Parts drawn as water by the last draw(); 0 when water is off.
     [[nodiscard]] std::size_t last_water_draw_count() const;
+
+    // Every draw() from now on fills the image with the sky before the scene (ADR 0098), so the
+    // clear colour no longer shows. The sun follows the lighting in use at each draw. The sky is
+    // not counted in DrawStats or last_draw_count(). Calling it again replaces the shaders and
+    // settings. False, error filled and the sky unchanged, for: a renderer made with the skinned
+    // vertex shader (InvalidArgument; a later slice), a colour channel below 0 or not finite or a
+    // sun_radius outside 0..sky_max_sun_radius or not finite (InvalidArgument), or shaders that
+    // do not load or link (as Renderer::create).
+    [[nodiscard]] bool enable_sky(const SkyShaders& shaders, const Sky& sky, rhi::RhiError& error);
+    // Back to the clear colour behind the scene, exactly as before enable_sky.
+    void disable_sky();
+    // The settings while the sky is on, nullopt when off.
+    [[nodiscard]] std::optional<Sky> sky() const;
 
     // Every draw() from now on renders the scene into a 16-bit float target and tone-maps it into
     // the final image (ADR 0087). Values above 1 survive until the tone map, so a bright surface

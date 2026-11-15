@@ -118,3 +118,5 @@ Use [the template](TEMPLATE.md). Record context, options, decision/status, contr
 - [0096: Foliage scattered over terrain and drawn as a batch](0096-foliage-batches.md) — Proposed; `render::scatter_foliage` places plants on a `TerrainPatch` from a seed (per-cell splitmix64, slope limit, exact on the drawn surface) and `render::foliage_batch` bakes them into one `MeshData`, one draw per patch; alpha cutout, wind and GPU instancing later.
 
 - [0097: Water surfaces that mirror at glancing angles](0097-water-surfaces.md) — Proposed; `MeshRenderer::water` and opt-in `Renderer::enable_water`: a blended pipeline whose colour and alpha move towards a stated reflection colour by Schlick's F (2% head-on), drawn with the transparent surfaces; waves, scene reflections and the view from below later.
+
+- [0098: The sky behind the scene](0098-sky.md) — Proposed; opt-in `Renderer::enable_sky`: one full-image triangle drawn first without depth writes, `mix(horizon, zenith, max(d.y, 0))` per pixel view direction and a sun disc along `Lighting::direction`; not counted in `DrawStats`; distance fog split out as `07.05e`.
