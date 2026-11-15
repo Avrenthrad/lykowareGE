@@ -162,6 +162,7 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
 - [ ] **06.04** Stream terrain and world chunks.
   - GPT: ADR 0093, frame-borrowed coarse/fine queries and transactional collision lifetime; strict local transactions, ASan/UBSan and deliberate collision-retention mutation pass; production physics adapter and real raycast fixture compile locally, full run awaits hosted CI.
 - [ ] **06.05** Stream collision, navigation, audio and entities.
+  - GPT: ADR 0094; chunk lifecycle activates/deactivates nav solids, bank handles and ECS entities with collision. Local boundary replay, ASan/UBSan and deliberate stale-nav mutation pass; real-physics replay/raycast fixture compile checked, full integration awaits CI.
 - [ ] **06.06** Persist changes in unloaded regions.
 - [ ] **06.07** Version world/save data.
 - [ ] **06.08** Render distant worlds with detail transitions.
