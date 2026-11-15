@@ -89,4 +89,8 @@ private:
 // The number of levels in a full mip chain for a width x height texture.
 [[nodiscard]] std::uint32_t full_mip_levels(std::uint32_t width, std::uint32_t height) noexcept;
 
+// Textures alive in this process now (ADR 0088): each counts from creation until its destructor,
+// whoever owns it. For leak checks; safe to read from any thread.
+[[nodiscard]] std::size_t live_texture_count() noexcept;
+
 }

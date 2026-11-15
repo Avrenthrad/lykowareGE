@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cmath>
 #include <cstring>
 #include <string>
@@ -22,6 +23,10 @@ using detail::driver_failure;
 using detail::fail;
 
 namespace {
+
+// Every Texture alive in the process (ADR 0088).
+std::atomic<std::size_t> g_live_textures{0};
+
 
 // sRGB <-> linear light for the mip average. 8-bit sRGB to linear is a table; linear back to
 // 8-bit sRGB rounds the standard curve to nearest.
@@ -169,9 +174,18 @@ struct Texture::Impl {
 Texture::Texture(std::unique_ptr<Impl> impl)
     : impl_{std::move(impl)}
 {
+    g_live_textures.fetch_add(1, std::memory_order_relaxed);
 }
 
-Texture::~Texture() = default;
+Texture::~Texture()
+{
+    g_live_textures.fetch_sub(1, std::memory_order_relaxed);
+}
+
+std::size_t live_texture_count() noexcept
+{
+    return g_live_textures.load(std::memory_order_relaxed);
+}
 
 std::unique_ptr<Texture> Texture::create(const Device& device, const TextureDesc& desc, std::span<const std::byte> rgba,
                                          RhiError& error)

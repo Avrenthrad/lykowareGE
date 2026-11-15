@@ -192,6 +192,42 @@ struct PostShaders {
     std::span<const std::uint32_t> fragment;
 };
 
+// What draw() may skip and reorder (ADR 0088). Both off by default: a renderer never given
+// visibility settings draws every entity in ECS order, as before.
+struct Visibility {
+    // Skip an entity whose mesh's bounding sphere, placed and scaled by its Transform and
+    // MeshRenderer::scale, lies wholly outside the camera's view (behind the near plane or past a
+    // side). A skinned entity is never culled, since its pose may move vertices outside the bounds.
+    // A culled entity still casts its shadow.
+    bool cull = false;
+    // Draw opaque parts grouped by mesh, then base texture, then material textures (by id, so the
+    // order is the same on every run), so consecutive draws share their bindings. Transparent parts
+    // keep their far-to-near order.
+    bool batch = false;
+};
+
+// Counts from the last draw() (ADR 0088).
+struct DrawStats {
+    // Entities drawn; the same as Renderer::last_draw_count().
+    std::size_t entities = 0;
+    // Entities skipped because Visibility::cull found them outside the view.
+    std::size_t culled = 0;
+    // Indexed draws issued to the target: one per part, opaque and transparent.
+    std::size_t draws = 0;
+    // Runs of consecutive draws sharing pipeline, mesh buffers, textures and no skin pose; the
+    // RHI binds each run's state once.
+    std::size_t batches = 0;
+};
+
+// What a renderer holds on the GPU for added meshes and textures (ADR 0088). The renderer's own
+// built-in cube, fallback textures and pipelines are not counted.
+struct GpuResources {
+    std::size_t meshes = 0;
+    std::size_t textures = 0;
+    // Vertex and index bytes of the added meshes.
+    std::size_t mesh_bytes = 0;
+};
+
 // Draws ECS scenes. One renderer per colour format.
 //
 // Ownership: create() returns the sole owner of its pipeline, mesh buffers and textures. Copy
@@ -321,6 +357,21 @@ public:
 
     // Entities drawn by the last draw() (a mesh of several parts counts once).
     [[nodiscard]] std::size_t last_draw_count() const;
+
+    // Culling and batching for every draw() from now on (ADR 0088). Neither changes the image of
+    // a scene whose opaque surfaces do not overlap at equal depth.
+    void set_visibility(const Visibility& visibility);
+    [[nodiscard]] const Visibility& visibility() const;
+    [[nodiscard]] const DrawStats& last_draw_stats() const;
+
+    // Frees an added mesh or texture (ADR 0088). Waits for the device to finish its work first,
+    // so a frame still in flight never reads freed memory. The id then draws nothing, as a foreign
+    // id does, and is never handed out again. False, error filled and nothing freed for: an id this
+    // renderer did not make or already freed (InvalidArgument), a texture a live mesh part or part
+    // material still names (InvalidArgument), or a failed wait (as Device::wait_idle).
+    [[nodiscard]] bool remove_mesh(MeshId id, rhi::RhiError& error);
+    [[nodiscard]] bool remove_texture(TextureId id, rhi::RhiError& error);
+    [[nodiscard]] GpuResources gpu_resources() const;
 
 private:
     struct Impl;

@@ -58,6 +58,10 @@ private:
     std::unique_ptr<Impl> impl_;
 };
 
+// Buffers alive in this process now (ADR 0088): each counts from creation until its destructor,
+// whoever owns it. For leak checks; safe to read from any thread.
+[[nodiscard]] std::size_t live_buffer_count() noexcept;
+
 // One indexed mesh to draw: a VertexLayout::PositionNormal vertex buffer,
 // a buffer of 32-bit triangle indices, and the bytes the pipeline's push
 // constants hold for this mesh.

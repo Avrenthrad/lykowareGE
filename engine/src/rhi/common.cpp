@@ -293,6 +293,8 @@ void record_mesh_pass(VkCommandBuffer commands, VkImageView colour_view, VkImage
     VkDescriptorSet bound_shadow = VK_NULL_HANDLE;
     VkDescriptorSet bound_material[2] = {VK_NULL_HANDLE, VK_NULL_HANDLE};
     VkPipeline bound_pipeline = pipeline;
+    VkBuffer bound_vertices = VK_NULL_HANDLE;
+    VkBuffer bound_indices = VK_NULL_HANDLE;
     for (std::size_t index = 0; index < draw_count; ++index) {
         const PreparedDraw& draw = draws[index];
         // A draw may name its own pipeline (ADR 0086); switching forgets the bound sets, since
@@ -329,9 +331,17 @@ void record_mesh_pass(VkCommandBuffer commands, VkImageView colour_view, VkImage
             vkCmdPushConstants(commands, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                                draw.push_constant_bytes, draw.push_constants);
         }
-        const VkDeviceSize offset = 0;
-        vkCmdBindVertexBuffers(commands, 0, 1, &draw.vertices, &offset);
-        vkCmdBindIndexBuffer(commands, draw.indices, 0, VK_INDEX_TYPE_UINT32);
+        // Vertex and index bindings survive pipeline changes; consecutive draws of one mesh
+        // (a batch, ADR 0088) bind them once.
+        if (draw.vertices != bound_vertices) {
+            const VkDeviceSize offset = 0;
+            vkCmdBindVertexBuffers(commands, 0, 1, &draw.vertices, &offset);
+            bound_vertices = draw.vertices;
+        }
+        if (draw.indices != bound_indices) {
+            vkCmdBindIndexBuffer(commands, draw.indices, 0, VK_INDEX_TYPE_UINT32);
+            bound_indices = draw.indices;
+        }
         vkCmdDrawIndexed(commands, draw.index_count, 1, draw.first_index, 0, 0);
     }
     vkCmdEndRendering(commands);
