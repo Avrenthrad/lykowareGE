@@ -6,6 +6,8 @@ Implementation and verification are tracked by commit/branch in [STATUS](STATUS.
 
 Game applications, CLI tools and future Howler editor -> Lykoware runtime -> wrapped low-level vendored libraries. The runtime never imports game/editor code. The C++20 static target `lykoware::engine` exposes owned headers under `engine/include/lykoware`; vendor types stay private. CMake links native applications separately.
 
+Lykoware Remaster (`tools/remaster/`, proposed in [ADR 0019](adr/0019-remaster-pipeline.md)) would depend on the editor command bus, and only after that bus and an editor MCP server exist. The engine must not depend on `tools/remaster/` or link it.
+
 ## Runtime boundaries
 
 | Module | Responsibility and contract |

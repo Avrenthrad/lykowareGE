@@ -9,3 +9,6 @@
 
 # Python build-tool caches are regenerable.
 __pycache__/
+
+# Personal Asset Library (Lykoware Remaster, ADR 0019). Local only; never commit.
+/personal-library/
