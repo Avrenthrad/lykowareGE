@@ -9,16 +9,17 @@ Completed: `07.14` (#88; networking not implemented), `07.13` (#90), `07.08` (#9
 - [x] `07.06`: #118 squash-merged as `691904c`; confirmed closed/merged after five green jobs on `b158e90` (run 43660951181). ADR 0091 UI foundations; hardware gates unaffected.
 - [x] `06.01`: #120 squash-merged as `bdbc9f4`; GitHub MERGED and main ancestry confirmed. Five green hosted checks on `cefee0e`; strict boundary test rerun locally.
 - [x] `06.02`: #121 squash-merged as `283e29c`; GitHub MERGED/main ancestry confirmed after five green checks on `bea3445` (run 43704394125).
-- [ ] `06.03`: #124, ADR 0092; strict residency test passes. Rebase onto checkpoint main; require five fresh checks before merge.
-- [ ] `06.04`: #126, ADR 0093; chunk query/transaction tests pass. Rebase after #124; require fresh CI and confirmed real-physics execution.
-- [ ] `06.05`: #128, ADR 0094; subsystem replay passes. Rebase after #126; require fresh CI and confirmed real-physics replay.
-- [ ] `06.06`: #130, ADR 0095; fixed test move-order analysis failure; unloaded-edit test passes. Rebase after #128; fresh CI/merge required.
-- [ ] `06.07`: #135, ADR 0102; bounded versioned save codec, round-trip/future refusal and deliberate version mutation pass; ASan/UBSan pass. Rebase after #130; fresh CI/merge required.
-- [ ] `07.10`: #136, ADR 0103; frozen v2 migration to CRC32-protected v3, corruption/truncation preserve last good file; mutation and ASan/UBSan pass. Rebase after #135; fresh CI/merge required.
-- [ ] `06.09`: #137 (branches directly from #128); 385 travel/pressure crossings and collision cleanup pass; mutation and ASan/UBSan pass. Real-physics fixture compiles; hosted execution/CI/merge required.
-- [ ] Next implementation: `06.11` headless throughput fixture/columns for Grok. PC run: **Joshua runs this**. `06.12` and later wave stay blocked.
-- Merge order: #124 → #126 → #128 → #130 → #135 → #136; #137 can follow #128. One PR per ID; tick only after confirmed merge.
-- Checkpoint: #121 merged this session; seven GPT PRs remain open pending rebases/fresh CI. No other assistant's PR merged. No new dependencies/services. Hardware gates remain **Joshua runs this**.
+- [ ] `06.03`: #124 (`7010ab8`), based on checkpoint main `8961a55`; strict residency test passes. Fresh CI pending; merge first once five jobs are green. Rebase only if needed for a conflict.
+- [ ] `06.04`: #126 (`d5db168`), stacked on #124; chunk/physics tests await fresh CI. Rebase onto main after #124 merges.
+- [ ] `06.05`: #128 (`9bc93a6`), stacked on #126; subsystem replay awaits fresh CI. Rebase onto main after #126 merges.
+- [ ] `06.06`: #130 (`cac0e68`), stacked on #128; test move-order failure fixed; strict unloaded-edit test passes. Fresh CI pending.
+- [ ] `06.07`: #135 (`105eaf4`), ADR 0102; versioned saves and deliberate version mutation pass locally; fresh CI pending after #130.
+- [ ] `07.10`: #136 (`6ff3270`), ADR 0103; v2→v3 migration and last-good replacement tests/mutation/sanitizers pass; fresh CI pending after #135.
+- [ ] `06.09`: #137 (`775fa8e`), directly on #128; 385 crossings/mutation/sanitizers pass; real-physics fixture compiles. Fresh hosted execution/CI pending.
+- [ ] `06.11`: #138 (`83c4f50`), directly on #128, ADR 0104; serial load/admission CSV fixture and Grok handoff in `samples/scenes/streaming_throughput.md`. Strict fake/CSV/invalid-input/mutation/ASan/UBSan checks pass; real physics compiles; hosted execution/CI pending. PC acceptance: **Joshua runs this**; do not tick the item from hosted/Linux timings.
+- [ ] `06.12` and later wave remain blocked by open Phase 0–6 items and Joshua's hardware gates. No further unblocked implementation IDs remain in this queue.
+- Merge order: #124 → #126 → #128 → #130 → #135 → #136; #137 and #138 can follow #128. One PR per ID; five fresh checks after rebasing; tick only after confirmed squash-merge.
+- Checkpoint: all eight open GPT PRs have pending CI; none newly merged/ticked. #121 remains the latest confirmed GPT merge. No other assistant's PR merged; no new dependencies/services. Hardware gates remain **Joshua runs this**.
 
 ## How to use this file
 
