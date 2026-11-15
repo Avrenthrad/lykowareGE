@@ -116,3 +116,5 @@ Use [the template](TEMPLATE.md). Record context, options, decision/status, contr
 - [0095: Terrain drawn from a grid of heights](0095-terrain-mesh.md) — Proposed; `render::terrain_mesh` turns a height grid (the layout and cell split of `physics::HeightFieldShape`) into a `MeshData` the renderer draws like any mesh, with a coarser `step`; draw and collision stay separate, streaming is `06.04`.
 
 - [0096: Foliage scattered over terrain and drawn as a batch](0096-foliage-batches.md) — Proposed; `render::scatter_foliage` places plants on a `TerrainPatch` from a seed (per-cell splitmix64, slope limit, exact on the drawn surface) and `render::foliage_batch` bakes them into one `MeshData`, one draw per patch; alpha cutout, wind and GPU instancing later.
+
+- [0097: Water surfaces that mirror at glancing angles](0097-water-surfaces.md) — Proposed; `MeshRenderer::water` and opt-in `Renderer::enable_water`: a blended pipeline whose colour and alpha move towards a stated reflection colour by Schlick's F (2% head-on), drawn with the transparent surfaces; waves, scene reflections and the view from below later.
