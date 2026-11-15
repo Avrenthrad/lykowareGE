@@ -10,8 +10,8 @@ Tick only after the PR is merged with all five CI checks green. One line of note
 - [ ] `02.11b-runtime-scale` — fixture merged #92 `74009df`; waiting: **Joshua runs this** (`lykoware_ik_runtime_scale --characters 500 --frames 600 --csv ik_scale.csv`, Release).
 - [x] `02.14` camera transitions — merged #96 (89dc40e)
 - [x] `07.03` lighting/shadows/materials/transparency/post — a–e merged: #108 (`21ce75a`), #110 (`3e41fa6`), #111 (`6a7dd49`), #113 (`b335826`), #114 (`55626e1`)
-- [ ] `07.04` visibility, batching, GPU resources — next
-- [ ] `07.05` environment rendering
+- [x] `07.04` visibility, batching, GPU resources — merged #116 (`9a53c67`)
+- [ ] `07.05` environment rendering — next
 - [ ] `06.10` pipeline warmup (world-scale half: **Joshua runs this**)
 - [x] `02.12b` → `02.12c` → `02.12d` → `02.13` ragdolls — 02.12b #99, 02.12c #102, 02.12d #104; `02.13` merged #107 (`84a2925`)
 - [ ] `06.08` — blocked on GPT `06.01`, `06.04`
@@ -178,9 +178,11 @@ The current renderer is a lit first path (ADRs 0002, 0025, 0026). This ID is the
 
 After `07.03` has a material identity to batch.
 
-- [ ] ADR: what is culled, what is batched, and how a GPU resource is created and freed. Done when: the ADR states failure and that a leaked resource fails a test.
-- [ ] A fixture with enough objects that batching changes the draw count, and culling drops an object behind the camera. Done when: the test reads those counts from the renderer, not from a log scrape that can be empty.
-- [ ] Standard close. Done when: `07.04` is ticked.
+- [x] ADR: what is culled, what is batched, and how a GPU resource is created and freed. Done when: the ADR states failure and that a leaked resource fails a test.
+- [x] A fixture with enough objects that batching changes the draw count, and culling drops an object behind the camera. Done when: the test reads those counts from the renderer, not from a log scrape that can be empty.
+- [x] Standard close. Done when: `07.04` is ticked.
+
+Merged in #116 (`9a53c67`): `Renderer::set_visibility`, `last_draw_stats`, `remove_mesh`/`remove_texture`, ADR 0088; test `render.visibility`. GPU instancing and occlusion are later work.
 
 ### 10. `07.05` — terrain, foliage, water, environment rendering
 
