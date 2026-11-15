@@ -68,6 +68,32 @@ bool make_view(VkDevice device, VkImage image, VkFormat format, VkImageAspectFla
     return true;
 }
 
+// A layout transition of the whole depth image. From UNDEFINED the old contents are discarded.
+void depth_transition(VkCommandBuffer commands, VkImage image, VkImageLayout from, VkImageLayout to,
+                      VkPipelineStageFlags2 source_stage, VkAccessFlags2 source_access,
+                      VkPipelineStageFlags2 destination_stage, VkAccessFlags2 destination_access)
+{
+    VkImageMemoryBarrier2 barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+    barrier.srcStageMask = source_stage;
+    barrier.srcAccessMask = source_access;
+    barrier.dstStageMask = destination_stage;
+    barrier.dstAccessMask = destination_access;
+    barrier.oldLayout = from;
+    barrier.newLayout = to;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = image;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.layerCount = 1;
+    VkDependencyInfo dependency{};
+    dependency.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+    dependency.imageMemoryBarrierCount = 1;
+    dependency.pImageMemoryBarriers = &barrier;
+    vkCmdPipelineBarrier2(commands, &dependency);
+}
+
 }
 
 struct HdrTarget::Impl {
@@ -81,8 +107,10 @@ struct HdrTarget::Impl {
         if (pool != VK_NULL_HANDLE) {
             vkDestroyDescriptorPool(vk_device, pool, nullptr); // frees the set
         }
-        if (sampler != VK_NULL_HANDLE) {
-            vkDestroySampler(vk_device, sampler, nullptr);
+        for (VkSampler made : {sampler, depth_sampler}) {
+            if (made != VK_NULL_HANDLE) {
+                vkDestroySampler(vk_device, made, nullptr);
+            }
         }
         for (VkImageView view : {colour_view, depth_view}) {
             if (view != VK_NULL_HANDLE) {
@@ -107,14 +135,25 @@ struct HdrTarget::Impl {
                                   VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_ACCESS_2_NONE,
                                   VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
                                   VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT);
-            detail::depth_barrier(commands, depth);
+            // Likewise the depth: an earlier post pass may still read it.
+            depth_transition(commands, depth, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+                             VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_ACCESS_2_NONE,
+                             VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+                             VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT
+                                 | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
             const float rgba[4] = {clear.r, clear.g, clear.b, clear.a};
             detail::record_mesh_pass(commands, colour_view, depth_view, {width, height}, rgba, pipeline, layout,
-                                     draws.data(), draws.size());
+                                     draws.data(), draws.size(), true);
             detail::image_barrier(commands, colour, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                                   VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                                   VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
                                   VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_SHADER_SAMPLED_READ_BIT);
+            // The depth too, for a post pass that reads it (ADR 0099).
+            depth_transition(commands, depth, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+                             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                             VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+                             VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+                             VK_ACCESS_2_SHADER_SAMPLED_READ_BIT);
         }, error);
     }
 
@@ -128,8 +167,10 @@ struct HdrTarget::Impl {
     VmaAllocation depth_allocation = VK_NULL_HANDLE;
     VkImageView depth_view = VK_NULL_HANDLE;
     VkSampler sampler = VK_NULL_HANDLE;
+    VkSampler depth_sampler = VK_NULL_HANDLE;
     VkDescriptorPool pool = VK_NULL_HANDLE;
     VkDescriptorSet set = VK_NULL_HANDLE;
+    VkDescriptorSet depth_set = VK_NULL_HANDLE;
 };
 
 HdrTarget::HdrTarget(std::unique_ptr<Impl> impl)
@@ -159,9 +200,12 @@ std::unique_ptr<HdrTarget> HdrTarget::create(const Device& device, std::uint32_t
         | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT;
     VkFormatProperties depth_properties{};
     vkGetPhysicalDeviceFormatProperties(physical, detail::depth_format, &depth_properties);
+    const VkFormatFeatureFlags depth_needed =
+        VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT;
     if ((colour_properties.optimalTilingFeatures & colour_needed) != colour_needed
-        || (depth_properties.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) == 0) {
-        fail(error, RhiFailure::NoSuitableDevice, "the device cannot render, blend and sample 16-bit float colour");
+        || (depth_properties.optimalTilingFeatures & depth_needed) != depth_needed) {
+        fail(error, RhiFailure::NoSuitableDevice,
+             "the device cannot render, blend and sample 16-bit float colour, or sample its depth");
         return nullptr;
     }
 
@@ -175,8 +219,9 @@ std::unique_ptr<HdrTarget> HdrTarget::create(const Device& device, std::uint32_t
                     VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, impl->colour,
                     impl->colour_allocation, error)
         || !make_view(vk_device, impl->colour, hdr_format, VK_IMAGE_ASPECT_COLOR_BIT, impl->colour_view, error)
-        || !make_image(allocator, detail::depth_format, width, height, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-                       impl->depth, impl->depth_allocation, error)
+        || !make_image(allocator, detail::depth_format, width, height,
+                       VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, impl->depth,
+                       impl->depth_allocation, error)
         || !make_view(vk_device, impl->depth, detail::depth_format, VK_IMAGE_ASPECT_DEPTH_BIT, impl->depth_view,
                       error)) {
         return nullptr;
@@ -197,10 +242,20 @@ std::unique_ptr<HdrTarget> HdrTarget::create(const Device& device, std::uint32_t
         return nullptr;
     }
 
-    const VkDescriptorPoolSize pool_size{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1};
+    // Depth is read texel for texel: no filtering, which the format need not support.
+    sampler_info.magFilter = VK_FILTER_NEAREST;
+    sampler_info.minFilter = VK_FILTER_NEAREST;
+    result = vkCreateSampler(vk_device, &sampler_info, nullptr, &impl->depth_sampler);
+    if (result != VK_SUCCESS) {
+        impl->depth_sampler = VK_NULL_HANDLE;
+        fail(error, RhiFailure::DriverError, driver_failure("vkCreateSampler (HDR target depth)", result));
+        return nullptr;
+    }
+
+    const VkDescriptorPoolSize pool_size{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2};
     VkDescriptorPoolCreateInfo pool_info{};
     pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    pool_info.maxSets = 1;
+    pool_info.maxSets = 2;
     pool_info.poolSizeCount = 1;
     pool_info.pPoolSizes = &pool_size;
     result = vkCreateDescriptorPool(vk_device, &pool_info, nullptr, &impl->pool);
@@ -209,29 +264,38 @@ std::unique_ptr<HdrTarget> HdrTarget::create(const Device& device, std::uint32_t
         fail(error, RhiFailure::DriverError, driver_failure("vkCreateDescriptorPool (HDR target)", result));
         return nullptr;
     }
-    const VkDescriptorSetLayout layout = DeviceAccess::texture_set_layout(device);
+    const VkDescriptorSetLayout layouts[2] = {DeviceAccess::texture_set_layout(device),
+                                              DeviceAccess::texture_set_layout(device)};
+    VkDescriptorSet sets[2] = {VK_NULL_HANDLE, VK_NULL_HANDLE};
     VkDescriptorSetAllocateInfo set_info{};
     set_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     set_info.descriptorPool = impl->pool;
-    set_info.descriptorSetCount = 1;
-    set_info.pSetLayouts = &layout;
-    result = vkAllocateDescriptorSets(vk_device, &set_info, &impl->set);
+    set_info.descriptorSetCount = 2;
+    set_info.pSetLayouts = layouts;
+    result = vkAllocateDescriptorSets(vk_device, &set_info, sets);
     if (result != VK_SUCCESS) {
         fail(error, RhiFailure::DriverError, driver_failure("vkAllocateDescriptorSets (HDR target)", result));
         return nullptr;
     }
-    VkDescriptorImageInfo image_descriptor{};
-    image_descriptor.sampler = impl->sampler;
-    image_descriptor.imageView = impl->colour_view;
-    image_descriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    VkWriteDescriptorSet write{};
-    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    write.dstSet = impl->set;
-    write.dstBinding = 0;
-    write.descriptorCount = 1;
-    write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    write.pImageInfo = &image_descriptor;
-    vkUpdateDescriptorSets(vk_device, 1, &write, 0, nullptr);
+    impl->set = sets[0];
+    impl->depth_set = sets[1];
+    VkDescriptorImageInfo descriptors[2]{};
+    descriptors[0].sampler = impl->sampler;
+    descriptors[0].imageView = impl->colour_view;
+    descriptors[0].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    descriptors[1].sampler = impl->depth_sampler;
+    descriptors[1].imageView = impl->depth_view;
+    descriptors[1].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    VkWriteDescriptorSet writes[2]{};
+    for (int index = 0; index < 2; ++index) {
+        writes[index].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        writes[index].dstSet = sets[index];
+        writes[index].dstBinding = 0;
+        writes[index].descriptorCount = 1;
+        writes[index].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        writes[index].pImageInfo = &descriptors[index];
+    }
+    vkUpdateDescriptorSets(vk_device, 2, writes, 0, nullptr);
 
     // Cleared to black, so the colour is defined and sampleable before the first render().
     if (!impl->record({0.F, 0.F, 0.F, 1.F}, VK_NULL_HANDLE, VK_NULL_HANDLE, {}, error)) {
@@ -270,6 +334,11 @@ bool HdrTarget::render(const ClearColor& clear, const GraphicsPipeline& pipeline
 void* HdrTarget::native_descriptor_set() const
 {
     return static_cast<void*>(impl_->set);
+}
+
+void* HdrTarget::native_depth_descriptor_set() const
+{
+    return static_cast<void*>(impl_->depth_set);
 }
 
 }

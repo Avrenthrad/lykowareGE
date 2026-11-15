@@ -179,6 +179,10 @@ bool prepare_mesh_draws(const GraphicsPipeline& pass_pipeline, ColorFormat targe
                         which + (pipeline.shadow() ? "the pipeline receives a shadow but the mesh names no shadow map"
                                                    : "the mesh names a shadow map but the pipeline receives none"));
         }
+        if (pipeline.scene_depth() && mesh.source == nullptr) {
+            return fail(error, RhiFailure::InvalidArgument,
+                        which + "the pipeline reads the scene's depth but the mesh names no HDR source");
+        }
         const bool names_material = mesh.normal_map != nullptr || mesh.metal_roughness != nullptr;
         if (pipeline.material() && (mesh.normal_map == nullptr || mesh.metal_roughness == nullptr)) {
             return fail(error, RhiFailure::InvalidArgument,
@@ -211,6 +215,9 @@ bool prepare_mesh_draws(const GraphicsPipeline& pass_pipeline, ColorFormat targe
                          mesh.first_index, skinned, mesh.skin_matrices});
         if (mesh.shadow != nullptr) {
             draws.back().shadow = static_cast<VkDescriptorSet>(mesh.shadow->native_descriptor_set());
+        }
+        if (pipeline.scene_depth()) {
+            draws.back().shadow = static_cast<VkDescriptorSet>(mesh.source->native_depth_descriptor_set());
         }
         if (names_material) {
             draws.back().material[0] = static_cast<VkDescriptorSet>(mesh.normal_map->native_descriptor_set());
@@ -250,7 +257,7 @@ void depth_barrier(VkCommandBuffer commands, VkImage image)
 
 void record_mesh_pass(VkCommandBuffer commands, VkImageView colour_view, VkImageView depth_view, VkExtent2D extent,
                       const float (&rgba)[4], VkPipeline pipeline, VkPipelineLayout pass_layout,
-                      const PreparedDraw* draws, std::size_t draw_count)
+                      const PreparedDraw* draws, std::size_t draw_count, bool keep_depth)
 {
     VkPipelineLayout layout = pass_layout;
     VkRenderingAttachmentInfo colour{};
@@ -267,8 +274,10 @@ void record_mesh_pass(VkCommandBuffer commands, VkImageView colour_view, VkImage
     depth.imageView = depth_view;
     depth.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
     depth.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    // A depth-only pass (a shadow map, ADR 0084) keeps its depth; a colour pass does not.
-    depth.storeOp = colour_view == VK_NULL_HANDLE ? VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    // A depth-only pass (a shadow map, ADR 0084) keeps its depth; a colour pass does not, unless
+    // asked (an HdrTarget, ADR 0099).
+    depth.storeOp = colour_view == VK_NULL_HANDLE || keep_depth ? VK_ATTACHMENT_STORE_OP_STORE
+                                                                : VK_ATTACHMENT_STORE_OP_DONT_CARE;
     depth.clearValue.depthStencil.depth = 0.0F; // reversed depth: 0 is infinitely far
     VkRenderingInfo rendering{};
     rendering.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
