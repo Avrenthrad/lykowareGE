@@ -294,6 +294,15 @@ if(BUILD_TESTING)
     set_tests_properties(render.terrain_mesh PROPERTIES TIMEOUT 120)
     add_test(NAME render.terrain COMMAND lykoware_render_terrain_test "${lit_vert_spv}" "${lit_frag_spv}")
     set_tests_properties(render.terrain PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
+    # 07.05b: foliage scattered over terrain and drawn as one batch (ADR 0096).
+    add_executable(lykoware_render_foliage_test tests/render_foliage.cpp)
+    target_link_libraries(lykoware_render_foliage_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_render_foliage_test)
+    add_dependencies(lykoware_render_foliage_test lykoware_test_shaders)
+    add_test(NAME render.foliage_mesh COMMAND lykoware_render_foliage_test)
+    set_tests_properties(render.foliage_mesh PROPERTIES TIMEOUT 120)
+    add_test(NAME render.foliage COMMAND lykoware_render_foliage_test "${lit_vert_spv}" "${lit_frag_spv}")
+    set_tests_properties(render.foliage PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
 
     # Sampled textures in the RHI (ADR 0037): exact texels, sRGB, mipmaps, wrapping, misuse.
     add_executable(lykoware_rhi_texture_test tests/rhi_texture.cpp)
@@ -392,7 +401,7 @@ if(BUILD_TESTING)
         # reports; leaks in Lykoware code are still caught (ADR 0015 records the
         # deliberate-leak check).
         set_property(TEST rhi.instance rhi.instance.no_driver rhi.device rhi.render_target rhi.swapchain
-                          sandbox.vulkan_window sandbox.gpu_trace sandbox.play sandbox.imported_player rhi.pipeline rhi.mesh rhi.texture render.scene render.lighting render.shadows render.materials render.transparency render.post render.visibility render.terrain
+                          sandbox.vulkan_window sandbox.gpu_trace sandbox.play sandbox.imported_player rhi.pipeline rhi.mesh rhi.texture render.scene render.lighting render.shadows render.materials render.transparency render.post render.visibility render.terrain render.foliage
                           render.model render.skinning render.gpu_skinning render.texture lifecycle.restart_vulkan
             APPEND PROPERTY ENVIRONMENT "VK_LOADER_DISABLE_DYNAMIC_LIBRARY_UNLOADING=1")
     endif()
