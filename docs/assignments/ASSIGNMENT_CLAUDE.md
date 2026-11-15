@@ -11,11 +11,11 @@ Tick only after the PR is merged with all five CI checks green. One line of note
 - [x] `02.14` camera transitions — merged #96 (89dc40e)
 - [x] `07.03` lighting/shadows/materials/transparency/post — a–e merged: #108 (`21ce75a`), #110 (`3e41fa6`), #111 (`6a7dd49`), #113 (`b335826`), #114 (`55626e1`)
 - [x] `07.04` visibility, batching, GPU resources — merged #116 (`9a53c67`)
-- [ ] `07.05` environment rendering — a–d merged: #122 (`4c6a3fb`), #123 (`0d23e07`), #125 (`bb736e4`), #127 (`24b679f`); `07.05e` distance fog next, then tick `07.05`
-- [ ] `06.10` pipeline warmup (world-scale half: **Joshua runs this**)
+- [x] `07.05` environment rendering — a–e merged: #122 (`4c6a3fb`), #123 (`0d23e07`), #125 (`bb736e4`), #127 (`24b679f`), #131 (`a3064ca`)
+- [ ] `06.10` pipeline warmup — current-scene half merged #132 (`b4e4005`); waiting: world-scale half needs GPT `06.04`, then **Joshua runs this**
 - [x] `02.12b` → `02.12c` → `02.12d` → `02.13` ragdolls — 02.12b #99, 02.12c #102, 02.12d #104; `02.13` merged #107 (`84a2925`)
 - [ ] `06.08` — blocked on GPT `06.01`, `06.04`
-- [ ] `02.16` gates (perf run: **Joshua runs this**)
+- [ ] `02.16` gates — correctness gates and fixture merged #133 (`2e43a89`); waiting: **Joshua runs this** (`lykoware_player_course_test --characters 200 --csv character_gate.csv`, Release) and accepts the feel
 
 ## How to use this file
 
@@ -190,18 +190,20 @@ Rendering only. Terrain collision stays on the physics API you already own. Stre
 
 - [x] ADR for one environment surface you can fixture (terrain shading, a foliage batch, or water). Done when: the ADR separates the draw from the physics collision and from GPT's future chunk stream.
 - [x] Implement it with a headless check. Done when: removing the draw fails the check.
-- [ ] Standard close, splitting lettered children the same way as `07.03` if one PR cannot cover every surface. Done when: `07.05` is ticked only after each surface you named has a test.
+- [x] Standard close, splitting lettered children the same way as `07.03` if one PR cannot cover every surface. Done when: `07.05` is ticked only after each surface you named has a test.
 
-`07.05a` terrain merged in #122 (`4c6a3fb`): `render::terrain_mesh`, ADR 0095, tests `render.terrain_mesh` and `render.terrain`. `07.05b` foliage merged in #123 (`0d23e07`): `render::scatter_foliage`, `render::foliage_batch`, ADR 0096, tests `render.foliage_mesh` and `render.foliage`. `07.05c` water merged in #125 (`bb736e4`): `Renderer::enable_water`, ADR 0097, test `render.water`. `07.05d` sky merged in #127 (`24b679f`): `Renderer::enable_sky`, ADR 0098, test `render.sky`. Open: `07.05e` distance fog (needs the distance in every scene shader; the lit push block is full). `07.05` stays unticked until it merges.
+`07.05a` terrain merged in #122 (`4c6a3fb`): `render::terrain_mesh`, ADR 0095, tests `render.terrain_mesh` and `render.terrain`. `07.05b` foliage merged in #123 (`0d23e07`): `render::scatter_foliage`, `render::foliage_batch`, ADR 0096, tests `render.foliage_mesh` and `render.foliage`. `07.05c` water merged in #125 (`bb736e4`): `Renderer::enable_water`, ADR 0097, test `render.water`. `07.05d` sky merged in #127 (`24b679f`): `Renderer::enable_sky`, ADR 0098, test `render.sky`. `07.05e` distance fog merged in #131 (`a3064ca`): `Renderer::enable_fog`, ADR 0099, test `render.fog`; done in the post pass from the scene's depth, so no scene shader changed. `07.05` ticked.
 
 ### 11. `06.10` — shader and pipeline hitches
 
 Can start from the current scene. The world-scale hitch number waits on GPT's streaming (`06.04`) and on Joshua's `01.10` run. Do not claim the world is hitch-free.
 
-- [ ] Warm up pipelines for the current fixtures and record a count of compilations during the measured frames. Done when: a test fails if a known shader compiles again during the measured window.
-- [ ] Write the column Grok's harness should record. Done when: the PR names the column and does not edit `tools/validation/`.
+- [x] Warm up pipelines for the current fixtures and record a count of compilations during the measured frames. Done when: a test fails if a known shader compiles again during the measured window.
+  - Merged #132 (`b4e4005`): `rhi::pipeline_compile_count`, `Renderer::warm_up`, ADR 0100, test `render.warmup`.
+- [x] Write the column Grok's harness should record. Done when: the PR names the column and does not edit `tools/validation/`.
+  - Column `pipeline_compiles`, in #132 and docs/PERFORMANCE.md.
 - [ ] **Joshua runs this** as part of `01.10` / `06.11` once streaming exists. You do not tick the world-scale claim.
-- [ ] Standard close for the current-scene warmup only. Done when: the checklist note says the world-scale half is still open if streaming or the PC run is missing. Tick `06.10` only when both halves are done.
+- [x] Standard close for the current-scene warmup only. Done when: the checklist note says the world-scale half is still open if streaming or the PC run is missing. Tick `06.10` only when both halves are done.
 
 ### 12. `06.08` — distant worlds and detail transitions
 
@@ -214,8 +216,10 @@ Blocked on GPT `06.01` and `06.04`.
 
 Last character gate. Correctness can be automated. Performance cannot, on this machine.
 
-- [ ] A fixed-seed course check: no persistent ground penetration, replay matches, camera stays out of walls. Extend `player.course` rather than a second course. Done when: the test fails if penetration is allowed to persist.
-- [ ] Define the performance columns (frame time, hitch, memory) and the fixture. Done when: the PR names them and points at Grok's harness. You do not edit `tools/validation/`.
+- [x] A fixed-seed course check: no persistent ground penetration, replay matches, camera stays out of walls. Extend `player.course` rather than a second course. Done when: the test fails if penetration is allowed to persist.
+  - Merged #133 (`2e43a89`): gates over four seeds, a true input replay, and each gate shown to catch its fault.
+- [x] Define the performance columns (frame time, hitch, memory) and the fixture. Done when: the PR names them and points at Grok's harness. You do not edit `tools/validation/`.
+  - `lykoware_player_course_test --characters N --csv PATH`; columns in #133 and docs/PERFORMANCE.md.
 - [ ] **Joshua runs this** on the RTX 4070 and accepts the feel. You do not tick this step.
 - [ ] After that acceptance, standard close. Done when: `02.16` is ticked. In that PR, tick rollup `02.04` and `02.05` if their only remaining note was owner feel. Finished character art stays out of scope (Track C and the flagship). Tick `02.17` if `02.17d` has already merged and this feel review was the last open note; otherwise leave `02.17` and say why.
 
