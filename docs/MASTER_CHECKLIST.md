@@ -103,6 +103,7 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
 - [x] **02.14** Refine first/third-person camera transitions. Evidence: #96 (89dc40e), ADR 0075, `follow_camera` test.
 - [ ] **02.15** Validate character feel on Windows hardware.
 - [ ] **02.16** Complete character correctness and performance gates.
+  - Correctness half done: `player.course` gates four seeds on the motor (no persistent ground penetration, no camera in a wall, no fall through the world), replays the recorded input into a fresh world to the same hash, and shows each gate catching its fault. Performance fixture written: `lykoware_player_course_test --characters 200 --csv character_gate.csv` (columns in docs/PERFORMANCE.md). Still open: the owner's run on the RTX 4070 and acceptance of the feel. Not ticked until then.
 - [x] **02.17** Locomotion feel for players and NPCs (owner request, 12 November 2026; ADR 0074). Added after 02.16 was numbered; done before 02.12b–d by the owner's order.
   - [x] **02.17a** ADR: quality bar, sharpness versus weight, directional fluidity, agility profiles, the animation–physics contract and the legal line — ADR 0074 (Proposed); merged with #82.
   - [x] **02.17b** The motor: acceleration, braking, turn rate by speed, gaits, plant-and-pivot and agility profiles in data, with feel checks in `player.course` — `locomotion.motor`, `player.locomotion` and the course with the motor; 50 of 50 deliberate breaks caught; 90/90 each native profile and all five hosted checks; merged with #83.

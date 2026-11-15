@@ -11,15 +11,19 @@
 #include "obstacle_course.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
+#include <fstream>
 #include <iostream>
 #include <memory>
 #include <numbers>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -520,6 +524,19 @@ struct Results {
     int frames = 0;
     std::uint64_t hash = 0;
     math::DVec3 end;
+    // What the player was told each frame and how long the frame was: enough to replay the run
+    // without the bot (02.16).
+    std::vector<std::pair<PlayerIntent, float>> recording;
+    // Wall-clock nanoseconds each frame took: steering, its physics steps and the camera.
+    std::vector<std::int64_t> frame_ns;
+};
+
+// How a course run may be deliberately broken, to show that the 02.16 gates catch it.
+struct Break {
+    // Metres the ground is taken to be above where it is: what feet that far into the ground measure.
+    double sunk = 0.0;
+    // Judge the camera where it would be if it ignored what is in its way.
+    bool camera_through_walls = false;
 };
 
 // Drives a player through the course frame by frame, as a person would: keys or the stick
@@ -540,6 +557,7 @@ public:
 
     bool use_stick = false;
     bool run = false;
+    Break broken;
 
     // Walks towards (x, z) until within 0.75 m; false if it takes longer than `seconds`.
     bool walk_to(double x, double z, float seconds)
@@ -581,6 +599,7 @@ private:
     float frame(double x, double z, bool walk, bool jump)
     {
         const float seconds = random_.uniform(1.F / 144.F, 1.F / 30.F);
+        const auto began = std::chrono::steady_clock::now();
         lykoware::begin_input_frame(input_);
 
         // Steer with the mouse: turn towards the target, a little unsteadily.
@@ -604,7 +623,9 @@ private:
         lykoware::note_key(input_, Key::LeftShift, run);
         lykoware::note_key(input_, Key::Space, jump);
 
-        player_.steer(read_player_intent(input_, input_config_, seconds, true));
+        const PlayerIntent intent = read_player_intent(input_, input_config_, seconds, true);
+        results_.recording.emplace_back(intent, seconds);
+        player_.steer(intent);
         const lykoware::FrameSteps steps = clock_->advance(static_cast<std::int64_t>(seconds * 1e9F));
         for (std::uint32_t tick = 0; tick < steps.ticks; ++tick) {
             player_.before_step(static_cast<float>(clock_->tick_seconds()));
@@ -613,7 +634,18 @@ private:
         }
         // Drawn as the sandbox draws it, between the last two steps (ADR 0048).
         const auto alpha = static_cast<float>(steps.alpha);
-        check_view(player_.view(seconds, alpha), alpha);
+        lykoware::render::Camera view = player_.view(seconds, alpha);
+        results_.frame_ns.push_back(
+            std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - began).count());
+        if (broken.camera_through_walls) {
+            // Where the eye would be at the distance asked for, whatever is in the way.
+            const math::Vec3 back = math::relative_to(view.eye, view.target);
+            const float length = math::length(back);
+            if (length > 1e-4F) {
+                view.eye = view.target + back * (player_.camera().distance() / length);
+            }
+        }
+        check_view(view, alpha);
         ++results_.frames;
         return seconds;
     }
@@ -624,7 +656,7 @@ private:
         const math::DVec3 feet = player_.state().position;
         results_.lowest_feet = std::min(results_.lowest_feet, feet.y);
         const auto hit = course_.world->cast_ray({feet.x, feet.y + 0.5, feet.z}, {0.F, -1.F, 0.F});
-        const double depth = hit ? hit->point.y - feet.y : -1.0;
+        const double depth = hit ? hit->point.y + broken.sunk - feet.y : -1.0;
         results_.deepest = std::max(results_.deepest, depth);
         sunk_ = depth > 0.02 ? sunk_ + 1 : 0;
         results_.longest_sunk = std::max(results_.longest_sunk, sunk_);
@@ -671,19 +703,25 @@ private:
     int sunk_ = 0;
 };
 
-// `motor`: move by the locomotion motor (ADR 0074) with its default profile instead of at once.
-Results run_course(std::uint32_t seed, bool motor = false)
+PlayerConfig course_config(bool motor)
 {
-    Results results;
-    Course course = build_course();
     PlayerConfig config;
     config.body.position = obstacle_course::start;
     config.max_turn_rate = 12.F;
     if (motor) {
         config.locomotion = lykoware::locomotion::Profile{};
     }
-    auto player = make_player(*course.world, config);
+    return config;
+}
+
+// `motor`: move by the locomotion motor (ADR 0074) with its default profile instead of at once.
+Results run_course(std::uint32_t seed, bool motor = false, Break broken = {})
+{
+    Results results;
+    Course course = build_course();
+    auto player = make_player(*course.world, course_config(motor));
     Bot bot{course, *player, results, seed};
+    bot.broken = broken;
     const auto check = [&results](bool ok, const std::string& what) {
         if (!ok) {
             results.failures.push_back(what);
@@ -718,6 +756,138 @@ Results run_course(std::uint32_t seed, bool motor = false)
     results.hash = course.world->state_hash();
     results.end = player->state().position;
     return results;
+}
+
+// A recorded run played back with no bot: the same intents and frame lengths into a fresh world.
+// `skip` leaves that frame's intent out (the player stands still for it), to break the replay.
+std::pair<std::uint64_t, math::DVec3> replay_course(const Results& recorded, bool motor, std::size_t skip)
+{
+    Course course = build_course();
+    auto player = make_player(*course.world, course_config(motor));
+    std::string error;
+    lykoware::FixedStep clock = *lykoware::FixedStep::create({}, error);
+    for (std::size_t frame = 0; frame < recorded.recording.size(); ++frame) {
+        const auto& [intent, seconds] = recorded.recording[frame];
+        player->steer(frame == skip ? PlayerIntent{} : intent);
+        const lykoware::FrameSteps steps = clock.advance(static_cast<std::int64_t>(seconds * 1e9F));
+        for (std::uint32_t tick = 0; tick < steps.ticks; ++tick) {
+            player->before_step(static_cast<float>(clock.tick_seconds()));
+            (void)course.world->step(static_cast<float>(clock.tick_seconds()));
+        }
+        (void)player->view(seconds, static_cast<float>(steps.alpha));
+    }
+    return {course.world->state_hash(), player->state().position};
+}
+
+// The 02.16 correctness gates on one course run; empty when it passes.
+std::vector<std::string> gate(const Results& run)
+{
+    std::vector<std::string> failed = run.failures;
+    if (!run.steps_ok) {
+        failed.emplace_back("a physics step failed");
+    }
+    if (run.lowest_feet <= -0.05) {
+        failed.push_back("it fell through the world: lowest feet " + text(run.lowest_feet));
+    }
+    if (run.longest_sunk > 2) {
+        failed.push_back("ground penetration persisted: " + std::to_string(run.longest_sunk) + " ticks, "
+                         + text(run.deepest) + " m deepest");
+    }
+    if (!run.view_clear || !run.view_outside) {
+        failed.push_back("the camera went into a wall: " + run.first_view_failure);
+    }
+    return failed;
+}
+
+bool mentions(const std::vector<std::string>& failed, std::string_view what)
+{
+    return std::any_of(failed.begin(), failed.end(),
+                       [what](const std::string& line) { return line.find(what) != std::string::npos; });
+}
+
+// 02.16: the gates over several seeds on the motor, a true replay, and each gate shown to catch
+// the fault it is for.
+void test_gates()
+{
+    constexpr std::uint32_t seed = 0x4C594B4FU;
+    Results kept;
+    for (std::uint32_t offset = 0; offset < 4; ++offset) {
+        Results run = run_course(seed + offset, true);
+        for (const std::string& failure : gate(run)) {
+            expect(false, "gate, seed +" + std::to_string(offset) + ": " + failure);
+        }
+        if (offset == 0) {
+            kept = std::move(run);
+        }
+    }
+
+    // Replay: the recorded intents alone reproduce the run, with and without the motor.
+    const auto [hash, end] = replay_course(kept, true, kept.recording.size());
+    expect(hash == kept.hash && end == kept.end, "a replay of the recorded input matches the run it was recorded from");
+    const Results direct = run_course(seed);
+    const auto [direct_hash, direct_end] = replay_course(direct, false, direct.recording.size());
+    expect(direct_hash == direct.hash && direct_end == direct.end, "and so does one without the motor");
+    // Deliberate break: one frame of input lost a third of the way in, and the replay no longer matches.
+    expect(replay_course(kept, true, kept.recording.size() / 3).first != kept.hash,
+           "a replay that loses one frame of input does not match");
+
+    // Deliberate break: feet 5 cm into the ground for the whole run must trip the penetration gate.
+    const std::vector<std::string> sunk = gate(run_course(seed, true, Break{0.05, false}));
+    expect(mentions(sunk, "ground penetration persisted"), "penetration that persists fails the gate");
+    // A dip of 1 cm, inside the 2 cm allowance, does not.
+    expect(!mentions(gate(run_course(seed, true, Break{0.01, false})), "ground penetration persisted"),
+           "penetration within the allowance passes");
+    // Deliberate break: a camera that ignores what is in its way must trip the camera gate.
+    const std::vector<std::string> through = gate(run_course(seed, true, Break{0.0, true}));
+    expect(mentions(through, "the camera went into a wall"), "a camera that goes through walls fails the gate");
+}
+
+// The value at `share` (0..1) of the sorted samples.
+double percentile(const std::vector<std::int64_t>& sorted, double share)
+{
+    if (sorted.empty()) {
+        return 0.0;
+    }
+    const auto index = static_cast<std::size_t>(share * static_cast<double>(sorted.size() - 1));
+    return static_cast<double>(sorted[index]);
+}
+
+// 02.16's performance fixture, for the target PC: `characters` course runs on the motor, one
+// after another, each a full run with its own seed. Writes one CSV row and returns the number of
+// runs that failed a correctness gate. It does not judge time.
+int measure(int characters, const std::string& csv)
+{
+    constexpr std::uint32_t seed = 0x4C594B4FU;
+    std::vector<std::int64_t> frames;
+    int failed = 0;
+    for (int index = 0; index < characters; ++index) {
+        const Results run = run_course(seed + static_cast<std::uint32_t>(index), true);
+        failed += gate(run).empty() ? 0 : 1;
+        frames.insert(frames.end(), run.frame_ns.begin(), run.frame_ns.end());
+    }
+    std::sort(frames.begin(), frames.end());
+    double total = 0.0;
+    for (const std::int64_t ns : frames) {
+        total += static_cast<double>(ns);
+    }
+    // A hitch: a frame of character work longer than a 144 Hz frame (6.944 ms).
+    constexpr std::int64_t hitch_ns = 6'944'444;
+    const auto hitches = static_cast<std::size_t>(frames.end() - std::upper_bound(frames.begin(), frames.end(), hitch_ns));
+    const double mean_ms = frames.empty() ? 0.0 : total / static_cast<double>(frames.size()) / 1e6;
+    std::ostringstream row;
+    row << "characters,frames,gate_failures,mean_frame_ms,p99_frame_ms,worst_frame_ms,hitches\n"
+        << characters << ',' << frames.size() << ',' << failed << ',' << mean_ms << ',' << percentile(frames, 0.99) / 1e6
+        << ',' << percentile(frames, 1.0) / 1e6 << ',' << hitches << '\n';
+    std::cout << row.str();
+    if (!csv.empty()) {
+        std::ofstream out{csv};
+        out << row.str();
+        if (!out) {
+            std::cerr << "FATAL: cannot write " << csv << '\n';
+            return failed + 1;
+        }
+    }
+    return failed;
 }
 
 void test_course()
@@ -764,8 +934,37 @@ void test_course()
 
 }
 
-int main()
+int main(int argc, char** argv)
 {
+    // `--characters N [--csv PATH]`: the 02.16 performance fixture instead of the tests.
+    int characters = 0;
+    std::string csv;
+    for (int i = 1; i < argc; ++i) {
+        const std::string key = argv[i];
+        if (i + 1 >= argc || (key != "--characters" && key != "--csv")) {
+            std::cerr << "usage: lykoware_player_course_test [--characters N [--csv PATH]]\n";
+            return EXIT_FAILURE;
+        }
+        const std::string value = argv[++i];
+        if (key == "--csv") {
+            csv = value;
+            continue;
+        }
+        char* last = nullptr;
+        const long parsed = std::strtol(value.c_str(), &last, 10);
+        if (last == value.c_str() || *last != '\0' || parsed < 1 || parsed > 10000) {
+            std::cerr << "--characters must be 1..10000\n";
+            return EXIT_FAILURE;
+        }
+        characters = static_cast<int>(parsed);
+    }
+    if (characters > 0 || !csv.empty()) {
+        if (characters == 0) {
+            std::cerr << "--csv needs --characters\n";
+            return EXIT_FAILURE;
+        }
+        return measure(characters, csv) == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
+    }
     test_intent_mapping();
     test_moves_relative_to_the_camera();
     test_jumps();
@@ -773,6 +972,7 @@ int main()
     test_drawn_between_steps();
     test_refusals();
     test_course();
+    test_gates();
     if (g_failures != 0) {
         std::cerr << g_failures << " player course assertion(s) failed\n";
         return EXIT_FAILURE;
