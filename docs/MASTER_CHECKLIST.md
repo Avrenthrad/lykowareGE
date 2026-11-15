@@ -158,6 +158,7 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
 - [x] **06.02** Add asynchronous loading and cancellation.
   - GPT: #121 squash-merged as `283e29c`, confirmed after five green checks on `bea3445` (run 43704394125). ADR 0090, owner-fenced jobs, bounded reads and `streaming.async_load` cancellation/lifetime regression tests.
 - [ ] **06.03** Track asset dependencies, residency and eviction.
+  - GPT: ADR 0092, explicit payload-byte/region limits, validated dependency bundles, LRU and pinned assets; strict local fixtures, ASan/UBSan and deliberate pin bypass pass; CI/merge pending. Hardware budget remains **Joshua runs this** under 01.11.
 - [ ] **06.04** Stream terrain and world chunks.
 - [ ] **06.05** Stream collision, navigation, audio and entities.
 - [ ] **06.06** Persist changes in unloaded regions.
