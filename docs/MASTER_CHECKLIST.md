@@ -160,6 +160,7 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
 - [ ] **06.03** Track asset dependencies, residency and eviction.
   - GPT: ADR 0092, explicit payload-byte/region limits, validated dependency bundles, LRU and pinned assets; strict local fixtures, ASan/UBSan and deliberate pin bypass pass; CI/merge pending. Hardware budget remains **Joshua runs this** under 01.11.
 - [ ] **06.04** Stream terrain and world chunks.
+  - GPT: ADR 0093, frame-borrowed coarse/fine queries and transactional collision lifetime; strict local transactions, ASan/UBSan and deliberate collision-retention mutation pass; production physics adapter and real raycast fixture compile locally, full run awaits hosted CI.
 - [ ] **06.05** Stream collision, navigation, audio and entities.
 - [ ] **06.06** Persist changes in unloaded regions.
 - [ ] **06.07** Version world/save data.
