@@ -164,6 +164,7 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
 - [ ] **06.05** Stream collision, navigation, audio and entities.
   - GPT: ADR 0094; chunk lifecycle activates/deactivates nav solids, bank handles and ECS entities with collision. Local boundary replay, ASan/UBSan and deliberate stale-nav mutation pass; real-physics replay/raycast fixture compile checked, full integration awaits CI.
 - [ ] **06.06** Persist changes in unloaded regions.
+  - GPT: ADR 0095, `RegionEdits` retains asset-byte replacements independently of residency; repeated chunk eviction/reload and unedited authored fallback tested. CI/merge pending; disk saves follow under 06.07.
 - [ ] **06.07** Version world/save data.
 - [ ] **06.08** Render distant worlds with detail transitions.
 - [ ] **06.09** Test rapid travel, teleports and memory pressure.
