@@ -56,4 +56,13 @@ bool RegionEdits::apply(Region region, RegionData& authored, std::string& error)
 void RegionEdits::clear() { edits_.clear(); bytes_ = 0; }
 std::size_t RegionEdits::bytes() const { return bytes_; }
 std::size_t RegionEdits::size() const { return edits_.size(); }
+std::vector<RegionEdit> RegionEdits::snapshot() const
+{
+    std::vector<RegionEdit> result;
+    result.reserve(edits_.size());
+    for (const auto& [key, bytes] : edits_) {
+        result.push_back({{std::get<0>(key), std::get<1>(key)}, std::get<2>(key), bytes});
+    }
+    return result;
+}
 }

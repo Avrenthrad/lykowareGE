@@ -166,6 +166,7 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
 - [ ] **06.06** Persist changes in unloaded regions.
   - GPT: ADR 0095, `RegionEdits` retains asset-byte replacements independently of residency; repeated chunk eviction/reload and unedited authored fallback tested. CI/merge pending; disk saves follow under 06.07.
 - [ ] **06.07** Version world/save data.
+  - GPT: ADR 0102, bounded little-endian save/world versions, region edit round-trip and future-version refusal; `save.versioned` passes locally. CI/merge pending.
 - [ ] **06.08** Render distant worlds with detail transitions.
 - [ ] **06.09** Test rapid travel, teleports and memory pressure.
 - [ ] **06.10** Eliminate avoidable shader/pipeline compilation hitches.
@@ -200,6 +201,7 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
 - [x] **07.09** Complete jobs, threading, scheduling and resource budgets.
   - [PR #95](https://github.com/Avrenthrad/lykowareGE/pull/95): bounded owner-fenced queue, joined shutdown, exception counts and lifetime tests (ADR 0077); local lifetime, deliberate failure and ASan/UBSan checks passed; all five hosted checks passed on `94609c3`; squash-merged as `9218589`. Explicit limits only; hardware budgets remain **Joshua runs this** under `01.11`.
 - [ ] **07.10** Add save migrations, recovery and corruption handling.
+  - GPT: ADR 0103, frozen v2 migration to CRC32-protected v3; bounded read and validate-before-rename replacement preserve last good file on truncation/corruption. Local tests pass; CI/merge pending.
 - [ ] **07.11** Complete input rebinding and controller support.
 - [ ] **07.12** Complete logging, crash reports, profiling and diagnostic capture.
 - [x] **07.13** Add replay/determinism where required.
