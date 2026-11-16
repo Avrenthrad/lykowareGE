@@ -173,6 +173,7 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
 - [ ] **06.10** Eliminate avoidable shader/pipeline compilation hitches.
   - Current-scene half done: ADR 0100, `rhi::pipeline_compile_count`, `Renderer::warm_up`, `render.warmup` (0 pipelines compiled across 60 measured frames after the warm-up; more than 0 in the first frame without it). Still open: the world-scale hitch number, which needs streaming (`06.04`) and the owner's target-PC run (`01.10` / `06.11`, harness column `pipeline_compiles`). Not ticked until both halves are done.
 - [ ] **06.11** Measure throughput and frame pacing.
+  - GPT: ADR 0104 and `streaming_throughput.md` describe headless load/admission/step-overrun/resident-byte CSV measurements with explicit limits. Local fake/mutation/sanitizer checks pass; real physics execution and CI pending. PC/harness acceptance: **Joshua runs this**; parent remains unticked.
 - [ ] **06.12** Complete Phase 0–6 engine-core acceptance.
 
 ## 7. Shared runtime systems — alongside the slices
