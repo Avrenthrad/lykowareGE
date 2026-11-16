@@ -21,6 +21,8 @@ add_library(lykoware_engine STATIC
     src/ui.cpp
     src/jobs.cpp
     src/clock.cpp
+    src/streaming_chunks.cpp
+    src/streaming_chunk_physics.cpp
     src/streaming_residency.cpp
     src/streaming_load.cpp
     src/streaming.cpp
