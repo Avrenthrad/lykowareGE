@@ -157,23 +157,23 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
   - GPT: #120 squash-merged as `bdbc9f4` after all five hosted checks passed on `cefee0e` (run 43688718552); merge confirmed. ADR 0089 and `streaming.regions`: double positions, stable IDs, half-open boundaries, zero/subnormal/negative edges, 16 km and range rejection.
 - [x] **06.02** Add asynchronous loading and cancellation.
   - GPT: #121 squash-merged as `283e29c`, confirmed after five green checks on `bea3445` (run 43704394125). ADR 0090, owner-fenced jobs, bounded reads and `streaming.async_load` cancellation/lifetime regression tests.
-- [ ] **06.03** Track asset dependencies, residency and eviction.
-  - GPT: ADR 0092, explicit payload-byte/region limits, validated dependency bundles, LRU and pinned assets; strict local fixtures, ASan/UBSan and deliberate pin bypass pass; CI/merge pending. Hardware budget remains **Joshua runs this** under 01.11.
-- [ ] **06.04** Stream terrain and world chunks.
-  - GPT: ADR 0093, frame-borrowed coarse/fine queries and transactional collision lifetime; strict local transactions, ASan/UBSan and deliberate collision-retention mutation pass; production physics adapter and real raycast fixture compile locally, full run awaits hosted CI.
-- [ ] **06.05** Stream collision, navigation, audio and entities.
-  - GPT: ADR 0094; chunk lifecycle activates/deactivates nav solids, bank handles and ECS entities with collision. Local boundary replay, ASan/UBSan and deliberate stale-nav mutation pass; real-physics replay/raycast fixture compile checked, full integration awaits CI.
-- [ ] **06.06** Persist changes in unloaded regions.
-  - GPT: ADR 0095, `RegionEdits` retains asset-byte replacements independently of residency; repeated chunk eviction/reload and unedited authored fallback tested. CI/merge pending; disk saves follow under 06.07.
-- [ ] **06.07** Version world/save data.
-  - GPT: ADR 0102, bounded little-endian save/world versions, region edit round-trip and future-version refusal; `save.versioned` passes locally. CI/merge pending.
+- [x] **06.03** Track asset dependencies, residency and eviction.
+  - GPT: ADR 0092; dependency bundles, explicit limits and LRU/pin tests. Hardware budget remains **Joshua runs this** under 01.11. #124 squash-merged as `c536176` after five green hosted checks on `7010ab8`; GitHub merge and main ancestry confirmed.
+- [x] **06.04** Stream terrain and world chunks.
+  - GPT: ADR 0093; frame-borrowed chunk queries, collision transactions and real-physics raycasts. #126 squash-merged as `c8a13fe` after five green hosted checks on `d91054c`; GitHub merge and main ancestry confirmed.
+- [x] **06.05** Stream collision, navigation, audio and entities.
+  - GPT: ADR 0094; collision/nav/audio/ECS lifetime and real-physics boundary replay tests. #128 squash-merged as `4247503` after five green hosted checks on `2d0dc2c`; GitHub merge and main ancestry confirmed.
+- [x] **06.06** Persist changes in unloaded regions.
+  - GPT: ADR 0095; #130 unloaded-edit persistence and authored fallback tests, integrated through #128. #128 squash-merged as `4247503` after five green hosted checks on `2d0dc2c`; GitHub merge and main ancestry confirmed.
+- [x] **06.07** Version world/save data.
+  - GPT: ADR 0102; #135 bounded versioned saves, round-trip and future-version refusal tests, integrated through #128. #128 squash-merged as `4247503` after five green hosted checks on `2d0dc2c`; GitHub merge and main ancestry confirmed.
 - [ ] **06.08** Render distant worlds with detail transitions.
-- [ ] **06.09** Test rapid travel, teleports and memory pressure.
-  - GPT: `streaming.travel_pressure` and real-physics `streaming.travel_physics`: 385 teleports/boundary crossings, explicit resident-payload limits, pin/oversize pressure and evicted collision checks. Local fake-backend/mutation pass; real fixture compiles; CI/merge pending.
+- [x] **06.09** Test rapid travel, teleports and memory pressure.
+  - GPT: 385 crossings; payload limits, pin pressure and real-physics eviction tests. #137 squash-merged as `f9405d2` after five green hosted checks on `004d9f1`; GitHub merge and main ancestry confirmed.
 - [ ] **06.10** Eliminate avoidable shader/pipeline compilation hitches.
   - Current-scene half done: ADR 0100, `rhi::pipeline_compile_count`, `Renderer::warm_up`, `render.warmup` (0 pipelines compiled across 60 measured frames after the warm-up; more than 0 in the first frame without it). Still open: the world-scale hitch number, which needs streaming (`06.04`) and the owner's target-PC run (`01.10` / `06.11`, harness column `pipeline_compiles`). Not ticked until both halves are done.
 - [ ] **06.11** Measure throughput and frame pacing.
-  - GPT: ADR 0104 and `streaming_throughput.md` describe headless load/admission/step-overrun/resident-byte CSV measurements with explicit limits. Local fake/mutation/sanitizer checks pass; real physics execution and CI pending. PC/harness acceptance: **Joshua runs this**; parent remains unticked.
+  - GPT: ADR 0104; headless CSV fixture and handoff in `samples/scenes/streaming_throughput.md`. #138 squash-merged as `400ccd6` after five green hosted checks on `f4a4f73`; GitHub merge and main ancestry confirmed. Headless fixture only; RTX 4070 PC/harness acceptance: **Joshua runs this**. Parent remains unticked.
 - [ ] **06.12** Complete Phase 0–6 engine-core acceptance.
 
 ## 7. Shared runtime systems — alongside the slices
@@ -202,8 +202,8 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
   - [PR #94](https://github.com/Avrenthrad/lykowareGE/pull/94) squash-merged as `f3aa5ec`; all five hosted checks passed on `0c5e205`. ADR 0076: deterministic planar routes, radius clearance and solid updates; route and deliberate wrong-shortcut tests.
 - [x] **07.09** Complete jobs, threading, scheduling and resource budgets.
   - [PR #95](https://github.com/Avrenthrad/lykowareGE/pull/95): bounded owner-fenced queue, joined shutdown, exception counts and lifetime tests (ADR 0077); local lifetime, deliberate failure and ASan/UBSan checks passed; all five hosted checks passed on `94609c3`; squash-merged as `9218589`. Explicit limits only; hardware budgets remain **Joshua runs this** under `01.11`.
-- [ ] **07.10** Add save migrations, recovery and corruption handling.
-  - GPT: ADR 0103, frozen v2 migration to CRC32-protected v3; bounded read and validate-before-rename replacement preserve last good file on truncation/corruption. Local tests pass; CI/merge pending.
+- [x] **07.10** Add save migrations, recovery and corruption handling.
+  - GPT: ADR 0103; #136 v2 migration, CRC32 and last-good recovery tests, integrated through #128. #128 squash-merged as `4247503` after five green hosted checks on `2d0dc2c`; GitHub merge and main ancestry confirmed.
 - [ ] **07.11** Complete input rebinding and controller support.
 - [ ] **07.12** Complete logging, crash reports, profiling and diagnostic capture.
 - [x] **07.13** Add replay/determinism where required.

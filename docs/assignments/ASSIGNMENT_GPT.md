@@ -2,24 +2,24 @@
 
 You are GPT (Codex), working in `Avrenthrad/lykowareGE`. Joshua opens a chat with you. Stay in it across steps. This file is your queue. The shared map is [COORDINATION.md](COORDINATION.md). The roadmap is [docs/ROADMAP.md](../ROADMAP.md). The IDs are [docs/MASTER_CHECKLIST.md](../MASTER_CHECKLIST.md).
 
-## Rolling checklist — 15 November 2026
+## Rolling checklist — 16 November 2026
 
 Completed: `07.14` (#88; networking not implemented), `07.13` (#90), `07.08` (#94), `07.09` (#95), `05.04` (#98), `07.01` (#100), `07.02` (#101), `07.07` (#106).
 
 - [x] `07.06`: #118 squash-merged as `691904c`; confirmed closed/merged after five green jobs on `b158e90` (run 43660951181). ADR 0091 UI foundations; hardware gates unaffected.
 - [x] `06.01`: #120 squash-merged as `bdbc9f4`; GitHub MERGED and main ancestry confirmed. Five green hosted checks on `cefee0e`; strict boundary test rerun locally.
 - [x] `06.02`: #121 squash-merged as `283e29c`; GitHub MERGED/main ancestry confirmed after five green checks on `bea3445` (run 43704394125).
-- [ ] `06.03`: #124 (`7010ab8`), based on checkpoint main `8961a55`; strict residency test passes. Fresh CI pending; merge first once five jobs are green. Rebase only if needed for a conflict.
-- [ ] `06.04`: #126 (`d5db168`), stacked on #124; chunk/physics tests await fresh CI. Rebase onto main after #124 merges.
-- [ ] `06.05`: #128 (`9bc93a6`), stacked on #126; subsystem replay awaits fresh CI. Rebase onto main after #126 merges.
-- [ ] `06.06`: #130 (`cac0e68`), stacked on #128; test move-order failure fixed; strict unloaded-edit test passes. Fresh CI pending.
-- [ ] `06.07`: #135 (`105eaf4`), ADR 0102; versioned saves and deliberate version mutation pass locally; fresh CI pending after #130.
-- [ ] `07.10`: #136 (`6ff3270`), ADR 0103; v2→v3 migration and last-good replacement tests/mutation/sanitizers pass; fresh CI pending after #135.
-- [ ] `06.09`: #137 (`775fa8e`), directly on #128; 385 crossings/mutation/sanitizers pass; real-physics fixture compiles. Fresh hosted execution/CI pending.
-- [ ] `06.11`: #138 (`83c4f50`), directly on #128, ADR 0104; serial load/admission CSV fixture and Grok handoff in `samples/scenes/streaming_throughput.md`. Strict fake/CSV/invalid-input/mutation/ASan/UBSan checks pass; real physics compiles; hosted execution/CI pending. PC acceptance: **Joshua runs this**; do not tick the item from hosted/Linux timings.
+- [x] `06.03`: #124 squash-merged as `c536176` after five green hosted checks on `7010ab8`; GitHub merge and main ancestry confirmed.
+- [x] `06.04`: #126 squash-merged as `c8a13fe` after five green hosted checks on `d91054c`; GitHub merge and main ancestry confirmed.
+- [x] `06.05`: #128 squash-merged as `4247503` after five green hosted checks on `2d0dc2c`; GitHub merge and main ancestry confirmed.
+- [x] `06.06`: #128 squash-merged as `4247503` after five green hosted checks on `2d0dc2c`; GitHub merge and main ancestry confirmed.
+- [x] `06.07`: #128 squash-merged as `4247503` after five green hosted checks on `2d0dc2c`; GitHub merge and main ancestry confirmed.
+- [x] `07.10`: #128 squash-merged as `4247503` after five green hosted checks on `2d0dc2c`; GitHub merge and main ancestry confirmed.
+- [x] `06.09`: #137 squash-merged as `f9405d2` after five green hosted checks on `004d9f1`; GitHub merge and main ancestry confirmed.
+- [ ] `06.11`: #138 squash-merged as `400ccd6` after five green hosted checks on `f4a4f73`; GitHub merge and main ancestry confirmed. Fixture merged; PC acceptance: **Joshua runs this**.
 - [ ] `06.12` and later wave remain blocked by open Phase 0–6 items and Joshua's hardware gates. No further unblocked implementation IDs remain in this queue.
-- Merge order: #124 → #126 → #128 → #130 → #135 → #136; #137 and #138 can follow #128. One PR per ID; five fresh checks after rebasing; tick only after confirmed squash-merge.
-- Checkpoint: all eight open GPT PRs have pending CI; none newly merged/ticked. #121 remains the latest confirmed GPT merge. No other assistant's PR merged; no new dependencies/services. Hardware gates remain **Joshua runs this**.
+- All outstanding GPT implementation PRs are now integrated into main; no open GPT PR remains.
+- Checkpoint: merge states and main ancestry confirmed; five hosted checks green for each final merged head. No new dependencies/services. Hardware gates remain **Joshua runs this**.
 
 ## How to use this file
 
@@ -181,45 +181,45 @@ Uses your jobs (`07.09`) if that has merged. If it has not, a single background 
 
 ### 12. `06.03` — residency and eviction
 
-- [ ] Track what a region holds and evict the least recently used when over a limit the test sets. Done when: exceeding the limit evicts, and a pinned asset is not evicted. No silent default budget. The number Joshua agrees in `01.11` is applied later, not invented here.
-- [ ] Standard close. Done when: `06.03` is ticked.
+- [x] Track what a region holds and evict the least recently used when over a limit the test sets. Done when: exceeding the limit evicts, and a pinned asset is not evicted. No silent default budget. The number Joshua agrees in `01.11` is applied later, not invented here.
+- [x] Standard close. Done when: `06.03` is ticked.
 
 ### 13. `06.04` — stream terrain and world chunks
 
 The chunk is data. Claude draws it (`07.05`, `06.08`). You do not write shaders.
 
-- [ ] Stream a chunk in and out by the `06.01` region of a moving point. Done when: a test walks across a boundary, the new chunk is resident, the old one is evicted under the `06.03` rule, and collision for the chunk uses existing physics create/destroy.
-- [ ] Publish the query Claude's `06.08` will call (chunk id, pose, a coarse and a fine payload). Done when: the header comment states lifetime: the streamer owns the bytes, the renderer borrows them for a frame.
-- [ ] Standard close. Done when: `06.04` is ticked.
+- [x] Stream a chunk in and out by the `06.01` region of a moving point. Done when: a test walks across a boundary, the new chunk is resident, the old one is evicted under the `06.03` rule, and collision for the chunk uses existing physics create/destroy.
+- [x] Publish the query Claude's `06.08` will call (chunk id, pose, a coarse and a fine payload). Done when: the header comment states lifetime: the streamer owns the bytes, the renderer borrows them for a frame.
+- [x] Standard close. Done when: `06.04` is ticked.
 
 ### 14. `06.05` — stream collision, navigation, audio, and entities
 
-- [ ] A chunk brings collision, a nav update (`07.08`), an audio bank handle, and entities, and takes them away on eviction. Done when: after eviction, a query does not hit the unloaded collision, and a replay across the boundary matches a second run.
-- [ ] Standard close. Done when: `06.05` is ticked.
+- [x] A chunk brings collision, a nav update (`07.08`), an audio bank handle, and entities, and takes them away on eviction. Done when: after eviction, a query does not hit the unloaded collision, and a replay across the boundary matches a second run.
+- [x] Standard close. Done when: `06.05` is ticked.
 
 ### 15. `06.06` — persist changes in unloaded regions
 
-- [ ] An edit in a region survives eviction and reload. Done when: a test edits, unloads, loads, and sees the edit, and a region that was never edited reloads as authored.
-- [ ] Standard close. Done when: `06.06` is ticked.
+- [x] An edit in a region survives eviction and reload. Done when: a test edits, unloads, loads, and sees the edit, and a region that was never edited reloads as authored.
+- [x] Standard close. Done when: `06.06` is ticked.
 
 ### 16. `06.07` — version world and save data
 
-- [ ] A version field on the save. An unknown newer version is refused. Done when: a test with a future version fails cleanly, and the current version round-trips.
-- [ ] Standard close. Done when: `06.07` is ticked. Grok's `04.07` may depend on this.
+- [x] A version field on the save. An unknown newer version is refused. Done when: a test with a future version fails cleanly, and the current version round-trips.
+- [x] Standard close. Done when: `06.07` is ticked. Grok's `04.07` may depend on this.
 
 ### 17. `07.10` — save migrations, recovery, corruption
 
-- [ ] Migrate one older fixture version forward. A truncated file is refused and does not overwrite the last good save. Done when: both cases are tested.
-- [ ] Standard close. Done when: `07.10` is ticked.
+- [x] Migrate one older fixture version forward. A truncated file is refused and does not overwrite the last good save. Done when: both cases are tested.
+- [x] Standard close. Done when: `07.10` is ticked.
 
 ### 18. `06.09` — rapid travel, teleports, memory pressure
 
-- [ ] Teleport across many regions and cross the same boundary repeatedly. Done when: resident memory returns under the test's limit after the run, and no collision from an evicted region remains.
-- [ ] Standard close. Done when: `06.09` is ticked.
+- [x] Teleport across many regions and cross the same boundary repeatedly. Done when: resident memory returns under the test's limit after the run, and no collision from an evicted region remains.
+- [x] Standard close. Done when: `06.09` is ticked.
 
 ### 19. `06.11` — throughput and frame pacing
 
-- [ ] A streaming traversal fixture and the columns to record (load time, hitch, resident bytes). Done when: the fixture runs headless and the PR tells Grok the arguments. You do not edit `tools/validation/`.
+- [x] A streaming traversal fixture and the columns to record (load time, hitch, resident bytes). Done when: the fixture runs headless and the PR tells Grok the arguments. You do not edit `tools/validation/`.
 - [ ] **Joshua runs this** on the RTX 4070 Windows PC. You do not tick this step.
 - [ ] After Joshua accepts the run, standard close. Done when: `06.11` is ticked. A Linux timing is not the tick.
 
