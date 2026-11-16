@@ -12,9 +12,9 @@ Tick only after the PR is merged with all five CI checks green. One line of note
 - [x] `07.03` lighting/shadows/materials/transparency/post — a–e merged: #108 (`21ce75a`), #110 (`3e41fa6`), #111 (`6a7dd49`), #113 (`b335826`), #114 (`55626e1`)
 - [x] `07.04` visibility, batching, GPU resources — merged #116 (`9a53c67`)
 - [x] `07.05` environment rendering — a–e merged: #122 (`4c6a3fb`), #123 (`0d23e07`), #125 (`bb736e4`), #127 (`24b679f`), #131 (`a3064ca`)
-- [ ] `06.10` pipeline warmup — current-scene half merged #132 (`b4e4005`); waiting: world-scale half needs GPT `06.04`, then **Joshua runs this**
+- [ ] `06.10` pipeline warmup — current-scene half merged #132 (`b4e4005`); GPT `06.04` now merged; waiting: **Joshua runs this** (world-scale, with `06.11`)
 - [x] `02.12b` → `02.12c` → `02.12d` → `02.13` ragdolls — 02.12b #99, 02.12c #102, 02.12d #104; `02.13` merged #107 (`84a2925`)
-- [ ] `06.08` — blocked on GPT `06.01`, `06.04`
+- [x] `06.08` distant chunk detail — ADR 0105, `render.distant_detail` (PR pending merge)
 - [ ] `02.16` gates — correctness gates and fixture merged #133 (`2e43a89`); waiting: **Joshua runs this** (`lykoware_player_course_test --characters 200 --csv character_gate.csv`, Release) and accepts the feel
 
 ## How to use this file
@@ -207,10 +207,10 @@ Can start from the current scene. The world-scale hitch number waits on GPT's st
 
 ### 12. `06.08` — distant worlds and detail transitions
 
-Blocked on GPT `06.01` and `06.04`.
+GPT `06.01` and `06.04` merged.
 
-- [ ] Draw a far chunk with a coarser representation, camera-relative (ADR 0021). Done when: a test shows the near and far representations, and the far one is not a full-detail duplicate.
-- [ ] Standard close. Done when: `06.08` is ticked.
+- [x] Draw a far chunk with a coarser representation, camera-relative (ADR 0021). Done when: a test shows the near and far representations, and the far one is not a full-detail duplicate.
+- [x] Standard close. Done when: `06.08` is ticked.
 
 ### 13. `02.16` — character correctness and performance gates
 
