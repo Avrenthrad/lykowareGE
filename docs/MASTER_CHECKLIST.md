@@ -167,7 +167,8 @@ Hardware evidence tooling merged in [#66](https://github.com/Avrenthrad/lykoware
   - GPT: ADR 0095; #130 unloaded-edit persistence and authored fallback tests, integrated through #128. #128 squash-merged as `4247503` after five green hosted checks on `2d0dc2c`; GitHub merge and main ancestry confirmed.
 - [x] **06.07** Version world/save data.
   - GPT: ADR 0102; #135 bounded versioned saves, round-trip and future-version refusal tests, integrated through #128. #128 squash-merged as `4247503` after five green hosted checks on `2d0dc2c`; GitHub merge and main ancestry confirmed.
-- [ ] **06.08** Render distant worlds with detail transitions.
+- [x] **06.08** Render distant worlds with detail transitions.
+  - Claude: ADR 0105; `render::choose_chunk_detail` (double-precision distance, hysteresis) and `render::chunk_terrain_mesh`; `render.distant_detail` shows near (65x65) and far (17x17, 1/16 triangles) meshes, every far vertex on a near one, and fails if far is a full-detail duplicate. Skirts and impostors deferred; world-scale look/cost runs with `06.11` on Joshua's PC.
 - [x] **06.09** Test rapid travel, teleports and memory pressure.
   - GPT: 385 crossings; payload limits, pin pressure and real-physics eviction tests. #137 squash-merged as `f9405d2` after five green hosted checks on `004d9f1`; GitHub merge and main ancestry confirmed.
 - [ ] **06.10** Eliminate avoidable shader/pipeline compilation hitches.

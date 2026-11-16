@@ -308,6 +308,12 @@ if(BUILD_TESTING)
     set_tests_properties(render.terrain_mesh PROPERTIES TIMEOUT 120)
     add_test(NAME render.terrain COMMAND lykoware_render_terrain_test "${lit_vert_spv}" "${lit_frag_spv}")
     set_tests_properties(render.terrain PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
+    # 06.08: distant chunks drawn with a coarser terrain mesh (ADR 0105). Needs no GPU.
+    add_executable(lykoware_render_distant_detail_test tests/render_distant_detail.cpp)
+    target_link_libraries(lykoware_render_distant_detail_test PRIVATE lykoware::engine)
+    lykoware_configure_target(lykoware_render_distant_detail_test)
+    add_test(NAME render.distant_detail COMMAND lykoware_render_distant_detail_test)
+    set_tests_properties(render.distant_detail PROPERTIES TIMEOUT 120)
     # 07.05b: foliage scattered over terrain and drawn as one batch (ADR 0096).
     add_executable(lykoware_render_foliage_test tests/render_foliage.cpp)
     target_link_libraries(lykoware_render_foliage_test PRIVATE lykoware::engine)
