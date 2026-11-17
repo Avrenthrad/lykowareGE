@@ -14,7 +14,7 @@ Tick only after the PR is merged with all five CI checks green. One line of note
 - [x] `07.05` environment rendering — a–e merged: #122 (`4c6a3fb`), #123 (`0d23e07`), #125 (`bb736e4`), #127 (`24b679f`), #131 (`a3064ca`)
 - [ ] `06.10` pipeline warmup — current-scene half merged #132 (`b4e4005`); GPT `06.04` now merged; waiting: **Joshua runs this** (world-scale, with `06.11`)
 - [x] `02.12b` → `02.12c` → `02.12d` → `02.13` ragdolls — 02.12b #99, 02.12c #102, 02.12d #104; `02.13` merged #107 (`84a2925`)
-- [x] `06.08` distant chunk detail — ADR 0105, `render.distant_detail` (PR pending merge)
+- [x] `06.08` distant chunk detail — ADR 0105, `render.distant_detail` merged #139 (`dec3891`)
 - [ ] `02.16` gates — correctness gates and fixture merged #133 (`2e43a89`); waiting: **Joshua runs this** (`lykoware_player_course_test --characters 200 --csv character_gate.csv`, Release) and accepts the feel
 
 ## How to use this file
